@@ -22,6 +22,8 @@ def resume_run(
     origin_timeout_seconds: float = 600,
 ) -> RunStatus:
     """未完了起点だけを実行する。成功済み起点はstoreがclaimしない。"""
+    if store.cancellation_requested(run_id):
+        return store.finish_run(run_id)
     store.start_or_resume(run_id, condition_fingerprint)
     worker_id = worker_id or str(uuid.uuid4())
     while not store.cancellation_requested(run_id):

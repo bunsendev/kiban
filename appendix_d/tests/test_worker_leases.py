@@ -7,6 +7,7 @@ import pytest
 from test_job_resume import make_store, point
 
 from forecast_provider.jobs import OriginOutput, StaleLeaseError, resume_run
+from forecast_provider.worker_process import work_once
 
 
 def test_two_workers_cannot_claim_same_origin(tmp_path):
@@ -15,6 +16,7 @@ def test_two_workers_cannot_claim_same_origin(tmp_path):
     first = store.claim_next_origin("run-1", "worker-a", 60)
     assert first is not None
     assert store.claim_next_origin("run-1", "worker-b", 60) is None
+    assert store.finish_run("run-1") == "RUNNING"
 
 
 def test_heartbeat_extends_lease_and_wrong_worker_is_stale(tmp_path):
@@ -68,3 +70,12 @@ def test_timeout_returns_without_waiting_for_late_executor(tmp_path):
     assert status == "FAILED"
     assert (datetime.now(UTC) - started).total_seconds() < 0.15
     assert store.rows("forecast_values") == []
+
+
+def test_second_worker_does_not_finalize_run_owned_by_first_worker(tmp_path):
+    store = make_store(tmp_path, days=(1,))
+    store.start_or_resume("run-1", "fingerprint-1")
+    assert store.claim_next_origin("run-1", "worker-a", 60) is not None
+    assert work_once(store, lambda lease: OriginOutput((point(1),)), "worker-b") == 1
+    snapshot = store.get_run("run-1")
+    assert snapshot is not None and snapshot.status == "RUNNING"
