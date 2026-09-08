@@ -1,0 +1,220 @@
+# v2.9 最終コードの実行検証記録
+UTC: 2026-09-07T05:31:25.453802+00:00
+OS: Linux-6.18.35-x86_64-with-glibc2.39
+Python: 3.12.13
+pandas: 2.2.3
+numpy: 2.3.5
+pytest: 9.1.1
+ruff: 0.16.6
+
+## pytest
+exit_code: 0
+........................................................................ [ 62%]
+...........................................                              [100%]
+115 passed in 5.57s
+
+
+
+## ruff
+exit_code: 0
+All checks passed!
+
+
+
+## check_lint
+exit_code: 0
+check_lint: All checks passed!
+
+
+
+## 旧47件の標準ランナー
+exit_code: 0
+PASS test_all_models_run
+PASS test_capabilities_imply_primary_ranking_eligibility
+PASS test_context_refresh_changes_forecast
+PASS test_dataset_accepts_db_derived_numeric_and_date_types
+PASS test_dataset_rejects_bad_numeric_and_date_types_as_value_error
+PASS test_dataset_rejects_gap_between_train_and_test
+PASS test_dataset_rejects_invalid_invariants
+PASS test_dataset_rejects_non_integer_schedule_values
+PASS test_fit_rejects_provider_id_mismatch
+PASS test_fit_rejects_test_period_rows
+PASS test_full_period_comparison_requires_same_evaluation_scope
+PASS test_full_period_evaluation_profile_distinguishes_stages
+PASS test_full_period_evaluation_validity_flag
+PASS test_horizon_comparison_requires_matching_origin_keys
+PASS test_interval_levels_reject_duplicates_after_rounding
+PASS test_interval_levels_reject_invalid_types
+PASS test_interval_levels_reject_rounding_drift
+PASS test_intervals_are_ordered
+PASS test_intervals_are_ordered_for_deterministic_downward_trend
+PASS test_intervals_are_ordered_for_deterministic_upward_trend
+PASS test_metadata_and_registry
+PASS test_missing_days_are_not_treated_as_zero
+PASS test_model_metadata_is_model_specific
+PASS test_model_ref_provider_identity_is_checked
+PASS test_no_future_leakage
+PASS test_origin_dates_follow_generation_rule
+PASS test_output_satisfies_contract
+PASS test_predict_frame_rejects_invalid_horizon_and_nonfinite_values
+PASS test_predict_frame_rejects_quantile_crossing
+PASS test_predict_frame_rejects_timezone_aware_dates
+PASS test_predict_frame_requires_every_expected_quantile_per_target
+PASS test_predict_rejects_actuals_in_future_frame
+PASS test_predict_rejects_horizon_beyond_dataset_max
+PASS test_predict_rejects_mismatched_context
+PASS test_predict_rejects_series_outside_dataset
+PASS test_quantile_precision_matches_ddl
+PASS test_refresh_context_rejects_future_history
+PASS test_refresh_context_rejects_series_outside_dataset
+PASS test_refresh_context_silently_skips_excluded_series
+PASS test_reproducibility
+PASS test_short_history_series_excluded_without_failing_run
+PASS test_train_frame_contract_rejects_bad_types_and_values
+PASS test_validate_rejects_provider_id_mismatch
+PASS test_validate_rejects_unknown_model
+PASS test_validate_warns_when_full_period_eval_not_applicable
+PASS test_yhat_is_clipped_raw
+PASS test_zero_demand_series_is_handled
+
+47/47 passed
+
+min_history_days未満のため除外: 1系列 (model=moving_average_28, min=28)
+min_history_days未満のため除外: 1系列 (model=moving_average_28, min=28)
+
+
+## 人工データ3品目デモ
+exit_code: 0
+{
+  "comparison_set_id": "058c2165340ae64a18c85c71757883fd89cbd7540d0c57e146bafbe8fd231c70",
+  "official_comparison_set_id": "df85ed03e5dc64c7c2ff37894b76cb52ee89722196034d16ae0605a1e45974ab",
+  "official_planned_count": 1095,
+  "official_truth_eligible_count": 1095,
+  "official_truth_missing_count": 0,
+  "scores": {
+    "seasonal_naive_7": {
+      "run_planned_count": 1095,
+      "run_success_count": 1095,
+      "run_failure_count": 0,
+      "run_success_rate": 1.0,
+      "shared_planned_count": 1095,
+      "shared_success_count": 1095,
+      "shared_failure_count": 0,
+      "truth_eligible_count": 1095,
+      "truth_missing_count": 0,
+      "truth_success_count": 1095,
+      "common_success_count": 1095,
+      "official_eligible": true,
+      "own_planned_count": 1095,
+      "own_truth_eligible_count": 1095,
+      "own_truth_missing_count": 0,
+      "own_success_count": 1095,
+      "own_metrics": {
+        "wape_pct": 0.07603550858250803,
+        "mae": 0.1095890410958904,
+        "rmse": 0.3310423554409472,
+        "bias": -120.0,
+        "bias_rate_pct": -0.07603550858250803,
+        "under": 120.0,
+        "over": 0.0
+      },
+      "common_metrics": {
+        "wape_pct": 0.07603550858250803,
+        "mae": 0.1095890410958904,
+        "rmse": 0.3310423554409472,
+        "bias": -120.0,
+        "bias_rate_pct": -0.07603550858250803,
+        "under": 120.0,
+        "over": 0.0
+      },
+      "official_common_success_count": 1095,
+      "official_common_metrics": {
+        "wape_pct": 0.07603550858250803,
+        "mae": 0.1095890410958904,
+        "rmse": 0.3310423554409472,
+        "bias": -120.0,
+        "bias_rate_pct": -0.07603550858250803,
+        "under": 120.0,
+        "over": 0.0
+      }
+    },
+    "moving_average_28": {
+      "run_planned_count": 1095,
+      "run_success_count": 1095,
+      "run_failure_count": 0,
+      "run_success_rate": 1.0,
+      "shared_planned_count": 1095,
+      "shared_success_count": 1095,
+      "shared_failure_count": 0,
+      "truth_eligible_count": 1095,
+      "truth_missing_count": 0,
+      "truth_success_count": 1095,
+      "common_success_count": 1095,
+      "official_eligible": true,
+      "own_planned_count": 1095,
+      "own_truth_eligible_count": 1095,
+      "own_truth_missing_count": 0,
+      "own_success_count": 1095,
+      "own_metrics": {
+        "wape_pct": 5.959282985154067,
+        "mae": 8.58904109589041,
+        "rmse": 9.992243986901327,
+        "bias": -216.0,
+        "bias_rate_pct": -0.13686391544851445,
+        "under": 4810.5,
+        "over": 4594.5
+      },
+      "common_metrics": {
+        "wape_pct": 5.959282985154067,
+        "mae": 8.58904109589041,
+        "rmse": 9.992243986901327,
+        "bias": -216.0,
+        "bias_rate_pct": -0.13686391544851445,
+        "under": 4810.5,
+        "over": 4594.5
+      },
+      "official_common_success_count": 1095,
+      "official_common_metrics": {
+        "wape_pct": 5.959282985154067,
+        "mae": 8.58904109589041,
+        "rmse": 9.992243986901327,
+        "bias": -216.0,
+        "bias_rate_pct": -0.13686391544851445,
+        "under": 4810.5,
+        "over": 4594.5
+      }
+    }
+  },
+  "ranking_ready": true,
+  "official_runs": [
+    "seasonal_naive_7",
+    "moving_average_28"
+  ],
+  "official_ranking_ready": true,
+  "official_evaluation_ready": true,
+  "incomplete_runs": [],
+  "availability_mode": "ASSUMED",
+  "data_kind": "SYNTHETIC_NOT_BUNSEN_ACTUAL"
+}
+
+
+
+## 100系列規模検証
+exit_code: 0
+予測起点数            : 37
+通期評価の成立        : True
+評価プロファイル      : (10, 10)
+点予測行数（1OSS）    : 54,500
+POINT＋QUANTILE行数        : 218,000
+通期評価 対象日／系列 : [365]
+通期評価 重複件数     : 0
+
+
+
+## compileall
+exit_code: 0
+
+
+
+本記録は上記コマンドの実出力。記録更新後にmanifest・ZIPを再生成し照合する。
+人工データでの動作検証であり、ブンセン実データの精度試験ではない。

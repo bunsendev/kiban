@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bunsen-forecast-provider"
+version = "2.9.0"
+description = "ForecastProvider契約とリファレンス実装（BUNSEN-FCST-IMPL-002 付録D v2.9）"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2,<4",
+    "numpy>=1.26,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[tool.setuptools.packages.find]
+include = ["forecast_provider*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+# ruff のバージョンによって既定ルールセットが変わるため、明示的に固定する。
+# ここを変更する場合は CODEX_START_HERE.md の期待値も同じコミットで更新すること。
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "RUF", "C4", "B"]
+ignore = [
+    "RUF001",  # 全角記号を含む日本語コメント・docstringを許容する
+    "RUF002",
+    "RUF003",
+]

@@ -1,0 +1,13 @@
+# v2.9 Linux/Python 3.12 実行環境
+pandas==2.2.3
+numpy==2.3.5
+python-dateutil==2.9.0.post0
+pytz==2026.3.post1
+tzdata==2026.3
+six==1.17.0
+pytest==9.1.1
+ruff==0.16.6
+iniconfig==2.3.0
+packaging==26.3
+pluggy==1.6.0
+Pygments==2.21.0
