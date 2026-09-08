@@ -82,19 +82,25 @@ def test_future_frame_is_allow_listed_by_dataset_known_future_columns() -> None:
     provider = registry.create("builtin-baseline")
     context = make_context()
     dataset = replace(make_dataset(("A",)), known_future_columns=("promo",))
-    config = ProviderConfig("builtin-baseline", "seasonal_naive_7")
+    config = ProviderConfig(
+        "builtin-baseline", "seasonal_naive_7", preprocessing_version="daily-nan-preserving-v1"
+    )
     data = _training_data()
     model = provider.fit_parameters(data, dataset, config, context)
-    state = provider.refresh_context(model, data, TRAIN_END.date(), context)
+    state = provider.refresh_context(
+        model, data, TRAIN_END.date(), context.for_origin(TRAIN_END.date())
+    )
 
     allowed = make_future(["A"], TRAIN_END, [1])
     allowed["promo"] = 1.0
-    assert not provider.predict(model, state, allowed, [1], context).empty
+    assert not provider.predict(
+        model, state, allowed, [1], context.for_origin(state.origin_date)
+    ).empty
 
     forbidden = allowed.copy()
     forbidden["observed_future_sales"] = 999999.0
     with pytest.raises(ContractViolationError, match="未許可列"):
-        provider.predict(model, state, forbidden, [1], context)
+        provider.predict(model, state, forbidden, [1], context.for_origin(state.origin_date))
 
 
 def test_observed_keeps_late_date_as_nan_and_blocks_intervals() -> None:
@@ -113,12 +119,22 @@ def test_observed_keeps_late_date_as_nan_and_blocks_intervals() -> None:
 
     provider = BuiltinBaselineProvider()
     dataset = replace(make_dataset(("A",)), availability_mode="OBSERVED")
-    config = ProviderConfig("builtin-baseline", "seasonal_naive_7", interval_levels=(0.8,))
+    config = ProviderConfig(
+        "builtin-baseline",
+        "seasonal_naive_7",
+        preprocessing_version="daily-nan-preserving-v1",
+        interval_levels=(0.8,),
+    )
     check = provider.validate(dataset, config)
     assert not check.ok
     assert any(issue.code == "OBSERVED_INTERVALS_UNSUPPORTED" for issue in check.issues)
     with pytest.raises(ContractViolationError, match="OBSERVED"):
-        provider.fit_parameters(_training_data(), dataset, config, make_context())
+        provider.fit_parameters(
+            _training_data(),
+            dataset,
+            config,
+            replace(make_context(), availability_mode="OBSERVED"),
+        )
 
 
 def test_dataset_and_provider_config_are_immune_to_external_mutation() -> None:
@@ -131,7 +147,7 @@ def test_dataset_and_provider_config_are_immune_to_external_mutation() -> None:
     assert dataset.known_future_columns == ("promo",)
 
     raw = {"nested": {"window": [1, 2]}}
-    config = ProviderConfig("x", "m", params=raw)
+    config = ProviderConfig("x", "m", preprocessing_version="daily-nan-preserving-v1", params=raw)
     raw["nested"]["window"].append(3)
     assert config.params["nested"]["window"] == (1, 2)
     with pytest.raises(TypeError):
@@ -141,7 +157,12 @@ def test_dataset_and_provider_config_are_immune_to_external_mutation() -> None:
 def test_builtin_baseline_rejects_unknown_params() -> None:
     provider = registry.create("builtin-baseline")
     dataset = make_dataset(("A",))
-    config = ProviderConfig("builtin-baseline", "seasonal_naive_7", params={"lag": 999})
+    config = ProviderConfig(
+        "builtin-baseline",
+        "seasonal_naive_7",
+        preprocessing_version="daily-nan-preserving-v1",
+        params={"lag": 999},
+    )
     check = provider.validate(dataset, config)
     assert not check.ok
     assert any(issue.code == "BASELINE_UNKNOWN_PARAMS" for issue in check.issues)

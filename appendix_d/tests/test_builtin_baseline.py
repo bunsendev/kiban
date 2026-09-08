@@ -38,6 +38,7 @@ from forecast_provider.frames import (
     validate_predict_frame,
     validate_train_frame,
 )
+from forecast_provider.run_context import cutoff_for_origin
 
 HORIZONS = list(range(1, 16))
 INTERVAL_LEVELS = (0.8, 0.95)
@@ -61,6 +62,9 @@ def make_context(seed: int = 42) -> RunContext:
         output_dir=tmp,
         resource_profile="cpu-standard",
         logger=logging.getLogger("test"),
+        availability_mode="ASSUMED",
+        cutoff_at=cutoff_for_origin(TRAIN_END.date()),
+        origin_date=TRAIN_END.date(),
     )
 
 
@@ -128,6 +132,7 @@ def run_once(
     provider = registry.create("builtin-baseline")
     ctx = make_context(seed=seed)
     config = ProviderConfig(
+        preprocessing_version="daily-nan-preserving-v1",
         provider_id="builtin-baseline",
         model=model,
         interval_levels=INTERVAL_LEVELS,
@@ -138,9 +143,13 @@ def run_once(
 
     dataset = make_dataset(tuple(uids))
     model_ref = provider.fit_parameters(train, dataset, config, ctx)
-    context_ref = provider.refresh_context(model_ref, history, origin.date(), ctx)
+    context_ref = provider.refresh_context(
+        model_ref, history, origin.date(), ctx.for_origin(origin.date())
+    )
     future = make_future(uids, origin, HORIZONS)
-    out = provider.predict(model_ref, context_ref, future, HORIZONS, ctx)
+    out = provider.predict(
+        model_ref, context_ref, future, HORIZONS, ctx.for_origin(context_ref.origin_date)
+    )
     provider.cleanup(ctx)
     return out
 
@@ -187,7 +196,11 @@ def test_validate_rejects_unknown_model() -> None:
     provider = registry.create("builtin-baseline")
     result = provider.validate(
         make_dataset(("A__KAZO",)),
-        ProviderConfig(provider_id="builtin-baseline", model="not_exists"),
+        ProviderConfig(
+            preprocessing_version="daily-nan-preserving-v1",
+            provider_id="builtin-baseline",
+            model="not_exists",
+        ),
     )
     assert not result.ok
     assert any(i.code == "BASELINE_UNKNOWN_MODEL" for i in result.issues)
@@ -197,7 +210,11 @@ def test_validate_warns_when_full_period_eval_not_applicable() -> None:
     provider = registry.create("builtin-baseline")
     result = provider.validate(
         make_dataset(("A__KAZO",), origin_interval_days=20),
-        ProviderConfig(provider_id="builtin-baseline", model="seasonal_naive_7"),
+        ProviderConfig(
+            preprocessing_version="daily-nan-preserving-v1",
+            provider_id="builtin-baseline",
+            model="seasonal_naive_7",
+        ),
     )
     assert result.ok  # blocking ではない
     assert any(i.code == "FULL_PERIOD_EVAL_NOT_APPLICABLE" for i in result.issues)
@@ -245,6 +262,7 @@ def test_context_refresh_changes_forecast() -> None:
     provider = registry.create("builtin-baseline")
     ctx = make_context()
     config = ProviderConfig(
+        preprocessing_version="daily-nan-preserving-v1",
         provider_id="builtin-baseline",
         model="moving_average_28",
         interval_levels=INTERVAL_LEVELS,
@@ -255,12 +273,18 @@ def test_context_refresh_changes_forecast() -> None:
 
     outs = []
     for origin in (pd.Timestamp("2026-01-10"), pd.Timestamp("2026-03-10")):
-        cref = provider.refresh_context(model_ref, data[data["ds"] <= origin], origin.date(), ctx)
+        cref = provider.refresh_context(
+            model_ref, data[data["ds"] <= origin], origin.date(), ctx.for_origin(origin.date())
+        )
         assert cref.model_id == model_ref.model_id  # 同一パラメータ
         outs.append(
-            provider.predict(model_ref, cref, make_future(["A__KAZO"], origin, [10]), [10], ctx)[
-                "yhat"
-            ].iloc[0]
+            provider.predict(
+                model_ref,
+                cref,
+                make_future(["A__KAZO"], origin, [10]),
+                [10],
+                ctx.for_origin(cref.origin_date),
+            )["yhat"].iloc[0]
         )
     assert outs[0] != outs[1], "コンテキスト更新が予測へ反映されていません"
 
@@ -282,13 +306,19 @@ def test_refresh_context_rejects_future_history() -> None:
     data = make_series(["A__KAZO"], "2024-01-01", 900)
     provider = registry.create("builtin-baseline")
     ctx = make_context()
-    config = ProviderConfig(provider_id="builtin-baseline", model="seasonal_naive_7")
+    config = ProviderConfig(
+        preprocessing_version="daily-nan-preserving-v1",
+        provider_id="builtin-baseline",
+        model="seasonal_naive_7",
+    )
     model_ref = provider.fit_parameters(
         data[data["ds"] <= TRAIN_END], make_dataset(("A__KAZO",)), config, ctx
     )
     origin = pd.Timestamp("2026-03-01")
     try:
-        provider.refresh_context(model_ref, data, origin.date(), ctx)  # 未切り詰め
+        provider.refresh_context(
+            model_ref, data, origin.date(), ctx.for_origin(origin.date())
+        )  # 未切り詰め
     except ContractViolationError:
         return
     raise AssertionError("起点より後を含む履歴が拒否されていません")
@@ -298,16 +328,22 @@ def test_predict_rejects_actuals_in_future_frame() -> None:
     data = make_series(["A__KAZO"], "2024-01-01", 900)
     provider = registry.create("builtin-baseline")
     ctx = make_context()
-    config = ProviderConfig(provider_id="builtin-baseline", model="seasonal_naive_7")
+    config = ProviderConfig(
+        preprocessing_version="daily-nan-preserving-v1",
+        provider_id="builtin-baseline",
+        model="seasonal_naive_7",
+    )
     origin = pd.Timestamp("2026-03-01")
     model_ref = provider.fit_parameters(
         data[data["ds"] <= TRAIN_END], make_dataset(("A__KAZO",)), config, ctx
     )
-    cref = provider.refresh_context(model_ref, data[data["ds"] <= origin], origin.date(), ctx)
+    cref = provider.refresh_context(
+        model_ref, data[data["ds"] <= origin], origin.date(), ctx.for_origin(origin.date())
+    )
     future = make_future(["A__KAZO"], origin, [10])
     future["y"] = 1.0
     try:
-        provider.predict(model_ref, cref, future, [10], ctx)
+        provider.predict(model_ref, cref, future, [10], ctx.for_origin(cref.origin_date))
     except ContractViolationError:
         return
     raise AssertionError("実績列を含む future_df が拒否されていません")
@@ -318,15 +354,21 @@ def test_predict_rejects_mismatched_context() -> None:
     data = make_series(["A__KAZO"], "2024-01-01", 900)
     provider = registry.create("builtin-baseline")
     ctx = make_context()
-    config = ProviderConfig(provider_id="builtin-baseline", model="seasonal_naive_7")
+    config = ProviderConfig(
+        preprocessing_version="daily-nan-preserving-v1",
+        provider_id="builtin-baseline",
+        model="seasonal_naive_7",
+    )
     origin = pd.Timestamp("2026-03-01")
     model_ref = provider.fit_parameters(
         data[data["ds"] <= TRAIN_END], make_dataset(("A__KAZO",)), config, ctx
     )
-    cref = provider.refresh_context(model_ref, data[data["ds"] <= origin], origin.date(), ctx)
+    cref = provider.refresh_context(
+        model_ref, data[data["ds"] <= origin], origin.date(), ctx.for_origin(origin.date())
+    )
     future = make_future(["A__KAZO"], origin + pd.Timedelta(days=30), [10])
     try:
-        provider.predict(model_ref, cref, future, [10], ctx)
+        provider.predict(model_ref, cref, future, [10], ctx.for_origin(cref.origin_date))
     except ContractViolationError:
         return
     raise AssertionError("起点不一致の future_df が拒否されていません")
@@ -462,7 +504,11 @@ def test_validate_rejects_provider_id_mismatch() -> None:
     provider = registry.create("builtin-baseline")
     result = provider.validate(
         make_dataset(("A__KAZO",)),
-        ProviderConfig(provider_id="wrong-provider", model="seasonal_naive_7"),
+        ProviderConfig(
+            preprocessing_version="daily-nan-preserving-v1",
+            provider_id="wrong-provider",
+            model="seasonal_naive_7",
+        ),
     )
     assert not result.ok
     assert any(i.code == "PROVIDER_ID_MISMATCH" for i in result.issues)
@@ -471,7 +517,11 @@ def test_validate_rejects_provider_id_mismatch() -> None:
 def test_fit_rejects_provider_id_mismatch() -> None:
     provider = registry.create("builtin-baseline")
     data = make_series(["A__KAZO"], "2024-01-01", 730)
-    config = ProviderConfig(provider_id="wrong-provider", model="seasonal_naive_7")
+    config = ProviderConfig(
+        preprocessing_version="daily-nan-preserving-v1",
+        provider_id="wrong-provider",
+        model="seasonal_naive_7",
+    )
     assert_raises(
         ContractViolationError,
         lambda: provider.fit_parameters(
@@ -483,7 +533,11 @@ def test_fit_rejects_provider_id_mismatch() -> None:
 def test_fit_rejects_test_period_rows() -> None:
     provider = registry.create("builtin-baseline")
     data = make_series(["A__KAZO"], "2024-01-01", 900)
-    config = ProviderConfig(provider_id="builtin-baseline", model="seasonal_naive_7")
+    config = ProviderConfig(
+        preprocessing_version="daily-nan-preserving-v1",
+        provider_id="builtin-baseline",
+        model="seasonal_naive_7",
+    )
     leaked = data[data["ds"] <= pd.Timestamp("2026-01-03")]
     assert_raises(
         ContractViolationError,
@@ -494,7 +548,11 @@ def test_fit_rejects_test_period_rows() -> None:
 def test_model_ref_provider_identity_is_checked() -> None:
     provider = registry.create("builtin-baseline")
     data = make_series(["A__KAZO"], "2024-01-01", 900)
-    config = ProviderConfig(provider_id="builtin-baseline", model="seasonal_naive_7")
+    config = ProviderConfig(
+        preprocessing_version="daily-nan-preserving-v1",
+        provider_id="builtin-baseline",
+        model="seasonal_naive_7",
+    )
     ctx = make_context()
     model_ref = provider.fit_parameters(
         data[data["ds"] <= TRAIN_END], make_dataset(("A__KAZO",)), config, ctx
@@ -503,7 +561,9 @@ def test_model_ref_provider_identity_is_checked() -> None:
     origin = pd.Timestamp("2026-03-01")
     assert_raises(
         ContractViolationError,
-        lambda: provider.refresh_context(bad_ref, data[data["ds"] <= origin], origin.date(), ctx),
+        lambda: provider.refresh_context(
+            bad_ref, data[data["ds"] <= origin], origin.date(), ctx.for_origin(origin.date())
+        ),
     )
 
 
@@ -653,6 +713,7 @@ def test_refresh_context_rejects_series_outside_dataset() -> None:
     provider = registry.create("builtin-baseline")
     ctx = make_context()
     config = ProviderConfig(
+        preprocessing_version="daily-nan-preserving-v1",
         provider_id="builtin-baseline",
         model="seasonal_naive_7",
         interval_levels=INTERVAL_LEVELS,
@@ -666,7 +727,10 @@ def test_refresh_context_rejects_series_outside_dataset() -> None:
     assert_raises(
         ContractViolationError,
         lambda: provider.refresh_context(
-            model_ref, history[history["ds"] <= origin], origin.date(), ctx
+            model_ref,
+            history[history["ds"] <= origin],
+            origin.date(),
+            ctx.for_origin(origin.date()),
         ),
     )
 
@@ -684,6 +748,7 @@ def test_refresh_context_silently_skips_excluded_series() -> None:
     provider = registry.create("builtin-baseline")
     ctx = make_context()
     config = ProviderConfig(
+        preprocessing_version="daily-nan-preserving-v1",
         provider_id="builtin-baseline",
         model="moving_average_28",
         interval_levels=INTERVAL_LEVELS,
@@ -694,7 +759,7 @@ def test_refresh_context_silently_skips_excluded_series() -> None:
 
     origin = pd.Timestamp("2026-05-01")
     context_ref = provider.refresh_context(
-        model_ref, data[data["ds"] <= origin], origin.date(), ctx
+        model_ref, data[data["ds"] <= origin], origin.date(), ctx.for_origin(origin.date())
     )
     assert set(context_ref.state["series"]) == {"A__KAZO"}
 
@@ -788,6 +853,7 @@ def test_predict_rejects_series_outside_dataset() -> None:
     provider = registry.create("builtin-baseline")
     ctx = make_context()
     config = ProviderConfig(
+        preprocessing_version="daily-nan-preserving-v1",
         provider_id="builtin-baseline",
         model="seasonal_naive_7",
         interval_levels=INTERVAL_LEVELS,
@@ -796,12 +862,14 @@ def test_predict_rejects_series_outside_dataset() -> None:
     model_ref = provider.fit_parameters(data[data["ds"] <= TRAIN_END], dataset, config, ctx)
     origin = pd.Timestamp("2026-03-01")
     context_ref = provider.refresh_context(
-        model_ref, data[data["ds"] <= origin], origin.date(), ctx
+        model_ref, data[data["ds"] <= origin], origin.date(), ctx.for_origin(origin.date())
     )
     future = make_future(["X__UNKNOWN"], origin, [1])
     assert_raises(
         ContractViolationError,
-        lambda: provider.predict(model_ref, context_ref, future, [1], ctx),
+        lambda: provider.predict(
+            model_ref, context_ref, future, [1], ctx.for_origin(context_ref.origin_date)
+        ),
     )
 
 
@@ -845,6 +913,7 @@ def test_predict_rejects_horizon_beyond_dataset_max() -> None:
     provider = registry.create("builtin-baseline")
     ctx = make_context()
     config = ProviderConfig(
+        preprocessing_version="daily-nan-preserving-v1",
         provider_id="builtin-baseline",
         model="seasonal_naive_7",
         interval_levels=INTERVAL_LEVELS,
@@ -853,14 +922,18 @@ def test_predict_rejects_horizon_beyond_dataset_max() -> None:
     model_ref = provider.fit_parameters(data[data["ds"] <= TRAIN_END], dataset, config, ctx)
     origin = pd.Timestamp("2026-03-01")
     context_ref = provider.refresh_context(
-        model_ref, data[data["ds"] <= origin], origin.date(), ctx
+        model_ref, data[data["ds"] <= origin], origin.date(), ctx.for_origin(origin.date())
     )
 
     # horizons 引数で超過
     assert_raises(
         ContractViolationError,
         lambda: provider.predict(
-            model_ref, context_ref, make_future(["A__KAZO"], origin, [90]), [90], ctx
+            model_ref,
+            context_ref,
+            make_future(["A__KAZO"], origin, [90]),
+            [90],
+            ctx.for_origin(context_ref.origin_date),
         ),
     )
     # future_df 側だけで超過
@@ -871,12 +944,16 @@ def test_predict_rejects_horizon_beyond_dataset_max() -> None:
             context_ref,
             make_future(["A__KAZO"], origin, [10, 90]),
             [10],
-            ctx,
+            ctx.for_origin(context_ref.origin_date),
         ),
     )
     # 範囲内は通る
     out = provider.predict(
-        model_ref, context_ref, make_future(["A__KAZO"], origin, [15]), [15], ctx
+        model_ref,
+        context_ref,
+        make_future(["A__KAZO"], origin, [15]),
+        [15],
+        ctx.for_origin(context_ref.origin_date),
     )
     assert not out.empty
 

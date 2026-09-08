@@ -28,12 +28,14 @@ from ..contracts import (
     ValidationResult,
 )
 from ..errors import ContractViolationError, InsufficientHistoryError
+from ..fingerprint import parameter_fingerprint
 from ..frames import (
     quantiles_from_interval_levels,
     validate_fit_frame,
     validate_future_frame,
     validate_history_frame,
 )
+from ..run_context import validate_context_ref
 
 PROVIDER_ID = "builtin-baseline"
 PROVIDER_VERSION = "2.9.0"
@@ -203,6 +205,7 @@ class BuiltinBaselineProvider(ForecastProvider):
     ) -> ModelRef:
         """TRAIN期間の記録と残差分布算出用系列の固定のみを行う。"""
         self._validate_config(config)
+        context.validate_for_origin(dataset.train_end, dataset.availability_mode)
         if dataset.availability_mode == "OBSERVED" and config.interval_levels:
             raise ContractViolationError(
                 "OBSERVEDでは各historical originのavailable_at再現が必要なため、"
@@ -258,6 +261,13 @@ class BuiltinBaselineProvider(ForecastProvider):
             model_name=config.model,
             fitted_at=datetime.now(UTC),
             train_end_date=train_end,
+            train_start_date=dataset.train_start,
+            preprocessing_version=config.preprocessing_version,
+            parameter_fingerprint=parameter_fingerprint(
+                config, dataset, self.metadata(), context, weights_id=None
+            ),
+            weights_id=None,
+            availability_mode=dataset.availability_mode,
             artifact_uri=None,
             state={
                 "dataset_unique_ids": tuple(dataset.unique_ids),
@@ -268,6 +278,8 @@ class BuiltinBaselineProvider(ForecastProvider):
                 "interval_levels": tuple(config.interval_levels),
                 "excluded_unique_ids": tuple(short),
                 "seed": context.seed,
+                "run_id": context.run_id,
+                "experiment_id": context.experiment_id,
             },
         )
 
@@ -280,6 +292,8 @@ class BuiltinBaselineProvider(ForecastProvider):
     ) -> ContextRef:
         """パラメータを変えず、予測に用いる履歴を起点時点へ差し替える。"""
         self._validate_model_ref(model_ref)
+        self._validate_run(model_ref, context)
+        context.validate_for_origin(origin_date, model_ref.availability_mode)
         if origin_date < model_ref.train_end_date:
             raise ContractViolationError(
                 "origin_date は ModelRef.train_end_date 以降でなければなりません"
@@ -316,6 +330,7 @@ class BuiltinBaselineProvider(ForecastProvider):
             model_id=model_ref.model_id,
             origin_date=origin_date,
             history_end=frame["ds"].max().date(),
+            cutoff_at=context.cutoff_at,
             state={"series": series},
         )
 
@@ -328,6 +343,8 @@ class BuiltinBaselineProvider(ForecastProvider):
         context: RunContext,
     ) -> pd.DataFrame:
         self._validate_model_ref(model_ref)
+        self._validate_run(model_ref, context)
+        validate_context_ref(model_ref, context_ref, context)
         if "y" in future_df.columns:
             raise ContractViolationError("future_df に実績列 y が含まれています")
         if context_ref.model_id != model_ref.model_id:
@@ -483,6 +500,14 @@ class BuiltinBaselineProvider(ForecastProvider):
                 f"builtin-baseline はparamsを受け付けません: {sorted(config.params)}"
             )
         quantiles_from_interval_levels(config.interval_levels)
+
+    @staticmethod
+    def _validate_run(model_ref: ModelRef, context: RunContext) -> None:
+        if (
+            model_ref.state["run_id"] != context.run_id
+            or model_ref.state["experiment_id"] != context.experiment_id
+        ):
+            raise ContractViolationError("ModelRefを別run/experimentへ暗黙共有できません")
 
     @staticmethod
     def _validate_model_ref(model_ref: ModelRef) -> None:

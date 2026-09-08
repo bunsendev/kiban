@@ -47,7 +47,9 @@ def sha256(path: pathlib.Path) -> str:
 def write_sums(files: list[pathlib.Path]) -> dict[str, str]:
     sums = {p.relative_to(ROOT).as_posix(): sha256(p) for p in files}
     (ROOT / SUMS).write_text(
-        json.dumps(sums, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(sums, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
     )
     return sums
 

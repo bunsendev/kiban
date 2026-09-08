@@ -2,11 +2,11 @@
 
 v2.9基準版とPhase 1Aの実装計画を管理するリポジトリです。
 
-- `appendix_d/`: 提供ZIPから取り込んだ基準版。初期取込時点では内容未変更。
+- `appendix_d/`: v2.9基準版をもとにPhase 1Aの契約を追加した予測・比較コア。
 - `planning/CODEX_IMPLEMENTATION_INSTRUCTION_v2.9_PHASE1A.md`: 提供された実装指示書。
 - `planning/PHASE1A_PLAN.md`: モジュール構成・実装順序・検証計画。
 
-現在は実装準備段階です。提供文書内の実装指示と、ユーザーから依頼された作業範囲は区別します。Baselineのテストはまだこの環境で実行していません。
+Phase 1A実装と検証を行いました。結果は`planning/PHASE1A_RESULT.md`、契約・移行は`appendix_d/docs/Phase1A_契約と移行.md`を参照してください。DB/API/UI・永続化は未実装です。Phase 1Bはレビュー後の別作業です。
 
 ## 開発管理
 

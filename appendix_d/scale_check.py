@@ -12,6 +12,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from forecast_provider import ForecastDataset, ProviderConfig, RunContext, registry
 from forecast_provider.frames import validate_predict_frame
+from forecast_provider.run_context import cutoff_for_origin
 
 rng = np.random.default_rng(1)
 dow = np.array([1.3, 1.0, 0.9, 1.0, 1.2, 0.6, 0.2])
@@ -58,9 +59,17 @@ ctx = RunContext(
     tmp,
     "cpu-standard",
     logging.getLogger("scale"),
+    availability_mode="ASSUMED",
+    cutoff_at=cutoff_for_origin(dataset.train_end),
+    origin_date=dataset.train_end,
 )
 provider = registry.create("builtin-baseline")
-config = ProviderConfig("builtin-baseline", "seasonal_naive_7", interval_levels=(0.8,))
+config = ProviderConfig(
+    "builtin-baseline",
+    "seasonal_naive_7",
+    preprocessing_version="daily-nan-preserving-v1",
+    interval_levels=(0.8,),
+)
 
 model_ref = provider.fit_parameters(
     big[big["ds"] <= pd.Timestamp(dataset.train_end)], dataset, config, ctx
@@ -69,7 +78,7 @@ uids = sorted(big["unique_id"].unique())
 outs = []
 for origin in dataset.origin_dates():
     ot = pd.Timestamp(origin)
-    cref = provider.refresh_context(model_ref, big[big["ds"] <= ot], origin, ctx)
+    cref = provider.refresh_context(model_ref, big[big["ds"] <= ot], origin, ctx.for_origin(origin))
     future = pd.DataFrame(
         [
             {
@@ -83,7 +92,11 @@ for origin in dataset.origin_dates():
         ]
     )
     future = future[future["target_date"] <= pd.Timestamp(dataset.test_end)]
-    outs.append(provider.predict(model_ref, cref, future, list(range(1, 16)), ctx))
+    outs.append(
+        provider.predict(
+            model_ref, cref, future, list(range(1, 16)), ctx.for_origin(cref.origin_date)
+        )
+    )
 
 res = pd.concat(outs, ignore_index=True)
 validate_predict_frame(res)
