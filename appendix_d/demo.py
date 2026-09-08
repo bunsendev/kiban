@@ -13,6 +13,7 @@ import pandas as pd
 
 from forecast_provider import ForecastDataset, ProviderConfig, RunContext
 from forecast_provider.evaluation import compare_runs, cumulative_evaluation
+from forecast_provider.run_context import cutoff_for_origin
 from forecast_provider.runner import run_fixed_baseline
 
 
@@ -60,9 +61,17 @@ def main():
             args.output,
             "cpu",
             logging.getLogger("demo"),
+            availability_mode="ASSUMED",
+            cutoff_at=cutoff_for_origin(ds.train_end),
         )
         run = run_fixed_baseline(
-            data, ds, ProviderConfig("builtin-baseline", model), ctx, availability_mode="ASSUMED"
+            data,
+            ds,
+            ProviderConfig(
+                "builtin-baseline", model, preprocessing_version="daily-nan-preserving-v1"
+            ),
+            ctx,
+            availability_mode="ASSUMED",
         )
         outputs[model] = run["predictions"]
         runs[model] = ds

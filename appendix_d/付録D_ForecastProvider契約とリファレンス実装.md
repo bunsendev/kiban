@@ -5,6 +5,9 @@
 | モジュール | 責務 |
 |---|---|
 | contracts.py | 型、能力、モデル、実験定義、6メソッド契約 |
+| run_context.py | 起点別RunContextとcutoff・参照の照合 |
+| fingerprint.py | 再現可能な学習条件の識別 |
+| failures.py | 型付き失敗記録とsink interface |
 | frames.py | 日次入力、予測対象、POINT/QUANTILEの検証 |
 | providers/builtin_baseline.py | 4方式とTRAIN残差キャッシュ |
 | features.py | 固定カレンダーとknown_at付き将来変数の版選択 |
@@ -12,6 +15,7 @@
 | evaluation.py | 全予定照合、3集合比較、集合ID、通期・累計評価 |
 
 Provider契約はmetadata / validate / fit_parameters / refresh_context / predict / cleanup。
+Phase 1Aで型の必須keyword引数を追加。例と移行手順は[契約と移行](docs/Phase1A_契約と移行.md)を参照する。
 Providerを追加する際は識別・型だけでなく、未来遮断、固定パラメータ、欠測、出力失敗、区間、再現性を検証する。
 
 ## runner

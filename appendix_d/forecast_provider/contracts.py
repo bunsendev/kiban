@@ -6,17 +6,18 @@ POINT/QUANTILE分離、日単位入力、利用可能時刻の評価条件を定
 
 from __future__ import annotations
 
-import logging
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from numbers import Integral
-from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Literal, Protocol, runtime_checkable
 
 import pandas as pd
+
+from .run_context import RunContext as RunContext
+from .run_context import validate_cutoff
 
 # ---------------------------------------------------------------------------
 # 固定スキーマ
@@ -395,8 +396,14 @@ class ProviderConfig:
     model: str
     params: Mapping[str, Any] = field(default_factory=dict)
     interval_levels: tuple[float, ...] = ()
+    preprocessing_version: str = field(kw_only=True)
 
     def __post_init__(self) -> None:
+        if (
+            not isinstance(self.preprocessing_version, str)
+            or not self.preprocessing_version.strip()
+        ):
+            raise ValueError("preprocessing_versionは空でない文字列で指定します")
         if not isinstance(self.provider_id, str) or not self.provider_id:
             raise ValueError("provider_id は空でない文字列で指定します")
         if not isinstance(self.model, str) or not self.model:
@@ -443,6 +450,36 @@ class ModelRef:
     train_end_date: date
     artifact_uri: str | None = None
     state: dict[str, Any] = field(default_factory=dict)
+    train_start_date: date = field(kw_only=True)
+    preprocessing_version: str = field(kw_only=True)
+    parameter_fingerprint: str = field(kw_only=True)
+    # v2.2 §10.1の「重みと前処理の識別」。Noneは重み非該当、未設定ではない。
+    weights_id: str | None = field(kw_only=True)
+    availability_mode: str = field(kw_only=True)
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.preprocessing_version, str)
+            or not self.preprocessing_version.strip()
+        ):
+            raise ValueError("preprocessing_versionは空でない文字列で指定します")
+        if self.weights_id is not None and (
+            not isinstance(self.weights_id, str) or not self.weights_id.strip()
+        ):
+            raise ValueError("weights_idは非空文字列または非該当のNoneです")
+        value = self.parameter_fingerprint
+        if (
+            not isinstance(value, str)
+            or len(value) != 64
+            or any(c not in "0123456789abcdef" for c in value)
+        ):
+            raise ValueError("parameter_fingerprintはSHA-256の小文字hexです")
+        if self.availability_mode not in ("ASSUMED", "OBSERVED"):
+            raise ValueError("availability_mode不正")
+        for name in ("train_start_date", "train_end_date"):
+            object.__setattr__(self, name, _coerce_date(getattr(self, name), name))
+        if self.train_start_date > self.train_end_date:
+            raise ValueError("学習期間が逆転しています")
 
 
 @dataclass(frozen=True)
@@ -454,20 +491,12 @@ class ContextRef:
     origin_date: date
     history_end: date
     state: dict[str, Any] = field(default_factory=dict)
+    cutoff_at: datetime = field(kw_only=True)
 
-
-@dataclass(frozen=True)
-class RunContext:
-    """実行環境。プロバイダーはここ以外のパスへ書き込んではならない。"""
-
-    run_id: str
-    experiment_id: str
-    seed: int
-    deadline: datetime
-    input_dir: Path
-    output_dir: Path
-    resource_profile: str
-    logger: logging.Logger
+    def __post_init__(self) -> None:
+        validate_cutoff(self.cutoff_at)
+        for name in ("origin_date", "history_end"):
+            object.__setattr__(self, name, _coerce_date(getattr(self, name), name))
 
 
 # ---------------------------------------------------------------------------

@@ -91,7 +91,9 @@ def test_runner_survives_unclassified_exception_and_records_it(monkeypatch) -> N
     result = run_fixed_baseline(
         data,
         ds,
-        ProviderConfig("builtin-baseline", "seasonal_naive_7"),
+        ProviderConfig(
+            "builtin-baseline", "seasonal_naive_7", preprocessing_version="daily-nan-preserving-v1"
+        ),
         make_context(),
         availability_mode="ASSUMED",
     )
@@ -119,7 +121,9 @@ def test_runner_records_fit_failure_and_marks_all_planned_failed(monkeypatch) ->
     result = run_fixed_baseline(
         data,
         ds,
-        ProviderConfig("builtin-baseline", "seasonal_naive_7"),
+        ProviderConfig(
+            "builtin-baseline", "seasonal_naive_7", preprocessing_version="daily-nan-preserving-v1"
+        ),
         make_context(),
         availability_mode="ASSUMED",
     )
@@ -142,7 +146,11 @@ def test_runner_still_raises_contract_violation(monkeypatch) -> None:
         run_fixed_baseline(
             data,
             ds,
-            ProviderConfig("builtin-baseline", "seasonal_naive_7"),
+            ProviderConfig(
+                "builtin-baseline",
+                "seasonal_naive_7",
+                preprocessing_version="daily-nan-preserving-v1",
+            ),
             make_context(),
             availability_mode="ASSUMED",
         )
@@ -297,7 +305,9 @@ def test_runner_passes_known_future_columns_through() -> None:
     result = run_fixed_baseline(
         data,
         ds,
-        ProviderConfig("builtin-baseline", "seasonal_naive_7"),
+        ProviderConfig(
+            "builtin-baseline", "seasonal_naive_7", preprocessing_version="daily-nan-preserving-v1"
+        ),
         make_context(),
         availability_mode="ASSUMED",
         feature_versions=versions,

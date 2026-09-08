@@ -46,9 +46,17 @@ def fitted(days=731, intervals=(0.8,), model="seasonal_naive_7"):
     ctx = make_context()
     ds = make_dataset(("A",))
     m = p.fit_parameters(
-        data, ds, ProviderConfig("builtin-baseline", model, interval_levels=intervals), ctx
+        data,
+        ds,
+        ProviderConfig(
+            "builtin-baseline",
+            model,
+            preprocessing_version="daily-nan-preserving-v1",
+            interval_levels=intervals,
+        ),
+        ctx,
     )
-    c = p.refresh_context(m, data, TRAIN_END.date(), ctx)
+    c = p.refresh_context(m, data, TRAIN_END.date(), ctx.for_origin(TRAIN_END.date()))
     return p, ctx, ds, m, c
 
 
@@ -77,7 +85,7 @@ def test_live_and_residual_rules_match_with_missing_days(model):
 
 def test_point_and_median_are_separate_on_trend():
     p, ctx, _, m, c = fitted()
-    out = p.predict(m, c, make_future(["A"], TRAIN_END, [1]), [1], ctx)
+    out = p.predict(m, c, make_future(["A"], TRAIN_END, [1]), [1], ctx.for_origin(c.origin_date))
     validate_predict_frame(out, expected_quantiles={0.1, 0.5, 0.9})
     assert out.loc[out.forecast_kind.eq("POINT"), "yhat"].item() == 724
     assert out.loc[out.forecast_kind.eq("POINT"), "quantile"].isna().all()
@@ -87,7 +95,7 @@ def test_point_and_median_are_separate_on_trend():
 def test_insufficient_residuals_mark_intervals_unavailable():
     p, ctx, _, m, c = fitted(days=7)
     future = make_future(["A"], TRAIN_END, [1])
-    out = p.predict(m, c, future, [1], ctx)
+    out = p.predict(m, c, future, [1], ctx.for_origin(c.origin_date))
     assert out.forecast_kind.tolist() == ["POINT"]
     ledger = reconcile_predictions(future, out, expected_quantiles={0.1, 0.5, 0.9})
     assert ledger.status.item() == "SUCCESS"
@@ -104,7 +112,7 @@ def test_predict_uses_cached_train_residuals(monkeypatch):
     monkeypatch.setattr(
         "forecast_provider.providers.builtin_baseline._residual_quantiles", forbidden
     )
-    p.predict(m, c, make_future(["A"], TRAIN_END, [1]), [1], ctx)
+    p.predict(m, c, make_future(["A"], TRAIN_END, [1]), [1], ctx.for_origin(c.origin_date))
     assert original == m.state["residual_quantiles"]["A"]
 
 
@@ -114,7 +122,7 @@ def test_future_horizon_bad_type_is_contract_error(bad):
     future = make_future(["A"], TRAIN_END, [1])
     future["horizon"] = bad
     with pytest.raises(ContractViolationError):
-        p.predict(m, c, future, [1], ctx)
+        p.predict(m, c, future, [1], ctx.for_origin(c.origin_date))
 
 
 @pytest.mark.parametrize("field", ["train_start", "train_end", "test_start", "test_end"])
@@ -151,7 +159,7 @@ def test_future_date_mismatch_and_duplicates_rejected():
 def test_missing_target_is_rejected_or_ledgered_not_hidden():
     p, ctx, _, m, c = fitted(intervals=())
     future = make_future(["A"], TRAIN_END, [1, 2])
-    out = p.predict(m, c, future, [1, 2], ctx)
+    out = p.predict(m, c, future, [1, 2], ctx.for_origin(c.origin_date))
     missing = out[out.horizon.eq(1)]
     with pytest.raises(ContractViolationError):
         validate_predict_frame(missing, expected_targets=future)
@@ -316,7 +324,9 @@ def test_runner_preserves_failure_ledger_and_future_invariance():
     data = pd.DataFrame(
         {"unique_id": "A", "ds": pd.date_range("2024-01-01", "2026-02-01"), "y": 10.0}
     )
-    config = ProviderConfig("builtin-baseline", "moving_average_28")
+    config = ProviderConfig(
+        "builtin-baseline", "moving_average_28", preprocessing_version="daily-nan-preserving-v1"
+    )
     first = run_fixed_baseline(data, ds, config, make_context(), availability_mode="ASSUMED")
     assert first["status"] == "SUCCESS"
     assert first["fit_calls"] == 1

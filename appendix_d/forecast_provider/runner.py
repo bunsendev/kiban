@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-import traceback
-
 import pandas as pd
 
 from .contracts import PREDICT_REQUIRED_COLUMNS, ForecastDataset, ProviderConfig, RunContext
-from .errors import ContractViolationError, ProviderError
+from .errors import ContractViolationError
 from .evaluation import build_plan, reconcile_predictions
+from .failures import FailureSinkError, record_failure
 from .features import attach_features
 from .frames import quantiles_from_interval_levels, validate_train_frame
 from .registry import registry
+from .run_context import validate_context_ref
 
 
 def available_history(
@@ -80,7 +80,7 @@ def run_fixed_baseline(
     feature_versions: pd.DataFrame | None = None,
 ) -> dict:
     """1回学習→起点更新→予測→全予定照合。失敗は台帳に残す。"""
-    if dataset.availability_mode != availability_mode:
+    if not dataset.availability_mode == availability_mode == context.availability_mode:
         raise ContractViolationError("実験定義と実行のavailability_mode不一致")
     validate_train_frame(data)
     if not set(data.unique_id).issubset(dataset.unique_ids):
@@ -96,45 +96,26 @@ def run_fixed_baseline(
     outputs, errors = [], []
     model = None
 
-    def record(origin, exc: BaseException) -> None:
-        """失敗を台帳へ残す。分類外の例外は UNCLASSIFIED_ERROR として保持する。
-
-        仕様書9.1: 未分類の例外は NonRetryable として扱い、runは継続する。
-        ContractViolationError だけは正常な欠測へ変換せず、そのまま送出する。
-        """
-        classified = isinstance(exc, ProviderError)
-        errors.append(
-            {
-                "origin_date": None if origin is None else str(origin),
-                "error": type(exc).__name__ if classified else "UNCLASSIFIED_ERROR",
-                "exception_type": type(exc).__name__,
-                "retryable": bool(getattr(exc, "retryable", False)) if classified else False,
-                "message": str(exc),
-                "traceback": None if classified else traceback.format_exc(),
-            }
-        )
-
+    fit_context = context.for_origin(dataset.train_end)
     try:
-        train = available_history(
-            data,
-            pd.Timestamp(dataset.train_end),
-            availability_mode=availability_mode,
-            known_future_columns=kf,
-            feature_versions=feature_versions,
-        )
-        train = train[train.ds.ge(pd.Timestamp(dataset.train_start))]
-        model = provider.fit_parameters(train, dataset, config, context)
-    except ContractViolationError:
-        provider.cleanup(context)
-        raise
-    except Exception as exc:
-        record(None, exc)
-        provider.cleanup(context)
-        model = None
-
-    if model is not None:
         try:
+            train = available_history(
+                data,
+                pd.Timestamp(dataset.train_end),
+                availability_mode=availability_mode,
+                known_future_columns=kf,
+                feature_versions=feature_versions,
+            )
+            train = train[train.ds.ge(pd.Timestamp(dataset.train_start))]
+            model = provider.fit_parameters(train, dataset, config, fit_context)
+        except (ContractViolationError, FailureSinkError):
+            raise
+        except Exception as exc:
+            record_failure(errors, fit_context, None, exc)
+
+        if model is not None:
             for origin_date, targets in plan.groupby("origin_date", sort=True):
+                origin_context = context.for_origin(origin_date.date())
                 try:
                     history = available_history(
                         data,
@@ -144,7 +125,10 @@ def run_fixed_baseline(
                         feature_versions=feature_versions,
                     )
                     history = history[history.ds.ge(pd.Timestamp(dataset.train_start))]
-                    state = provider.refresh_context(model, history, origin_date.date(), context)
+                    state = provider.refresh_context(
+                        model, history, origin_date.date(), origin_context
+                    )
+                    validate_context_ref(model, state, origin_context)
                     future = attach_known_future(
                         targets, data, kf, feature_versions=feature_versions
                     )
@@ -154,15 +138,15 @@ def run_fixed_baseline(
                             state,
                             future,
                             sorted(targets.horizon.unique().astype(int).tolist()),
-                            context,
+                            origin_context,
                         )
                     )
-                except ContractViolationError:
+                except (ContractViolationError, FailureSinkError):
                     raise  # 不正データ・契約違反を正常な欠測へ変換しない。
                 except Exception as exc:
-                    record(origin_date, exc)
-        finally:
-            provider.cleanup(context)
+                    record_failure(errors, origin_context, origin_date.date(), exc)
+    finally:
+        provider.cleanup(context)
     result = (
         pd.concat(outputs, ignore_index=True)
         if outputs

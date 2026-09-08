@@ -30,6 +30,12 @@ python make_release.py --check
 
 ## 開発順
 
+Phase 1Aで前処理版・起点別RunContext・ContextRef締切・モデル識別・failure sink interfaceを追加した。
+必須引数とProvider直接呼出しの移行は[契約と移行](docs/Phase1A_契約と移行.md)を参照する。
+既存RunContext importは維持するが、旧ModelRef/ContextRefはfitから再生成する。
+時点処理はrun_context.py、識別はfingerprint.py、失敗記録はfailures.pyへ分離する。
+Phase 1Bへ進む前にPhase 1Aの実装レビューを行う。DB・artifact永続化・Worker再開は未実装。
+
 統合仕様11章の未実装Contractを整え、原本取込・JAN名寄せ・日次整形、DB、実データ3〜5品目、2つ目のOSS、UI・Worker・再学習の順に進める。
 受入前に実データ検証を行い、人工データだけで精度や業務効果を保証しない。
 
