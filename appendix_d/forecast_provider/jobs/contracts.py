@@ -65,6 +65,17 @@ class OriginLease:
     leased_until: datetime
 
 
+@dataclass(frozen=True)
+class RunSnapshot:
+    run_id: str
+    experiment_id: str
+    condition_fingerprint: str
+    status: RunStatus
+    cancellation_requested: bool
+    origin_counts: dict[str, int]
+    failure_count: int
+
+
 class RunStore(Protocol):
     def create_run(
         self,
@@ -90,6 +101,12 @@ class RunStore(Protocol):
     def finish_run(self, run_id: str) -> RunStatus: ...
 
     def cancellation_requested(self, run_id: str) -> bool: ...
+
+    def request_cancellation(self, run_id: str) -> None: ...
+
+    def get_run(self, run_id: str) -> RunSnapshot | None: ...
+
+    def list_runnable_runs(self) -> tuple[tuple[str, str], ...]: ...
 
 
 OriginExecutor = Callable[[OriginLease], OriginOutput]

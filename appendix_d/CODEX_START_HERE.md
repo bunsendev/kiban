@@ -42,6 +42,8 @@ Phase 1Cで製品非依存のRunStore、SQLite参照台帳、起点単位transac
 
 Phase 1DでPostgreSQL実装、SKIP LOCKED claim、lease/heartbeat、期限切れ回収、起点timeoutを追加した。詳細は[PostgreSQLとWorker lease](docs/Phase1D_PostgreSQLとWorkerLease.md)。
 
+Phase 1EでBearer認証付きrun APIと独立Workerプロセスを追加した。HTTPは台帳操作だけを行い、予測はWorkerのOriginExecutorで実行する。詳細は[APIとWorker process](docs/Phase1E_APIとWorkerProcess.md)。
+
 統合仕様11章の未実装Contractを整え、原本取込・JAN名寄せ・日次整形、DB、実データ3〜5品目、2つ目のOSS、UI・Worker・再学習の順に進める。
 受入前に実データ検証を行い、人工データだけで精度や業務効果を保証しない。
 

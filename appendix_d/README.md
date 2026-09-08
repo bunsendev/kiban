@@ -65,6 +65,10 @@ Phase 1BはModelRef/ContextRefをローカルへ保存し、別プロセスで�
 test_results.txtはこの版の実測記録です。依存はrequirementsファイル、実行環境は記録を参照。
 変更後はテスト・ruffを実行し、検証記録を更新してから `python make_release.py` で再配布します。
 最後に `python make_release.py --check` で照合します。ZIPは親フォルダに生成されます。
+
+## Run API / Worker
+
+API依存は`pip install -e ".[api,postgres]"`で追加する。`KIBAN_POSTGRES_DSN`と`KIBAN_API_TOKEN`を設定し、`uvicorn forecast_provider.api.factory:from_environment --factory`で起動する。Workerはデプロイ済みOriginExecutorを指定して`kiban-worker --postgres-dsn <DSN> --executor package.module:execute --worker-id <ID>`で別プロセスとして起動する。
 ソース編集後、ハッシュ再生成前の配布整合テスト失敗は想定内ですが、その状態で出荷しないでください。
 
 旧版のModelRef/stateは再利用せずfitから実行します。v2.8の生データ将来列はknown_at付き版へ移行します。

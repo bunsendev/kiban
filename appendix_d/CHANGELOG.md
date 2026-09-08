@@ -1,5 +1,11 @@
 # v2.9 修正記録
 
+## Phase 1E
+
+- Bearer認証付きrun作成・状態・キャンセル・再開APIを追加。
+- HTTP外でOriginExecutorを実行する独立Worker CLIを追加。
+- RunStoreへ状態snapshotと実行可能run列挙を追加。
+
 - 単独精度を自runの予定とtruthから計算し、比較相手による変動を修正。
 - 完全runの選定を自runだけで判定し、正式共通集合を選定後に再構築。
 - official_comparison_set_idと正式評価件数を追加。

@@ -16,6 +16,7 @@ from .contracts import (
     OriginLease,
     OriginOutput,
     RunDefinition,
+    RunSnapshot,
     RunStatus,
 )
 
@@ -289,6 +290,8 @@ class SqliteRunStore:
             status: RunStatus
             if cancelled:
                 status = "CANCELLED"
+            elif any(s in ("QUEUED", "RUNNING") for s in states):
+                status = "RUNNING"
             elif states and all(s == "SUCCEEDED" for s in states):
                 status = "SUCCEEDED"
             elif any(s == "SUCCEEDED" for s in states):
@@ -310,7 +313,47 @@ class SqliteRunStore:
     def request_cancellation(self, run_id: str) -> None:
         with self._connect() as db:
             db.execute(
-                "UPDATE forecast_runs SET cancellation_requested=1 WHERE run_id=?", (run_id,)
+                "UPDATE forecast_runs SET cancellation_requested=1,"
+                "status=CASE WHEN status='QUEUED' THEN 'CANCELLED' ELSE status END "
+                "WHERE run_id=?",
+                (run_id,),
+            )
+
+    def get_run(self, run_id: str) -> RunSnapshot | None:
+        with self._connect() as db:
+            row = db.execute("SELECT * FROM forecast_runs WHERE run_id=?", (run_id,)).fetchone()
+            if row is None:
+                return None
+            counts = {
+                item["status"]: item["count"]
+                for item in db.execute(
+                    "SELECT status,COUNT(*) AS count FROM forecast_origins "
+                    "WHERE run_id=? GROUP BY status",
+                    (run_id,),
+                )
+            }
+            failures = db.execute(
+                "SELECT COUNT(*) AS count FROM forecast_failures WHERE run_id=?", (run_id,)
+            ).fetchone()
+            return RunSnapshot(
+                row["run_id"],
+                row["experiment_id"],
+                row["condition_fingerprint"],
+                row["status"],
+                bool(row["cancellation_requested"]),
+                counts,
+                failures["count"],
+            )
+
+    def list_runnable_runs(self) -> tuple[tuple[str, str], ...]:
+        with self._connect() as db:
+            return tuple(
+                (row["run_id"], row["condition_fingerprint"])
+                for row in db.execute(
+                    "SELECT run_id,condition_fingerprint FROM forecast_runs "
+                    "WHERE status IN ('QUEUED','RUNNING') "
+                    "AND cancellation_requested=0 ORDER BY run_id"
+                )
             )
 
     def rows(self, table: str) -> list[sqlite3.Row]:

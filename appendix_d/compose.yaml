@@ -14,6 +14,30 @@ services:
       retries: 20
     volumes:
       - kiban-postgres:/var/lib/postgresql/data
+  api:
+    build: .
+    environment:
+      KIBAN_POSTGRES_DSN: postgresql://kiban:local-development-only@postgres:5432/kiban
+      KIBAN_API_TOKEN: ${KIBAN_API_TOKEN:-change-me-local}
+    ports:
+      - "127.0.0.1:58000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+  worker:
+    profiles: ["worker"]
+    build: .
+    command:
+      - kiban-worker
+      - --postgres-dsn
+      - postgresql://kiban:local-development-only@postgres:5432/kiban
+      - --executor
+      - ${KIBAN_EXECUTOR:-deployment.executor:execute}
+      - --worker-id
+      - worker-compose-1
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   kiban-postgres:
