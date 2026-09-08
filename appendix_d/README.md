@@ -52,6 +52,11 @@ ruffが利用できない場合のcheck_lint.pyは限定的な補助検査であ
 
 ## 出力
 
+Phase 1BはModelRef/ContextRefをローカルへ保存し、別プロセスで復元するAPIを追加します。
+`python artifact_demo.py verify --output artifact_output`で再fitなしの予測一致を確認できます。
+形式・使い方・制約は[保存と復元](docs/Phase1B_保存と復元.md)を参照してください。
+既定のartifact_outputはGit/配布ZIPから除外します。業務Workerの再開機能は未実装です。
+
 デモは予測CSV、失敗照合台帳CSV、15日累計CSV、比較JSONを作成します。
 比較JSONではown/common/officialを区別し、各件数と集合IDを確認してください。
 

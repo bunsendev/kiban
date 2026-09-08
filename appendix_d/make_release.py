@@ -18,7 +18,17 @@ import sys
 import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parent
-EXCLUDE_DIRS = {".venv", ".git", "__pycache__", ".pytest_cache", ".ruff_cache", "demo_output"}
+EXCLUDE_DIRS = {
+    ".venv",
+    ".git",
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    "demo_output",
+    "artifact_output",
+    "build",
+    "dist",
+}
 EXCLUDE_SUFFIX = {".egg-info"}
 SUMS = "SHA256SUMS.json"
 

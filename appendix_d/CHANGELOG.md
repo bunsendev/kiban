@@ -11,3 +11,11 @@
 
 以前の修正（全予定・失敗記録、欠損規則統一、POINT分離、固定学習、累計、入力検証）は維持。
 最終検証はtest_results.txtを参照。原本取込・名寄せ・DB/API/UI・実OSS・本番は後続開発。
+
+# Phase 1B（パッケージ版2.9.0維持）
+
+- 版付きモデル/context保存契約、内容アドレス方式のローカル保存、checksum照合を追加。
+- baseline固有のSeries・残差JSON変換を共通I/Oから分離。
+- 期待する学習条件、run、保存モデル、origin、cutoffを復元時に照合。
+- 別プロセスで再fitせずPOINT/QUANTILEの完全一致を検証するartifact_demoを追加。
+- Workerジョブ再開・DB/API/UI・クラウド保存は未実装。

@@ -8,6 +8,8 @@
 | run_context.py | 起点別RunContextとcutoff・参照の照合 |
 | fingerprint.py | 再現可能な学習条件の識別 |
 | failures.py | 型付き失敗記録とsink interface |
+| artifacts/ | 版付き保存形式、参照・条件照合、ローカルI/O |
+| providers/baseline_codec.py / baseline_series.py | baseline固有stateのJSON変換 |
 | frames.py | 日次入力、予測対象、POINT/QUANTILEの検証 |
 | providers/builtin_baseline.py | 4方式とTRAIN残差キャッシュ |
 | features.py | 固定カレンダーとknown_at付き将来変数の版選択 |
@@ -49,7 +51,8 @@ official_evaluation_readyは単独評価可、official_ranking_readyは2方式�
 適合試験・業務採用の承認を代替するフラグではない。
 
 保存前はreconcile_predictionsを必須とする。完全出力を要求する場合はvalidate_predict_frameのexpected_targetsを指定する。
-本文のDB/API/Worker、永続モデルstate、月次再学習は後続実装である。
+Phase 1Bのローカルモデルstate保存・復元は[保存と復元](docs/Phase1B_保存と復元.md)を参照する。
+本文のDB/API/Workerジョブ再開、月次再学習は後続実装である。
 
 ## 検証
 
