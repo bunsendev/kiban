@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import date, datetime
+import uuid
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -35,42 +36,9 @@ class SqliteRunStore:
         return connection
 
     def _initialize(self) -> None:
+        migration = Path(__file__).with_name("migrations") / "001_run_ledger_sqlite.sql"
         with self._connect() as db:
-            db.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS forecast_runs (
-                  run_id TEXT PRIMARY KEY, experiment_id TEXT NOT NULL,
-                  condition_fingerprint TEXT NOT NULL, provider_id TEXT NOT NULL,
-                  model_name TEXT NOT NULL, seed INTEGER NOT NULL,
-                  status TEXT NOT NULL, cancellation_requested INTEGER NOT NULL DEFAULT 0
-                );
-                CREATE TABLE IF NOT EXISTS forecast_origins (
-                  run_id TEXT NOT NULL REFERENCES forecast_runs(run_id), origin_date TEXT NOT NULL,
-                  cutoff_at TEXT NOT NULL, status TEXT NOT NULL, attempt INTEGER NOT NULL DEFAULT 0,
-                  model_artifact TEXT, context_artifact TEXT, error TEXT,
-                  PRIMARY KEY(run_id, origin_date)
-                );
-                CREATE TABLE IF NOT EXISTS forecast_expectations (
-                  run_id TEXT NOT NULL, unique_id TEXT NOT NULL, origin_date TEXT NOT NULL,
-                  target_date TEXT NOT NULL, horizon INTEGER NOT NULL, status TEXT NOT NULL,
-                  PRIMARY KEY(run_id, unique_id, origin_date, target_date),
-                  FOREIGN KEY(run_id, origin_date) REFERENCES forecast_origins(run_id, origin_date)
-                );
-                CREATE TABLE IF NOT EXISTS forecast_values (
-                  run_id TEXT NOT NULL, unique_id TEXT NOT NULL, origin_date TEXT NOT NULL,
-                  target_date TEXT NOT NULL, horizon INTEGER NOT NULL, forecast_kind TEXT NOT NULL,
-                  quantile TEXT NOT NULL DEFAULT '', yhat_raw TEXT NOT NULL, yhat TEXT NOT NULL,
-                  attempt INTEGER NOT NULL,
-                  PRIMARY KEY(run_id, unique_id, origin_date, target_date, forecast_kind, quantile),
-                  FOREIGN KEY(run_id, origin_date) REFERENCES forecast_origins(run_id, origin_date)
-                );
-                CREATE TABLE IF NOT EXISTS forecast_failures (
-                  run_id TEXT NOT NULL, origin_date TEXT NOT NULL, attempt INTEGER NOT NULL,
-                  error TEXT NOT NULL, retryable INTEGER NOT NULL,
-                  PRIMARY KEY(run_id, origin_date, attempt)
-                );
-                """
-            )
+            db.executescript(migration.read_text(encoding="utf-8"))
 
     def create_run(
         self,
@@ -127,13 +95,13 @@ class SqliteRunStore:
                 raise ContractViolationError("run条件が存在しないか一致しません")
             if row["status"] in ("SUCCEEDED", "CANCELLED"):
                 raise ContractViolationError("完了済みrunは再開できません")
-            db.execute(
-                "UPDATE forecast_origins SET status='QUEUED' WHERE run_id=? AND status='RUNNING'",
-                (run_id,),
-            )
             db.execute("UPDATE forecast_runs SET status='RUNNING' WHERE run_id=?", (run_id,))
 
-    def claim_next_origin(self, run_id: str) -> OriginLease | None:
+    def claim_next_origin(
+        self, run_id: str, worker_id: str, lease_seconds: int
+    ) -> OriginLease | None:
+        if not worker_id or lease_seconds <= 0:
+            raise ValueError("worker_idと正のlease_secondsが必要です")
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute(
@@ -144,15 +112,55 @@ class SqliteRunStore:
             if row is None:
                 return None
             attempt = row["attempt"] + 1
+            token = str(uuid.uuid4())
+            leased_until = datetime.now(UTC) + timedelta(seconds=lease_seconds)
             db.execute(
-                "UPDATE forecast_origins SET status='RUNNING',attempt=?,error=NULL "
+                "UPDATE forecast_origins SET status='RUNNING',attempt=?,error=NULL,"
+                "worker_id=?,lease_token=?,leased_until=? "
                 "WHERE run_id=? AND origin_date=?",
-                (attempt, run_id, row["origin_date"]),
+                (attempt, worker_id, token, leased_until.isoformat(), run_id, row["origin_date"]),
             )
             origin = OriginDefinition(
                 date.fromisoformat(row["origin_date"]), datetime.fromisoformat(row["cutoff_at"])
             )
-            return OriginLease(run_id, origin, attempt)
+            return OriginLease(run_id, origin, attempt, worker_id, token, leased_until)
+
+    def heartbeat(self, lease: OriginLease, lease_seconds: int) -> OriginLease:
+        if lease_seconds <= 0:
+            raise ValueError("lease_secondsは正数です")
+        leased_until = datetime.now(UTC) + timedelta(seconds=lease_seconds)
+        with self._connect() as db:
+            changed = db.execute(
+                "UPDATE forecast_origins SET leased_until=? WHERE run_id=? AND origin_date=? "
+                "AND status='RUNNING' AND attempt=? AND worker_id=? AND lease_token=?",
+                (
+                    leased_until.isoformat(),
+                    lease.run_id,
+                    lease.origin.origin_date.isoformat(),
+                    lease.attempt,
+                    lease.worker_id,
+                    lease.lease_token,
+                ),
+            ).rowcount
+            if changed != 1:
+                raise StaleLeaseError("起点leaseは失効しています")
+        return OriginLease(
+            lease.run_id,
+            lease.origin,
+            lease.attempt,
+            lease.worker_id,
+            lease.lease_token,
+            leased_until,
+        )
+
+    def reclaim_expired(self, run_id: str, *, now: datetime | None = None) -> int:
+        now = now or datetime.now(UTC)
+        with self._connect() as db:
+            return db.execute(
+                "UPDATE forecast_origins SET status='QUEUED',worker_id=NULL,lease_token=NULL,"
+                "leased_until=NULL WHERE run_id=? AND status='RUNNING' AND leased_until<=?",
+                (run_id, now.isoformat()),
+            ).rowcount
 
     @staticmethod
     def _validate_value(lease: OriginLease, value: ForecastValue) -> None:
@@ -183,10 +191,17 @@ class SqliteRunStore:
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute(
-                "SELECT status,attempt FROM forecast_origins WHERE run_id=? AND origin_date=?",
+                "SELECT status,attempt,worker_id,lease_token FROM forecast_origins "
+                "WHERE run_id=? AND origin_date=?",
                 (lease.run_id, lease.origin.origin_date.isoformat()),
             ).fetchone()
-            if row is None or row["status"] != "RUNNING" or row["attempt"] != lease.attempt:
+            if (
+                row is None
+                or row["status"] != "RUNNING"
+                or row["attempt"] != lease.attempt
+                or row["worker_id"] != lease.worker_id
+                or row["lease_token"] != lease.lease_token
+            ):
                 raise StaleLeaseError("起点leaseは失効しています")
             expected = {
                 (r["unique_id"], r["target_date"])
@@ -223,7 +238,8 @@ class SqliteRunStore:
             )
             db.execute(
                 "UPDATE forecast_origins SET status='SUCCEEDED',model_artifact=?,"
-                "context_artifact=? WHERE run_id=? AND origin_date=?",
+                "context_artifact=?,worker_id=NULL,lease_token=NULL,leased_until=NULL "
+                "WHERE run_id=? AND origin_date=?",
                 (
                     output.model_artifact,
                     output.context_artifact,
@@ -238,13 +254,16 @@ class SqliteRunStore:
             next_status = "QUEUED" if retryable and lease.attempt < 3 else "FAILED"
             changed = db.execute(
                 "UPDATE forecast_origins SET status=?,error=? WHERE run_id=? AND "
-                "origin_date=? AND status='RUNNING' AND attempt=?",
+                "origin_date=? AND status='RUNNING' AND attempt=? AND worker_id=? "
+                "AND lease_token=?",
                 (
                     next_status,
                     error,
                     lease.run_id,
                     lease.origin.origin_date.isoformat(),
                     lease.attempt,
+                    lease.worker_id,
+                    lease.lease_token,
                 ),
             ).rowcount
             if changed != 1:

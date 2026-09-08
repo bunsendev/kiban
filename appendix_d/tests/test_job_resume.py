@@ -55,11 +55,12 @@ def make_store(tmp_path, days=(1, 2)) -> SqliteRunStore:
 def test_resume_skips_completed_origin_after_worker_interruption(tmp_path):
     store = make_store(tmp_path)
     store.start_or_resume("run-1", "fingerprint-1")
-    first = store.claim_next_origin("run-1")
+    first = store.claim_next_origin("run-1", "worker-1", 60)
     assert first is not None
     store.complete_origin(first, OriginOutput((point(1),), "model:1", "context:1"))
-    interrupted = store.claim_next_origin("run-1")
+    interrupted = store.claim_next_origin("run-1", "worker-1", 60)
     assert interrupted is not None
+    store.reclaim_expired("run-1", now=interrupted.leased_until.replace(year=2027))
 
     executed = []
 
@@ -76,7 +77,7 @@ def test_resume_skips_completed_origin_after_worker_interruption(tmp_path):
 def test_origin_result_and_state_are_atomic(tmp_path):
     store = make_store(tmp_path, days=(1,))
     store.start_or_resume("run-1", "fingerprint-1")
-    lease = store.claim_next_origin("run-1")
+    lease = store.claim_next_origin("run-1", "worker-1", 60)
     assert lease is not None
     with pytest.raises(ContractViolationError):
         store.complete_origin(lease, OriginOutput(()))
@@ -87,10 +88,10 @@ def test_origin_result_and_state_are_atomic(tmp_path):
 def test_stale_attempt_cannot_publish_or_duplicate_output(tmp_path):
     store = make_store(tmp_path, days=(1,))
     store.start_or_resume("run-1", "fingerprint-1")
-    stale = store.claim_next_origin("run-1")
+    stale = store.claim_next_origin("run-1", "worker-1", 60)
     assert stale is not None
-    store.start_or_resume("run-1", "fingerprint-1")
-    current = store.claim_next_origin("run-1")
+    store.reclaim_expired("run-1", now=stale.leased_until.replace(year=2027))
+    current = store.claim_next_origin("run-1", "worker-1", 60)
     assert current is not None
     with pytest.raises(StaleLeaseError):
         store.complete_origin(stale, OriginOutput((point(1),)))
@@ -143,7 +144,7 @@ def test_cancellation_stops_before_next_origin(tmp_path):
 def test_point_contract_and_artifact_references_are_persisted(tmp_path):
     store = make_store(tmp_path, days=(1,))
     store.start_or_resume("run-1", "fingerprint-1")
-    lease = store.claim_next_origin("run-1")
+    lease = store.claim_next_origin("run-1", "worker-1", 60)
     assert lease is not None
     invalid = point(1, "-1")
     invalid = ForecastValue(
