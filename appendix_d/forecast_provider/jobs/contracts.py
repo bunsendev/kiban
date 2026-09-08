@@ -60,6 +60,9 @@ class OriginLease:
     run_id: str
     origin: OriginDefinition
     attempt: int
+    worker_id: str
+    lease_token: str
+    leased_until: datetime
 
 
 class RunStore(Protocol):
@@ -72,7 +75,13 @@ class RunStore(Protocol):
 
     def start_or_resume(self, run_id: str, condition_fingerprint: str) -> None: ...
 
-    def claim_next_origin(self, run_id: str) -> OriginLease | None: ...
+    def claim_next_origin(
+        self, run_id: str, worker_id: str, lease_seconds: int
+    ) -> OriginLease | None: ...
+
+    def heartbeat(self, lease: OriginLease, lease_seconds: int) -> OriginLease: ...
+
+    def reclaim_expired(self, run_id: str, *, now: datetime | None = None) -> int: ...
 
     def complete_origin(self, lease: OriginLease, output: OriginOutput) -> None: ...
 

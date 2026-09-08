@@ -1,4 +1,4 @@
-# v2.9 Phase 1C 実行検証記録
+# v2.9 Phase 1D 実行検証記録
 
 Date: 2026-09-08 JST
 OS: Windows 11
@@ -10,30 +10,21 @@ ruff: 0.16.6
 
 ## 継承するBaseline
 
-- Phase 1B: 250 passed、ruff/demo/scale/artifact demo成功、SHA256 56/56一致。
+- Phase 1C: 257 passed、ruff/demo/scale/artifact demo成功、SHA256 62/62一致。
 - 予測式・評価式・runner・Providerの6メソッドは変更なし。
 - 人工データのみ。本番精度や業務効果を保証しない。
 
-## pytest
+## Phase 1D
 
-```text
-257 passed
-```
+- pytest: 262 passed、1 skipped。
+- skipは`KIBAN_TEST_POSTGRES_DSN`未設定によるPostgreSQL実DB適合試験。
+- ruff: All checks passed。
+- 複数Worker排他、heartbeat、期限切れlease回収、新attempt、stale書込み拒否、起点timeoutを検証。
+- PostgreSQL migrationの制約・索引とwheel同梱を検証。
+- demo: 成功。
+- scale_check: 37起点、通期評価成立、profile (10,10)、POINT 54,500行、総行218,000、365日/系列、重複0。
+- artifact_demo: 24行のPOINT/QUANTILEが別プロセス復元後も完全一致。
 
-Phase 1Cで中断再開、完了起点再利用、condition fingerprint、attempt fencing、起点transaction、必要POINT完全性、最大3 attempt、キャンセル、artifact参照を追加検証した。
+## 環境制約
 
-## ruff
-
-```text
-All checks passed!
-```
-
-## demo / scale / artifact
-
-- demo: 成功。比較集合とown/POINT/QUANTILEの既存結果を維持。
-- scale_check: 37起点、通期評価成立、評価profile (10,10)、POINT 54,500行、総行218,000、365日/系列、重複0。
-- artifact_demo: Restored without fit: 24 rows; exact POINT/QUANTILE match。
-
-## 配布
-
-`make_release.py`でSHA256SUMS.jsonとZIPを再生成し、`make_release.py --check`で全件一致を確認する。
+この端末にはDocker、psql、PostgreSQL serviceがないため、実DB接続試験は未実施。DSN設定済みCIでは同じpytestがPostgreSQL適合試験を実行する。
