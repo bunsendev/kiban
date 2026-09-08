@@ -38,6 +38,8 @@ Phase 1Aはレビュー・マージ済み。Phase 1Bでローカルartifact保�
 詳細は[保存と復元](docs/Phase1B_保存と復元.md)。python artifact_demo.pyで別プロセス再現を検証する。
 DB・Workerジョブ再開は未実装。Phase 1Bはレビュー後に次の段階へ進める。
 
+Phase 1Cで製品非依存のRunStore、SQLite参照台帳、起点単位transaction、attempt fencing、再開Workerを追加した。詳細は[run台帳と再開](docs/Phase1C_run台帳と再開.md)。本番PostgreSQL、複数Worker、強制timeout、API/UIは未実装。
+
 統合仕様11章の未実装Contractを整え、原本取込・JAN名寄せ・日次整形、DB、実データ3〜5品目、2つ目のOSS、UI・Worker・再学習の順に進める。
 受入前に実データ検証を行い、人工データだけで精度や業務効果を保証しない。
 

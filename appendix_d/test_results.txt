@@ -1,7 +1,7 @@
-# v2.9 Phase 1B 実行検証記録
+# v2.9 Phase 1C 実行検証記録
 
-UTC: 2026-09-08T07:49:53.119390+00:00
-OS: Windows-11-10.0.26200-SP0
+Date: 2026-09-08 JST
+OS: Windows 11
 Python: 3.12.14
 pandas: 2.2.3
 numpy: 2.3.5
@@ -10,69 +10,30 @@ ruff: 0.16.6
 
 ## 継承するBaseline
 
-- Phase 1A: 190 passed、ruff/demo/scale成功、SHA256 42/42一致。
-- 既存テスト名の削除なし。予測式・評価式・runner・Providerの6メソッドは変更なし。
+- Phase 1B: 250 passed、ruff/demo/scale/artifact demo成功、SHA256 56/56一致。
+- 予測式・評価式・runner・Providerの6メソッドは変更なし。
 - 人工データのみ。本番精度や業務効果を保証しない。
 
 ## pytest
 
-exit_code: 0
-
 ```text
-........................................................................ [ 28%]
-........................................................................ [ 57%]
-........................................................................ [ 86%]
-..................................                                       [100%]
-250 passed in 6.60s
+257 passed
 ```
 
-Phase 1Aの190件にPhase 1Bの60件を追加。保存前後、4つのbaseline、ASSUMED/OBSERVED、NaNと0、除外系列、checksum/size、破損・不完全保存、JSON重複キー、形式/Codec版、学習条件、run/experiment、model artifact、origin/cutoff、別プロセス復元を検証した。
+Phase 1Cで中断再開、完了起点再利用、condition fingerprint、attempt fencing、起点transaction、必要POINT完全性、最大3 attempt、キャンセル、artifact参照を追加検証した。
 
 ## ruff
-
-exit_code: 0
 
 ```text
 All checks passed!
 ```
 
-## demo
+## demo / scale / artifact
 
-exit_code: 0
+- demo: 成功。比較集合とown/POINT/QUANTILEの既存結果を維持。
+- scale_check: 37起点、通期評価成立、評価profile (10,10)、POINT 54,500行、総行218,000、365日/系列、重複0。
+- artifact_demo: Restored without fit: 24 rows; exact POINT/QUANTILE match。
 
-- 出力7ファイルはPhase 1B変更前のBaselineとバイト単位で一致。
-- comparison_set_id: 058c2165340ae64a18c85c71757883fd89cbd7540d0c57e146bafbe8fd231c70
-- official_comparison_set_id: df85ed03e5dc64c7c2ff37894b76cb52ee89722196034d16ae0605a1e45974ab
-- ranking_ready / official_ranking_ready / official_evaluation_ready: true
-- availability_mode: ASSUMED
-- data_kind: SYNTHETIC_NOT_BUNSEN_ACTUAL
+## 配布
 
-## scale_check
-
-exit_code: 0
-
-```text
-予測起点数            : 37
-通期評価の成立        : True
-評価プロファイル      : (10, 10)
-点予測行数（1OSS）    : 54,500
-POINT＋QUANTILE行数   : 218,000
-通期評価 対象日／系列 : [365]
-通期評価 重複件数     : 0
-```
-
-## artifact_demo
-
-command: python artifact_demo.py verify --output artifact_output
-exit_code: 0
-
-```text
-Restored without fit: 24 rows; exact POINT/QUANTILE match
-```
-
-親プロセスでモデルと起点履歴を保存し、新しいPythonプロセスでfit_parametersと残差再計算を使わず復元した。POINT/QUANTILEをcheck_exact=Trueで一致確認した。
-
-## make_release --check
-
-最終確認: 56/56 一致、exit_code 0。wheel作成時のbuild/distも配布対象から除外。
-本記録保存後にハッシュとZIPを再生成し、pytest・ruff・demo・scale・artifact_demoも再実行済み。
+`make_release.py`でSHA256SUMS.jsonとZIPを再生成し、`make_release.py --check`で全件一致を確認する。
