@@ -8,4 +8,5 @@ __pycache__/
 !.env.example
 data/
 demo_output/
+artifact_output/
 *.zip
