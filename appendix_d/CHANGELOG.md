@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 1K
+
+- 日次buildと3〜5品目、availability mode、品質閾値を凍結する受入caseを追加。
+- snapshot接続、artifact checksum、全暦日行、利用可能日数、欠測率、不完全率の技術判定を追加。
+- JSON/Markdownの決定的な品質レポートと、担当者・理由・版付きの業務判断履歴を追加。
+- 匿名データを`DRY_RUN`に固定し、実データの技術判定`PASSED`だけを承認可能にした。
+- SQLite/PostgreSQL、認証付きAPI、独立受入Worker、Compose、別process適合試験を追加。
+
 ## Phase 1J
 
 - 内容アドレス方式の予定ファイル定義とcenter×日付の完全性台帳を追加。

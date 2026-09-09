@@ -8,3 +8,5 @@ pytestとruffを正式検証ゲートとする。check_lintは補助検査。
 変更される将来変数はknown_atで時点選択し、生データの最終値を直接使わない。
 配布前にtest_results.txtを更新し、make_release.py、make_release.py --checkを実行する。
 実データ・資格情報はコミットしない。人工データのみで本番精度を保証しない。
+Phase 1Kの匿名データ受入はDRY_RUNとし、実データ受入済みに変更しない。
+受入の技術判定と担当者の業務判断を分け、判断履歴を上書きしない。

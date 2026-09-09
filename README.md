@@ -2,17 +2,16 @@
 
 v2.9基準版から段階的に拡張する予測・比較基盤の実装と計画を管理します。
 
-- `appendix_d/`: v2.9基準版をもとにPhase 1Aの契約を追加した予測・比較コア。
+- `appendix_d/`: v2.9基準版をもとにPhase 1A〜1Kを追加した予測・比較基盤。
 - `planning/CODEX_IMPLEMENTATION_INSTRUCTION_v2.9_PHASE1A.md`: 提供された実装指示書。
-- `planning/PHASE1A_PLAN.md`: モジュール構成・実装順序・検証計画。
+- `planning/PHASE1*_PLAN.md`: 各Phaseのモジュール構成・実装順序・検証計画。
+- `planning/PHASE1*_RESULT.md`: 各Phaseの実装結果・検証・未対応事項。
 
-Phase 1A〜1Hはマージ済みです。Phase 1Fでは版付きdataset snapshot・実験catalog、保存済み実験からのrun作成、artifactを復元する組込baseline Workerを統合しました。計画は`planning/PHASE1F_PLAN.md`、契約は`appendix_d/docs/Phase1F_実験SnapshotとBaseline統合.md`を参照してください。
+Phase 1A〜1Jはマージ済みです。共通予測契約、artifact保存、再開可能なrun台帳、PostgreSQL lease、API/Worker、dataset・実験catalog、原本取込、出荷行正規化、JAN名寄せ・取扱期間、予定完全性・6種類の日次状態までを実装しました。
 
-Phase 1Gでは、原本の安全な取込job、SHA-256不変保存、重複・訂正版候補・隔離の監査台帳を追加しました。計画は`planning/PHASE1G_PLAN.md`、契約は`appendix_d/docs/Phase1G_原本取込台帳.md`を参照してください。
+Phase 1Kでは、実データ3〜5品目を対象とする受入case、技術判定、品質レポート、業務判断履歴を追加しました。匿名データは`DRY_RUN`に固定し、実データ受入済みとは扱いません。計画は`planning/PHASE1K_PLAN.md`、契約は`appendix_d/docs/Phase1K_少数実品目受入.md`を参照してください。
 
-Phase 1Hでは、版付き列mappingによる出荷行正規化、訂正版の明示採用、行隔離、数量照合、品質APIを追加しました。計画は`planning/PHASE1H_PLAN.md`、契約は`appendix_d/docs/Phase1H_出荷行正規化と数量照合.md`を参照してください。
-
-Phase 1Iでは、決定論的なJAN名寄せ候補、4種類の承認判断、canonical product、JAN有効期間、商品×center取扱期間を追加します。計画は`planning/PHASE1I_PLAN.md`、契約は`appendix_d/docs/Phase1I_JAN名寄せと取扱期間.md`を参照してください。
+実データはまだ提供されていないため、3〜5品目での実受入、元数量照合、業務承認は未実施です。次は実データでPhase 1Kを実行し、その後に重要品目選定、2つ目のOSS、UI、月次再学習へ進みます。
 
 ## 開発管理
 
