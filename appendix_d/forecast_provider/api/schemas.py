@@ -1,69 +1,64 @@
-"""HTTP入出力schema。DB型やFastAPI routeから分離する。"""
+"""HTTP入出力schema。DB型やrouteから分離する。"""
 
-from datetime import date, datetime
+from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ..run_context import cutoff_for_origin
 
-
-class OriginInput(BaseModel):
+class SnapshotCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    origin_date: date
-    cutoff_at: datetime
+    data_uri: str = Field(min_length=1)
+    data_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    feature_versions_uri: str | None = None
+    feature_versions_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    selection_version: str = Field(min_length=1)
+    unique_ids: tuple[str, ...] = Field(min_length=1)
+    train_start: date
+    train_end: date
+    test_start: date
+    test_end: date
+    origin_interval_days: int = Field(ge=1)
+    max_horizon: int = Field(ge=1, le=400)
+    primary_horizon_max: int = Field(ge=1, le=400)
+    report_horizons: tuple[int, ...] = (7, 10, 15)
+    known_future_columns: tuple[str, ...] = ()
+    availability_mode: Literal["ASSUMED", "OBSERVED"] = "ASSUMED"
 
     @model_validator(mode="after")
-    def validate_cutoff(self):
-        if self.cutoff_at.tzinfo is None or self.cutoff_at.utcoffset() is None:
-            raise ValueError("cutoff_atはtimezone付きです")
-        if self.cutoff_at != cutoff_for_origin(self.origin_date):
-            raise ValueError("cutoff_atはorigin翌日00:00 JSTです")
+    def validate_feature_source(self):
+        if (self.feature_versions_uri is None) != (self.feature_versions_sha256 is None):
+            raise ValueError("feature versionsのURIとchecksumは同時に指定します")
+        dynamic = [name for name in self.known_future_columns if not name.startswith("calendar_")]
+        if dynamic and self.feature_versions_uri is None:
+            raise ValueError("変更される将来変数には版テーブルが必要です")
         return self
 
 
-class ExpectationInput(BaseModel):
+class ExperimentCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    unique_id: str = Field(min_length=1)
-    origin_date: date
-    target_date: date
-    horizon: int = Field(ge=1, le=400)
-
-    @model_validator(mode="after")
-    def validate_dates(self):
-        if self.target_date <= self.origin_date:
-            raise ValueError("target_dateはorigin_dateより後です")
-        if self.horizon != (self.target_date - self.origin_date).days:
-            raise ValueError("horizonはtarget_date-origin_dateです")
-        return self
+    snapshot_id: str = Field(min_length=1)
+    provider_id: str = Field(min_length=1)
+    model_name: str = Field(min_length=1)
+    params: dict = Field(default_factory=dict)
+    interval_levels: tuple[float, ...] = ()
+    preprocessing_version: str = Field(min_length=1)
+    seed: int
+    resource_profile: str = Field(min_length=1)
 
 
 class RunCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     experiment_id: str = Field(min_length=1)
-    condition_fingerprint: str = Field(min_length=1)
-    provider_id: str = Field(min_length=1)
-    model_name: str = Field(min_length=1)
-    seed: int
-    origins: tuple[OriginInput, ...] = Field(min_length=1)
-    expectations: tuple[ExpectationInput, ...] = Field(min_length=1)
-
-    @model_validator(mode="after")
-    def validate_plan(self):
-        origins = [item.origin_date for item in self.origins]
-        if len(origins) != len(set(origins)):
-            raise ValueError("origin_dateに重複があります")
-        origin_set = set(origins)
-        if any(item.origin_date not in origin_set for item in self.expectations):
-            raise ValueError("expectationのoriginが未定義です")
-        keys = [(x.unique_id, x.origin_date, x.target_date) for x in self.expectations]
-        if len(keys) != len(set(keys)):
-            raise ValueError("expectationに重複があります")
-        return self
 
 
 class ResumeInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     condition_fingerprint: str = Field(min_length=1)
+
+
+class Created(BaseModel):
+    id: str
 
 
 class RunCreated(BaseModel):

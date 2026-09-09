@@ -28,7 +28,7 @@ kiban-worker = "forecast_provider.worker_process:main"
 include = ["forecast_provider*"]
 
 [tool.setuptools.package-data]
-forecast_provider = ["jobs/migrations/*.sql"]
+forecast_provider = ["jobs/migrations/*.sql", "catalog/*.sql"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

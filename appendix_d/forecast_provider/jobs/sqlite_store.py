@@ -19,6 +19,7 @@ from .contracts import (
     RunSnapshot,
     RunStatus,
 )
+from .results import failure_result, forecast_result, origin_result
 
 
 class StaleLeaseError(RuntimeError):
@@ -355,6 +356,49 @@ class SqliteRunStore:
                     "AND cancellation_requested=0 ORDER BY run_id"
                 )
             )
+
+    def get_model_artifact(self, run_id: str) -> str | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT model_artifact FROM forecast_origins WHERE run_id=? "
+                "AND status='SUCCEEDED' AND model_artifact IS NOT NULL "
+                "ORDER BY origin_date LIMIT 1",
+                (run_id,),
+            ).fetchone()
+            return None if row is None else row["model_artifact"]
+
+    def get_run_results(self, run_id: str) -> dict | None:
+        if self.get_run(run_id) is None:
+            return None
+        with self._connect() as db:
+            return {
+                "origins": [
+                    origin_result(row)
+                    for row in db.execute(
+                        "SELECT origin_date,cutoff_at,status,attempt,model_artifact,"
+                        "context_artifact,error FROM forecast_origins WHERE run_id=? "
+                        "ORDER BY origin_date",
+                        (run_id,),
+                    )
+                ],
+                "values": [
+                    forecast_result(row)
+                    for row in db.execute(
+                        "SELECT unique_id,origin_date,target_date,horizon,forecast_kind,"
+                        "quantile,yhat_raw,yhat FROM forecast_values WHERE run_id=? "
+                        "ORDER BY origin_date,unique_id,target_date,forecast_kind,quantile",
+                        (run_id,),
+                    )
+                ],
+                "failures": [
+                    failure_result(row)
+                    for row in db.execute(
+                        "SELECT origin_date,attempt,error,retryable FROM forecast_failures "
+                        "WHERE run_id=? ORDER BY origin_date,attempt",
+                        (run_id,),
+                    )
+                ],
+            }
 
     def rows(self, table: str) -> list[sqlite3.Row]:
         allowed = {

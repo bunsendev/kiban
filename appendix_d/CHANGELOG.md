@@ -1,5 +1,12 @@
 # v2.9 修正記録
 
+## Phase 1F
+
+- dataset snapshot・実験を版付き内容アドレス方式でSQLite/PostgreSQLへ保存。
+- 保存済み実験だけからrun planを生成するAPIとresult APIを追加。
+- builtin baseline WorkerがModelRef/ContextRefを別プロセスで復元するE2Eを追加。
+- snapshot checksumとknown_at付き将来特徴量の入力契約を追加。
+
 ## Phase 1E
 
 - Bearer認証付きrun作成・状態・キャンセル・再開APIを追加。
