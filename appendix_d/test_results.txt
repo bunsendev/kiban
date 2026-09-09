@@ -1,4 +1,4 @@
-# v2.9 Phase 1I 実行検証記録
+# v2.9 Phase 1J 実行検証記録
 
 Date: 2026-09-09 JST
 OS: Windows 11
@@ -6,24 +6,23 @@ Python: 3.12.14
 pytest: 9.1.1
 ruff: 0.16.6
 
-## Phase 1I
+## Phase 1J
 
-- pytest: 295 passed、FastAPI TestClient由来のdeprecation warning 2件。
+- pytest: 302 passed、FastAPI TestClient由来のdeprecation warning 2件。
 - ruff: All checks passed。
-- 名寄せjob: normalization ID集合と候補policyを内容アドレス方式で固定し、指定順に依存しないIDを確認。
-- 候補: NFKC・大小文字・空白の統一、数字保持、名称類似・日付切替の別閾値、決定論的候補を確認。
-- 監査表示: 原JAN・原商品名・初回/最終日・併存/空白日数・単位・center別合計/日別数量・理由を確認。
-- 安全性: 候補だけではJAN mappingを作らず、採用原本の変更後は旧normalizationのenqueueと実行を拒否。
-- 承認: SAME_PRODUCT、DIFFERENT_PRODUCT、SUCCESSOR、UNRESOLVEDの意味と、承認者・理由・版の不変履歴を確認。
-- 有効期間: JANと商品×centerの両端包含、NULL終了、同じ版の重複拒否を確認。
-- PostgreSQL: SKIP LOCKED claimと期間キー単位advisory lockを静的検査し、PostgreSQL 17実DBでRunStore、catalog、ingestion、normalization、masterの適合を確認。
-- Docker Compose: PostgreSQLのhealthcheck成功、APIの`/health`が`{"status":"ok"}`を返すことを確認。
-- Worker E2E: APIでjob作成→別Python processで候補生成→APIで候補・承認・JAN・取扱期間を取得。
+- 予定完全性: 予定0件、未到着、部分到着、隔離行、範囲不整合、0確定権限を区別することを確認。
+- 日次状態: OBSERVED、CONFIRMED_ZERO、MISSING、NOT_HANDLED、CLOSED、PARTIAL_OR_INVALIDを全暦日へ出力。
+- 時点整合: buildのas_of後に到着した実績・不正行・休業情報を過去状態へ混入させないことを確認。
+- 休業矛盾: 休業日に実出荷がある場合、数量を消さずOBSERVEDとし、確認理由を記録。
+- 再現性: 同じ入力から同じbuild ID、CSV SHA-256、dataset snapshot IDを生成。
+- PostgreSQL: 17 Alpine実DBで原本取込、正規化、JAN/取扱期間、休業日、完全性、日次値、snapshot発行を結合確認。
+- Docker Compose: PostgreSQL healthcheck、API image、日次Worker image、`/health`、日次API 7 path、Worker CLIを確認。
+- Worker E2E: 認証付きAPIでbuild作成後、別Python processで日次値とcatalog snapshotを発行。
 - demo.py: 3系列×365日、2方式、1095予定/方式、失敗0、official ranking成立。
 - scale_check.py: 100系列×1,096日、37起点、POINT 54,500行、POINT＋QUANTILE 218,000行、通期重複0。
 - artifact_demo.py: 別processで再fitなし、24行のPOINT/QUANTILE完全一致。
-- wheel: master schema、route、matching Worker entry pointを含むことを確認。
-- 配布ZIP: 129ファイル、UTF-8 filename flag、SHA256SUMS 129/129一致。
+- wheel: daily schema、PostgreSQL upgrade、route、日次Workerを含むことを確認。
+- 配布ZIP: 154ファイル、UTF-8 filename flag、SHA256SUMS 154/154一致。
 
 ## 実DB検証環境
 

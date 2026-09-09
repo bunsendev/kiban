@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 1J
+
+- 内容アドレス方式の予定ファイル定義とcenter×日付の完全性台帳を追加。
+- 取扱期間、休業日、JAN有効期間、採用済み正規化行から6種類の日次状態を決定。
+- 利用可能時刻を検査し、締切後の原本・実績・休業情報を過去時点へ混入させない。
+- 決定的CSVとSHA-256を発行し、全上流版をprovenanceへ持つdataset snapshotを自動登録。
+- SQLite/PostgreSQL、認証付きAPI、独立日次Worker、Compose、別process適合試験を追加。
+
 ## Phase 1I
 
 - 正規化済み行から決定論的なJAN名寄せ候補を生成する独立Workerを追加。
@@ -43,7 +51,7 @@
 - make_releaseで固定のappendix_dルートを作成し、未登録ファイルも照合する。
 
 以前の修正（全予定・失敗記録、欠損規則統一、POINT分離、固定学習、累計、入力検証）は維持。
-最終検証はtest_results.txtを参照。日次状態確定・UI・実OSS・本番は後続開発。
+最終検証はtest_results.txtを参照。実データ業務受入・UI・実OSS・本番は後続開発。
 
 # Phase 1B（パッケージ版2.9.0維持）
 

@@ -10,6 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from ..catalog import CatalogStore
 from ..errors import ContractViolationError
 from ..jobs.contracts import RunStore
+from .daily_routes import install_daily_routes
 from .ingestion_routes import install_ingestion_routes
 from .master_routes import install_master_routes
 from .normalization_routes import install_normalization_routes
@@ -44,6 +45,7 @@ def create_app(
     ingestion=None,
     normalization=None,
     master=None,
+    daily=None,
 ) -> FastAPI:
     if not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -69,6 +71,9 @@ def create_app(
 
     if master is not None:
         install_master_routes(app, authorize, master)
+
+    if daily is not None:
+        install_daily_routes(app, authorize, daily)
 
     @app.post("/api/snapshots", response_model=Created, status_code=201)
     def create_snapshot(request: SnapshotCreate, _auth: None = Depends(authorize)):

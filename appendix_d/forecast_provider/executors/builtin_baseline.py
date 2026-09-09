@@ -138,6 +138,9 @@ def _read_snapshot(manifest: dict) -> tuple[pd.DataFrame, pd.DataFrame | None]:
     frame = pd.read_csv(path, parse_dates=["ds"])
     if "available_at" in frame:
         frame["available_at"] = pd.to_datetime(frame["available_at"], utc=True)
+    if "daily_state" in frame:
+        excluded = {"MISSING", "NOT_HANDLED", "CLOSED", "PARTIAL_OR_INVALID"}
+        frame.loc[frame["daily_state"].isin(excluded), "y"] = float("nan")
     feature_versions = None
     if manifest.get("feature_versions_uri"):
         feature_path = verify_snapshot_file(

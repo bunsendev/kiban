@@ -36,6 +36,10 @@ def make_snapshot(manifest: dict) -> SnapshotRecord:
     normalized["data_sha256"] = manifest["data_sha256"]
     normalized["feature_versions_uri"] = manifest.get("feature_versions_uri")
     normalized["feature_versions_sha256"] = manifest.get("feature_versions_sha256")
+    if "provenance" in manifest:
+        if not isinstance(manifest["provenance"], dict):
+            raise ValueError("provenanceはobjectです")
+        normalized["provenance"] = manifest["provenance"]
     normalized = json.loads(canonical(normalized))
     identifier = digest(normalized)
     return SnapshotRecord(identifier, FORMAT_VERSION, identifier, normalized)

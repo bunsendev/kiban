@@ -63,9 +63,17 @@ def test_postgres_migration_has_locking_and_business_constraints():
     assert "matching_candidates" in text and "matching_decisions" in text
     assert "jan_mappings_lookup_idx" in text and "handling_periods_lookup_idx" in text
     assert "left_product_id=right_product_id" in text
+    daily_sql = path.parents[2] / "daily" / "schema.sql"
+    text = daily_sql.read_text(encoding="utf-8")
+    assert "daily_file_completeness" in text and "daily_values" in text
+    assert "PARTIAL_OR_INVALID" in text and "zero_confirmable" in text
+    upgrade = (path.parents[2] / "daily" / "postgres_upgrade.sql").read_text(encoding="utf-8")
+    assert upgrade.count("ADD COLUMN IF NOT EXISTS available_at") == 2
     postgres_store = (path.parents[2] / "master" / "postgres_store.py").read_text(encoding="utf-8")
     assert "FOR UPDATE SKIP LOCKED" in postgres_store
     assert postgres_store.count("pg_advisory_xact_lock") == 2
+    daily_store = (path.parents[2] / "daily" / "postgres_store.py").read_text(encoding="utf-8")
+    assert "FOR UPDATE SKIP LOCKED" in daily_store
 
 
 @pytest.mark.skipif(not os.getenv("KIBAN_TEST_POSTGRES_DSN"), reason="PostgreSQL DSN未設定")
