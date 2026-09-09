@@ -13,6 +13,7 @@ from ..jobs.contracts import RunStore
 from .schemas import (
     Created,
     ExperimentCreate,
+    ImportCreate,
     ResumeInput,
     RunCreate,
     RunCreated,
@@ -38,6 +39,7 @@ def create_app(
     catalog: CatalogStore,
     api_token: str,
     snapshot_root: Path | None = None,
+    ingestion=None,
 ) -> FastAPI:
     if not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -54,6 +56,22 @@ def create_app(
     @app.get("/health")
     def health():
         return {"status": "ok"}
+
+    if ingestion is not None:
+
+        @app.post("/api/imports", response_model=Created, status_code=status.HTTP_202_ACCEPTED)
+        def create_import(request: ImportCreate, _auth: None = Depends(authorize)):
+            return Created(id=ingestion.enqueue(request.source_path).import_id)
+
+        @app.get("/api/imports/{import_id}")
+        def get_import(import_id: str, _auth: None = Depends(authorize)):
+            value = ingestion.get_job(import_id)
+            if value is None:
+                raise HTTPException(status_code=404, detail="importが見つかりません")
+            return {
+                **value.__dict__,
+                "files": [item.__dict__ for item in ingestion.list_files(import_id)],
+            }
 
     @app.post("/api/snapshots", response_model=Created, status_code=201)
     def create_snapshot(request: SnapshotCreate, _auth: None = Depends(authorize)):

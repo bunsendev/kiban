@@ -61,6 +61,11 @@ class Created(BaseModel):
     id: str
 
 
+class ImportCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_path: str = Field(min_length=1)
+
+
 class RunCreated(BaseModel):
     run_id: str
     status: str

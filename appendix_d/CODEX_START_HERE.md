@@ -46,6 +46,8 @@ Phase 1EでBearer認証付きrun APIと独立Workerプロセスを追加した�
 
 Phase 1Fで版付きdataset snapshot・実験catalog、保存済み実験からのrun生成、artifactを復元する組込baseline Workerを追加した。詳細は[実験SnapshotとBaseline統合](docs/Phase1F_実験SnapshotとBaseline統合.md)。
 
+Phase 1Gで原本取込job、独立取込Worker、SHA-256原本保存、重複・訂正版候補・隔離台帳を追加した。詳細は[原本取込台帳](docs/Phase1G_原本取込台帳.md)。
+
 統合仕様11章の未実装Contractを整え、原本取込・JAN名寄せ・日次整形、DB、実データ3〜5品目、2つ目のOSS、UI・Worker・再学習の順に進める。
 受入前に実データ検証を行い、人工データだけで精度や業務効果を保証しない。
 

@@ -10,6 +10,7 @@ from test_run_api import snapshot_payload
 
 from forecast_provider.catalog import PostgresCatalogStore
 from forecast_provider.catalog.domain import make_snapshot
+from forecast_provider.ingestion import PostgresIngestionStore
 from forecast_provider.jobs import OriginOutput, PostgresRunStore, RunDefinition
 
 
@@ -29,6 +30,10 @@ def test_postgres_migration_has_locking_and_business_constraints():
     catalog_sql = path.parents[2] / "catalog" / "schema.sql"
     text = catalog_sql.read_text(encoding="utf-8")
     assert "dataset_snapshots" in text and "experiments" in text
+    ingestion_sql = path.parents[2] / "ingestion" / "schema.sql"
+    text = ingestion_sql.read_text(encoding="utf-8")
+    assert "import_jobs" in text and "source_files" in text
+    assert "UNIQUE(import_id, logical_path)" in text
 
 
 @pytest.mark.skipif(not os.getenv("KIBAN_TEST_POSTGRES_DSN"), reason="PostgreSQL DSN未設定")
@@ -49,3 +54,8 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
     snapshot = make_snapshot(snapshot_payload())
     catalog.put_snapshot(snapshot)
     assert catalog.get_snapshot(snapshot.snapshot_id) == snapshot
+    ingestion = PostgresIngestionStore(os.environ["KIBAN_TEST_POSTGRES_DSN"])
+    job = ingestion.enqueue(f"phase1g-{uuid.uuid4()}.csv")
+    assert ingestion.claim().import_id == job.import_id
+    ingestion.finish(job.import_id)
+    assert ingestion.get_job(job.import_id).status == "SUCCEEDED"
