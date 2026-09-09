@@ -129,6 +129,16 @@ class SqliteIngestionStore:
                 )
             ]
 
+    def get_file(self, source_file_id: str) -> SourceFile | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT source_file_id,import_id,logical_path,size_bytes,sha256,encoding,"
+                "status,stored_path,duplicate_of,correction_of,error FROM source_files "
+                "WHERE source_file_id=?",
+                (source_file_id,),
+            ).fetchone()
+            return None if row is None else SourceFile(**dict(row))
+
 
 class PostgresIngestionStore(SqliteIngestionStore):
     def __init__(self, dsn: str):

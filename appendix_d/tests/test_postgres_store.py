@@ -12,6 +12,7 @@ from forecast_provider.catalog import PostgresCatalogStore
 from forecast_provider.catalog.domain import make_snapshot
 from forecast_provider.ingestion import PostgresIngestionStore
 from forecast_provider.jobs import OriginOutput, PostgresRunStore, RunDefinition
+from forecast_provider.normalization import PostgresNormalizationStore, make_mapping
 
 
 def test_postgres_migration_has_locking_and_business_constraints():
@@ -34,6 +35,10 @@ def test_postgres_migration_has_locking_and_business_constraints():
     text = ingestion_sql.read_text(encoding="utf-8")
     assert "import_jobs" in text and "source_files" in text
     assert "UNIQUE(import_id, logical_path)" in text
+    normalization_sql = path.parents[2] / "normalization" / "schema.sql"
+    text = normalization_sql.read_text(encoding="utf-8")
+    assert "column_mappings" in text and "shipment_rows" in text
+    assert "quantity_reconciliations" in text and "source_file_selections" in text
 
 
 @pytest.mark.skipif(not os.getenv("KIBAN_TEST_POSTGRES_DSN"), reason="PostgreSQL DSN未設定")
@@ -59,3 +64,20 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
     assert ingestion.claim().import_id == job.import_id
     ingestion.finish(job.import_id)
     assert ingestion.get_job(job.import_id).status == "SUCCEEDED"
+    normalization = PostgresNormalizationStore(os.environ["KIBAN_TEST_POSTGRES_DSN"])
+    mapping = make_mapping(
+        {
+            "date_column": "date",
+            "jan_column": "jan",
+            "product_name_column": "name",
+            "quantity_column": "quantity",
+            "unit_column": "unit",
+            "center_value": "C1",
+            "date_formats": ["%Y-%m-%d"],
+            "allowed_units": ["PACK"],
+            "availability_mode": "ASSUMED",
+            "file_mode": "FULL",
+        }
+    )
+    normalization.put_mapping(mapping)
+    assert normalization.get_mapping(mapping.mapping_id) == mapping

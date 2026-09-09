@@ -10,10 +10,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from ..catalog import CatalogStore
 from ..errors import ContractViolationError
 from ..jobs.contracts import RunStore
+from .ingestion_routes import install_ingestion_routes
+from .normalization_routes import install_normalization_routes
 from .schemas import (
     Created,
     ExperimentCreate,
-    ImportCreate,
     ResumeInput,
     RunCreate,
     RunCreated,
@@ -40,6 +41,7 @@ def create_app(
     api_token: str,
     snapshot_root: Path | None = None,
     ingestion=None,
+    normalization=None,
 ) -> FastAPI:
     if not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -58,20 +60,10 @@ def create_app(
         return {"status": "ok"}
 
     if ingestion is not None:
+        install_ingestion_routes(app, authorize, ingestion)
 
-        @app.post("/api/imports", response_model=Created, status_code=status.HTTP_202_ACCEPTED)
-        def create_import(request: ImportCreate, _auth: None = Depends(authorize)):
-            return Created(id=ingestion.enqueue(request.source_path).import_id)
-
-        @app.get("/api/imports/{import_id}")
-        def get_import(import_id: str, _auth: None = Depends(authorize)):
-            value = ingestion.get_job(import_id)
-            if value is None:
-                raise HTTPException(status_code=404, detail="importが見つかりません")
-            return {
-                **value.__dict__,
-                "files": [item.__dict__ for item in ingestion.list_files(import_id)],
-            }
+    if normalization is not None:
+        install_normalization_routes(app, authorize, normalization)
 
     @app.post("/api/snapshots", response_model=Created, status_code=201)
     def create_snapshot(request: SnapshotCreate, _auth: None = Depends(authorize)):

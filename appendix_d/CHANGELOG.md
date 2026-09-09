@@ -1,5 +1,12 @@
 # v2.9 修正記録
 
+## Phase 1H
+
+- 内容アドレス方式の版付き列mappingと出荷行正規化jobを追加。
+- 原JAN・原本行を維持し、不正日付・数量・単位・行区分を理由付きで隔離。
+- 訂正版の担当者・理由・decision version付き採用履歴を追加。
+- 数量照合、center×月と隔離理由の品質API、独立正規化Workerを追加。
+
 ## Phase 1G
 
 - 原本取込job APIと独立取込Workerを追加。
