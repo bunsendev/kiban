@@ -8,6 +8,8 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
+from .catalog import PostgresCatalogStore, SqliteCatalogStore
+from .executors import BuiltinBaselineExecutor
 from .jobs import PostgresRunStore, SqliteRunStore, resume_run
 from .jobs.contracts import OriginExecutor, RunStore
 
@@ -22,10 +24,19 @@ def load_executor(spec: str) -> OriginExecutor:
     return value
 
 
-def work_once(store: RunStore, execute: OriginExecutor, worker_id: str) -> int:
+def work_once(
+    store: RunStore, execute: OriginExecutor, worker_id: str, max_origins: int | None = None
+) -> int:
     processed = 0
     for run_id, fingerprint in store.list_runnable_runs():
-        resume_run(store, run_id, fingerprint, execute, worker_id=worker_id)
+        resume_run(
+            store,
+            run_id,
+            fingerprint,
+            execute,
+            worker_id=worker_id,
+            max_origins=max_origins,
+        )
         processed += 1
     return processed
 
@@ -35,15 +46,31 @@ def main(argv: list[str] | None = None) -> int:
     backend = parser.add_mutually_exclusive_group(required=True)
     backend.add_argument("--sqlite", type=Path)
     backend.add_argument("--postgres-dsn")
-    parser.add_argument("--executor", required=True)
+    executor = parser.add_mutually_exclusive_group(required=True)
+    executor.add_argument("--executor")
+    executor.add_argument("--builtin-baseline", action="store_true")
+    parser.add_argument("--artifact-root", type=Path, default=Path("artifact_output/objects"))
+    parser.add_argument("--work-root", type=Path, default=Path("worker_output"))
     parser.add_argument("--worker-id", default="worker-1")
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--poll-seconds", type=float, default=2.0)
+    parser.add_argument("--max-origins", type=int)
     args = parser.parse_args(argv)
-    store = SqliteRunStore(args.sqlite) if args.sqlite else PostgresRunStore(args.postgres_dsn)
-    execute = load_executor(args.executor)
+    if args.max_origins is not None and args.max_origins <= 0:
+        parser.error("--max-originsは正数です")
+    if args.sqlite:
+        store = SqliteRunStore(args.sqlite)
+        catalog = SqliteCatalogStore(args.sqlite)
+    else:
+        store = PostgresRunStore(args.postgres_dsn)
+        catalog = PostgresCatalogStore(args.postgres_dsn)
+    execute = (
+        BuiltinBaselineExecutor(store, catalog, args.artifact_root, args.work_root)
+        if args.builtin_baseline
+        else load_executor(args.executor)
+    )
     while True:
-        work_once(store, execute, args.worker_id)
+        work_once(store, execute, args.worker_id, args.max_origins)
         if args.once:
             return 0
         time.sleep(args.poll_seconds)

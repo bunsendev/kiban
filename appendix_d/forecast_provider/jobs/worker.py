@@ -20,13 +20,17 @@ def resume_run(
     worker_id: str | None = None,
     lease_seconds: int = 60,
     origin_timeout_seconds: float = 600,
+    max_origins: int | None = None,
 ) -> RunStatus:
     """未完了起点だけを実行する。成功済み起点はstoreがclaimしない。"""
     if store.cancellation_requested(run_id):
         return store.finish_run(run_id)
     store.start_or_resume(run_id, condition_fingerprint)
     worker_id = worker_id or str(uuid.uuid4())
+    completed = 0
     while not store.cancellation_requested(run_id):
+        if max_origins is not None and completed >= max_origins:
+            break
         store.reclaim_expired(run_id)
         lease = store.claim_next_origin(run_id, worker_id, lease_seconds)
         if lease is None:
@@ -39,6 +43,7 @@ def resume_run(
             store.fail_origin(lease, type(exc).__name__, retryable=False)
         else:
             store.complete_origin(lease, output)
+        completed += 1
     return store.finish_run(run_id)
 
 

@@ -44,6 +44,8 @@ Phase 1DでPostgreSQL実装、SKIP LOCKED claim、lease/heartbeat、期限切れ
 
 Phase 1EでBearer認証付きrun APIと独立Workerプロセスを追加した。HTTPは台帳操作だけを行い、予測はWorkerのOriginExecutorで実行する。詳細は[APIとWorker process](docs/Phase1E_APIとWorkerProcess.md)。
 
+Phase 1Fで版付きdataset snapshot・実験catalog、保存済み実験からのrun生成、artifactを復元する組込baseline Workerを追加した。詳細は[実験SnapshotとBaseline統合](docs/Phase1F_実験SnapshotとBaseline統合.md)。
+
 統合仕様11章の未実装Contractを整え、原本取込・JAN名寄せ・日次整形、DB、実データ3〜5品目、2つ目のOSS、UI・Worker・再学習の順に進める。
 受入前に実データ検証を行い、人工データだけで精度や業務効果を保証しない。
 

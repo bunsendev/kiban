@@ -19,11 +19,14 @@ services:
     environment:
       KIBAN_POSTGRES_DSN: postgresql://kiban:local-development-only@postgres:5432/kiban
       KIBAN_API_TOKEN: ${KIBAN_API_TOKEN:-change-me-local}
+      KIBAN_SNAPSHOT_ROOT: /var/lib/kiban/snapshots
     ports:
       - "127.0.0.1:58000:8000"
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots:ro
   worker:
     profiles: ["worker"]
     build: .
@@ -31,13 +34,20 @@ services:
       - kiban-worker
       - --postgres-dsn
       - postgresql://kiban:local-development-only@postgres:5432/kiban
-      - --executor
-      - ${KIBAN_EXECUTOR:-deployment.executor:execute}
+      - --builtin-baseline
       - --worker-id
       - worker-compose-1
+      - --artifact-root
+      - /var/lib/kiban/artifacts
+      - --work-root
+      - /var/lib/kiban/work
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - kiban-worker:/var/lib/kiban
+      - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots:ro
 
 volumes:
   kiban-postgres:
+  kiban-worker:

@@ -10,3 +10,5 @@ data/
 *.egg-info/
 build/
 dist/
+snapshot_input/*
+!snapshot_input/.gitkeep
