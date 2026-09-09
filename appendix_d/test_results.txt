@@ -8,7 +8,7 @@ ruff: 0.16.6
 
 ## Phase 1I
 
-- pytest: 293 passed、1 skipped、FastAPI TestClient由来のdeprecation warning 2件。
+- pytest: 295 passed、FastAPI TestClient由来のdeprecation warning 2件。
 - ruff: All checks passed。
 - 名寄せjob: normalization ID集合と候補policyを内容アドレス方式で固定し、指定順に依存しないIDを確認。
 - 候補: NFKC・大小文字・空白の統一、数字保持、名称類似・日付切替の別閾値、決定論的候補を確認。
@@ -16,7 +16,8 @@ ruff: 0.16.6
 - 安全性: 候補だけではJAN mappingを作らず、採用原本の変更後は旧normalizationのenqueueと実行を拒否。
 - 承認: SAME_PRODUCT、DIFFERENT_PRODUCT、SUCCESSOR、UNRESOLVEDの意味と、承認者・理由・版の不変履歴を確認。
 - 有効期間: JANと商品×centerの両端包含、NULL終了、同じ版の重複拒否を確認。
-- PostgreSQL: SKIP LOCKED claimと期間キー単位advisory lockを静的検査。実DB試験は環境制約によりskip。
+- PostgreSQL: SKIP LOCKED claimと期間キー単位advisory lockを静的検査し、PostgreSQL 17実DBでRunStore、catalog、ingestion、normalization、masterの適合を確認。
+- Docker Compose: PostgreSQLのhealthcheck成功、APIの`/health`が`{"status":"ok"}`を返すことを確認。
 - Worker E2E: APIでjob作成→別Python processで候補生成→APIで候補・承認・JAN・取扱期間を取得。
 - demo.py: 3系列×365日、2方式、1095予定/方式、失敗0、official ranking成立。
 - scale_check.py: 100系列×1,096日、37起点、POINT 54,500行、POINT＋QUANTILE 218,000行、通期重複0。
@@ -24,6 +25,6 @@ ruff: 0.16.6
 - wheel: master schema、route、matching Worker entry pointを含むことを確認。
 - 配布ZIP: 129ファイル、UTF-8 filename flag、SHA256SUMS 129/129一致。
 
-## 環境制約
+## 実DB検証環境
 
-この端末にはDocker、psql、PostgreSQL serviceがないため、PostgreSQL実DB適合試験1件とCompose起動は未実施。DSN設定済みCIではPostgreSQL試験を実行する。
+Docker Desktop 4.90.0、Docker Engine 29.7.2、PostgreSQL 17 Alpineを使用。PostgreSQLは`127.0.0.1:55432`、APIは`127.0.0.1:58000`で起動して検証した。
