@@ -149,7 +149,10 @@ class ImportProcessor:
 
 
 def _strict_encoding(data: bytes) -> tuple[str | None, str | None]:
-    for encoding in ("utf-8-sig", "utf-8", "cp932"):
+    encodings = (
+        ("utf-8-sig", "utf-8", "cp932") if data.startswith(b"\xef\xbb\xbf") else ("utf-8", "cp932")
+    )
+    for encoding in encodings:
         try:
             text = data.decode(encoding, errors="strict")
             if "\ufffd" not in text:

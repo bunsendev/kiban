@@ -1,4 +1,4 @@
-# v2.9 Phase 1G 実行検証記録
+# v2.9 Phase 1H 実行検証記録
 
 Date: 2026-09-09 JST
 OS: Windows 11
@@ -6,16 +6,20 @@ Python: 3.12.14
 pytest: 9.1.1
 ruff: 0.16.6
 
-## Phase 1G
+## Phase 1H
 
-- pytest: 279 passed、1 skipped、FastAPI TestClient由来のdeprecation warning 2件。
+- pytest: 286 passed、1 skipped、FastAPI TestClient由来のdeprecation warning 2件。
 - ruff: All checks passed。
-- 取込: UTF-8 BOM/UTF-8/CP932厳密判定、ファイル単位隔離、SHA-256原本保存を確認。
-- 重複・訂正: 同一hashをDUPLICATE、同一論理pathの異なる内容をCORRECTION_CANDIDATEとして確認。
-- 安全性: root逸脱、symbolic link、ZIP traversal、同名衝突、ファイル数・容量制限を実装。
-- E2E: APIでjob作成後、別Pythonプロセスの取込Workerが完了し結果APIでACCEPTEDを確認。
+- mapping: 内容アドレスID、不変保存、必須列・列重複・日付形式・単位・availability・file mode契約を確認。
+- 行正規化: 原JAN先頭0、原商品名、原本ID・行番号を維持し、日付・数量・単位・行区分を検証。
+- 隔離: 非数・非有限・負数量、不明単位、返品・取消、timezoneなしavailable_atを理由付きで隔離。
+- 時点: ASSUMEDの翌日00:00 JST生成とOBSERVEDのtimezone必須・UTC保存を確認。
+- 訂正: decision version・担当者・理由付きの明示採用、選択履歴、新版採用後の旧版抑止を確認。
+- 数量照合: parse可能・採用・隔離数量と未説明差分0を確認。
+- E2E: APIでmapping/job作成後、別PythonプロセスWorkerが正規化し、結果・品質APIで確認。
+- 改ざん: 保存原本のchecksum不一致で行0件・job FAILEDを確認。
 - demo、scale_check、artifact_demo: 成功。scaleは37起点、POINT 54,500行、総行218,000、重複0。artifactは24行完全一致。
-- 配布ZIP: 103ファイルを生成しchecksumを照合。
+- 配布ZIP: 116ファイル。UTF-8 flagとchecksumを確認。
 
 ## 環境制約
 

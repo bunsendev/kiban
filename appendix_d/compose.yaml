@@ -64,6 +64,18 @@ services:
     volumes:
       - ${KIBAN_IMPORT_DIR:-./import_input}:/var/lib/kiban/import-input:ro
       - ${KIBAN_RAW_ARCHIVE_DIR:-./raw_archive}:/var/lib/kiban/raw-archive
+  normalization-worker:
+    profiles: ["worker"]
+    build: .
+    command:
+      - kiban-normalization-worker
+      - --postgres-dsn
+      - postgresql://kiban:local-development-only@postgres:5432/kiban
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${KIBAN_RAW_ARCHIVE_DIR:-./raw_archive}:/var/lib/kiban/raw-archive:ro
 
 volumes:
   kiban-postgres:

@@ -24,12 +24,18 @@ test = ["httpx>=0.27,<1"]
 [project.scripts]
 kiban-worker = "forecast_provider.worker_process:main"
 kiban-import-worker = "forecast_provider.ingestion_worker:main"
+kiban-normalization-worker = "forecast_provider.normalization_worker:main"
 
 [tool.setuptools.packages.find]
 include = ["forecast_provider*"]
 
 [tool.setuptools.package-data]
-forecast_provider = ["jobs/migrations/*.sql", "catalog/*.sql", "ingestion/*.sql"]
+forecast_provider = [
+    "jobs/migrations/*.sql",
+    "catalog/*.sql",
+    "ingestion/*.sql",
+    "normalization/*.sql",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

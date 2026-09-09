@@ -75,5 +75,9 @@ API依存は`pip install -e ".[api,postgres]"`で追加する。`KIBAN_POSTGRES_
 
 入力ファイル・フォルダ・ZIPを`KIBAN_IMPORT_DIR`へ置き、`POST /api/imports`へrootからの相対pathを指定する。`kiban-import-worker --postgres-dsn <DSN> --input-root <DIR> --archive-root <DIR>`がHTTP外で処理する。詳細は[原本取込台帳](docs/Phase1G_原本取込台帳.md)。
 
+## 出荷行正規化
+
+`POST /api/mappings`で明示的な列mappingを登録し、採用原本IDとmapping IDを`POST /api/normalizations`へ指定する。`kiban-normalization-worker --postgres-dsn <DSN>`が別プロセスで正規化し、結果は`GET /api/normalizations/{id}`、集計は`GET /api/quality`で確認する。訂正版候補は`POST /api/source-selections`による担当者・理由付きの採用が必要。詳細は[出荷行正規化と数量照合](docs/Phase1H_出荷行正規化と数量照合.md)。
+
 旧版のModelRef/stateは再利用せずfitから実行します。v2.8の生データ将来列はknown_at付き版へ移行します。
 元の提出ZIPは変更していません。既存プロジェクトへ導入する際は作業ブランチで差分を確認してください。

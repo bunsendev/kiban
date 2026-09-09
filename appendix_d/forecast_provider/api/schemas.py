@@ -66,6 +66,38 @@ class ImportCreate(BaseModel):
     source_path: str = Field(min_length=1)
 
 
+class MappingCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    date_column: str = Field(min_length=1)
+    jan_column: str = Field(min_length=1)
+    product_name_column: str = Field(min_length=1)
+    quantity_column: str = Field(min_length=1)
+    unit_column: str = Field(min_length=1)
+    center_column: str | None = None
+    center_value: str | None = None
+    row_type_column: str | None = None
+    available_at_column: str | None = None
+    date_formats: list[str] = Field(min_length=1)
+    allowed_units: list[str] = Field(min_length=1)
+    availability_mode: Literal["ASSUMED", "OBSERVED"]
+    file_mode: Literal["FULL", "DELTA"]
+
+
+class SourceSelectionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    logical_path: str = Field(min_length=1)
+    source_file_id: str = Field(min_length=1)
+    decision_version: str = Field(min_length=1)
+    decided_by: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+
+class NormalizationCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_file_id: str = Field(min_length=1)
+    mapping_id: str = Field(min_length=1)
+
+
 class RunCreated(BaseModel):
     run_id: str
     status: str
