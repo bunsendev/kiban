@@ -16,3 +16,5 @@ import_input/*
 !import_input/.gitkeep
 raw_archive/*
 !raw_archive/.gitkeep
+acceptance_output/*
+!acceptance_output/.gitkeep

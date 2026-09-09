@@ -23,6 +23,21 @@ HEADER = (
 
 
 def publish_daily_csv(values: list[DailyValue], output_root: Path) -> tuple[str, str]:
+    payload = render_daily_csv(values)
+    checksum = hashlib.sha256(payload).hexdigest()
+    target = output_root.resolve() / "daily" / f"{checksum}.csv"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        if target.read_bytes() != payload:
+            raise ValueError("同じchecksumの出力内容が一致しません")
+    else:
+        temporary = target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp")
+        temporary.write_bytes(payload)
+        os.replace(temporary, target)
+    return target.as_uri(), checksum
+
+
+def render_daily_csv(values: list[DailyValue]) -> bytes:
     ordered = sorted(values, key=lambda item: (item.unique_id, item.ds))
     stream = io.StringIO(newline="")
     writer = csv.writer(stream, lineterminator="\n")
@@ -41,15 +56,4 @@ def publish_daily_csv(values: list[DailyValue], output_root: Path) -> tuple[str,
                 item.issue or "",
             )
         )
-    payload = stream.getvalue().encode("utf-8")
-    checksum = hashlib.sha256(payload).hexdigest()
-    target = output_root.resolve() / "daily" / f"{checksum}.csv"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if target.exists():
-        if target.read_bytes() != payload:
-            raise ValueError("同じchecksumの出力内容が一致しません")
-    else:
-        temporary = target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp")
-        temporary.write_bytes(payload)
-        os.replace(temporary, target)
-    return target.as_uri(), checksum
+    return stream.getvalue().encode("utf-8")

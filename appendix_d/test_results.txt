@@ -1,10 +1,29 @@
-# v2.9 Phase 1J 実行検証記録
+# v2.9 Phase 1K 実行検証記録
 
-Date: 2026-09-09 JST
+Date: 2026-09-10 JST
 OS: Windows 11
 Python: 3.12.14
 pytest: 9.1.1
 ruff: 0.16.6
+
+## Phase 1K
+
+- pytest: 全313件、FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- 受入case: 日次build、重複のない3〜5品目、availability mode、利用可能日数、欠測率・不完全率を内容アドレス方式で凍結。
+- 技術判定: build、品目範囲、snapshot接続、artifact checksum、全暦日行、系列別品質を10項目で確認。
+- 改変検出: 発行済みCSVが正しくても日次台帳だけが変わった場合、再生成checksumの不一致で受入失敗になることを確認。
+- 匿名データ: 3品目fixtureは`DRY_RUN`となり、`APPROVED`が拒否されることを確認。
+- 業務判断: `REAL`かつ技術判定`PASSED`のcaseだけを、担当者・理由・decision version付きで承認可能。
+- 再現性: 同じcaseと日次buildからJSON/MarkdownレポートのSHA-256が一致。
+- PostgreSQL: 17 Alpine実DBで3品目、9日次行、snapshot、CSV、受入case、全10チェックを結合確認。
+- Docker Compose: APIと受入Worker image、`/health`、受入API 4 path・5 operation、Worker CLIを確認。
+- 配布保護: 原本、取込入力、snapshot、受入レポートの実行時領域を配布ZIPから除外。
+- demo.py: 3系列×365日、2方式、1095予定/方式、失敗0、official ranking成立。
+- scale_check.py: 100系列×1,096日、37起点、POINT 54,500行、POINT＋QUANTILE 218,000行、通期重複0。
+- artifact_demo.py: 別processで再fitなし、24行のPOINT/QUANTILE完全一致。
+- wheel: acceptance schema、route、受入Workerを含むことを確認。
+- 配布ZIP: 169ファイル、UTF-8 filename flag、SHA256SUMS 169/169一致。
 
 ## Phase 1J
 

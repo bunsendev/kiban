@@ -26,6 +26,10 @@ EXCLUDE_DIRS = {
     ".ruff_cache",
     "demo_output",
     "artifact_output",
+    "snapshot_input",
+    "import_input",
+    "raw_archive",
+    "acceptance_output",
     "build",
     "dist",
 }

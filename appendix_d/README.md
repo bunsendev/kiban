@@ -2,7 +2,7 @@
 
 v2.8レビューの指摘を反映した予測・比較コアです。
 コード、全体仕様、統合仕様、開始ガイド、テスト、人工データデモ、検証記録を同梱しています。
-予定完全性と日次状態確定まで実装済みです。UI、実OSSアダプター、本番運用は後続開発です。
+予定完全性、日次状態、少数実品目の受入判定基盤まで実装済みです。実データでの受入実行、UI、実OSSアダプター、本番運用は後続開発です。
 
 ## 最初に読む
 
@@ -86,6 +86,10 @@ API依存は`pip install -e ".[api,postgres]"`で追加する。`KIBAN_POSTGRES_
 ## 日次状態とdataset snapshot
 
 `POST /api/file-schedules`で予定された論理ファイルを固定し、必要に応じて`POST /api/closed-days`で時点付き休業日を登録する。採用済みnormalization、JAN版、取扱期間版、選定系列、TRAIN/TEST期間を`POST /api/daily-builds`へ指定すると、`kiban-daily-worker --postgres-dsn <DSN> --output-root <DIR>`が6種類の日次状態を決定し、checksum付きsnapshotをcatalogへ登録する。Dockerでは`docker compose --profile worker up -d --build daily-worker`で日次Workerだけを起動できる。詳細は[予定完全性と日次状態](docs/Phase1J_予定完全性と日次状態.md)。
+
+## 少数実品目の受入判定
+
+`POST /api/acceptance-cases`で成功済み日次build、3〜5品目、availability mode、品質閾値を凍結する。`kiban-acceptance-worker --postgres-dsn <DSN> --output-root <DIR>`はsnapshot接続、CSV checksum、全暦日行、系列別利用可能日数・欠測率・不完全率を検査し、JSON/Markdownレポートを発行する。匿名データは`DRY_RUN`となり、実データ受入として承認できない。詳細は[少数実品目の受入](docs/Phase1K_少数実品目受入.md)。
 
 旧版のModelRef/stateは再利用せずfitから実行します。v2.8の生データ将来列はknown_at付き版へ移行します。
 元の提出ZIPは変更していません。既存プロジェクトへ導入する際は作業ブランチで差分を確認してください。
