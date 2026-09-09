@@ -1,5 +1,12 @@
 # v2.9 修正記録
 
+## Phase 1I
+
+- 正規化済み行から決定論的なJAN名寄せ候補を生成する独立Workerを追加。
+- 名称一致だけでは統合せず、4種類の承認判断と監査情報を追加。
+- canonical product、両端包含のJAN有効期間、商品×center取扱期間を追加。
+- SQLite/PostgreSQLで同じ版の期間競合を防止する台帳と認証付きAPIを追加。
+
 ## Phase 1H
 
 - 内容アドレス方式の版付き列mappingと出荷行正規化jobを追加。
@@ -36,7 +43,7 @@
 - make_releaseで固定のappendix_dルートを作成し、未登録ファイルも照合する。
 
 以前の修正（全予定・失敗記録、欠損規則統一、POINT分離、固定学習、累計、入力検証）は維持。
-最終検証はtest_results.txtを参照。原本取込・名寄せ・DB/API/UI・実OSS・本番は後続開発。
+最終検証はtest_results.txtを参照。日次状態確定・UI・実OSS・本番は後続開発。
 
 # Phase 1B（パッケージ版2.9.0維持）
 

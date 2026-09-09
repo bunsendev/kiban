@@ -6,6 +6,7 @@ from pathlib import Path
 from ..catalog import PostgresCatalogStore
 from ..ingestion import PostgresIngestionStore
 from ..jobs import PostgresRunStore
+from ..master import PostgresMasterStore
 from ..normalization import PostgresNormalizationStore
 from .app import create_app
 
@@ -25,4 +26,5 @@ def from_environment():
         Path(root),
         PostgresIngestionStore(dsn),
         PostgresNormalizationStore(dsn),
+        PostgresMasterStore(dsn),
     )

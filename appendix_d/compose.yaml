@@ -76,6 +76,16 @@ services:
         condition: service_healthy
     volumes:
       - ${KIBAN_RAW_ARCHIVE_DIR:-./raw_archive}:/var/lib/kiban/raw-archive:ro
+  matching-worker:
+    profiles: ["worker"]
+    build: .
+    command:
+      - kiban-matching-worker
+      - --postgres-dsn
+      - postgresql://kiban:local-development-only@postgres:5432/kiban
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   kiban-postgres:

@@ -1,4 +1,4 @@
-# v2.9 Phase 1H 実行検証記録
+# v2.9 Phase 1I 実行検証記録
 
 Date: 2026-09-09 JST
 OS: Windows 11
@@ -6,20 +6,23 @@ Python: 3.12.14
 pytest: 9.1.1
 ruff: 0.16.6
 
-## Phase 1H
+## Phase 1I
 
-- pytest: 286 passed、1 skipped、FastAPI TestClient由来のdeprecation warning 2件。
+- pytest: 293 passed、1 skipped、FastAPI TestClient由来のdeprecation warning 2件。
 - ruff: All checks passed。
-- mapping: 内容アドレスID、不変保存、必須列・列重複・日付形式・単位・availability・file mode契約を確認。
-- 行正規化: 原JAN先頭0、原商品名、原本ID・行番号を維持し、日付・数量・単位・行区分を検証。
-- 隔離: 非数・非有限・負数量、不明単位、返品・取消、timezoneなしavailable_atを理由付きで隔離。
-- 時点: ASSUMEDの翌日00:00 JST生成とOBSERVEDのtimezone必須・UTC保存を確認。
-- 訂正: decision version・担当者・理由付きの明示採用、選択履歴、新版採用後の旧版抑止を確認。
-- 数量照合: parse可能・採用・隔離数量と未説明差分0を確認。
-- E2E: APIでmapping/job作成後、別PythonプロセスWorkerが正規化し、結果・品質APIで確認。
-- 改ざん: 保存原本のchecksum不一致で行0件・job FAILEDを確認。
-- demo、scale_check、artifact_demo: 成功。scaleは37起点、POINT 54,500行、総行218,000、重複0。artifactは24行完全一致。
-- 配布ZIP: 116ファイル。UTF-8 flagとchecksumを確認。
+- 名寄せjob: normalization ID集合と候補policyを内容アドレス方式で固定し、指定順に依存しないIDを確認。
+- 候補: NFKC・大小文字・空白の統一、数字保持、名称類似・日付切替の別閾値、決定論的候補を確認。
+- 監査表示: 原JAN・原商品名・初回/最終日・併存/空白日数・単位・center別合計/日別数量・理由を確認。
+- 安全性: 候補だけではJAN mappingを作らず、採用原本の変更後は旧normalizationのenqueueと実行を拒否。
+- 承認: SAME_PRODUCT、DIFFERENT_PRODUCT、SUCCESSOR、UNRESOLVEDの意味と、承認者・理由・版の不変履歴を確認。
+- 有効期間: JANと商品×centerの両端包含、NULL終了、同じ版の重複拒否を確認。
+- PostgreSQL: SKIP LOCKED claimと期間キー単位advisory lockを静的検査。実DB試験は環境制約によりskip。
+- Worker E2E: APIでjob作成→別Python processで候補生成→APIで候補・承認・JAN・取扱期間を取得。
+- demo.py: 3系列×365日、2方式、1095予定/方式、失敗0、official ranking成立。
+- scale_check.py: 100系列×1,096日、37起点、POINT 54,500行、POINT＋QUANTILE 218,000行、通期重複0。
+- artifact_demo.py: 別processで再fitなし、24行のPOINT/QUANTILE完全一致。
+- wheel: master schema、route、matching Worker entry pointを含むことを確認。
+- 配布ZIP: 129ファイル、UTF-8 filename flag、SHA256SUMS 129/129一致。
 
 ## 環境制約
 
