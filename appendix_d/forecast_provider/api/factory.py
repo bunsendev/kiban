@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from ..catalog import PostgresCatalogStore
+from ..ingestion import PostgresIngestionStore
 from ..jobs import PostgresRunStore
 from .app import create_app
 
@@ -16,4 +17,10 @@ def from_environment():
         raise RuntimeError(
             "KIBAN_POSTGRES_DSN、KIBAN_API_TOKEN、KIBAN_SNAPSHOT_ROOTを設定してください"
         )
-    return create_app(PostgresRunStore(dsn), PostgresCatalogStore(dsn), token, Path(root))
+    return create_app(
+        PostgresRunStore(dsn),
+        PostgresCatalogStore(dsn),
+        token,
+        Path(root),
+        PostgresIngestionStore(dsn),
+    )

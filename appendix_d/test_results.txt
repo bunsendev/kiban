@@ -1,27 +1,21 @@
-# v2.9 Phase 1F 実行検証記録
+# v2.9 Phase 1G 実行検証記録
 
 Date: 2026-09-09 JST
 OS: Windows 11
 Python: 3.12.14
-pandas: 2.2.3
-numpy: 2.3.5
 pytest: 9.1.1
 ruff: 0.16.6
-FastAPI: 0.141.1
 
-## Phase 1F
+## Phase 1G
 
-- pytest: 274 passed、1 skipped、FastAPI TestClient由来のdeprecation warning 2件。
+- pytest: 279 passed、1 skipped、FastAPI TestClient由来のdeprecation warning 2件。
 - ruff: All checks passed。
-- catalog: snapshot・experimentの内容アドレスID、不変保存、SQLite互換追加、PostgreSQL schemaを確認。
-- API: snapshot/experiment作成・取得、保存済みexperimentだけからのrun作成、結果取得、Bearer認証を確認。
-- E2E: API作成から2つの別Workerプロセスを実行し、同じmodel artifactを復元、44予測行と最終SUCCEEDEDを確認。
-- failure E2E: 改ざんsnapshotで予測0行、失敗2件、最終FAILEDを確認。
-- demo: 成功。
-- scale_check: 37起点、通期評価成立、profile (10,10)、POINT 54,500行、総行218,000、365日/系列、重複0。
-- artifact_demo: 24行のPOINT/QUANTILEが別プロセス復元後も完全一致。
-- wheel: catalog schema、builtin executor、API、run migration、kiban-worker entry pointの同梱を確認。
-- 配布ZIP: 93ファイル、UTF-8 flagとchecksumを確認。
+- 取込: UTF-8 BOM/UTF-8/CP932厳密判定、ファイル単位隔離、SHA-256原本保存を確認。
+- 重複・訂正: 同一hashをDUPLICATE、同一論理pathの異なる内容をCORRECTION_CANDIDATEとして確認。
+- 安全性: root逸脱、symbolic link、ZIP traversal、同名衝突、ファイル数・容量制限を実装。
+- E2E: APIでjob作成後、別Pythonプロセスの取込Workerが完了し結果APIでACCEPTEDを確認。
+- demo、scale_check、artifact_demo: 成功。scaleは37起点、POINT 54,500行、総行218,000、重複0。artifactは24行完全一致。
+- 配布ZIP: 103ファイルを生成しchecksumを照合。
 
 ## 環境制約
 

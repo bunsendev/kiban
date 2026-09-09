@@ -71,5 +71,9 @@ test_results.txtはこの版の実測記録です。依存はrequirementsファ�
 API依存は`pip install -e ".[api,postgres]"`で追加する。`KIBAN_POSTGRES_DSN`、`KIBAN_API_TOKEN`、`KIBAN_SNAPSHOT_ROOT`を設定し、`uvicorn forecast_provider.api.factory:from_environment --factory`で起動する。snapshotと実験を登録後、保存済みexperiment IDからrunを作る。組込baseline Workerは`kiban-worker --postgres-dsn <DSN> --builtin-baseline --artifact-root <DIR> --work-root <DIR> --worker-id <ID>`で起動する。詳細は[実験SnapshotとBaseline統合](docs/Phase1F_実験SnapshotとBaseline統合.md)。
 ソース編集後、ハッシュ再生成前の配布整合テスト失敗は想定内ですが、その状態で出荷しないでください。
 
+## 原本取込
+
+入力ファイル・フォルダ・ZIPを`KIBAN_IMPORT_DIR`へ置き、`POST /api/imports`へrootからの相対pathを指定する。`kiban-import-worker --postgres-dsn <DSN> --input-root <DIR> --archive-root <DIR>`がHTTP外で処理する。詳細は[原本取込台帳](docs/Phase1G_原本取込台帳.md)。
+
 旧版のModelRef/stateは再利用せずfitから実行します。v2.8の生データ将来列はknown_at付き版へ移行します。
 元の提出ZIPは変更していません。既存プロジェクトへ導入する際は作業ブランチで差分を確認してください。

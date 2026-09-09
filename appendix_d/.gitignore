@@ -12,3 +12,7 @@ build/
 dist/
 snapshot_input/*
 !snapshot_input/.gitkeep
+import_input/*
+!import_input/.gitkeep
+raw_archive/*
+!raw_archive/.gitkeep

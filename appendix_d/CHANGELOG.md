@@ -1,5 +1,11 @@
 # v2.9 修正記録
 
+## Phase 1G
+
+- 原本取込job APIと独立取込Workerを追加。
+- ZIP traversal・容量・同名衝突検査と文字コード隔離を追加。
+- SHA-256原本保存、重複、訂正版候補をSQLite/PostgreSQL台帳へ記録。
+
 ## Phase 1F
 
 - dataset snapshot・実験を版付き内容アドレス方式でSQLite/PostgreSQLへ保存。
