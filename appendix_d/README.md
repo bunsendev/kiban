@@ -2,7 +2,7 @@
 
 v2.8レビューの指摘を反映した予測・比較コアです。
 コード、全体仕様、統合仕様、開始ガイド、テスト、人工データデモ、検証記録を同梱しています。
-日次状態確定、UI、実OSSアダプター、本番運用は後続開発です。
+予定完全性と日次状態確定まで実装済みです。UI、実OSSアダプター、本番運用は後続開発です。
 
 ## 最初に読む
 
@@ -82,6 +82,10 @@ API依存は`pip install -e ".[api,postgres]"`で追加する。`KIBAN_POSTGRES_
 ## JAN名寄せと取扱期間
 
 成功済みnormalization IDを`POST /api/matching/jobs`へ指定し、`kiban-matching-worker --postgres-dsn <DSN>`で候補を生成する。名称一致だけで自動統合せず、canonical productを作成して4種類の判断を承認者・理由・版付きで記録する。JAN有効期間と商品×center取扱期間は両端を含み、同じ版の重複を拒否する。詳細は[JAN名寄せと取扱期間](docs/Phase1I_JAN名寄せと取扱期間.md)。
+
+## 日次状態とdataset snapshot
+
+`POST /api/file-schedules`で予定された論理ファイルを固定し、必要に応じて`POST /api/closed-days`で時点付き休業日を登録する。採用済みnormalization、JAN版、取扱期間版、選定系列、TRAIN/TEST期間を`POST /api/daily-builds`へ指定すると、`kiban-daily-worker --postgres-dsn <DSN> --output-root <DIR>`が6種類の日次状態を決定し、checksum付きsnapshotをcatalogへ登録する。Dockerでは`docker compose --profile worker up -d --build daily-worker`で日次Workerだけを起動できる。詳細は[予定完全性と日次状態](docs/Phase1J_予定完全性と日次状態.md)。
 
 旧版のModelRef/stateは再利用せずfitから実行します。v2.8の生データ将来列はknown_at付き版へ移行します。
 元の提出ZIPは変更していません。既存プロジェクトへ導入する際は作業ブランチで差分を確認してください。

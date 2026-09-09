@@ -86,6 +86,20 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+  daily-worker:
+    profiles: ["worker"]
+    build: .
+    command:
+      - kiban-daily-worker
+      - --postgres-dsn
+      - postgresql://kiban:local-development-only@postgres:5432/kiban
+      - --output-root
+      - /var/lib/kiban/snapshots
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots
 
 volumes:
   kiban-postgres:

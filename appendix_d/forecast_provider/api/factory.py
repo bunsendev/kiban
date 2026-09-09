@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from ..catalog import PostgresCatalogStore
+from ..daily import PostgresDailyStore
 from ..ingestion import PostgresIngestionStore
 from ..jobs import PostgresRunStore
 from ..master import PostgresMasterStore
@@ -27,4 +28,5 @@ def from_environment():
         PostgresIngestionStore(dsn),
         PostgresNormalizationStore(dsn),
         PostgresMasterStore(dsn),
+        PostgresDailyStore(dsn),
     )

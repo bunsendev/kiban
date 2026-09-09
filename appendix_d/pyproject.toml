@@ -26,6 +26,7 @@ kiban-worker = "forecast_provider.worker_process:main"
 kiban-import-worker = "forecast_provider.ingestion_worker:main"
 kiban-normalization-worker = "forecast_provider.normalization_worker:main"
 kiban-matching-worker = "forecast_provider.matching_worker:main"
+kiban-daily-worker = "forecast_provider.daily_worker:main"
 
 [tool.setuptools.packages.find]
 include = ["forecast_provider*"]
@@ -37,6 +38,7 @@ forecast_provider = [
     "ingestion/*.sql",
     "normalization/*.sql",
     "master/*.sql",
+    "daily/*.sql",
 ]
 
 [tool.pytest.ini_options]
