@@ -11,6 +11,19 @@ from .sqlite_store import SqliteRunStore
 
 
 class _HybridRow(dict):
+    """PostgreSQLの型をSQLiteストアと同じ値表現で公開する。"""
+
+    def __init__(self, row) -> None:
+        super().__init__((key, self._normalize(value)) for key, value in row.items())
+
+    @staticmethod
+    def _normalize(value):
+        if isinstance(value, (date, datetime)):
+            return value.isoformat()
+        if isinstance(value, uuid.UUID):
+            return str(value)
+        return value
+
     def __getitem__(self, key):
         if isinstance(key, int):
             return tuple(self.values())[key]
