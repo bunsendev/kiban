@@ -2,6 +2,7 @@
 
 import os
 import uuid
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
@@ -12,8 +13,25 @@ from forecast_provider.catalog import PostgresCatalogStore
 from forecast_provider.catalog.domain import make_snapshot
 from forecast_provider.ingestion import PostgresIngestionStore
 from forecast_provider.jobs import OriginOutput, PostgresRunStore, RunDefinition
+from forecast_provider.jobs.postgres_store import _HybridRow
 from forecast_provider.master import PostgresMasterStore, make_product
 from forecast_provider.normalization import PostgresNormalizationStore, make_mapping
+
+
+def test_postgres_row_uses_sqlite_compatible_temporal_and_uuid_values():
+    token = uuid.uuid4()
+    row = _HybridRow(
+        {
+            "origin_date": date(2026, 1, 1),
+            "cutoff_at": datetime(2026, 1, 1, tzinfo=UTC),
+            "lease_token": token,
+        }
+    )
+
+    assert row["origin_date"] == "2026-01-01"
+    assert row["cutoff_at"] == "2026-01-01T00:00:00+00:00"
+    assert row["lease_token"] == str(token)
+    assert row[0] == row["origin_date"]
 
 
 def test_postgres_migration_has_locking_and_business_constraints():
