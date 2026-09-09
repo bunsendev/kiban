@@ -12,6 +12,7 @@ from forecast_provider.catalog import PostgresCatalogStore
 from forecast_provider.catalog.domain import make_snapshot
 from forecast_provider.ingestion import PostgresIngestionStore
 from forecast_provider.jobs import OriginOutput, PostgresRunStore, RunDefinition
+from forecast_provider.master import PostgresMasterStore, make_product
 from forecast_provider.normalization import PostgresNormalizationStore, make_mapping
 
 
@@ -39,6 +40,14 @@ def test_postgres_migration_has_locking_and_business_constraints():
     text = normalization_sql.read_text(encoding="utf-8")
     assert "column_mappings" in text and "shipment_rows" in text
     assert "quantity_reconciliations" in text and "source_file_selections" in text
+    master_sql = path.parents[2] / "master" / "schema.sql"
+    text = master_sql.read_text(encoding="utf-8")
+    assert "matching_candidates" in text and "matching_decisions" in text
+    assert "jan_mappings_lookup_idx" in text and "handling_periods_lookup_idx" in text
+    assert "left_product_id=right_product_id" in text
+    postgres_store = (path.parents[2] / "master" / "postgres_store.py").read_text(encoding="utf-8")
+    assert "FOR UPDATE SKIP LOCKED" in postgres_store
+    assert postgres_store.count("pg_advisory_xact_lock") == 2
 
 
 @pytest.mark.skipif(not os.getenv("KIBAN_TEST_POSTGRES_DSN"), reason="PostgreSQL DSN未設定")
@@ -81,3 +90,12 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
     )
     normalization.put_mapping(mapping)
     assert normalization.get_mapping(mapping.mapping_id) == mapping
+    master = PostgresMasterStore(os.environ["KIBAN_TEST_POSTGRES_DSN"])
+    product = make_product(
+        f"PostgreSQL確認-{uuid.uuid4()}", "test@example.test", "live store適合確認"
+    )
+    master.put_product(product)
+    assert any(
+        value["canonical_product_id"] == product.canonical_product_id
+        for value in master.list_products()
+    )

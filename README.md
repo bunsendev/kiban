@@ -6,11 +6,13 @@ v2.9基準版から段階的に拡張する予測・比較基盤の実装と計�
 - `planning/CODEX_IMPLEMENTATION_INSTRUCTION_v2.9_PHASE1A.md`: 提供された実装指示書。
 - `planning/PHASE1A_PLAN.md`: モジュール構成・実装順序・検証計画。
 
-Phase 1A〜1Gはマージ済みです。Phase 1Fでは版付きdataset snapshot・実験catalog、保存済み実験からのrun作成、artifactを復元する組込baseline Workerを統合しました。計画は`planning/PHASE1F_PLAN.md`、契約は`appendix_d/docs/Phase1F_実験SnapshotとBaseline統合.md`を参照してください。
+Phase 1A〜1Hはマージ済みです。Phase 1Fでは版付きdataset snapshot・実験catalog、保存済み実験からのrun作成、artifactを復元する組込baseline Workerを統合しました。計画は`planning/PHASE1F_PLAN.md`、契約は`appendix_d/docs/Phase1F_実験SnapshotとBaseline統合.md`を参照してください。
 
 Phase 1Gでは、原本の安全な取込job、SHA-256不変保存、重複・訂正版候補・隔離の監査台帳を追加しました。計画は`planning/PHASE1G_PLAN.md`、契約は`appendix_d/docs/Phase1G_原本取込台帳.md`を参照してください。
 
-Phase 1Hでは、版付き列mappingによる出荷行正規化、訂正版の明示採用、行隔離、数量照合、品質APIを追加します。計画は`planning/PHASE1H_PLAN.md`、契約は`appendix_d/docs/Phase1H_出荷行正規化と数量照合.md`を参照してください。
+Phase 1Hでは、版付き列mappingによる出荷行正規化、訂正版の明示採用、行隔離、数量照合、品質APIを追加しました。計画は`planning/PHASE1H_PLAN.md`、契約は`appendix_d/docs/Phase1H_出荷行正規化と数量照合.md`を参照してください。
+
+Phase 1Iでは、決定論的なJAN名寄せ候補、4種類の承認判断、canonical product、JAN有効期間、商品×center取扱期間を追加します。計画は`planning/PHASE1I_PLAN.md`、契約は`appendix_d/docs/Phase1I_JAN名寄せと取扱期間.md`を参照してください。
 
 ## 開発管理
 

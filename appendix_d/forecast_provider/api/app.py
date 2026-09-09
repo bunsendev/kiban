@@ -11,6 +11,7 @@ from ..catalog import CatalogStore
 from ..errors import ContractViolationError
 from ..jobs.contracts import RunStore
 from .ingestion_routes import install_ingestion_routes
+from .master_routes import install_master_routes
 from .normalization_routes import install_normalization_routes
 from .schemas import (
     Created,
@@ -42,6 +43,7 @@ def create_app(
     snapshot_root: Path | None = None,
     ingestion=None,
     normalization=None,
+    master=None,
 ) -> FastAPI:
     if not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -64,6 +66,9 @@ def create_app(
 
     if normalization is not None:
         install_normalization_routes(app, authorize, normalization)
+
+    if master is not None:
+        install_master_routes(app, authorize, master)
 
     @app.post("/api/snapshots", response_model=Created, status_code=201)
     def create_snapshot(request: SnapshotCreate, _auth: None = Depends(authorize)):

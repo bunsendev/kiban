@@ -98,6 +98,64 @@ class NormalizationCreate(BaseModel):
     mapping_id: str = Field(min_length=1)
 
 
+class MatchingJobCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    normalization_ids: list[str] = Field(min_length=1)
+    policy_version: str = Field(default="jan-candidate-v1", min_length=1)
+    similarity_threshold: float = Field(default=0.85, ge=0, le=1)
+    handoff_similarity_threshold: float = Field(default=0.6, ge=0, le=1)
+    max_handoff_gap_days: int = Field(default=31, ge=0, le=366)
+
+    @model_validator(mode="after")
+    def validate_thresholds(self):
+        if self.handoff_similarity_threshold > self.similarity_threshold:
+            raise ValueError("handoff用類似度は通常類似度以下です")
+        if len(set(self.normalization_ids)) != len(self.normalization_ids):
+            raise ValueError("normalization_idsは重複できません")
+        return self
+
+
+class ProductCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    display_name: str = Field(min_length=1)
+    created_by: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+
+class DecisionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    candidate_id: str = Field(min_length=1)
+    decision: Literal["SAME_PRODUCT", "DIFFERENT_PRODUCT", "SUCCESSOR", "UNRESOLVED"]
+    left_product_id: str | None = None
+    right_product_id: str | None = None
+    mapping_version: str = Field(min_length=1)
+    approved_by: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+
+class JanMappingCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    jan: str = Field(min_length=1)
+    canonical_product_id: str = Field(min_length=1)
+    valid_from: date
+    valid_to: date | None = None
+    mapping_version: str = Field(min_length=1)
+    approved_by: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+
+class HandlingPeriodCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    canonical_product_id: str = Field(min_length=1)
+    center_id: str = Field(min_length=1)
+    valid_from: date
+    valid_to: date | None = None
+    status: Literal["CONFIRMED", "TENTATIVE"]
+    period_version: str = Field(min_length=1)
+    approved_by: str = Field(min_length=1)
+    basis: str = Field(min_length=1)
+
+
 class RunCreated(BaseModel):
     run_id: str
     status: str
