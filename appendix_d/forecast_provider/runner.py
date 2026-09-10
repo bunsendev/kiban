@@ -70,7 +70,7 @@ def attach_known_future(
     return attach_features(targets, known_future_columns, versions=feature_versions)
 
 
-def run_fixed_baseline(
+def run_fixed_provider(
     data: pd.DataFrame,
     dataset: ForecastDataset,
     config: ProviderConfig,
@@ -86,8 +86,6 @@ def run_fixed_baseline(
     if not set(data.unique_id).issubset(dataset.unique_ids):
         raise ContractViolationError("入力に選定外の系列")
     provider = registry.create(config.provider_id)
-    if config.provider_id != "builtin-baseline":
-        raise ContractViolationError("この最小runnerはbuiltin-baselineのみ適合確認済みです")
     check = provider.validate(dataset, config)
     if not check.ok:
         raise ContractViolationError(str(check.issues))
@@ -169,3 +167,23 @@ def run_fixed_baseline(
         if ledger.status.eq("SUCCESS").any()
         else "FAILED",
     }
+
+
+def run_fixed_baseline(
+    data: pd.DataFrame,
+    dataset: ForecastDataset,
+    config: ProviderConfig,
+    context: RunContext,
+    *,
+    availability_mode: str,
+    feature_versions: pd.DataFrame | None = None,
+) -> dict:
+    """旧API名を保つ固定学習runnerの互換wrapper。"""
+    return run_fixed_provider(
+        data,
+        dataset,
+        config,
+        context,
+        availability_mode=availability_mode,
+        feature_versions=feature_versions,
+    )

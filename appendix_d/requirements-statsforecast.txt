@@ -1,0 +1,25 @@
+# Phase 1M Linux/Python 3.12で検証したStatsForecast依存。
+-r requirements.txt
+statsforecast==2.1.1
+coreforecast==0.0.18
+utilsforecast==0.2.16
+packaging==26.3
+scipy==1.18.1
+statsmodels==0.15.0
+fugue==0.9.7
+cloudpickle==3.1.2
+threadpoolctl==3.6.0
+adagio==0.2.6
+triad==1.0.2
+formulaic==1.2.2
+narwhals==2.26.0
+patsy==1.0.3
+pyarrow==25.0.1
+fsspec==2026.7.0
+interface-meta==2.0.1
+wrapt==2.4.0
+tqdm==4.70.0
+python-dateutil==2.9.0.post0
+pytz==2026.3.post1
+tzdata==2026.3
+six==1.17.0
