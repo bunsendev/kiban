@@ -18,6 +18,7 @@ services:
     build: .
     environment:
       KIBAN_POSTGRES_DSN: postgresql://kiban:local-development-only@postgres:5432/kiban
+      KIBAN_AUTH_MODE: token
       KIBAN_API_TOKEN: ${KIBAN_API_TOKEN:-change-me-local}
       KIBAN_API_SUBJECT: ${KIBAN_API_SUBJECT:-local-admin}
       KIBAN_DEPLOYMENT_MODE: development

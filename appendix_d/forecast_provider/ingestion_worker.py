@@ -5,13 +5,12 @@ import time
 from pathlib import Path
 
 from .ingestion import ImportProcessor, PostgresIngestionStore, SqliteIngestionStore
+from .operations.worker_config import add_database_arguments, postgres_dsn
 
 
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser()
-    database = value.add_mutually_exclusive_group(required=True)
-    database.add_argument("--sqlite", type=Path)
-    database.add_argument("--postgres-dsn")
+    add_database_arguments(value)
     value.add_argument("--input-root", type=Path, required=True)
     value.add_argument("--archive-root", type=Path, required=True)
     value.add_argument("--once", action="store_true")
@@ -21,10 +20,11 @@ def parser() -> argparse.ArgumentParser:
 
 def main(argv=None) -> int:
     args = parser().parse_args(argv)
+    dsn = postgres_dsn(args)
     store = (
         SqliteIngestionStore(args.sqlite)
         if args.sqlite
-        else PostgresIngestionStore(args.postgres_dsn)
+        else PostgresIngestionStore(dsn)
     )
     processor = ImportProcessor(store, args.input_root, args.archive_root)
     while True:

@@ -62,4 +62,4 @@ API responseには`Cache-Control: no-store`、`X-Request-ID`、`X-Content-Type-O
 
 ## 対象外
 
-OIDC/OAuth、SSO画面、token発行・失効API、権限管理DB、外部IdP、TLS証明書の終端、秘密管理製品との接続、電子署名は後続開発とする。
+外部IdPのBearer JWT検証、JWKS・credential file rotation、TLS終端、監査log、readiness・metrics、DB backup/restoreはPhase 1Rで追加した。管理画面のAuthorization Code/PKCE login、token発行API、権限管理DB、秘密管理製品のAPI接続、電子署名は後続開発とする。

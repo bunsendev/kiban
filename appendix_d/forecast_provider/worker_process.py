@@ -12,6 +12,7 @@ from .catalog import PostgresCatalogStore, SqliteCatalogStore
 from .executors import BuiltinBaselineExecutor, StatsForecastETSExecutor
 from .jobs import PostgresRunStore, SqliteRunStore, resume_run
 from .jobs.contracts import OriginExecutor, RunStore
+from .operations.worker_config import add_database_arguments, postgres_dsn
 
 
 def load_executor(spec: str) -> OriginExecutor:
@@ -43,9 +44,7 @@ def work_once(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    backend = parser.add_mutually_exclusive_group(required=True)
-    backend.add_argument("--sqlite", type=Path)
-    backend.add_argument("--postgres-dsn")
+    add_database_arguments(parser)
     executor = parser.add_mutually_exclusive_group(required=True)
     executor.add_argument("--executor")
     executor.add_argument("--builtin-baseline", action="store_true")
@@ -57,14 +56,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--poll-seconds", type=float, default=2.0)
     parser.add_argument("--max-origins", type=int)
     args = parser.parse_args(argv)
+    dsn = postgres_dsn(args)
     if args.max_origins is not None and args.max_origins <= 0:
         parser.error("--max-originsは正数です")
     if args.sqlite:
         store = SqliteRunStore(args.sqlite)
         catalog = SqliteCatalogStore(args.sqlite)
     else:
-        store = PostgresRunStore(args.postgres_dsn)
-        catalog = PostgresCatalogStore(args.postgres_dsn)
+        store = PostgresRunStore(dsn)
+        catalog = PostgresCatalogStore(dsn)
     if args.builtin_baseline:
         execute = BuiltinBaselineExecutor(store, catalog, args.artifact_root, args.work_root)
     elif args.statsforecast_ets:

@@ -2,7 +2,6 @@
 
 import argparse
 import time
-from pathlib import Path
 
 from .ingestion import PostgresIngestionStore, SqliteIngestionStore
 from .normalization import (
@@ -10,13 +9,12 @@ from .normalization import (
     PostgresNormalizationStore,
     SqliteNormalizationStore,
 )
+from .operations.worker_config import add_database_arguments, postgres_dsn
 
 
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser()
-    database = value.add_mutually_exclusive_group(required=True)
-    database.add_argument("--sqlite", type=Path)
-    database.add_argument("--postgres-dsn")
+    add_database_arguments(value)
     value.add_argument("--once", action="store_true")
     value.add_argument("--poll-seconds", type=float, default=2.0)
     return value
@@ -24,12 +22,13 @@ def parser() -> argparse.ArgumentParser:
 
 def main(argv=None) -> int:
     args = parser().parse_args(argv)
+    dsn = postgres_dsn(args)
     if args.sqlite:
         ingestion = SqliteIngestionStore(args.sqlite)
         normalization = SqliteNormalizationStore(args.sqlite)
     else:
-        ingestion = PostgresIngestionStore(args.postgres_dsn)
-        normalization = PostgresNormalizationStore(args.postgres_dsn)
+        ingestion = PostgresIngestionStore(dsn)
+        normalization = PostgresNormalizationStore(dsn)
     processor = NormalizationProcessor(normalization, ingestion)
     while True:
         processor.process_next()

@@ -1,0 +1,17 @@
+{
+	admin off
+	email {$KIBAN_ACME_EMAIL}
+}
+
+{$KIBAN_DOMAIN} {
+	encode zstd gzip
+	log {
+		output stdout
+		format json
+	}
+	reverse_proxy api:8000 {
+		health_uri /ready
+		health_interval 30s
+		health_timeout 5s
+	}
+}

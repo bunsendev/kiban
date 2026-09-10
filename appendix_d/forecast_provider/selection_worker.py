@@ -2,18 +2,16 @@
 
 import argparse
 import time
-from pathlib import Path
 
 from .daily import PostgresDailyStore, SqliteDailyStore
 from .master import PostgresMasterStore
+from .operations.worker_config import add_database_arguments, postgres_dsn
 from .selection import PostgresSelectionStore, SelectionProcessor, SqliteSelectionStore
 
 
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser()
-    database = value.add_mutually_exclusive_group(required=True)
-    database.add_argument("--sqlite", type=Path)
-    database.add_argument("--postgres-dsn")
+    add_database_arguments(value)
     value.add_argument("--once", action="store_true")
     value.add_argument("--poll-seconds", type=float, default=2.0)
     return value
@@ -21,13 +19,14 @@ def parser() -> argparse.ArgumentParser:
 
 def main(argv=None) -> int:
     args = parser().parse_args(argv)
+    dsn = postgres_dsn(args)
     if args.sqlite:
         daily = SqliteDailyStore(args.sqlite)
         store = SqliteSelectionStore(args.sqlite)
     else:
-        PostgresMasterStore(args.postgres_dsn)
-        daily = PostgresDailyStore(args.postgres_dsn)
-        store = PostgresSelectionStore(args.postgres_dsn)
+        PostgresMasterStore(dsn)
+        daily = PostgresDailyStore(dsn)
+        store = PostgresSelectionStore(dsn)
     processor = SelectionProcessor(store, daily)
     while True:
         processor.process_next()

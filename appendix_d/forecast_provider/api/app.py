@@ -1,5 +1,6 @@
 """Catalog/run API。学習・予測はHTTP request内で実行しない。"""
 
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Annotated
 
@@ -15,6 +16,7 @@ from .evaluation_routes import install_evaluation_routes
 from .ingestion_routes import install_ingestion_routes
 from .master_routes import install_master_routes
 from .normalization_routes import install_normalization_routes
+from .observability import install_observability
 from .reporting_routes import install_reporting_routes
 from .schemas import (
     Created,
@@ -26,6 +28,7 @@ from .schemas import (
     SnapshotCreate,
 )
 from .security import (
+    Authenticator,
     Authorizer,
     Permission,
     Principal,
@@ -51,7 +54,7 @@ def _output(value) -> RunStatusOutput:
 def create_app(
     store: RunStore,
     catalog: CatalogStore,
-    api_token: str | TokenAuthenticator,
+    api_token: str | Authenticator,
     snapshot_root: Path | None = None,
     ingestion=None,
     normalization=None,
@@ -64,6 +67,7 @@ def create_app(
     report_root: Path | None = None,
     security_settings: SecuritySettings | None = None,
     legacy_subject: str = "local-admin",
+    readiness_checks: Mapping[str, Callable[[], bool]] | None = None,
 ) -> FastAPI:
     if isinstance(api_token, str) and not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -86,6 +90,11 @@ def create_app(
     install_ui_routes(app)
     service = ApplicationService(store, catalog, snapshot_root)
     authorize = Authorizer(authenticator)
+    checks = dict(readiness_checks or {})
+    if "authentication" in checks:
+        raise ValueError("authentication readiness check名は予約済みです")
+    checks["authentication"] = authenticator.readiness
+    install_observability(app, authorize, checks)
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)
 
