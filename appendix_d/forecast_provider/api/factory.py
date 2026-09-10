@@ -10,6 +10,7 @@ from ..ingestion import PostgresIngestionStore
 from ..jobs import PostgresRunStore
 from ..master import PostgresMasterStore
 from ..normalization import PostgresNormalizationStore
+from ..selection import PostgresSelectionStore
 from .app import create_app
 
 
@@ -31,4 +32,5 @@ def from_environment():
         PostgresMasterStore(dsn),
         PostgresDailyStore(dsn),
         PostgresAcceptanceStore(dsn),
+        PostgresSelectionStore(dsn),
     )

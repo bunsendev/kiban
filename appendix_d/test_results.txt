@@ -1,10 +1,29 @@
-# v2.9 Phase 1K 実行検証記録
+# v2.9 Phase 1L 実行検証記録
 
 Date: 2026-09-10 JST
 OS: Windows 11
 Python: 3.12.14
 pytest: 9.1.1
 ruff: 0.16.6
+
+## Phase 1L
+
+- pytest: PostgreSQL実DBを含む全325件、FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- 候補job: 成功済み日次build、候補算出版、欠損・分類閾値、業務指定を内容アドレス方式で凍結。
+- 統計量: 数量、数量構成比、変動係数、出荷0率を`OBSERVED`と`CONFIRMED_ZERO`だけから算出。
+- 欠損: 取扱対象状態を分母に`MISSING`と`PARTIAL_OR_INVALID`を数え、欠損を0へ変換しないことを人工系列で確認。
+- 分類: 安定、間欠、JAN変更、業務指定のtag、対象center、品質条件外の理由を候補へ保存。
+- 選定版: 初期3〜5品目または拡大20〜50品目をcenter・品目別理由・担当者・全体理由付きで不変保存。
+- 変更保護: 品質条件外候補、候補外品目・center、同じ`selection_version`の内容変更を拒否。
+- PostgreSQL: 17 Alpine実DBで3品目、9日次行、候補算出job、3候補、初期選定版を結合確認。
+- Docker Compose: APIと選定Worker image、`/health`、選定API 6 path、Bearer未認証拒否、Worker CLIを確認。
+- Docker E2E: APIで候補jobを作成し、別Workerコンテナで算出後、3候補と選定版を取得。
+- demo.py: 3系列×365日、2方式、1095予定/方式、失敗0、official ranking成立。
+- scale_check.py: 100系列×1,096日、37起点、POINT 54,500行、POINT＋QUANTILE 218,000行、通期重複0。
+- artifact_demo.py: 別processで再fitなし、24行のPOINT/QUANTILE完全一致。
+- wheel: selection schema、route、選定Workerを含むことを確認。
+- 配布ZIP: 187ファイル、UTF-8 filename flag、SHA256SUMS 187/187一致。
 
 ## Phase 1K
 
