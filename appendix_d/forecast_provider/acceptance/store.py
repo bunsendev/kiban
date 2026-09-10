@@ -48,6 +48,15 @@ class SqliteAcceptanceStore:
             ).fetchone()
             return None if row is None else case_from_row(row)
 
+    def list_cases(self) -> list[AcceptanceCase]:
+        with self._connect() as db:
+            return [
+                case_from_row(row)
+                for row in db.execute(
+                    "SELECT * FROM acceptance_cases ORDER BY created_at DESC,case_id"
+                )
+            ]
+
     def claim(self) -> AcceptanceCase | None:
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")

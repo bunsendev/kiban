@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="予測比較、受入結果、CSV、採用判断を確認する管理画面">
+  <title>予測採用ワークスペース | Yosoku Kiban</title>
+  <link rel="stylesheet" href="/ui/assets/styles.css">
+  <script type="module" src="/ui/assets/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">本文へ移動</a>
+  <header class="topbar">
+    <div class="brand-block">
+      <span class="eyebrow">YOSOKU KIBAN / OPERATIONS</span>
+      <h1>予測採用ワークスペース</h1>
+    </div>
+    <form id="connection-form" class="connection" aria-label="API接続">
+      <label for="api-token">API token</label>
+      <div class="connection-row">
+        <input id="api-token" name="token" type="password" autocomplete="off" required
+          placeholder="Bearer tokenを入力">
+        <button class="button primary" type="submit">接続</button>
+      </div>
+      <p class="field-note">tokenはこの画面のメモリ内だけで使用します。</p>
+    </form>
+    <div id="session-controls" class="session-controls" hidden>
+      <span id="connection-state" class="connection-state">接続済み</span>
+      <button id="refresh-button" class="button quiet" type="button">更新</button>
+      <button id="disconnect-button" class="button quiet" type="button">切断</button>
+    </div>
+  </header>
+
+  <main id="workspace" class="page-shell">
+    <div id="notice" class="notice" role="status" aria-live="polite">
+      API tokenを入力して比較結果を読み込んでください。
+    </div>
+
+    <section class="summary-grid" aria-label="台帳サマリー">
+      <article class="summary-card accent-blue">
+        <span>比較記録</span><strong id="comparison-count">—</strong>
+      </article>
+      <article class="summary-card accent-cyan">
+        <span>正式比較成立</span><strong id="official-count">—</strong>
+      </article>
+      <article class="summary-card accent-amber">
+        <span>受入case</span><strong id="acceptance-count">—</strong>
+      </article>
+      <article class="summary-card accent-green">
+        <span>採用判断</span><strong id="adoption-count">—</strong>
+      </article>
+    </section>
+
+    <section class="workbench">
+      <aside class="comparison-rail" aria-labelledby="comparison-heading">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">COMPARISON LEDGER</span>
+            <h2 id="comparison-heading">比較を選択</h2>
+          </div>
+          <span id="comparison-filter-count" class="count-chip">0件</span>
+        </div>
+        <label class="search-field" for="comparison-search">
+          <span>比較ID・目的で絞り込み</span>
+          <input id="comparison-search" type="search" placeholder="検索">
+        </label>
+        <div id="comparison-list" class="comparison-list"></div>
+      </aside>
+
+      <section class="detail-panel" aria-live="polite">
+        <div id="detail-empty" class="empty-state">
+          <div class="empty-mark" aria-hidden="true">01</div>
+          <h2>比較を選ぶと詳細を表示します</h2>
+          <p>正式比較の成立状況、run別指標、CSV、採用条件を同じ画面で確認できます。</p>
+        </div>
+
+        <div id="detail-content" hidden>
+          <header class="detail-header">
+            <div>
+              <span class="eyebrow">SELECTED COMPARISON</span>
+              <h2 id="comparison-purpose">—</h2>
+              <code id="comparison-id">—</code>
+            </div>
+            <div id="comparison-status"></div>
+          </header>
+
+          <nav class="tabs" aria-label="比較操作">
+            <button class="tab active" type="button" data-tab="overview"
+              aria-selected="true">比較</button>
+            <button class="tab" type="button" data-tab="exports"
+              aria-selected="false">CSV</button>
+            <button class="tab" type="button" data-tab="adoption"
+              aria-selected="false">採用判断</button>
+          </nav>
+
+          <section id="tab-overview" class="tab-panel">
+            <div id="lineage-grid" class="lineage-grid"></div>
+            <div class="table-wrap">
+              <table>
+                <caption>run別の正式比較指標</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">run / model</th>
+                    <th scope="col">掲載</th>
+                    <th scope="col">成功率</th>
+                    <th scope="col">common WAPE</th>
+                    <th scope="col">own WAPE</th>
+                    <th scope="col">official WAPE</th>
+                  </tr>
+                </thead>
+                <tbody id="run-metrics"></tbody>
+              </table>
+            </div>
+            <div>
+              <div class="subheading">
+                <h3>対応する受入case</h3>
+                <span>同じ日次build</span>
+              </div>
+              <div id="acceptance-list" class="acceptance-grid"></div>
+            </div>
+          </section>
+
+          <section id="tab-exports" class="tab-panel" hidden>
+            <div class="action-layout">
+              <form id="export-form" class="action-card">
+                <div class="card-heading">
+                  <span class="step-number">01</span>
+                  <div><h3>比較CSVを発行</h3><p>保存済み指標からサーバーが生成します。</p></div>
+                </div>
+                <label>baseline run<select id="export-baseline" required></select></label>
+                <label>export version<input id="export-version" required value="comparison-export-v1"></label>
+                <label>依頼者<input id="export-requested-by" required autocomplete="email"></label>
+                <button class="button primary wide" type="submit">CSVを発行</button>
+              </form>
+              <section class="ledger-card" aria-labelledby="export-history-heading">
+                <div class="subheading"><h3 id="export-history-heading">発行履歴</h3></div>
+                <div id="export-list" class="record-list"></div>
+              </section>
+            </div>
+          </section>
+
+          <section id="tab-adoption" class="tab-panel" hidden>
+            <div class="eligibility-banner" id="eligibility-banner"></div>
+            <details class="decision-drawer">
+              <summary>受入caseの業務判断を記録</summary>
+              <form id="acceptance-decision-form" class="drawer-form">
+                <label>受入case<select id="decision-case" required></select></label>
+                <div class="field-pair">
+                  <label>判断<select id="acceptance-decision">
+                    <option value="APPROVED">承認</option>
+                    <option value="REJECTED">却下</option>
+                  </select></label>
+                  <label>decision version<input id="acceptance-decision-version"
+                    required value="acceptance-decision-v1"></label>
+                </div>
+                <label>判断者<input id="acceptance-decided-by" autocomplete="email" required></label>
+                <label>理由<textarea id="acceptance-reason" rows="2" required></textarea></label>
+                <button class="button secondary" type="submit">受入判断を保存</button>
+              </form>
+            </details>
+            <div class="action-layout">
+              <form id="adoption-form" class="action-card">
+                <div class="card-heading">
+                  <span class="step-number">02</span>
+                  <div><h3>判断を記録</h3><p>保存時に正式比較と受入証跡を再検証します。</p></div>
+                </div>
+                <div class="field-pair">
+                  <label>判断<select id="adoption-decision">
+                    <option value="ADOPTED">採用</option>
+                    <option value="REJECTED">却下</option>
+                  </select></label>
+                  <label>adoption version<input id="adoption-version" required value="adoption-v1"></label>
+                </div>
+                <div id="adopted-fields">
+                  <label>受入case<select id="acceptance-case" required></select></label>
+                  <div class="field-pair">
+                    <label>採用run<select id="selected-run" required></select></label>
+                    <label>fallback run<select id="fallback-run" required></select></label>
+                  </div>
+                </div>
+                <label>対象品目ID<textarea id="product-ids" rows="3" required></textarea>
+                  <span class="field-note">カンマまたは改行で区切ります。</span></label>
+                <label>対象center ID<textarea id="center-ids" rows="2" required></textarea></label>
+                <div class="field-pair">
+                  <label>試験期間（日）<input id="trial-days" type="number" min="30" max="366" value="30" required></label>
+                  <label>判断者<input id="decided-by" autocomplete="email" required></label>
+                </div>
+                <label>理由<textarea id="adoption-reason" rows="3" required></textarea></label>
+                <button class="button primary wide" type="submit">判断を保存</button>
+              </form>
+              <section class="ledger-card" aria-labelledby="adoption-history-heading">
+                <div class="subheading"><h3 id="adoption-history-heading">判断履歴</h3></div>
+                <div id="adoption-list" class="record-list"></div>
+              </section>
+            </div>
+          </section>
+        </div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>

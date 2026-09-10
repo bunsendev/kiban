@@ -2,7 +2,7 @@
 
 v2.8レビューの指摘を反映した予測・比較コアです。
 コード、全体仕様、統合仕様、開始ガイド、テスト、人工データデモ、検証記録を同梱しています。
-予定完全性、日次状態、少数実品目の受入判定基盤、StatsForecast AutoETS、比較CSVと採用判断台帳まで実装済みです。実データでの受入実行、UI、本番運用は後続開発です。
+予定完全性、日次状態、少数実品目の受入判定基盤、StatsForecast AutoETS、比較CSV、採用判断台帳と管理画面まで実装済みです。実データでの受入実行と本番運用は後続開発です。
 
 ## 最初に読む
 
@@ -73,6 +73,11 @@ APIと全Provider依存は`pip install -e ".[api,postgres,statsforecast]"`で追
 Provider適合試験は`POST /api/provider-conformance-tests`へ記録し、`GET /api/providers`でモデル別の固定ランキング掲載可否を確認する。比較は`POST /api/comparisons`へ保存済みrun ID、各runの適合記録ID、truth snapshot IDを指定する。予測値と指標はrun台帳とchecksum検証済みsnapshotからサーバーが再計算する。詳細は[Provider適合試験と比較結果の永続化](docs/Phase1N_評価レジストリ.md)を参照する。
 
 比較CSVは`POST /api/comparisons/{comparison_id}/exports`で発行する。baseline改善率、own/common/official指標、件数、集合・snapshot・Providerの識別子を含み、取得時にもchecksumを検証する。採用判断は`POST /api/adoptions`へ比較、実データ受入case、採用run、fallback、対象、担当者、理由を指定する。正式比較、PASSED、最新APPROVED、日次build一致をサーバーが照合する。詳細は[比較レポートCSVと採用判断](docs/Phase1O_比較レポートと採用判断.md)を参照する。
+
+## 比較・受入・採用管理画面
+
+API起動後に`http://127.0.0.1:58000/ui`を開き、`KIBAN_API_TOKEN`と同じtokenを入力する。比較選択、run別指標と系譜の確認、受入caseの業務判断、比較CSVの発行・取得、採用・却下の記録を同じ画面で行える。tokenは画面のメモリ内だけで保持し、更新時には再入力が必要。採用条件は保存時にサーバーが再検証する。詳細は[比較・受入・採用管理画面](docs/Phase1P_比較受入採用管理画面.md)を参照する。
+
 ソース編集後、ハッシュ再生成前の配布整合テスト失敗は想定内ですが、その状態で出荷しないでください。
 
 ## 原本取込

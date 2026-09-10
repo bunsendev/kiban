@@ -46,6 +46,7 @@ forecast_provider = [
     "selection/*.sql",
     "evaluation_registry/*.sql",
     "reporting/*.sql",
+    "ui/static/*",
 ]
 
 [tool.pytest.ini_options]

@@ -231,6 +231,22 @@ def test_adoption_requires_real_approved_acceptance_and_official_fallback(tmp_pa
 
     assert response.status_code == 201, response.text
     assert response.json()["selected_run_id"] == selected_run
+    context = api.get(f"/api/comparisons/{comparison_id}/adoption-context")
+    assert context.status_code == 200
+    assert context.json()["official_ranking_ready"] is True
+    assert context.json()["canonical_product_ids"] == ["P1"]
+    assert context.json()["center_ids"] == ["C1"]
+    assert context.json()["acceptance_cases"] == [
+        {
+            "case_id": case.case_id,
+            "acceptance_version": "acceptance-build-real-v1",
+            "data_kind": "REAL",
+            "status": "SUCCEEDED",
+            "outcome": "PASSED",
+            "latest_decision": "APPROVED",
+            "eligible": True,
+        }
+    ]
     invalid = {**request, "adoption_version": "adoption-v2", "fallback_run_id": "missing"}
     assert api.post("/api/adoptions", json=invalid).status_code == 409
 

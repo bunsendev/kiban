@@ -10,6 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from ..catalog import CatalogStore
 from ..errors import ContractViolationError
 from ..jobs.contracts import RunStore
+from ..ui import install_ui_routes
 from .acceptance_routes import install_acceptance_routes
 from .daily_routes import install_daily_routes
 from .evaluation_routes import install_evaluation_routes
@@ -59,6 +60,7 @@ def create_app(
     if not api_token:
         raise ValueError("api_tokenは空にできません")
     app = FastAPI(title="Yosoku Kiban API", version="2.9")
+    install_ui_routes(app)
     service = ApplicationService(store, catalog, snapshot_root)
     bearer = HTTPBearer(auto_error=False)
 

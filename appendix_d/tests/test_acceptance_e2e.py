@@ -52,6 +52,9 @@ def test_anonymized_case_is_dry_run_and_cannot_be_approved(tmp_path):
     result = api.get(f"/api/acceptance-cases/{case_id}").json()
     assert result["status"] == "SUCCEEDED"
     assert result["outcome"] == "DRY_RUN"
+    listed = api.get("/api/acceptance-cases")
+    assert listed.status_code == 200
+    assert [item["case_id"] for item in listed.json()] == [case_id]
     checks = api.get(f"/api/acceptance-cases/{case_id}/checks").json()
     assert len(checks) == 10
     assert [item for item in checks if item["status"] == "NOT_EVALUATED"] == [

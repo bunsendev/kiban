@@ -118,4 +118,5 @@ def test_postgres_acceptance_evaluates_real_three_product_case(tmp_path):
     ).process_next()
     assert result.status == "SUCCEEDED"
     assert result.outcome == "PASSED"
+    assert case.case_id in {item.case_id for item in acceptance.list_cases()}
     assert all(item.status == "PASSED" for item in acceptance.list_checks(case.case_id))
