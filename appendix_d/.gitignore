@@ -18,3 +18,5 @@ raw_archive/*
 !raw_archive/.gitkeep
 acceptance_output/*
 !acceptance_output/.gitkeep
+report_output/*
+!report_output/.gitkeep

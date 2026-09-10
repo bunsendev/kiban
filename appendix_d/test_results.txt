@@ -1,10 +1,31 @@
-# v2.9 Phase 1N 実行検証記録
+# v2.9 Phase 1O 実行検証記録
 
 Date: 2026-09-10 JST
 OS: Windows 11
 Python: 3.12.14
 pytest: 9.1.1
 ruff: 0.16.6
+
+## Phase 1O
+
+- pytest: PostgreSQL 17実DBを含む全347件、FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- 比較CSV: 保存済み比較とchecksum検証済みsnapshotだけから、UTF-8 BOM・LF・固定列順のrun別CSVを決定的に生成。
+- 出力項目: 比較条件、2種類の集合ID、snapshot・selection・Provider・適合記録、run/own/common/official件数、3種類の指標、単位を収録。
+- baseline比較: 全run共通集合のWAPEから改善率と絶対差を算出し、baseline WAPEが0の場合は改善率を空欄に固定。
+- CSV安全性: `=`, `+`, `-`, `@`、タブ、復帰で始まる文字列を式として実行されない形式へ変換。
+- 不変保存: export ID、SHA-256、URI、行数と採用判断を内容アドレス方式で保存し、同じ版の内容変更を拒否。
+- 改変検出: CSV取得時と採用照合時にファイルrootとSHA-256を再検証し、改変を409で拒否。
+- 採用条件: 正式ランキング、採用・fallbackのofficial掲載、実データ受入PASSED、最新APPROVED、日次build、selection、品目・centerを照合。
+- 判断履歴: `ADOPTED`と`REJECTED`を担当者・理由・対象・版付きで保存し、同内容再送のIDを維持。
+- 拒否検証: クライアント出力URI、未知baseline、匿名・未承認受入、非official run、snapshot不一致、版上書きを拒否。
+- PostgreSQL: report exportとadoptionの外部キー付き保存・再取得をPostgreSQL 17実DBで確認。
+- Docker Compose: API imageを再buildし、`/health`、reporting API 6 path・7 operation、Bearer未認証401を確認。
+- demo.py: 3系列×365日、2方式、1095予定/方式、失敗0、official ranking成立。
+- scale_check.py: 100系列×1,096日、37起点、POINT 54,500行、POINT＋QUANTILE 218,000行、通期重複0。
+- artifact_demo.py: 別processで再fitなし、24行のPOINT/QUANTILE完全一致。
+- wheel: reporting schema、store、service、API routeを含む148ファイルを確認。
+- 配布ZIP: 222ファイル、UTF-8 filename flag、SHA256SUMS 222/222一致。
 
 ## Phase 1N
 

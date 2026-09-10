@@ -9,6 +9,7 @@ import pytest
 from test_job_resume import expectation, origin, point
 from test_run_api import snapshot_payload
 
+from forecast_provider.acceptance import PostgresAcceptanceStore
 from forecast_provider.catalog import PostgresCatalogStore
 from forecast_provider.catalog.domain import make_snapshot
 from forecast_provider.evaluation_registry import (
@@ -24,6 +25,11 @@ from forecast_provider.jobs.postgres_store import _HybridRow
 from forecast_provider.master import PostgresMasterStore, make_product
 from forecast_provider.normalization import PostgresNormalizationStore, make_mapping
 from forecast_provider.registry import registry
+from forecast_provider.reporting import (
+    PostgresReportingStore,
+    make_adoption,
+    make_export_record,
+)
 
 
 def test_postgres_row_uses_sqlite_compatible_temporal_and_uuid_values():
@@ -86,11 +92,17 @@ def test_postgres_migration_has_locking_and_business_constraints():
     text = evaluation_sql.read_text(encoding="utf-8")
     assert "provider_conformance_tests" in text and "comparison_reports" in text
     assert "comparison_runs" in text and "evaluation_scope_hash" in text
+    reporting_sql = path.parents[2] / "reporting" / "schema.sql"
+    text = reporting_sql.read_text(encoding="utf-8")
+    assert "report_exports" in text and "adoption_records" in text
+    assert "UNIQUE(comparison_id,export_version)" in text
+    assert text.count("REFERENCES forecast_runs(run_id)") == 3
 
 
 @pytest.mark.skipif(not os.getenv("KIBAN_TEST_POSTGRES_DSN"), reason="PostgreSQL DSN未設定")
 def test_postgres_store_conforms_to_origin_transaction_contract():
-    store = PostgresRunStore(os.environ["KIBAN_TEST_POSTGRES_DSN"])
+    dsn = os.environ["KIBAN_TEST_POSTGRES_DSN"]
+    store = PostgresRunStore(dsn)
     run_id = f"phase1d-{uuid.uuid4()}"
     store.create_run(
         RunDefinition(run_id, "experiment", "fingerprint", "builtin-baseline", "ma", 1),
@@ -102,16 +114,16 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
     assert lease is not None
     store.complete_origin(lease, OriginOutput((point(1),)))
     assert store.finish_run(run_id) == "SUCCEEDED"
-    catalog = PostgresCatalogStore(os.environ["KIBAN_TEST_POSTGRES_DSN"])
+    catalog = PostgresCatalogStore(dsn)
     snapshot = make_snapshot(snapshot_payload())
     catalog.put_snapshot(snapshot)
     assert catalog.get_snapshot(snapshot.snapshot_id) == snapshot
-    ingestion = PostgresIngestionStore(os.environ["KIBAN_TEST_POSTGRES_DSN"])
+    ingestion = PostgresIngestionStore(dsn)
     job = ingestion.enqueue(f"phase1g-{uuid.uuid4()}.csv")
     assert ingestion.claim().import_id == job.import_id
     ingestion.finish(job.import_id)
     assert ingestion.get_job(job.import_id).status == "SUCCEEDED"
-    normalization = PostgresNormalizationStore(os.environ["KIBAN_TEST_POSTGRES_DSN"])
+    normalization = PostgresNormalizationStore(dsn)
     mapping = make_mapping(
         {
             "date_column": "date",
@@ -128,7 +140,7 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
     )
     normalization.put_mapping(mapping)
     assert normalization.get_mapping(mapping.mapping_id) == mapping
-    master = PostgresMasterStore(os.environ["KIBAN_TEST_POSTGRES_DSN"])
+    master = PostgresMasterStore(dsn)
     product = make_product(
         f"PostgreSQL確認-{uuid.uuid4()}", "test@example.test", "live store適合確認"
     )
@@ -137,7 +149,7 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
         value["canonical_product_id"] == product.canonical_product_id
         for value in master.list_products()
     )
-    evaluation = PostgresEvaluationRegistryStore(os.environ["KIBAN_TEST_POSTGRES_DSN"])
+    evaluation = PostgresEvaluationRegistryStore(dsn)
     metadata = registry.create("builtin-baseline").metadata()
     conformance = make_conformance(
         {
@@ -192,3 +204,38 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
     saved = evaluation.put_comparison(comparison, [score])
     assert evaluation.get_comparison(saved.comparison_id) == saved
     assert evaluation.list_run_evaluations(saved.comparison_id) == [score]
+    PostgresAcceptanceStore(dsn)
+    reporting = PostgresReportingStore(dsn)
+    export = make_export_record(
+        {
+            "comparison_id": saved.comparison_id,
+            "export_version": f"postgres-export-{uuid.uuid4()}",
+            "baseline_run_id": run_id,
+            "requested_by": "test@example.test",
+        },
+        "file:///tmp/postgres-report.csv",
+        "c" * 64,
+        1,
+    )
+    assert reporting.put_export(export) == export
+    assert reporting.get_export(export.export_id) == export
+    adoption = make_adoption(
+        {
+            "adoption_version": f"postgres-adoption-{uuid.uuid4()}",
+            "comparison_id": saved.comparison_id,
+            "acceptance_case_id": None,
+            "decision": "REJECTED",
+            "selected_run_id": None,
+            "fallback_run_id": None,
+            "target": {
+                "selection_version": "selection-v1",
+                "canonical_product_ids": ["P1"],
+                "center_ids": ["C1"],
+                "trial_period_days": 30,
+            },
+            "decided_by": "test@example.test",
+            "reason": "PostgreSQL保存確認",
+        }
+    )
+    assert reporting.put_adoption(adoption) == adoption
+    assert reporting.get_adoption(adoption.adoption_id) == adoption
