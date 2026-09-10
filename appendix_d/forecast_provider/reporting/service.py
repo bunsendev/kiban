@@ -92,7 +92,7 @@ class ReportingService:
             path = verify_snapshot_file(
                 record.output_uri, record.output_sha256, self.output_root
             )
-        except ValueError as exc:
+        except (OSError, ValueError) as exc:
             raise ReportingConflict(str(exc)) from exc
         return record, path
 
@@ -148,6 +148,63 @@ class ReportingService:
 
     def list_adoptions(self, comparison_id: str | None = None) -> list[AdoptionRecord]:
         return self.store.list_adoptions(comparison_id)
+
+    def adoption_context(self, comparison_id: str) -> dict:
+        comparison = self._comparison(comparison_id)
+        snapshot = self._snapshot(comparison.definition["truth_snapshot_id"])
+        products, centers = self._snapshot_dimensions(snapshot)
+        daily_build_id = snapshot.manifest.get("provenance", {}).get("daily_build_id")
+        official = set(comparison.result["official_runs"])
+        evaluations = self.evaluation.list_run_evaluations(comparison_id)
+        return {
+            "comparison_id": comparison_id,
+            "truth_snapshot_id": snapshot.snapshot_id,
+            "daily_build_id": daily_build_id,
+            "selection_version": snapshot.manifest["selection_version"],
+            "canonical_product_ids": sorted(products),
+            "center_ids": sorted(centers),
+            "official_ranking_ready": comparison.result["official_ranking_ready"],
+            "run_evaluations": [
+                {
+                    "run_id": item.run_id,
+                    "provider_id": item.provider_id,
+                    "model_name": item.model_name,
+                    "official_included": item.run_id in official,
+                    "run_success_rate": item.score.get("run_success_rate"),
+                    "common_wape_pct": (item.score.get("common_metrics") or {}).get(
+                        "wape_pct"
+                    ),
+                }
+                for item in evaluations
+            ],
+            "acceptance_cases": self._acceptance_context(daily_build_id),
+        }
+
+    def _acceptance_context(self, daily_build_id: str | None) -> list[dict]:
+        result = []
+        for case in self.acceptance.list_cases():
+            if case.definition["daily_build_id"] != daily_build_id:
+                continue
+            decisions = self.acceptance.list_decisions(case.case_id)
+            latest = None if not decisions else decisions[-1]
+            result.append(
+                {
+                    "case_id": case.case_id,
+                    "acceptance_version": case.definition["acceptance_version"],
+                    "data_kind": case.definition["data_kind"],
+                    "status": case.status,
+                    "outcome": case.outcome,
+                    "latest_decision": None if latest is None else latest.decision,
+                    "eligible": bool(
+                        case.status == "SUCCEEDED"
+                        and case.outcome == "PASSED"
+                        and case.definition["data_kind"] == "REAL"
+                        and latest is not None
+                        and latest.decision == "APPROVED"
+                    ),
+                }
+            )
+        return result
 
     def _comparison(self, comparison_id: str):
         value = self.evaluation.get_comparison(comparison_id)

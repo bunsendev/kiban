@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 1P
+
+- 比較、受入case、比較CSV、採用判断を同じ画面で扱うFastAPI同一originの`/ui`を追加。
+- tokenをブラウザーのメモリ内だけで扱い、CSP、`no-store`、`nosniff`、`no-referrer`を設定。
+- 受入case一覧と、正式run・snapshot対象・受入可否を返すadoption context APIを追加。
+- 受入caseの業務判断、比較CSVの発行・取得、採用・却下を既存の不変台帳へ接続。
+- API通信、表示形式、DOM描画、画面状態、style、静的配信を分割し、responsive layoutとwheel同梱を追加。
+
 ## Phase 1L
 
 - 成功済み日次buildを入力とする内容アドレス方式の重要品目候補算出jobを追加。
@@ -67,7 +75,7 @@
 - make_releaseで固定のappendix_dルートを作成し、未登録ファイルも照合する。
 
 以前の修正（全予定・失敗記録、欠損規則統一、POINT分離、固定学習、累計、入力検証）は維持。
-最終検証はtest_results.txtを参照。実データ業務受入・UI・実OSS・本番は後続開発。
+最終検証はtest_results.txtを参照。実データ業務受入・role別権限・本番運用は後続開発。
 
 # Phase 1B（パッケージ版2.9.0維持）
 

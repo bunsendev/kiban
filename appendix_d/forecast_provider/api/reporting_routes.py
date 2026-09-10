@@ -10,6 +10,15 @@ from .reporting_schemas import AdoptionCreate, ReportExportCreate
 
 
 def install_reporting_routes(app, authorize, service) -> None:
+    @app.get("/api/comparisons/{comparison_id}/adoption-context")
+    def get_adoption_context(comparison_id: str, _auth: None = Depends(authorize)):
+        try:
+            return service.adoption_context(comparison_id)
+        except ReportingNotFound as exc:
+            raise HTTPException(status_code=404, detail="比較結果が見つかりません") from exc
+        except ReportingConflict as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
     @app.post("/api/comparisons/{comparison_id}/exports", status_code=201)
     def create_export(
         comparison_id: str,

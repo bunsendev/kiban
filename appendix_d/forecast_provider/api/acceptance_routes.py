@@ -21,6 +21,10 @@ def install_acceptance_routes(app: FastAPI, authorize, acceptance) -> None:
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    @app.get("/api/acceptance-cases")
+    def list_cases(_auth: None = Depends(authorize)):
+        return [value.__dict__ for value in acceptance.list_cases()]
+
     @app.get("/api/acceptance-cases/{case_id}")
     def get_case(case_id: str, _auth: None = Depends(authorize)):
         value = acceptance.get_case(case_id)

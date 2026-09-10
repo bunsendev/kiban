@@ -1,10 +1,28 @@
-# v2.9 Phase 1O 実行検証記録
+# v2.9 Phase 1P 実行検証記録
 
 Date: 2026-09-10 JST
 OS: Windows 11
 Python: 3.12.14
 pytest: 9.1.1
 ruff: 0.16.6
+
+## Phase 1P
+
+- pytest: PostgreSQL 17実DBを含む全348件、FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- JavaScript: `api.js`、`format.js`、`render.js`、`app.js`の`node --check`とHTML要素ID照合に合格。
+- 管理画面: `/ui`で比較一覧、正式状態、run別成功率・own/common/official WAPE、snapshot・selection・日次buildを表示。
+- 受入判断: 同じ日次buildの受入caseと最新判断を表示し、APPROVEDまたはREJECTEDを既存の不変台帳へ保存。
+- CSV・採用: 比較CSVの発行・checksum検証付き取得と、採用・却下の記録をPhase 1O serviceへ接続。
+- サーバー検証: adoption contextはchecksum検証済みsnapshotから品目・centerを返し、正式比較と受入条件を保存時にも再検証。
+- token保護: Bearer tokenはJavaScriptのメモリ内だけで保持し、`localStorage`、`sessionStorage`、URLへ保存しない。
+- 静的配信: HTMLとassetへCSP、`no-store`、`nosniff`、`no-referrer`を設定し、responsive layoutを確認。
+- Docker Compose: API imageを再buildし、`/health`、`/ui`、JavaScript asset、新規API 2 path、Bearer未認証401を確認。
+- demo.py: 3系列×365日、2方式、1095予定/方式、失敗0、official ranking成立。
+- scale_check.py: 100系列×1,096日、37起点、POINT 54,500行、POINT＋QUANTILE 218,000行、通期重複0。
+- artifact_demo.py: 別processで再fitなし、24行のPOINT/QUANTILE完全一致。
+- wheel: 管理画面routeと6静的assetを含む156ファイルを確認。
+- 配布ZIP: 232ファイル、UTF-8 filename flag、SHA256SUMS 232/232一致。
 
 ## Phase 1O
 
