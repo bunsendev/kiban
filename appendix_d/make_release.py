@@ -30,6 +30,7 @@ EXCLUDE_DIRS = {
     "import_input",
     "raw_archive",
     "acceptance_output",
+    "report_output",
     "build",
     "dist",
 }

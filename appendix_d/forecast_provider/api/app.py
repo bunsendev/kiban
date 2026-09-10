@@ -16,6 +16,7 @@ from .evaluation_routes import install_evaluation_routes
 from .ingestion_routes import install_ingestion_routes
 from .master_routes import install_master_routes
 from .normalization_routes import install_normalization_routes
+from .reporting_routes import install_reporting_routes
 from .schemas import (
     Created,
     ExperimentCreate,
@@ -52,6 +53,8 @@ def create_app(
     acceptance=None,
     selection=None,
     evaluation_registry=None,
+    reporting=None,
+    report_root: Path | None = None,
 ) -> FastAPI:
     if not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -94,6 +97,24 @@ def create_app(
             app,
             authorize,
             EvaluationRegistryService(store, catalog, evaluation_registry, snapshot_root),
+        )
+
+    if reporting is not None:
+        if evaluation_registry is None or acceptance is None or report_root is None:
+            raise ValueError("reportingには評価台帳、受入台帳、report rootが必要です")
+        from ..reporting import ReportingService
+
+        install_reporting_routes(
+            app,
+            authorize,
+            ReportingService(
+                evaluation_registry,
+                catalog,
+                acceptance,
+                reporting,
+                report_root,
+                snapshot_root,
+            ),
         )
 
     @app.post("/api/snapshots", response_model=Created, status_code=201)

@@ -21,9 +21,15 @@ from forecast_provider.registry import registry
 def _fixture(tmp_path):
     data_path = tmp_path / "daily.csv"
     days = pd.date_range("2024-01-01", "2026-01-11")
-    pd.DataFrame({"unique_id": "A", "ds": days, "y": 10.0}).to_csv(
-        data_path, index=False
-    )
+    pd.DataFrame(
+        {
+            "unique_id": "A",
+            "canonical_product_id": "P1",
+            "center_id": "C1",
+            "ds": days,
+            "y": 10.0,
+        }
+    ).to_csv(data_path, index=False)
     database = tmp_path / "evaluation.sqlite3"
     runs = SqliteRunStore(database)
     catalog = SqliteCatalogStore(database)

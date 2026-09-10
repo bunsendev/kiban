@@ -20,6 +20,7 @@ services:
       KIBAN_POSTGRES_DSN: postgresql://kiban:local-development-only@postgres:5432/kiban
       KIBAN_API_TOKEN: ${KIBAN_API_TOKEN:-change-me-local}
       KIBAN_SNAPSHOT_ROOT: /var/lib/kiban/snapshots
+      KIBAN_REPORT_ROOT: /var/lib/kiban/reports
     ports:
       - "127.0.0.1:58000:8000"
     depends_on:
@@ -27,6 +28,7 @@ services:
         condition: service_healthy
     volumes:
       - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots:ro
+      - ${KIBAN_REPORT_DIR:-./report_output}:/var/lib/kiban/reports
   worker:
     profiles: ["worker"]
     build: .
