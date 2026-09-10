@@ -60,7 +60,9 @@ Phase 1Lで成功済み日次buildから重要品目候補の数量・構成比�
 
 Phase 1Mで`statsforecast==2.1.1`のAutoETSを2つ目のOSS Providerとして追加した。TRAINで選択した構造・平滑化パラメータを固定し、起点以前の履歴だけを因果的に前方補完して`forward`へ渡す。安全なJSON artifact、共通runner、独立Worker processまで適合確認済み。詳細は[StatsForecast AutoETS Provider](docs/Phase1M_StatsForecast_AutoETS.md)。
 
-次は実データ3〜5品目でPhase 1Kを実行し、全3年の重要品目選定を確定する。実データ到着前に進める場合は、baselineとAutoETSの比較結果・適合記録を永続化する。
+Phase 1NでProvider適合試験記録と保存済みrun比較をSQLite/PostgreSQLへ永続化した。比較APIはrun台帳とchecksum検証済みsnapshotから指標を再計算し、適合済みの完全runだけを正式集合へ含める。詳細は[Provider適合試験と比較結果の永続化](docs/Phase1N_評価レジストリ.md)。
+
+次は実データ3〜5品目でPhase 1Kを実行し、全3年の重要品目選定を確定する。実データ到着前は、評価レジストリを使う比較運用手順と重要品目UIを整備する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
 ## 変更報告

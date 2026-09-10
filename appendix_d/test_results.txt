@@ -1,10 +1,30 @@
-# v2.9 Phase 1M 実行検証記録
+# v2.9 Phase 1N 実行検証記録
 
 Date: 2026-09-10 JST
 OS: Windows 11
 Python: 3.12.14
 pytest: 9.1.1
 ruff: 0.16.6
+
+## Phase 1N
+
+- pytest: PostgreSQL 17実DBを含む全342件、FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- 適合記録: Provider/model/library/adapter設定、実行環境、試験suite、実施者・日時、7項目の証跡を内容アドレス方式で保存。
+- 掲載判定: 全7項目の合格、Provider能力宣言、primary model条件から`fixed_ranking_eligible`をサーバーで導出。
+- 比較入力: 保存済みrun ID、適合記録ID、truth snapshot ID、mode/horizon、policy・依頼情報だけを受理し、クライアント指定の予測値・metricsを拒否。
+- 再計算: run台帳の予測値とchecksum検証済みsnapshotのtruthからown/common/official指標を既存評価式で再計算。
+- 正式集合: 適合済みかつ完全なrunだけを含め、不適合runもown/common metricsと失敗件数を保持。
+- 不変保存: 同じ比較条件は同じcomparison IDとなり、比較条件、2種類の集合ID、scope hash、run別scoreを上書きしない。
+- 結合検証: baselineとStatsForecast AutoETSの完了runでofficial比較集合が成立。
+- 拒否検証: 非終端run、adapter条件不一致、snapshot改変、重複run、入力metricsを拒否。
+- PostgreSQL: 適合記録、比較report、run別scoreの外部キー付き保存・再取得を確認。
+- Docker Compose: API imageを再buildし、`/health`、Provider/適合/比較API 5 path、Bearer未認証401、builtinとAutoETSの2 Providerを確認。
+- demo.py: 3系列×365日、2方式、1095予定/方式、失敗0、official ranking成立。
+- scale_check.py: 100系列×1,096日、37起点、POINT 54,500行、POINT＋QUANTILE 218,000行、通期重複0。
+- artifact_demo.py: 別processで再fitなし、24行のPOINT/QUANTILE完全一致。
+- wheel: 評価レジストリのschema、store、service、API routeを含むwheel生成を確認。
+- 配布ZIP: 209ファイル、UTF-8 filename flag、SHA256SUMS 209/209一致。
 
 ## Phase 1M
 
