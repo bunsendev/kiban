@@ -69,6 +69,8 @@ test_results.txtはこの版の実測記録です。依存はrequirementsファ�
 ## Run API / Worker
 
 APIと全Provider依存は`pip install -e ".[api,postgres,statsforecast]"`で追加する。`KIBAN_POSTGRES_DSN`、`KIBAN_API_TOKEN`、`KIBAN_SNAPSHOT_ROOT`を設定し、`uvicorn forecast_provider.api.factory:from_environment --factory`で起動する。snapshotと実験を登録後、保存済みexperiment IDからrunを作る。組込baseline Workerは`kiban-worker --postgres-dsn <DSN> --builtin-baseline --artifact-root <DIR> --work-root <DIR> --worker-id <ID>`、AutoETS Workerは同じ引数に`--statsforecast-ets`を指定して起動する。Dockerでは`docker compose --profile statsforecast-worker up -d --build statsforecast-worker`を使用する。共通実行は[実験SnapshotとBaseline統合](docs/Phase1F_実験SnapshotとBaseline統合.md)、AutoETS固有条件は[StatsForecast AutoETS Provider](docs/Phase1M_StatsForecast_AutoETS.md)を参照する。
+
+Provider適合試験は`POST /api/provider-conformance-tests`へ記録し、`GET /api/providers`でモデル別の固定ランキング掲載可否を確認する。比較は`POST /api/comparisons`へ保存済みrun ID、各runの適合記録ID、truth snapshot IDを指定する。予測値と指標はrun台帳とchecksum検証済みsnapshotからサーバーが再計算する。詳細は[Provider適合試験と比較結果の永続化](docs/Phase1N_評価レジストリ.md)を参照する。
 ソース編集後、ハッシュ再生成前の配布整合テスト失敗は想定内ですが、その状態で出荷しないでください。
 
 ## 原本取込

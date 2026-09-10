@@ -113,6 +113,7 @@ def compare_runs(
     truth_version: str,
     mode: str = "horizon",
     horizon: int | None = None,
+    official_eligible_runs: set[str] | None = None,
 ) -> dict:
     """同一予定キーを抽出し共通成功集合で参考比較。失敗ありは正式順位不可。
 
@@ -121,6 +122,8 @@ def compare_runs(
     """
     if not datasets or set(datasets) != set(outputs) or not truth_version:
         raise ContractViolationError("run定義・結果・truth版を指定します")
+    if official_eligible_runs is not None and not official_eligible_runs.issubset(datasets):
+        raise ContractViolationError("適合済みrun集合に未知のrunが含まれます")
     if mode not in ("horizon", "primary"):
         raise ContractViolationError("評価mode不正")
     if any(name in [*TARGET_KEY, "y"] for name in datasets):
@@ -198,7 +201,8 @@ def compare_runs(
         )
         own_eligible = own_all[own_all.y.notna()]
         own = own_eligible[own_eligible.yhat.notna()]
-        official = bool(len(own_eligible)) and run_failure == 0
+        conformance_ok = official_eligible_runs is None or name in official_eligible_runs
+        official = bool(len(own_eligible)) and run_failure == 0 and conformance_ok
         all_runs_complete = all_runs_complete and run_failure == 0
         if official:
             official_runs.append(name)
@@ -295,7 +299,10 @@ def compare_runs(
         "official_runs": official_runs,
         "official_ranking_ready": bool(len(official_common)) and len(official_runs) >= 2,
         "official_evaluation_ready": bool(len(official_common)) and bool(official_runs),
-        "incomplete_runs": [n for n in datasets if n not in official_runs],
+        "incomplete_runs": [
+            name for name, score in scores.items() if score["run_failure_count"] > 0
+        ],
+        "official_excluded_runs": [name for name in datasets if name not in official_runs],
     }
 
 

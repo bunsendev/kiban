@@ -6,6 +6,7 @@ from pathlib import Path
 from ..acceptance import PostgresAcceptanceStore
 from ..catalog import PostgresCatalogStore
 from ..daily import PostgresDailyStore
+from ..evaluation_registry import PostgresEvaluationRegistryStore
 from ..ingestion import PostgresIngestionStore
 from ..jobs import PostgresRunStore
 from ..master import PostgresMasterStore
@@ -33,4 +34,5 @@ def from_environment():
         PostgresDailyStore(dsn),
         PostgresAcceptanceStore(dsn),
         PostgresSelectionStore(dsn),
+        PostgresEvaluationRegistryStore(dsn),
     )

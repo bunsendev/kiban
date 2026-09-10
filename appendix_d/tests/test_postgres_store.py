@@ -11,11 +11,19 @@ from test_run_api import snapshot_payload
 
 from forecast_provider.catalog import PostgresCatalogStore
 from forecast_provider.catalog.domain import make_snapshot
+from forecast_provider.evaluation_registry import (
+    REQUIRED_CHECKS,
+    PostgresEvaluationRegistryStore,
+    RunEvaluation,
+    make_comparison_record,
+    make_conformance,
+)
 from forecast_provider.ingestion import PostgresIngestionStore
 from forecast_provider.jobs import OriginOutput, PostgresRunStore, RunDefinition
 from forecast_provider.jobs.postgres_store import _HybridRow
 from forecast_provider.master import PostgresMasterStore, make_product
 from forecast_provider.normalization import PostgresNormalizationStore, make_mapping
+from forecast_provider.registry import registry
 
 
 def test_postgres_row_uses_sqlite_compatible_temporal_and_uuid_values():
@@ -74,6 +82,10 @@ def test_postgres_migration_has_locking_and_business_constraints():
     assert postgres_store.count("pg_advisory_xact_lock") == 2
     daily_store = (path.parents[2] / "daily" / "postgres_store.py").read_text(encoding="utf-8")
     assert "FOR UPDATE SKIP LOCKED" in daily_store
+    evaluation_sql = path.parents[2] / "evaluation_registry" / "schema.sql"
+    text = evaluation_sql.read_text(encoding="utf-8")
+    assert "provider_conformance_tests" in text and "comparison_reports" in text
+    assert "comparison_runs" in text and "evaluation_scope_hash" in text
 
 
 @pytest.mark.skipif(not os.getenv("KIBAN_TEST_POSTGRES_DSN"), reason="PostgreSQL DSN未設定")
@@ -125,3 +137,58 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
         value["canonical_product_id"] == product.canonical_product_id
         for value in master.list_products()
     )
+    evaluation = PostgresEvaluationRegistryStore(os.environ["KIBAN_TEST_POSTGRES_DSN"])
+    metadata = registry.create("builtin-baseline").metadata()
+    conformance = make_conformance(
+        {
+            "provider_id": metadata.provider_id,
+            "provider_version": metadata.provider_version,
+            "model_id": "moving_average_28",
+            "library_name": metadata.library_name,
+            "library_version": metadata.library_version,
+            "test_suite_version": "postgres-contract-v1",
+            "adapter_config": {},
+            "environment": {
+                "python_version": "3.13.7",
+                "platform": "postgres-test",
+                "dependencies": {metadata.library_name: metadata.library_version},
+                "container_digest": None,
+            },
+            "checks": [
+                {"code": code, "status": "PASSED", "evidence": f"test:{code}"}
+                for code in sorted(REQUIRED_CHECKS)
+            ],
+            "executed_by": "test@example.test",
+            "executed_at": datetime.now(UTC).isoformat(),
+            "evidence_uri": None,
+            "evidence_sha256": None,
+        },
+        metadata,
+    )
+    evaluation.put_conformance(conformance)
+    comparison = make_comparison_record(
+        {
+            "truth_version": "postgres-truth-v1",
+            "evaluation_scope_hash": "postgres-scope-v1",
+            "mode": "horizon",
+            "horizon": 1,
+            "nonce": str(uuid.uuid4()),
+        },
+        {
+            "comparison_set_id": "reference-set",
+            "official_comparison_set_id": "official-set",
+            "ranking_ready": True,
+            "official_ranking_ready": False,
+        },
+    )
+    score = RunEvaluation(
+        comparison.comparison_id,
+        run_id,
+        "builtin-baseline",
+        "moving_average_28",
+        conformance.conformance_id,
+        {"own_metrics": {"mae": 0.0}},
+    )
+    saved = evaluation.put_comparison(comparison, [score])
+    assert evaluation.get_comparison(saved.comparison_id) == saved
+    assert evaluation.list_run_evaluations(saved.comparison_id) == [score]
