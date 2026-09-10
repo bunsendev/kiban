@@ -58,7 +58,9 @@ Phase 1Kで日次buildを対象とする3〜5品目の受入case、10項目の�
 
 Phase 1Lで成功済み日次buildから重要品目候補の数量・構成比・変動係数・出荷0率・欠損率・JAN変更・業務指定を算出し、初期3〜5または拡大20〜50品目を対象center・理由付きの不変な`selection_version`として保存する機能を追加した。詳細は[重要品目候補と選定版](docs/Phase1L_重要品目候補と選定版.md)。
 
-次は実データ3〜5品目でPhase 1Kを実行し、全3年の重要品目選定を確定する。実データ到着前に進める場合は、2つ目のOSS候補と共通契約適合試験へ進む。
+Phase 1Mで`statsforecast==2.1.1`のAutoETSを2つ目のOSS Providerとして追加した。TRAINで選択した構造・平滑化パラメータを固定し、起点以前の履歴だけを因果的に前方補完して`forward`へ渡す。安全なJSON artifact、共通runner、独立Worker processまで適合確認済み。詳細は[StatsForecast AutoETS Provider](docs/Phase1M_StatsForecast_AutoETS.md)。
+
+次は実データ3〜5品目でPhase 1Kを実行し、全3年の重要品目選定を確定する。実データ到着前に進める場合は、baselineとAutoETSの比較結果・適合記録を永続化する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
 ## 変更報告

@@ -1,10 +1,30 @@
-# v2.9 Phase 1L 実行検証記録
+# v2.9 Phase 1M 実行検証記録
 
 Date: 2026-09-10 JST
 OS: Windows 11
 Python: 3.12.14
 pytest: 9.1.1
 ruff: 0.16.6
+
+## Phase 1M
+
+- pytest: PostgreSQL 17実DBを含む全337件、FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- OSS: `statsforecast==2.1.1`、Apache-2.0、Python 3.12でAutoETSを確認。
+- 固定学習: 日次週周期`AutoETS(season_length=7, model="ZZZ")`をTRAINで1回fitし、起点更新は学習済み状態の`forward`だけを使用。
+- パラメータ保護: 学習済み構造・平滑化パラメータ・初期状態のSHA-256署名がcontext更新、予測、artifact復元で不変。
+- 欠損: 因果的な前方補完を使用し、未来からの逆補完と0補完をせず、確定0を維持。最小履歴は実観測28日で判定。
+- 未来非参照: 起点より後の実績を変更しても同一起点のhorizon 1〜15 POINT出力が完全一致。
+- artifact: pickleを使わない厳密なJSONでAutoETS状態を保存し、別process復元後の予測が完全一致。
+- 共通化: 固定学習runner、snapshot検証、artifact処理、予定表、失敗台帳、評価をbaselineとAutoETSで共有。
+- 比較: 同一dataset・予定・truth上でbaselineとAutoETSの全予測が成功し、official比較集合が成立。
+- Worker E2E: 認証付きAPIでexperiment/runを作成し、2回の独立StatsForecast Worker processでartifact復元とrun完了を確認。
+- Docker: StatsForecast依存を含むimageをbuildし、コンテナ内registryでbuiltinとAutoETSの登録・版を確認。
+- demo.py: 3系列×365日、2方式、1095予定/方式、失敗0、official ranking成立。
+- scale_check.py: 100系列×1,096日、37起点、POINT 54,500行、POINT＋QUANTILE 218,000行、通期重複0。
+- artifact_demo.py: 別processで再fitなし、24行のPOINT/QUANTILE完全一致。
+- wheel: StatsForecast Provider、JSON codec、共通executorを含むwheel生成を確認。
+- 配布ZIP: UTF-8 filename flagとSHA256SUMSの全件一致を確認。
 
 ## Phase 1L
 

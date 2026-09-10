@@ -10,6 +10,7 @@ PRV-001（交換性）の実装点。プロバイダーの追加は
 
 from __future__ import annotations
 
+import importlib.util
 from collections.abc import Callable
 
 from .contracts import ForecastProvider, ProviderMetadata
@@ -67,10 +68,14 @@ class ProviderRegistry:
 registry = ProviderRegistry()
 
 
-def _register_builtin() -> None:
+def _register_providers() -> None:
     from .providers import builtin_baseline
 
     registry.register(builtin_baseline.PROVIDER_ID, builtin_baseline.build)
+    if importlib.util.find_spec("statsforecast") is not None:
+        from .providers import statsforecast_ets
+
+        registry.register(statsforecast_ets.PROVIDER_ID, statsforecast_ets.build)
 
 
-_register_builtin()
+_register_providers()
