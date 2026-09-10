@@ -91,5 +91,9 @@ API依存は`pip install -e ".[api,postgres]"`で追加する。`KIBAN_POSTGRES_
 
 `POST /api/acceptance-cases`で成功済み日次build、3〜5品目、availability mode、品質閾値を凍結する。`kiban-acceptance-worker --postgres-dsn <DSN> --output-root <DIR>`はsnapshot接続、CSV checksum、全暦日行、系列別利用可能日数・欠測率・不完全率を検査し、JSON/Markdownレポートを発行する。匿名データは`DRY_RUN`となり、実データ受入として承認できない。詳細は[少数実品目の受入](docs/Phase1K_少数実品目受入.md)。
 
+## 重要品目候補と選定版
+
+全候補商品を含む成功済み日次buildを`POST /api/selection-candidate-jobs`へ指定する。`kiban-selection-worker --postgres-dsn <DSN>`は、欠損を0へ変換せずに数量・構成比・変動係数・出荷0率・欠損率を算出し、JAN変更、業務指定、対象centerとともに保存する。候補確認後、初期3〜5品目または拡大20〜50品目を対象center・理由・担当者付きで`POST /api/selections`へ登録する。同じ`selection_version`は上書きできない。詳細は[重要品目候補と選定版](docs/Phase1L_重要品目候補と選定版.md)。
+
 旧版のModelRef/stateは再利用せずfitから実行します。v2.8の生データ将来列はknown_at付き版へ移行します。
 元の提出ZIPは変更していません。既存プロジェクトへ導入する際は作業ブランチで差分を確認してください。

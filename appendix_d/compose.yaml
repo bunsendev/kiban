@@ -115,6 +115,16 @@ services:
     volumes:
       - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots:ro
       - ${KIBAN_ACCEPTANCE_DIR:-./acceptance_output}:/var/lib/kiban/acceptance
+  selection-worker:
+    profiles: ["worker"]
+    build: .
+    command:
+      - kiban-selection-worker
+      - --postgres-dsn
+      - postgresql://kiban:local-development-only@postgres:5432/kiban
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   kiban-postgres:

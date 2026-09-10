@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 1L
+
+- 成功済み日次buildを入力とする内容アドレス方式の重要品目候補算出jobを追加。
+- 欠損と0を分離した数量、構成比、変動係数、出荷0率、欠損率とJAN変更・業務指定を追加。
+- 初期3〜5品目、拡大20〜50品目を対象center・理由・担当者付きの不変な`selection_version`として保存。
+- 品質条件を満たさない候補、候補外品目、候補外center、同じ版の上書きを拒否。
+- SQLite/PostgreSQL、認証付きAPI、独立選定Worker、Compose、別process適合試験を追加。
+
 ## Phase 1K
 
 - 日次buildと3〜5品目、availability mode、品質閾値を凍結する受入caseを追加。

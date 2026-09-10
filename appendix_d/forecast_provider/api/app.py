@@ -24,6 +24,7 @@ from .schemas import (
     RunStatusOutput,
     SnapshotCreate,
 )
+from .selection_routes import install_selection_routes
 from .service import ApplicationService, NotFoundError, record_dict
 
 
@@ -48,6 +49,7 @@ def create_app(
     master=None,
     daily=None,
     acceptance=None,
+    selection=None,
 ) -> FastAPI:
     if not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -79,6 +81,9 @@ def create_app(
 
     if acceptance is not None:
         install_acceptance_routes(app, authorize, acceptance)
+
+    if selection is not None:
+        install_selection_routes(app, authorize, selection)
 
     @app.post("/api/snapshots", response_model=Created, status_code=201)
     def create_snapshot(request: SnapshotCreate, _auth: None = Depends(authorize)):
