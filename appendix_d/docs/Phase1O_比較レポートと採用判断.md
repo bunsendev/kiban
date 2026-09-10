@@ -19,7 +19,7 @@ Phase 1Oは、Phase 1Nで永続化した比較結果を配布可能なCSVへ変�
 
 ## 比較CSV
 
-`POST /api/comparisons/{comparison_id}/exports`は`export_version`、比較内の`baseline_run_id`、`requested_by`だけを受け付ける。サーバーはcatalogのtruth snapshotをchecksumで再検証し、比較台帳の全runをrun ID順に出力する。同じ定義は同じ`export_id`とbyte列になり、同じ比較で同じexport版の内容は変更できない。
+`POST /api/comparisons/{comparison_id}/exports`は`export_version`、比較内の`baseline_run_id`、互換用の`requested_by`を受け付ける。Phase 1Q以降、依頼者は認証済みsubjectで上書きする。サーバーはcatalogのtruth snapshotをchecksumで再検証し、比較台帳の全runをrun ID順に出力する。同じ定義は同じ`export_id`とbyte列になり、同じ比較で同じexport版の内容は変更できない。
 
 CSVはUTF-8 BOM、LF、固定列順である。比較・集合・snapshot・selection・availability・scope・policyの識別子、runとProvider、適合記録、正式集合への掲載状態、run/own/common/officialの件数、own/common/official指標を含む。WAPEとBias rateは百分率、MAE・RMSE・Bias・under・overは数量であることを`metric_units`へ明記する。
 
@@ -35,7 +35,7 @@ baseline改善率は全run共通集合のWAPEで計算する。
 
 ## 採用判断
 
-`POST /api/adoptions`は採用版、比較ID、判断、対象、判断者、理由を保存する。`target`は`selection_version`、重複のない品目IDとcenter ID、30〜366日の試験期間である。`REJECTED`も参照可能な判断履歴として保存し、受入caseやrunは指定しない。
+`POST /api/adoptions`は採用版、比較ID、判断、対象、互換用の判断者、理由を受け付ける。Phase 1Q以降、判断者は認証済みsubjectで上書きして保存する。`target`は`selection_version`、重複のない品目IDとcenter ID、30〜366日の試験期間である。`REJECTED`も参照可能な判断履歴として保存し、受入caseやrunは指定しない。
 
 `ADOPTED`には異なる採用runとfallback run、受入caseが必須であり、次の条件をすべて満たす必要がある。
 
@@ -72,4 +72,4 @@ baseline改善率は全run共通集合のWAPEで計算する。
 
 ## 検証範囲
 
-人工データで決定的CSV、BOM、列順、改善率、数式注入対策、同内容再送、出力改変、入力URI拒否、匿名・未承認受入、非official run、版の上書き拒否、SQLite/PostgreSQL保存を検証する。人工データの採用fixtureは契約試験用であり、実データ受入済みや本番採用済みを意味しない。管理画面、role別認可、電子署名、本番通知は対象外である。
+人工データで決定的CSV、BOM、列順、改善率、数式注入対策、同内容再送、出力改変、入力URI拒否、匿名・未承認受入、非official run、版の上書き拒否、SQLite/PostgreSQL保存を検証する。人工データの採用fixtureは契約試験用であり、実データ受入済みや本番採用済みを意味しない。管理画面とrole別認可はPhase 1P・1Qで追加した。電子署名と本番通知は対象外である。

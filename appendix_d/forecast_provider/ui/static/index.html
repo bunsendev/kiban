@@ -27,6 +27,7 @@
     </form>
     <div id="session-controls" class="session-controls" hidden>
       <span id="connection-state" class="connection-state">接続済み</span>
+      <span id="session-identity" class="session-identity"></span>
       <button id="refresh-button" class="button quiet" type="button">更新</button>
       <button id="disconnect-button" class="button quiet" type="button">切断</button>
     </div>
@@ -130,8 +131,9 @@
                 </div>
                 <label>baseline run<select id="export-baseline" required></select></label>
                 <label>export version<input id="export-version" required value="comparison-export-v1"></label>
-                <label>依頼者<input id="export-requested-by" required autocomplete="email"></label>
-                <button class="button primary wide" type="submit">CSVを発行</button>
+                <p class="field-note">依頼者は接続中の認証主体として記録されます。</p>
+                <button class="button primary wide" data-permission="EXPORT"
+                  type="submit">CSVを発行</button>
               </form>
               <section class="ledger-card" aria-labelledby="export-history-heading">
                 <div class="subheading"><h3 id="export-history-heading">発行履歴</h3></div>
@@ -154,9 +156,10 @@
                   <label>decision version<input id="acceptance-decision-version"
                     required value="acceptance-decision-v1"></label>
                 </div>
-                <label>判断者<input id="acceptance-decided-by" autocomplete="email" required></label>
+                <p class="field-note">判断者は接続中の認証主体として記録されます。</p>
                 <label>理由<textarea id="acceptance-reason" rows="2" required></textarea></label>
-                <button class="button secondary" type="submit">受入判断を保存</button>
+                <button class="button secondary" data-permission="APPROVE"
+                  type="submit">受入判断を保存</button>
               </form>
             </details>
             <div class="action-layout">
@@ -184,10 +187,11 @@
                 <label>対象center ID<textarea id="center-ids" rows="2" required></textarea></label>
                 <div class="field-pair">
                   <label>試験期間（日）<input id="trial-days" type="number" min="30" max="366" value="30" required></label>
-                  <label>判断者<input id="decided-by" autocomplete="email" required></label>
                 </div>
+                <p class="field-note">判断者は接続中の認証主体として記録されます。</p>
                 <label>理由<textarea id="adoption-reason" rows="3" required></textarea></label>
-                <button class="button primary wide" type="submit">判断を保存</button>
+                <button class="button primary wide" data-permission="APPROVE"
+                  type="submit">判断を保存</button>
               </form>
               <section class="ledger-card" aria-labelledby="adoption-history-heading">
                 <div class="subheading"><h3 id="adoption-history-heading">判断履歴</h3></div>

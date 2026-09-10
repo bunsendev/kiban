@@ -95,6 +95,15 @@ button { cursor: pointer; }
   font-weight: 700;
 }
 
+.session-identity {
+  max-width: 320px;
+  overflow: hidden;
+  color: #d5e1ed;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .page-shell {
   width: min(1500px, calc(100% - 2rem));
   margin: 1.5rem auto 3rem;
@@ -363,7 +372,8 @@ td code { display: block; max-width: 210px; overflow: hidden; text-overflow: ell
 @media (max-width: 680px) {
   .topbar { grid-template-columns: 1fr; gap: 1rem; padding: 1.1rem; }
   .connection, .session-controls { justify-self: stretch; }
-  .session-controls { justify-content: flex-end; }
+  .session-controls { flex-wrap: wrap; justify-content: flex-end; }
+  .session-identity { max-width: 100%; }
   .page-shell { width: min(100% - 1rem, 1500px); margin-top: 0.5rem; }
   .summary-grid { grid-template-columns: 1fr 1fr; gap: 0.45rem; }
   .summary-card { min-height: 78px; padding: 0.8rem 0.9rem; }

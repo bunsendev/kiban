@@ -37,11 +37,13 @@ async function request(path, options = {}) {
 
 export function loadDashboard() {
   return Promise.all([
+    request("/api/session"),
     request("/api/comparisons"),
     request("/api/acceptance-cases"),
     request("/api/exports"),
     request("/api/adoptions"),
-  ]).then(([comparisons, acceptances, exports, adoptions]) => ({
+  ]).then(([session, comparisons, acceptances, exports, adoptions]) => ({
+    session,
     comparisons,
     acceptances,
     exports,

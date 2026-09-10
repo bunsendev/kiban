@@ -66,7 +66,9 @@ Phase 1Oで保存済み比較から決定的なUTF-8 BOM付きCSVを発行し、
 
 Phase 1Pで比較・受入・採用を同じ画面で扱う`/ui`を追加した。Bearer tokenはメモリ内だけで保持し、一覧、指標・系譜、受入判断、比較CSV、採用判断を既存APIへ接続する。詳細は[比較・受入・採用管理画面](docs/Phase1P_比較受入採用管理画面.md)。
 
-次はPhase 1Qとしてrole別認可、認証基盤との接続、監査主体の固定、本番向けsecurity header・TLS構成を整備する。並行して実データ3〜5品目でPhase 1Kを実行し、全3年の重要品目選定を確定する。
+Phase 1Qでsubjectとroleを持つ複数Bearer credential、endpoint別permission、認証subjectによる監査主体の固定、productionのHTTPS・Host制約と共通security headerを追加した。従来の単一tokenはdevelopment専用ADMINとして維持する。詳細は[認証・認可とセキュリティ境界](docs/Phase1Q_認証認可とセキュリティ.md)。
+
+次はPhase 1Rとして外部IdP/OIDC連携、credential失効・rotation、TLS終端、監査logと運用監視、backup/restoreを含む本番運用構成を整備する。並行して実データ3〜5品目でPhase 1Kを実行し、全3年の重要品目選定を確定する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
 ## 変更報告

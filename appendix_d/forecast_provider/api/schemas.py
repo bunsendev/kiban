@@ -88,7 +88,7 @@ class SourceSelectionCreate(BaseModel):
     logical_path: str = Field(min_length=1)
     source_file_id: str = Field(min_length=1)
     decision_version: str = Field(min_length=1)
-    decided_by: str = Field(min_length=1)
+    decided_by: str | None = Field(default=None, min_length=1)
     reason: str = Field(min_length=1)
 
 
@@ -118,7 +118,7 @@ class MatchingJobCreate(BaseModel):
 class ProductCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     display_name: str = Field(min_length=1)
-    created_by: str = Field(min_length=1)
+    created_by: str | None = Field(default=None, min_length=1)
     reason: str = Field(min_length=1)
 
 
@@ -129,7 +129,7 @@ class DecisionCreate(BaseModel):
     left_product_id: str | None = None
     right_product_id: str | None = None
     mapping_version: str = Field(min_length=1)
-    approved_by: str = Field(min_length=1)
+    approved_by: str | None = Field(default=None, min_length=1)
     reason: str = Field(min_length=1)
 
 
@@ -140,7 +140,7 @@ class JanMappingCreate(BaseModel):
     valid_from: date
     valid_to: date | None = None
     mapping_version: str = Field(min_length=1)
-    approved_by: str = Field(min_length=1)
+    approved_by: str | None = Field(default=None, min_length=1)
     reason: str = Field(min_length=1)
 
 
@@ -152,7 +152,7 @@ class HandlingPeriodCreate(BaseModel):
     valid_to: date | None = None
     status: Literal["CONFIRMED", "TENTATIVE"]
     period_version: str = Field(min_length=1)
-    approved_by: str = Field(min_length=1)
+    approved_by: str | None = Field(default=None, min_length=1)
     basis: str = Field(min_length=1)
 
 

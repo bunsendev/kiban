@@ -19,6 +19,9 @@ services:
     environment:
       KIBAN_POSTGRES_DSN: postgresql://kiban:local-development-only@postgres:5432/kiban
       KIBAN_API_TOKEN: ${KIBAN_API_TOKEN:-change-me-local}
+      KIBAN_API_SUBJECT: ${KIBAN_API_SUBJECT:-local-admin}
+      KIBAN_DEPLOYMENT_MODE: development
+      KIBAN_ALLOWED_HOSTS: 127.0.0.1,localhost,api
       KIBAN_SNAPSHOT_ROOT: /var/lib/kiban/snapshots
       KIBAN_REPORT_ROOT: /var/lib/kiban/reports
     ports:

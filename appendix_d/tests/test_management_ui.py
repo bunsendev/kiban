@@ -26,6 +26,12 @@ def test_management_ui_serves_modular_assets_without_persisting_token(tmp_path):
     assert "default-src 'self'" in page.headers["content-security-policy"]
     assert "frame-ancestors 'none'" in page.headers["content-security-policy"]
     assert script.headers["x-content-type-options"] == "nosniff"
+    assert script.headers["permissions-policy"] == "camera=(), microphone=(), geolocation=()"
     assert "localStorage" not in script.text + api_client.text
     assert "sessionStorage" not in script.text + api_client.text
+    assert "export-requested-by" not in page.text
+    assert 'request("/api/session")' in api_client.text
+    session = api.get("/api/session", headers={"Authorization": "Bearer token"})
+    assert session.json()["subject"] == "local-admin"
+    assert session.json()["roles"] == ["ADMIN"]
     assert api.get("/api/runs/missing").status_code == 401

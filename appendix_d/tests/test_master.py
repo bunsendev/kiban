@@ -417,7 +417,7 @@ def test_api_to_separate_matching_worker_and_approval_endpoints(tmp_path):
     )
     assert len(api.get("/api/jan-mappings", params={"mapping_version": "mapping-v1"}).json()) == 1
     assert len(api.get("/api/handling-periods", params={"period_version": "period-v1"}).json()) == 1
-    assert api.get("/api/jan-mappings").json()[0]["approved_by"] == "approver@example.test"
+    assert api.get("/api/jan-mappings").json()[0]["approved_by"] == "local-admin"
 
 
 def _candidate_environment_unprocessed(tmp_path):

@@ -48,7 +48,7 @@ def _reporting_fixture(tmp_path):
     return api, runs, catalog, acceptance, report_root, data_path, snapshot_id
 
 
-def _saved_comparison(api, runs, catalog, snapshot_id):
+def _saved_comparison(api, runs, catalog, snapshot_id, purpose="比較結果CSV"):
     experiment_a, definition_a = _experiment(api, snapshot_id, "moving_average_28")
     experiment_b, definition_b = _experiment(api, snapshot_id, "seasonal_naive_7")
     baseline_run = _completed_run(api, runs, catalog, experiment_a, 9)
@@ -57,7 +57,7 @@ def _saved_comparison(api, runs, catalog, snapshot_id):
         snapshot_id,
         [baseline_run, selected_run],
         [_conformance(api, definition_a), _conformance(api, definition_b)],
-        purpose="比較結果CSV",
+        purpose=purpose,
     )
     response = api.post("/api/comparisons", json=request)
     assert response.status_code == 201, response.text
@@ -126,7 +126,11 @@ def _acceptance(acceptance, build_id: str, *, data_kind="REAL", approved=True):
 def test_comparison_export_is_deterministic_safe_and_checksum_verified(tmp_path):
     api, runs, catalog, _, report_root, _, snapshot_id = _reporting_fixture(tmp_path)
     comparison_id, baseline_run, selected_run = _saved_comparison(
-        api, runs, catalog, snapshot_id
+        api,
+        runs,
+        catalog,
+        snapshot_id,
+        purpose="=HYPERLINK(\"https://example.test\")",
     )
     request = {
         "export_version": "comparison-export-v1",
@@ -144,7 +148,8 @@ def test_comparison_export_is_deterministic_safe_and_checksum_verified(tmp_path)
     assert download.content.startswith(b"\xef\xbb\xbf")
     rows = list(csv.DictReader(io.StringIO(download.content.decode("utf-8-sig"))))
     assert len(rows) == 2
-    assert all(row["requested_by"].startswith("'=") for row in rows)
+    assert all(row["requested_by"] == "local-admin" for row in rows)
+    assert all(row["comparison_purpose"].startswith("'=") for row in rows)
     selected = next(row for row in rows if row["run_id"] == selected_run)
     assert float(selected["baseline_improvement_pct"]) == 100.0
     assert selected["own_planned_count"] == selected["run_planned_count"]

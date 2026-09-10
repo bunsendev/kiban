@@ -9,7 +9,7 @@ class ReportExportCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     export_version: str = Field(min_length=1)
     baseline_run_id: str = Field(min_length=1)
-    requested_by: str = Field(min_length=1)
+    requested_by: str | None = Field(default=None, min_length=1)
 
 
 class AdoptionTargetInput(BaseModel):
@@ -29,7 +29,7 @@ class AdoptionCreate(BaseModel):
     selected_run_id: str | None = None
     fallback_run_id: str | None = None
     target: AdoptionTargetInput
-    decided_by: str = Field(min_length=1)
+    decided_by: str | None = Field(default=None, min_length=1)
     reason: str = Field(min_length=1)
 
     @model_validator(mode="after")

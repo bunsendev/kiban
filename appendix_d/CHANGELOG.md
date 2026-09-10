@@ -1,5 +1,14 @@
 # v2.9 修正記録
 
+## Phase 1Q
+
+- subjectとroleを持つ複数Bearer credential、READ・ANALYZE・APPROVE・EXPORTのpermission表を追加。
+- 全API endpointを操作種別に応じたpermissionで保護し、権限不足を403で拒否。
+- 担当者監査項目をrequest bodyではなく認証済みsubjectから確定し、主体の詐称を防止。
+- `/api/session`と管理画面の接続主体・role表示、permissionに応じた操作無効化を追加。
+- productionで複数credential、Host allowlist、HTTPSを必須とし、API documentを非公開化。
+- request ID、no-store、HSTSなどの共通security headerとdevelopmentの単一token互換を追加。
+
 ## Phase 1P
 
 - 比較、受入case、比較CSV、採用判断を同じ画面で扱うFastAPI同一originの`/ui`を追加。
@@ -75,7 +84,7 @@
 - make_releaseで固定のappendix_dルートを作成し、未登録ファイルも照合する。
 
 以前の修正（全予定・失敗記録、欠損規則統一、POINT分離、固定学習、累計、入力検証）は維持。
-最終検証はtest_results.txtを参照。実データ業務受入・role別権限・本番運用は後続開発。
+最終検証はtest_results.txtを参照。実データ業務受入・外部IdP連携・本番運用監視は後続開発。
 
 # Phase 1B（パッケージ版2.9.0維持）
 
