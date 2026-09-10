@@ -33,6 +33,8 @@ EXCLUDE_DIRS = {
     "report_output",
     "build",
     "dist",
+    "secrets",
+    "backups",
 }
 EXCLUDE_SUFFIX = {".egg-info"}
 SUMS = "SHA256SUMS.json"
@@ -50,6 +52,8 @@ def release_files() -> list[pathlib.Path]:
         if p.suffix == ".zip" or p.name == ".env":
             continue
         if p.name == SUMS:
+            continue
+        if p.name.startswith(".env") and not p.name.endswith(".example"):
             continue
         out.append(p)
     return out

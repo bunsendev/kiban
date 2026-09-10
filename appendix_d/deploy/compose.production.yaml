@@ -1,0 +1,244 @@
+name: kiban-production
+
+x-worker-base: &worker-base
+  profiles: ["workers"]
+  build:
+    context: ..
+    dockerfile: Dockerfile
+  secrets:
+    - postgres_dsn
+  depends_on:
+    postgres:
+      condition: service_healthy
+  networks:
+    - backend
+  read_only: true
+  tmpfs:
+    - /tmp
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${KIBAN_POSTGRES_DB:-kiban}
+      POSTGRES_USER: ${KIBAN_POSTGRES_USER:-kiban}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command:
+      - uvicorn
+      - forecast_provider.api.factory:from_environment
+      - --factory
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --proxy-headers
+      - --forwarded-allow-ips=*
+    environment:
+      KIBAN_POSTGRES_DSN_FILE: /run/secrets/postgres_dsn
+      KIBAN_AUTH_MODE: oidc
+      KIBAN_DEPLOYMENT_MODE: production
+      KIBAN_ALLOWED_HOSTS: ${KIBAN_DOMAIN:?KIBAN_DOMAIN is required},api
+      KIBAN_OIDC_ISSUER: ${KIBAN_OIDC_ISSUER:?KIBAN_OIDC_ISSUER is required}
+      KIBAN_OIDC_AUDIENCE: ${KIBAN_OIDC_AUDIENCE:?KIBAN_OIDC_AUDIENCE is required}
+      KIBAN_OIDC_JWKS_URL: ${KIBAN_OIDC_JWKS_URL:?KIBAN_OIDC_JWKS_URL is required}
+      KIBAN_OIDC_ROLE_CLAIM: ${KIBAN_OIDC_ROLE_CLAIM:-roles}
+      KIBAN_OIDC_ROLE_MAPPING: ${KIBAN_OIDC_ROLE_MAPPING:?KIBAN_OIDC_ROLE_MAPPING is required}
+      KIBAN_OIDC_ALGORITHMS: ${KIBAN_OIDC_ALGORITHMS:-RS256}
+      KIBAN_OIDC_LEEWAY_SECONDS: ${KIBAN_OIDC_LEEWAY_SECONDS:-60}
+      KIBAN_SNAPSHOT_ROOT: /var/lib/kiban/snapshots
+      KIBAN_REPORT_ROOT: /var/lib/kiban/reports
+    secrets:
+      - postgres_dsn
+    expose:
+      - "8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import urllib.request;
+          urllib.request.urlopen(urllib.request.Request('http://api:8000/ready',headers={'Host':'api'}),timeout=5)
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${KIBAN_SNAPSHOT_DIR:-../snapshot_input}:/var/lib/kiban/snapshots:ro
+      - ${KIBAN_REPORT_DIR:-../report_output}:/var/lib/kiban/reports
+    networks:
+      - edge
+      - backend
+    read_only: true
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      KIBAN_DOMAIN: ${KIBAN_DOMAIN:?KIBAN_DOMAIN is required}
+      KIBAN_ACME_EMAIL: ${KIBAN_ACME_EMAIL:?KIBAN_ACME_EMAIL is required}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - edge
+    read_only: true
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+
+  run-worker:
+    <<: *worker-base
+    command:
+      - kiban-worker
+      - --postgres-dsn-file
+      - /run/secrets/postgres_dsn
+      - --builtin-baseline
+      - --worker-id
+      - production-baseline-1
+      - --artifact-root
+      - /var/lib/kiban/artifacts
+      - --work-root
+      - /var/lib/kiban/work
+    volumes:
+      - worker-state:/var/lib/kiban
+      - ${KIBAN_SNAPSHOT_DIR:-../snapshot_input}:/var/lib/kiban/snapshots:ro
+
+  statsforecast-worker:
+    <<: *worker-base
+    command:
+      - kiban-worker
+      - --postgres-dsn-file
+      - /run/secrets/postgres_dsn
+      - --statsforecast-ets
+      - --worker-id
+      - production-autoets-1
+      - --artifact-root
+      - /var/lib/kiban/artifacts
+      - --work-root
+      - /var/lib/kiban/work
+    volumes:
+      - worker-state:/var/lib/kiban
+      - ${KIBAN_SNAPSHOT_DIR:-../snapshot_input}:/var/lib/kiban/snapshots:ro
+
+  import-worker:
+    <<: *worker-base
+    command:
+      - kiban-import-worker
+      - --postgres-dsn-file
+      - /run/secrets/postgres_dsn
+      - --input-root
+      - /var/lib/kiban/import-input
+      - --archive-root
+      - /var/lib/kiban/raw-archive
+    volumes:
+      - ${KIBAN_IMPORT_DIR:-../import_input}:/var/lib/kiban/import-input:ro
+      - ${KIBAN_RAW_ARCHIVE_DIR:-../raw_archive}:/var/lib/kiban/raw-archive
+
+  normalization-worker:
+    <<: *worker-base
+    command:
+      - kiban-normalization-worker
+      - --postgres-dsn-file
+      - /run/secrets/postgres_dsn
+    volumes:
+      - ${KIBAN_RAW_ARCHIVE_DIR:-../raw_archive}:/var/lib/kiban/raw-archive:ro
+
+  matching-worker:
+    <<: *worker-base
+    command:
+      - kiban-matching-worker
+      - --postgres-dsn-file
+      - /run/secrets/postgres_dsn
+
+  daily-worker:
+    <<: *worker-base
+    command:
+      - kiban-daily-worker
+      - --postgres-dsn-file
+      - /run/secrets/postgres_dsn
+      - --output-root
+      - /var/lib/kiban/snapshots
+    volumes:
+      - ${KIBAN_SNAPSHOT_DIR:-../snapshot_input}:/var/lib/kiban/snapshots
+
+  acceptance-worker:
+    <<: *worker-base
+    command:
+      - kiban-acceptance-worker
+      - --postgres-dsn-file
+      - /run/secrets/postgres_dsn
+      - --output-root
+      - /var/lib/kiban/acceptance
+    volumes:
+      - ${KIBAN_SNAPSHOT_DIR:-../snapshot_input}:/var/lib/kiban/snapshots:ro
+      - ${KIBAN_ACCEPTANCE_DIR:-../acceptance_output}:/var/lib/kiban/acceptance
+
+  selection-worker:
+    <<: *worker-base
+    command:
+      - kiban-selection-worker
+      - --postgres-dsn-file
+      - /run/secrets/postgres_dsn
+
+  db-operations:
+    profiles: ["operations"]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.operations
+    environment:
+      KIBAN_POSTGRES_DSN_FILE: /run/secrets/postgres_dsn
+    secrets:
+      - postgres_dsn
+    volumes:
+      - ${KIBAN_BACKUP_DIR:-./backups}:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+
+secrets:
+  postgres_password:
+    file: ${KIBAN_POSTGRES_PASSWORD_FILE:?KIBAN_POSTGRES_PASSWORD_FILE is required}
+  postgres_dsn:
+    file: ${KIBAN_POSTGRES_DSN_FILE:?KIBAN_POSTGRES_DSN_FILE is required}
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:
+  worker-state:
+
+networks:
+  edge:
+    internal: false
+  backend:
+    internal: true

@@ -1,0 +1,5 @@
+# JWT/OIDC認証のPython 3.12検証済み依存。
+PyJWT[crypto]==2.13.0
+cryptography==50.0.1
+cffi==2.1.1
+pycparser==3.0

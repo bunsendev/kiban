@@ -19,6 +19,7 @@ dev = [
 ]
 postgres = ["psycopg[binary]>=3.2,<4"]
 api = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
+auth = ["PyJWT[crypto]>=2.13,<3"]
 test = ["httpx>=0.27,<1"]
 statsforecast = ["statsforecast==2.1.1"]
 
@@ -30,6 +31,7 @@ kiban-matching-worker = "forecast_provider.matching_worker:main"
 kiban-daily-worker = "forecast_provider.daily_worker:main"
 kiban-acceptance-worker = "forecast_provider.acceptance_worker:main"
 kiban-selection-worker = "forecast_provider.selection_worker:main"
+kiban-db = "forecast_provider.operations.database:main"
 
 [tool.setuptools.packages.find]
 include = ["forecast_provider*"]

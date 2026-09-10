@@ -1,3 +1,31 @@
+# v2.9 Phase 1R 実行検証記録
+
+Date: 2026-09-11 JST
+OS: Windows 11
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 1R
+
+- pytest: PostgreSQL 17実DBを含む全361件、FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- OIDC: RSA署名JWTのJWKS鍵選択、issuer、audience、sub、iat、exp、外部role mappingを検証し、署名違い、期限切れ、claim不一致、HS系algorithmを拒否。
+- credential rotation: atomic置換されたJSON fileを再読込し、旧token失効、新token反映、不正更新時の401・readiness 503、修復後の復帰を確認。
+- 観測: 公開`/health`、依存別`/ready`、READ権限付きPrometheus形式`/metrics`を確認。route templateで件数を集計。
+- 監査log: Docker APIの標準出力へrequest ID、route、status、処理時間を1行JSONで記録。認証主体・roleを変更操作へ付与し、token、query、bodyを出力しないことを確認。
+- secret: APIと全WorkerがPostgreSQL DSN fileを読めること、直値との併用拒否、productionの固定単一token拒否を確認。
+- 本番Compose: Caddy、API、PostgreSQL、8 Worker、DB操作の全12 serviceを解決。host公開をCaddyの80/443だけに限定し、backendを内部network化。
+- Caddy: 公式`caddy:2-alpine`でCaddyfileを検証し、automatic HTTPSとHTTPからHTTPSへのredirect設定を確認。公開DNS・実証明書取得は未実施。
+- PostgreSQL backup: 17.11の`pg_dump`で実DBから193,715 byteのcustom archiveを作成し、SHA-256、size、manifest、`pg_restore --list`を検証。
+- PostgreSQL restore: DB名確認、checksum、archive list、`--dbname`、`--clean --if-exists --single-transaction --exit-on-error`を自動試験。本DBを変更する実復元は未実施。
+- Docker Compose: API imageをauth依存込みで再buildし、PostgreSQL接続、`/health`、全readiness、認証subject、metrics、監査JSONを確認。
+- demo.py: 3系列×365日、2方式、1095予定/方式、失敗0、official ranking成立。
+- scale_check.py: 100系列×1,096日、37起点、POINT 54,500行、POINT＋QUANTILE 218,000行、通期重複0。
+- artifact_demo.py: 別processで再fitなし、24行のPOINT/QUANTILE完全一致。
+- wheel: OIDC、認証、観測、DB運用、secret読込みmoduleを含む165ファイルを確認。
+- 配布ZIP: 252ファイル、secret・backup・`.env.production`を除外し、UTF-8 filename flag、SHA256SUMS 252/252一致。
+
 # v2.9 Phase 1Q 実行検証記録
 
 Date: 2026-09-10 JST

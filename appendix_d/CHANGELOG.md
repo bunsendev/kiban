@@ -1,5 +1,15 @@
 # v2.9 修正記録
 
+## Phase 1R
+
+- 外部IdPのJWT access tokenをJWKS、非対称署名、issuer、audience、時刻claim、role mappingで検証するOIDC modeを追加。
+- JWKSの`kid`更新とatomic置換されるcredential JSON fileによる無停止rotation・失効を追加。
+- 認証、HTTP security、観測を独立moduleへ分割し、Phase 1Qのimport互換を維持。
+- token・body・queryを含めないsubject付き構造化監査log、liveness、readiness、Prometheus形式metricsを追加。
+- 全WorkerへPostgreSQL DSN secret file入力を追加し、passwordのcommand line展開を回避。
+- Caddy automatic HTTPS、内部network、Docker secret、本番API・全Workerを定義するproduction Composeを追加。
+- PostgreSQL 17 custom archive、SHA-256 manifest、検証、復元先DB確認、単一transaction restore CLIを追加。
+
 ## Phase 1Q
 
 - subjectとroleを持つ複数Bearer credential、READ・ANALYZE・APPROVE・EXPORTのpermission表を追加。

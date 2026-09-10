@@ -2,16 +2,14 @@
 
 import argparse
 import time
-from pathlib import Path
 
 from .master import MatchingProcessor, PostgresMasterStore, SqliteMasterStore
+from .operations.worker_config import add_database_arguments, postgres_dsn
 
 
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser()
-    database = value.add_mutually_exclusive_group(required=True)
-    database.add_argument("--sqlite", type=Path)
-    database.add_argument("--postgres-dsn")
+    add_database_arguments(value)
     value.add_argument("--once", action="store_true")
     value.add_argument("--poll-seconds", type=float, default=2.0)
     return value
@@ -19,8 +17,9 @@ def parser() -> argparse.ArgumentParser:
 
 def main(argv=None) -> int:
     args = parser().parse_args(argv)
+    dsn = postgres_dsn(args)
     store = (
-        SqliteMasterStore(args.sqlite) if args.sqlite else PostgresMasterStore(args.postgres_dsn)
+        SqliteMasterStore(args.sqlite) if args.sqlite else PostgresMasterStore(dsn)
     )
     processor = MatchingProcessor(store)
     while True:

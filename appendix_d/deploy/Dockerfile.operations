@@ -1,0 +1,4 @@
+FROM postgres:17-alpine
+RUN apk add --no-cache python3
+COPY forecast_provider/operations/database.py /opt/kiban/database.py
+ENTRYPOINT ["python3", "/opt/kiban/database.py"]

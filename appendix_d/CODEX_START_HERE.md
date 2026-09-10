@@ -68,7 +68,9 @@ Phase 1Pで比較・受入・採用を同じ画面で扱う`/ui`を追加した�
 
 Phase 1Qでsubjectとroleを持つ複数Bearer credential、endpoint別permission、認証subjectによる監査主体の固定、productionのHTTPS・Host制約と共通security headerを追加した。従来の単一tokenはdevelopment専用ADMINとして維持する。詳細は[認証・認可とセキュリティ境界](docs/Phase1Q_認証認可とセキュリティ.md)。
 
-次はPhase 1Rとして外部IdP/OIDC連携、credential失効・rotation、TLS終端、監査logと運用監視、backup/restoreを含む本番運用構成を整備する。並行して実データ3〜5品目でPhase 1Kを実行し、全3年の重要品目選定を確定する。
+Phase 1Rで外部IdPのJWT/OIDC検証、credential fileとJWKSのrotation、構造化監査log、liveness・readiness・metrics、PostgreSQL backup/restore、Caddy TLS終端、本番Composeを追加した。API、認証、観測、DB操作、deploy設定は独立moduleへ分割した。詳細は[本番運用基盤](docs/Phase1R_本番運用基盤.md)。
+
+次はPhase 1Sとして月次再学習、champion/challenger昇格、rollback、schedulerと本番試験運用の手順を整備する。並行して実データ3〜5品目でPhase 1Kを実行し、全3年の重要品目選定を確定する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
 ## 変更報告
