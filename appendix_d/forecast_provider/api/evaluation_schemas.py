@@ -42,7 +42,7 @@ class ConformanceCreate(BaseModel):
     adapter_config: dict
     environment: ConformanceEnvironmentInput
     checks: list[ConformanceCheckInput] = Field(min_length=7, max_length=7)
-    executed_by: str = Field(min_length=1)
+    executed_by: str | None = Field(default=None, min_length=1)
     executed_at: datetime
     evidence_uri: str | None = None
     evidence_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
@@ -64,7 +64,7 @@ class ComparisonCreate(BaseModel):
     mode: Literal["horizon", "primary"] = "horizon"
     horizon: int | None = Field(default=None, ge=1, le=400)
     policy_version: str = Field(default="evaluation-v2.9", min_length=1)
-    requested_by: str = Field(min_length=1)
+    requested_by: str | None = Field(default=None, min_length=1)
     purpose: str = Field(min_length=1)
 
     @model_validator(mode="after")

@@ -13,7 +13,7 @@ class CandidateJobCreate(BaseModel):
     max_missing_rate: float = Field(ge=0, le=1)
     stable_cv_max: float = Field(ge=0)
     intermittent_zero_rate_min: float = Field(ge=0, le=1)
-    requested_by: str = Field(min_length=1)
+    requested_by: str | None = Field(default=None, min_length=1)
     purpose: str = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -42,7 +42,7 @@ class SelectionCreate(BaseModel):
     candidate_job_id: str = Field(min_length=1)
     scope: Literal["INITIAL", "FULL"]
     items: list[SelectionItemCreate]
-    selected_by: str = Field(min_length=1)
+    selected_by: str | None = Field(default=None, min_length=1)
     rationale: str = Field(min_length=1)
 
     @model_validator(mode="after")

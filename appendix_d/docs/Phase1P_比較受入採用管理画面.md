@@ -12,15 +12,17 @@ APIを通常どおり起動し、ブラウザーで`http://127.0.0.1:58000/ui`�
 docker compose up -d --build postgres api
 ```
 
-画面上部へ`KIBAN_API_TOKEN`と同じBearer tokenを入力する。tokenはJavaScriptのメモリ内だけで保持し、`localStorage`、`sessionStorage`、URL、業務台帳へ保存しない。更新すると再入力が必要になる。
+画面上部へ設定したBearer tokenを入力する。接続後は認証subjectとroleを表示し、permissionのない操作を無効にする。tokenはJavaScriptのメモリ内だけで保持し、`localStorage`、`sessionStorage`、URL、業務台帳へ保存しない。更新すると再入力が必要になる。
 
 ## 操作フロー
 
 1. 比較一覧から目的または比較IDで対象を選ぶ。
 2. 正式比較の成立、run別の成功率・own/common/official WAPE、snapshot・selectionの系譜を確認する。
 3. 対応する受入caseについて、技術判定とデータ種別を確認して業務判断を保存する。
-4. baseline run、export version、依頼者を指定して比較CSVを発行・取得する。
-5. 採用時は実データ受入case、正式run、fallback、対象品目・center、試験期間、担当者、理由を指定する。却下時も版、対象、担当者、理由を記録する。
+4. baseline runとexport versionを指定して比較CSVを発行・取得する。
+5. 採用時は実データ受入case、正式run、fallback、対象品目・center、試験期間、理由を指定する。却下時も版、対象、理由を記録する。
+
+依頼者・判断者は入力欄で指定せず、APIが認証済みsubjectから確定する。
 
 画面に表示された採用可否は案内である。保存時にはPhase 1Oのserviceが正式比較、run、実データ受入、最新APPROVED、日次build、selection、品目・centerを再検証する。
 
@@ -50,4 +52,4 @@ HTMLへ業務データを埋め込まず、DOM生成には`textContent`を使う
 
 ## 対象外
 
-role別認可、SSO、電子署名、通知、本番TLS終端、グラフ画像出力、実データでの受入・採用判断そのものは本Phaseに含めない。
+SSO、電子署名、通知、本番TLS終端、グラフ画像出力、実データでの受入・採用判断そのものは本Phaseに含めない。role別認可と監査主体の固定はPhase 1Qで追加した。

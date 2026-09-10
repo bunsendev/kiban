@@ -23,11 +23,13 @@ const state = {
   selectedId: null,
   selected: null,
   busy: false,
+  permissions: new Set(),
 };
 
 const elements = {
   connectionForm: document.getElementById("connection-form"),
   sessionControls: document.getElementById("session-controls"),
+  sessionIdentity: document.getElementById("session-identity"),
   token: document.getElementById("api-token"),
   notice: document.getElementById("notice"),
   refresh: document.getElementById("refresh-button"),
@@ -47,8 +49,16 @@ function notice(message, tone = "") {
 
 function setBusy(value) {
   state.busy = value;
-  for (const button of document.querySelectorAll("button")) button.disabled = value;
+  for (const button of document.querySelectorAll("button")) {
+    const permission = button.dataset.permission;
+    button.disabled = value || (permission && !state.permissions.has(permission));
+  }
   document.body.setAttribute("aria-busy", String(value));
+}
+
+function showSession(session) {
+  state.permissions = new Set(session.permissions);
+  elements.sessionIdentity.textContent = `${session.subject} / ${session.roles.join(", ")}`;
 }
 
 function recordsFor(comparisonId) {
@@ -94,6 +104,7 @@ async function refreshDashboard(preferredId = state.selectedId) {
   notice("台帳を更新しています。");
   try {
     state.dashboard = await loadDashboard();
+    showSession(state.dashboard.session);
     renderSummary(state.dashboard);
     const available = state.dashboard.comparisons.some(
       (item) => item.comparison_id === preferredId,
@@ -147,7 +158,6 @@ async function handleExport(event) {
     await createExport(state.selectedId, {
       export_version: document.getElementById("export-version").value.trim(),
       baseline_run_id: document.getElementById("export-baseline").value,
-      requested_by: document.getElementById("export-requested-by").value.trim(),
     });
     notice("比較CSVを発行しました。", "success");
     setBusy(false);
@@ -176,7 +186,6 @@ function adoptionPayload() {
       center_ids: parseList(document.getElementById("center-ids").value),
       trial_period_days: Number(document.getElementById("trial-days").value),
     },
-    decided_by: document.getElementById("decided-by").value.trim(),
     reason: document.getElementById("adoption-reason").value.trim(),
   };
 }
@@ -218,7 +227,6 @@ async function handleAcceptanceDecision(event) {
         .getElementById("acceptance-decision-version")
         .value.trim(),
       decision: document.getElementById("acceptance-decision").value,
-      decided_by: document.getElementById("acceptance-decided-by").value.trim(),
       reason: document.getElementById("acceptance-reason").value.trim(),
     });
     notice("受入caseの業務判断を保存しました。", "success");
@@ -258,9 +266,11 @@ elements.disconnect.addEventListener("click", () => {
   state.dashboard = null;
   state.selectedId = null;
   state.selected = null;
+  state.permissions = new Set();
   elements.connectionForm.hidden = false;
   elements.sessionControls.hidden = true;
   elements.search.value = "";
+  elements.sessionIdentity.textContent = "";
   renderSummary({ comparisons: [], acceptances: [], exports: [], adoptions: [] });
   replaceComparisonListAfterDisconnect();
   showDetail(false);

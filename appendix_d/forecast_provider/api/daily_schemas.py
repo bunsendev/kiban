@@ -30,7 +30,7 @@ class ClosedDayCreate(BaseModel):
     closed_date: date
     closure_version: str = Field(min_length=1)
     available_at: datetime
-    approved_by: str = Field(min_length=1)
+    approved_by: str | None = Field(default=None, min_length=1)
     reason: str = Field(min_length=1)
 
 

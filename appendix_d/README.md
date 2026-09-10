@@ -2,7 +2,7 @@
 
 v2.8レビューの指摘を反映した予測・比較コアです。
 コード、全体仕様、統合仕様、開始ガイド、テスト、人工データデモ、検証記録を同梱しています。
-予定完全性、日次状態、少数実品目の受入判定基盤、StatsForecast AutoETS、比較CSV、採用判断台帳と管理画面まで実装済みです。実データでの受入実行と本番運用は後続開発です。
+予定完全性、日次状態、少数実品目の受入判定基盤、StatsForecast AutoETS、比較CSV、採用判断台帳、管理画面、role別認可と本番向けHTTP境界まで実装済みです。実データでの受入実行と外部認証基盤を含む本番運用は後続開発です。
 
 ## 最初に読む
 
@@ -68,7 +68,7 @@ test_results.txtはこの版の実測記録です。依存はrequirementsファ�
 
 ## Run API / Worker
 
-APIと全Provider依存は`pip install -e ".[api,postgres,statsforecast]"`で追加する。`KIBAN_POSTGRES_DSN`、`KIBAN_API_TOKEN`、`KIBAN_SNAPSHOT_ROOT`、`KIBAN_REPORT_ROOT`を設定し、`uvicorn forecast_provider.api.factory:from_environment --factory`で起動する。snapshotと実験を登録後、保存済みexperiment IDからrunを作る。組込baseline Workerは`kiban-worker --postgres-dsn <DSN> --builtin-baseline --artifact-root <DIR> --work-root <DIR> --worker-id <ID>`、AutoETS Workerは同じ引数に`--statsforecast-ets`を指定して起動する。Dockerでは`docker compose --profile statsforecast-worker up -d --build statsforecast-worker`を使用する。共通実行は[実験SnapshotとBaseline統合](docs/Phase1F_実験SnapshotとBaseline統合.md)、AutoETS固有条件は[StatsForecast AutoETS Provider](docs/Phase1M_StatsForecast_AutoETS.md)を参照する。
+APIと全Provider依存は`pip install -e ".[api,postgres,statsforecast]"`で追加する。developmentでは`KIBAN_POSTGRES_DSN`、`KIBAN_API_TOKEN`、`KIBAN_API_SUBJECT`、`KIBAN_SNAPSHOT_ROOT`、`KIBAN_REPORT_ROOT`を設定し、`uvicorn forecast_provider.api.factory:from_environment --factory`で起動する。productionでは共有tokenを使わず、複数のsubjectとroleを持つ`KIBAN_API_CREDENTIALS`、`KIBAN_ALLOWED_HOSTS`、HTTPSを必須とする。認証・認可の詳細は[認証・認可とセキュリティ境界](docs/Phase1Q_認証認可とセキュリティ.md)を参照する。snapshotと実験を登録後、保存済みexperiment IDからrunを作る。組込baseline Workerは`kiban-worker --postgres-dsn <DSN> --builtin-baseline --artifact-root <DIR> --work-root <DIR> --worker-id <ID>`、AutoETS Workerは同じ引数に`--statsforecast-ets`を指定して起動する。Dockerでは`docker compose --profile statsforecast-worker up -d --build statsforecast-worker`を使用する。共通実行は[実験SnapshotとBaseline統合](docs/Phase1F_実験SnapshotとBaseline統合.md)、AutoETS固有条件は[StatsForecast AutoETS Provider](docs/Phase1M_StatsForecast_AutoETS.md)を参照する。
 
 Provider適合試験は`POST /api/provider-conformance-tests`へ記録し、`GET /api/providers`でモデル別の固定ランキング掲載可否を確認する。比較は`POST /api/comparisons`へ保存済みrun ID、各runの適合記録ID、truth snapshot IDを指定する。予測値と指標はrun台帳とchecksum検証済みsnapshotからサーバーが再計算する。詳細は[Provider適合試験と比較結果の永続化](docs/Phase1N_評価レジストリ.md)を参照する。
 
@@ -76,7 +76,7 @@ Provider適合試験は`POST /api/provider-conformance-tests`へ記録し、`GET
 
 ## 比較・受入・採用管理画面
 
-API起動後に`http://127.0.0.1:58000/ui`を開き、`KIBAN_API_TOKEN`と同じtokenを入力する。比較選択、run別指標と系譜の確認、受入caseの業務判断、比較CSVの発行・取得、採用・却下の記録を同じ画面で行える。tokenは画面のメモリ内だけで保持し、更新時には再入力が必要。採用条件は保存時にサーバーが再検証する。詳細は[比較・受入・採用管理画面](docs/Phase1P_比較受入採用管理画面.md)を参照する。
+API起動後にdevelopmentでは`http://127.0.0.1:58000/ui`を開き、設定したtokenを入力する。接続すると認証subjectとroleが表示され、permissionのない操作は無効になる。比較選択、run別指標と系譜の確認、受入caseの業務判断、比較CSVの発行・取得、採用・却下の記録を同じ画面で行える。tokenは画面のメモリ内だけで保持し、更新時には再入力が必要。担当者項目は認証subjectから確定し、採用条件は保存時にサーバーが再検証する。詳細は[比較・受入・採用管理画面](docs/Phase1P_比較受入採用管理画面.md)を参照する。
 
 ソース編集後、ハッシュ再生成前の配布整合テスト失敗は想定内ですが、その状態で出荷しないでください。
 

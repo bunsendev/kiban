@@ -1,10 +1,28 @@
-# v2.9 Phase 1P 実行検証記録
+# v2.9 Phase 1Q 実行検証記録
 
 Date: 2026-09-10 JST
 OS: Windows 11
 Python: 3.12.14
 pytest: 9.1.1
 ruff: 0.16.6
+
+## Phase 1Q
+
+- pytest: PostgreSQL 17実DBを含む全351件、FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- credential: subjectとroleを持つ複数Bearer credentialをJSONから読込み、平文tokenを照合器へ保持せずSHA-256 digestで照合。
+- role別認可: 54本のAPI pathをREAD、ANALYZE、APPROVE、EXPORTで保護し、権限不足403、未認証401を確認。
+- 監査主体: request bodyの担当者指定を認証済みsubjectで上書きし、別人の識別子を保存できないことを確認。
+- production境界: 複数credentialとHost allowlistを必須化し、平文HTTP 426、不正Host 400、API document 404を確認。
+- HTTP header: APIへrequest ID、`no-store`、`nosniff`、`no-referrer`、frame・permission・origin制約を付与し、production HTTPSへHSTSを付与。
+- 管理画面: `/api/session`のsubject・roleを表示し、permissionのない操作を無効化。担当者入力欄を削除し、tokenのメモリ内保持を維持。
+- JavaScript: `api.js`、`format.js`、`render.js`、`app.js`の`node --check`と52要素ID・41参照の照合に合格。
+- Docker Compose: API imageを再buildし、`/health`、`/ui`、認証subject・4 permission、API 54 path、Bearer未認証401、security headerを確認。
+- demo.py: 3系列×365日、2方式、1095予定/方式、失敗0、official ranking成立。
+- scale_check.py: 100系列×1,096日、37起点、POINT 54,500行、POINT＋QUANTILE 218,000行、通期重複0。
+- artifact_demo.py: 別processで再fitなし、24行のPOINT/QUANTILE完全一致。
+- wheel: security moduleと管理画面route・6静的assetを含む157ファイルを確認。
+- 配布ZIP: 235ファイル、UTF-8 filename flag、SHA256SUMS 235/235一致。
 
 ## Phase 1P
 

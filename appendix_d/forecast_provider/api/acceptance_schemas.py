@@ -15,7 +15,7 @@ class AcceptanceCaseCreate(BaseModel):
     min_usable_days_per_series: int = Field(ge=1)
     max_missing_rate: float = Field(ge=0, le=1)
     max_partial_invalid_rate: float = Field(ge=0, le=1)
-    requested_by: str = Field(min_length=1)
+    requested_by: str | None = Field(default=None, min_length=1)
     purpose: str = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -29,5 +29,5 @@ class AcceptanceDecisionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     decision_version: str = Field(min_length=1)
     decision: Literal["APPROVED", "REJECTED"]
-    decided_by: str = Field(min_length=1)
+    decided_by: str | None = Field(default=None, min_length=1)
     reason: str = Field(min_length=1)
