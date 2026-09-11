@@ -75,6 +75,14 @@ button { cursor: pointer; }
 
 .topbar .eyebrow { color: #8fdde6; }
 
+.workspace-link {
+  display: inline-block;
+  margin-top: 0.35rem;
+  color: #bcebf1;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 .connection { justify-self: end; width: min(100%, 520px); }
 .connection label { color: #b9c8d8; font-size: 0.875rem; font-weight: 700; }
 .connection-row { display: grid; grid-template-columns: 1fr auto; gap: 0.55rem; }

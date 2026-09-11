@@ -16,7 +16,7 @@ export function clearToken() {
   token = "";
 }
 
-async function request(path, options = {}) {
+export async function request(path, options = {}) {
   if (!token) throw new ApiError(401, "API tokenを入力してください。");
   const headers = new Headers(options.headers || {});
   headers.set("Authorization", `Bearer ${token}`);

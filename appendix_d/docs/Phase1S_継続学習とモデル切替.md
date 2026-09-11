@@ -142,3 +142,4 @@ POST /api/lifecycle-plans/<plan-id>/trial-assessments
 
 Lifecycleは製造・購買システムへ予測値を自動書込みしない。実データの試験運用結果が保存されるまでは、本番精度や業務効果が確認済みという扱いにしない。
 
+Phase 1Tでこれらの操作を専用管理画面`/ui/lifecycle`へ接続した。画面の使い方と権限は[Lifecycle運用画面](Phase1T_Lifecycle運用画面.md)を参照する。

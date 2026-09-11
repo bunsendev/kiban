@@ -1,3 +1,28 @@
+# v2.9 Phase 1T 実行検証記録
+
+Date: 2026-09-11 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 1T
+
+- pytest: 全377件。Linux Dockerで372 passed、PostgreSQL依存5 skipped、PostgreSQL 17実DBで該当5件を含む選択suite 7 passed。FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- JavaScript: 既存4 moduleとLifecycle 3 moduleを`node --check`し、構文エラー0。
+- Lifecycle画面: `/ui/lifecycle`で計画、現在champion・revision、全event、月次cycle、trial予測・評価を表示。
+- 操作: 計画作成、scheduler、cycle完了・失敗、昇格、rollback、予測事前記録、30日trial評価を既存APIへ接続。
+- 権限: READ参照、ANALYZE運用処理、APPROVE承認処理を画面へ反映し、最終認可と監査主体はAPIで再検証。
+- 状態整合: 各操作後にサーバー台帳を再読込し、champion revisionとtrial assessment revisionを保存直前の状態から送信。
+- token保護: tokenをmodule memoryだけに保持し、URL、cookie、`localStorage`、`sessionStorage`へ保存しない。
+- DOM安全性: 全静的ID参照をHTMLと照合し、動的な台帳値を`textContent`で挿入。
+- module分割: HTML 133行、API 45行、描画175行、画面制御256行、固有CSS 50行に分割。
+- 実画面: Docker配信した狭幅画面でheader、接続、4 summary、計画作成、計画一覧のresponsive表示を確認。
+- Docker API: imageを再buildし、`/ui/lifecycle`と全asset 200、`/health=ok`、`/ready=ready`を確認。
+- wheel: Lifecycle画面のHTML・CSS・3 JavaScript moduleを含む188ファイルを確認。
+- 配布ZIP: 284ファイル、secret・backup・`.env.production`を除外し、UTF-8 filename flag、SHA256SUMS 284/284一致。
+
 # v2.9 Phase 1S 実行検証記録
 
 Date: 2026-09-11 JST

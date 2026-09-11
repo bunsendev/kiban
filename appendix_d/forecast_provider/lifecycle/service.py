@@ -226,6 +226,7 @@ class LifecycleService:
         return {
             "plan": asdict(plan),
             "champion": asdict(events[-1]),
+            "champion_events": [asdict(value) for value in events],
             "cycles": [asdict(value) for value in cycles],
             "trial_forecast_count": len(forecasts),
             "latest_trial_assessment": None if not assessments else asdict(assessments[-1]),
