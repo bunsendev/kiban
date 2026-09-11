@@ -51,6 +51,10 @@ def test_lifecycle_api_uses_authenticated_actor_and_exposes_current_state(tmp_pa
     status = api.get(f"/api/lifecycle-plans/{plan['plan_id']}")
     assert status.status_code == 200
     assert status.json()["champion"]["to_run_id"] == "challenger"
+    assert [event["action"] for event in status.json()["champion_events"]] == [
+        "INITIALIZED",
+        "PROMOTED",
+    ]
 
 
 def test_lifecycle_api_rejects_unauthenticated_mutation(tmp_path):

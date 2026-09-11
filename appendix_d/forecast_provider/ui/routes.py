@@ -40,3 +40,12 @@ def install_ui_routes(app) -> None:
             media_type="text/html; charset=utf-8",
             headers=SECURITY_HEADERS,
         )
+
+    @app.get("/ui/lifecycle", include_in_schema=False)
+    @app.get("/ui/lifecycle/", include_in_schema=False)
+    def lifecycle_ui():
+        return FileResponse(
+            STATIC_ROOT / "lifecycle.html",
+            media_type="text/html; charset=utf-8",
+            headers=SECURITY_HEADERS,
+        )

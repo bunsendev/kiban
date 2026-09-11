@@ -72,6 +72,8 @@ Phase 1Rで外部IdPのJWT/OIDC検証、credential fileとJWKSのrotation、構�
 
 Phase 1Sで月次拡大学習、reference比較、champion/challengerの承認付き昇格、revision付きrollback、冪等scheduler、30日以上の将来trial台帳を追加した。詳細は[継続学習と安全なモデル切替](docs/Phase1S_継続学習とモデル切替.md)。
 
+Phase 1Tで専用Lifecycle管理画面を追加し、計画、cycle、昇格、rollback、予測事前記録、trial評価をrole別APIへ接続した。詳細は[Lifecycle運用画面](docs/Phase1T_Lifecycle運用画面.md)。
+
 次は実データ3〜5品目でPhase 1Kを実行し、全3年の重要品目選定とPhase 1Sの将来trialを開始する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 

@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="月次再学習、モデル昇格、rollback、将来trialの管理画面">
+  <title>Lifecycle運用 | Yosoku Kiban</title>
+  <link rel="stylesheet" href="/ui/assets/styles.css">
+  <link rel="stylesheet" href="/ui/assets/lifecycle.css">
+  <script type="module" src="/ui/assets/lifecycle_app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">本文へ移動</a>
+  <header class="topbar">
+    <div class="brand-block">
+      <span class="eyebrow">YOSOKU KIBAN / MODEL LIFECYCLE</span>
+      <h1>Lifecycle運用</h1>
+      <a class="workspace-link" href="/ui">比較・採用へ</a>
+    </div>
+    <form id="connection-form" class="connection" aria-label="API接続">
+      <label for="api-token">API token</label>
+      <div class="connection-row">
+        <input id="api-token" type="password" autocomplete="off" required placeholder="Bearer tokenを入力">
+        <button class="button primary" type="submit">接続</button>
+      </div>
+      <p class="field-note">tokenはこの画面のメモリ内だけで使用します。</p>
+    </form>
+    <div id="session-controls" class="session-controls" hidden>
+      <span class="connection-state">接続済み</span>
+      <span id="session-identity" class="session-identity"></span>
+      <button id="refresh-button" class="button quiet" type="button">更新</button>
+      <button id="disconnect-button" class="button quiet" type="button">切断</button>
+    </div>
+  </header>
+
+  <main id="workspace" class="page-shell">
+    <div id="notice" class="notice" role="status" aria-live="polite">
+      API tokenを入力してLifecycle台帳を読み込んでください。
+    </div>
+
+    <section class="summary-grid" aria-label="Lifecycleサマリー">
+      <article class="summary-card accent-blue"><span>運用計画</span><strong id="plan-count">—</strong></article>
+      <article class="summary-card accent-amber"><span>待機cycle</span><strong id="queued-count">—</strong></article>
+      <article class="summary-card accent-green"><span>昇格可能</span><strong id="ready-count">—</strong></article>
+      <article class="summary-card accent-cyan"><span>trial予測記録</span><strong id="trial-count">—</strong></article>
+    </section>
+
+    <details class="plan-create">
+      <summary>新しいLifecycle計画を作成</summary>
+      <form id="plan-form" class="drawer-form form-grid">
+        <label>採用判断<select id="plan-adoption" required></select></label>
+        <label>月次Experiment ID<input id="plan-experiment" required></label>
+        <label>plan version<input id="plan-version" value="lifecycle-v1" required></label>
+        <label>trial開始日<input id="plan-trial-start" type="date" required></label>
+        <label>実行日<input id="plan-schedule-day" type="number" min="1" max="28" value="1" required></label>
+        <label>実行時刻<input id="plan-schedule-time" type="time" value="02:00" required></label>
+        <label>timezone<input id="plan-timezone" value="Asia/Tokyo" required></label>
+        <label>最小WAPE改善率（%）<input id="plan-improvement" type="number" min="0" max="100" step="0.01" value="0" required></label>
+        <label>最大失敗率<input id="plan-failure-rate" type="number" min="0" max="1" step="0.001" value="0" required></label>
+        <label class="span-all">理由<textarea id="plan-reason" rows="2" required></textarea></label>
+        <button class="button primary span-all" data-permission="APPROVE" type="submit">計画を作成</button>
+      </form>
+    </details>
+
+    <section class="workbench lifecycle-workbench">
+      <aside class="comparison-rail" aria-labelledby="plan-heading">
+        <div class="section-heading">
+          <div><span class="eyebrow">LIFECYCLE PLANS</span><h2 id="plan-heading">計画を選択</h2></div>
+          <span id="plan-filter-count" class="count-chip">0件</span>
+        </div>
+        <label class="search-field" for="plan-search"><span>計画・版・採用判断で絞り込み</span><input id="plan-search" type="search" placeholder="検索"></label>
+        <div id="plan-list" class="comparison-list"></div>
+      </aside>
+
+      <section class="detail-panel" aria-live="polite">
+        <div id="detail-empty" class="empty-state">
+          <div class="empty-mark" aria-hidden="true">LT</div>
+          <h2>計画を選ぶと運用状態を表示します</h2>
+          <p>月次cycle、champion変更履歴、将来trialの記録を同じ台帳から確認できます。</p>
+        </div>
+        <div id="detail-content" hidden>
+          <header class="detail-header">
+            <div><span class="eyebrow">CURRENT CHAMPION</span><h2 id="champion-run">—</h2><code id="plan-id">—</code></div>
+            <div id="champion-status"></div>
+          </header>
+          <div id="plan-lineage" class="lineage-grid lifecycle-lineage"></div>
+
+          <nav class="tabs" aria-label="Lifecycle操作">
+            <button class="tab active" type="button" data-tab="cycles" aria-selected="true">月次cycle</button>
+            <button class="tab" type="button" data-tab="trial" aria-selected="false">将来trial</button>
+            <button class="tab" type="button" data-tab="history" aria-selected="false">切替履歴</button>
+          </nav>
+
+          <section id="tab-cycles" class="tab-panel">
+            <div class="toolbar"><p>期限到来したcycleを全計画へ冪等に登録します。</p><button id="schedule-button" class="button secondary" data-permission="ANALYZE" type="button">schedulerを実行</button></div>
+            <div class="table-wrap"><table><caption>月次cycle</caption><thead><tr><th>対象月</th><th>予定時刻</th><th>状態</th><th>challenger</th><th>改善率</th></tr></thead><tbody id="cycle-list"></tbody></table></div>
+            <div class="operations-grid">
+              <form id="complete-cycle-form" class="action-card">
+                <h3>比較をcycleへ登録</h3><label>待機cycle<select id="complete-cycle" required></select></label><label>challenger run ID<input id="challenger-run" required></label><label>comparison ID<input id="cycle-comparison" required></label><button class="button primary" data-permission="ANALYZE" type="submit">比較結果を判定</button>
+              </form>
+              <form id="promote-form" class="action-card">
+                <h3>challengerを昇格</h3><label>昇格可能cycle<select id="promote-cycle" required></select></label><label>理由<textarea id="promote-reason" rows="2" required></textarea></label><button class="button primary" data-permission="APPROVE" type="submit">revisionを確認して昇格</button>
+              </form>
+              <form id="fail-cycle-form" class="action-card">
+                <h3>cycleを失敗終了</h3><label>待機cycle<select id="fail-cycle" required></select></label><label>failure code<input id="failure-code" maxlength="120" required></label><button class="button secondary" data-permission="ANALYZE" type="submit">失敗を記録</button>
+              </form>
+            </div>
+          </section>
+
+          <section id="tab-trial" class="tab-panel" hidden>
+            <div class="operations-grid two-columns">
+              <form id="forecast-form" class="action-card">
+                <h3>予測を事前記録</h3><label>run ID<input id="trial-run" required></label><label>origin日<input id="trial-origin" type="date" required></label><button class="button primary" data-permission="ANALYZE" type="submit">実績利用前に固定</button>
+              </form>
+              <form id="assessment-form" class="action-card">
+                <h3>30日以上のtrialを評価</h3><div class="field-pair"><label>開始日<input id="assessment-start" type="date" required></label><label>終了日<input id="assessment-end" type="date" required></label></div><label>FUTURE_TRIAL comparison ID<input id="assessment-comparison" required></label><label>判断<select id="assessment-decision"><option value="CONTINUE">継続</option><option value="COMPLETE">完了</option><option value="ROLLBACK">rollback</option></select></label><label>理由<textarea id="assessment-reason" rows="2" required></textarea></label><button class="button primary" data-permission="APPROVE" type="submit">trial評価を保存</button>
+              </form>
+            </div>
+            <div class="history-grid"><section class="ledger-card"><h3>予測事前記録</h3><div id="forecast-list" class="record-list"></div></section><section class="ledger-card"><h3>trial評価履歴</h3><div id="assessment-list" class="record-list"></div></section></div>
+          </section>
+
+          <section id="tab-history" class="tab-panel" hidden>
+            <div class="history-grid"><section class="ledger-card"><h3>champion event</h3><div id="event-list" class="record-list"></div></section>
+              <form id="rollback-form" class="action-card"><h3>championをrollback</h3><label>切替先<select id="rollback-target" required></select></label><label>理由<textarea id="rollback-reason" rows="3" required></textarea></label><button class="button primary danger" data-permission="APPROVE" type="submit">revisionを確認してrollback</button></form>
+            </div>
+          </section>
+        </div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,50 @@
+.plan-create {
+  margin-bottom: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 5px 16px rgba(22, 40, 66, 0.04);
+}
+
+.plan-create summary {
+  padding: 0.85rem 1rem;
+  color: var(--navy);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.form-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.span-all { grid-column: 1 / -1; }
+.lifecycle-workbench { min-height: 720px; }
+.lifecycle-lineage { margin-top: 1.2rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  background: #f7f9fb;
+  border: 1px solid var(--line);
+}
+
+.toolbar p { margin: 0; color: var(--muted); font-size: 0.85rem; }
+.operations-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; }
+.operations-grid.two-columns, .history-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
+.operations-grid .action-card h3 { margin-bottom: 0; font-size: 1rem; }
+.button.danger { background: var(--red); }
+.button.danger:hover { background: #852323; }
+
+@media (max-width: 1050px) {
+  .form-grid, .operations-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lifecycle-lineage { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 680px) {
+  .form-grid, .operations-grid, .operations-grid.two-columns, .history-grid,
+  .lifecycle-lineage { grid-template-columns: 1fr; }
+  .span-all { grid-column: auto; }
+  .toolbar { align-items: stretch; flex-direction: column; }
+}
