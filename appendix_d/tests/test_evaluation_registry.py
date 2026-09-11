@@ -57,7 +57,9 @@ def _fixture(tmp_path):
     return api, runs, catalog, data_path, snapshot_id
 
 
-def _experiment(api, snapshot_id: str, model: str) -> tuple[str, dict]:
+def _experiment(
+    api, snapshot_id: str, model: str, training_policy: str = "FIXED"
+) -> tuple[str, dict]:
     definition = {
         "snapshot_id": snapshot_id,
         "provider_id": "builtin-baseline",
@@ -67,6 +69,7 @@ def _experiment(api, snapshot_id: str, model: str) -> tuple[str, dict]:
         "preprocessing_version": "daily-v1",
         "seed": 7,
         "resource_profile": "cpu-small",
+        "training_policy": training_policy,
     }
     response = api.post("/api/experiments", json=definition)
     assert response.status_code == 201, response.text
@@ -193,6 +196,33 @@ def test_comparison_is_server_computed_content_addressed_and_queryable(tmp_path)
     baseline = next(item for item in providers if item["provider_id"] == "builtin-baseline")
     model = next(item for item in baseline["models"] if item["model_id"] == "moving_average_28")
     assert model["fixed_ranking_eligible"] is True
+
+
+def test_monthly_retraining_is_reference_only_in_fixed_ranking(tmp_path):
+    api, runs, catalog, _, snapshot_id = _fixture(tmp_path)
+    fixed_experiment, fixed_definition = _experiment(
+        api, snapshot_id, "moving_average_28"
+    )
+    monthly_experiment, monthly_definition = _experiment(
+        api, snapshot_id, "seasonal_naive_7", "MONTHLY_EXPANDING"
+    )
+    fixed_run = _completed_run(api, runs, catalog, fixed_experiment, 9)
+    monthly_run = _completed_run(api, runs, catalog, monthly_experiment, 10)
+    request = _comparison(
+        snapshot_id,
+        [fixed_run, monthly_run],
+        [_conformance(api, fixed_definition), _conformance(api, monthly_definition)],
+    )
+
+    response = api.post("/api/comparisons", json=request)
+
+    assert response.status_code == 201, response.text
+    scores = {
+        item["run_id"]: item["score"] for item in response.json()["run_evaluations"]
+    }
+    assert scores[fixed_run]["official_eligible"] is True
+    assert scores[monthly_run]["official_eligible"] is False
+    assert scores[monthly_run]["common_metrics"]["wape_pct"] is not None
 
 
 def test_failed_conformance_keeps_metrics_but_excludes_official_ranking(tmp_path):

@@ -1,3 +1,30 @@
+# v2.9 Phase 1S 実行検証記録
+
+Date: 2026-09-11 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 1S
+
+- pytest: 全376件。Linux Dockerで371 passed、PostgreSQL依存5 skipped、PostgreSQL 17実DBで該当5件を含む選択suite 7 passed。FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- 月次学習: `MONTHLY_EXPANDING`を追加し、各暦月の最初の予定originで学習窓を拡大。12回を固定せず実際の予定から再学習回数とcutoffを算出。
+- Worker: 月内は同じmodel artifactを再利用し、月をまたぐと新artifactを保存。4か月の結合試験で月ごとに1件、合計4件の異なるartifactを確認。
+- 比較: 月次再学習runはfixed正式順位から除外し、own/commonのreference指標を保持。
+- Lifecycle: 月次cycleの冪等scheduler、champion/challenger比較、改善率・失敗率gate、承認者付き昇格、revision排他制御、append-only event、fallback・過去championへのrollbackを確認。
+- 将来trial: 実績利用可能前の予測記録、現championとのモデル条件照合、30日以上・全対象日coverage・`FUTURE_TRIAL`比較による評価を確認。
+- 認証API: Lifecycleの10 pathをREAD、ANALYZE、APPROVEに分け、変更主体を認証済みsubjectで上書き。未認証401を確認。
+- PostgreSQL: plan、cycle、champion event、trial forecast・assessmentの制約付き台帳と、月次schedulerの冪等性をPostgreSQL 17で確認。
+- Docker Compose: 開発・本番にlifecycle schedulerを追加。本番の全13 serviceを解決し、schedulerのPostgreSQL接続・単発実行を確認。
+- Docker API: imageを再buildし、PostgreSQL接続、`/health`、`/ready`、Lifecycle 10 pathを確認。
+- demo.py: 3系列×365日、2方式、1095予定/方式、失敗0、official ranking成立。
+- scale_check.py: 100系列×1,096日、37起点、POINT 54,500行、POINT＋QUANTILE 218,000行、通期重複0。
+- artifact_demo.py: 別processで再fitなし、24行のPOINT/QUANTILE完全一致。
+- wheel: Lifecycle package・SQL schema・scheduler entry pointを含む183ファイルを確認。
+- 配布ZIP: 277ファイル、secret・backup・`.env.production`を除外し、UTF-8 filename flag、SHA256SUMS 277/277一致。
+
 # v2.9 Phase 1R 実行検証記録
 
 Date: 2026-09-11 JST

@@ -12,6 +12,12 @@ from .features import attach_features
 from .frames import quantiles_from_interval_levels, validate_train_frame
 from .registry import registry
 from .run_context import validate_context_ref
+from .training import (
+    TrainingPolicy,
+    normalize_training_policy,
+    training_cutoff,
+    training_dataset,
+)
 
 
 def available_history(
@@ -70,18 +76,20 @@ def attach_known_future(
     return attach_features(targets, known_future_columns, versions=feature_versions)
 
 
-def run_fixed_provider(
+def run_provider(
     data: pd.DataFrame,
     dataset: ForecastDataset,
     config: ProviderConfig,
     context: RunContext,
     *,
     availability_mode: str,
+    training_policy: TrainingPolicy = "FIXED",
     feature_versions: pd.DataFrame | None = None,
 ) -> dict:
-    """1回学習→起点更新→予測→全予定照合。失敗は台帳に残す。"""
+    """指定方針で学習→起点更新→予測→全予定照合する。"""
     if not dataset.availability_mode == availability_mode == context.availability_mode:
         raise ContractViolationError("実験定義と実行のavailability_mode不一致")
+    policy = normalize_training_policy(training_policy)
     validate_train_frame(data)
     if not set(data.unique_id).issubset(dataset.unique_ids):
         raise ContractViolationError("入力に選定外の系列")
@@ -93,6 +101,10 @@ def run_fixed_provider(
     kf = tuple(dataset.known_future_columns)
     outputs, errors = [], []
     model = None
+    active_dataset = training_dataset(dataset, dataset.train_end)
+    active_cutoff = dataset.train_end
+    fit_calls = 1
+    refit_cutoffs = []
 
     fit_context = context.for_origin(dataset.train_end)
     try:
@@ -105,44 +117,71 @@ def run_fixed_provider(
                 feature_versions=feature_versions,
             )
             train = train[train.ds.ge(pd.Timestamp(dataset.train_start))]
-            model = provider.fit_parameters(train, dataset, config, fit_context)
+            model = provider.fit_parameters(train, active_dataset, config, fit_context)
+            refit_cutoffs.append(dataset.train_end.isoformat())
         except (ContractViolationError, FailureSinkError):
             raise
         except Exception as exc:
             record_failure(errors, fit_context, None, exc)
 
-        if model is not None:
-            for origin_date, targets in plan.groupby("origin_date", sort=True):
-                origin_context = context.for_origin(origin_date.date())
+        for origin_date, targets in plan.groupby("origin_date", sort=True):
+            origin = origin_date.date()
+            desired_cutoff = training_cutoff(dataset, origin, policy)
+            origin_context = context.for_origin(origin)
+            if desired_cutoff != active_cutoff:
+                active_cutoff = desired_cutoff
+                active_dataset = training_dataset(dataset, desired_cutoff)
+                fit_context = context.for_origin(desired_cutoff)
+                model = None
+                fit_calls += 1
                 try:
-                    history = available_history(
+                    train = available_history(
                         data,
-                        origin_date,
+                        pd.Timestamp(desired_cutoff),
                         availability_mode=availability_mode,
                         known_future_columns=kf,
                         feature_versions=feature_versions,
                     )
-                    history = history[history.ds.ge(pd.Timestamp(dataset.train_start))]
-                    state = provider.refresh_context(
-                        model, history, origin_date.date(), origin_context
+                    train = train[train.ds.ge(pd.Timestamp(dataset.train_start))]
+                    model = provider.fit_parameters(
+                        train, active_dataset, config, fit_context
                     )
-                    validate_context_ref(model, state, origin_context)
-                    future = attach_known_future(
-                        targets, data, kf, feature_versions=feature_versions
-                    )
-                    outputs.append(
-                        provider.predict(
-                            model,
-                            state,
-                            future,
-                            sorted(targets.horizon.unique().astype(int).tolist()),
-                            origin_context,
-                        )
-                    )
+                    refit_cutoffs.append(desired_cutoff.isoformat())
                 except (ContractViolationError, FailureSinkError):
-                    raise  # 不正データ・契約違反を正常な欠測へ変換しない。
+                    raise
                 except Exception as exc:
-                    record_failure(errors, origin_context, origin_date.date(), exc)
+                    record_failure(errors, fit_context, origin, exc)
+            if model is None:
+                continue
+            try:
+                history = available_history(
+                    data,
+                    origin_date,
+                    availability_mode=availability_mode,
+                    known_future_columns=kf,
+                    feature_versions=feature_versions,
+                )
+                history = history[history.ds.ge(pd.Timestamp(dataset.train_start))]
+                state = provider.refresh_context(
+                    model, history, origin, origin_context
+                )
+                validate_context_ref(model, state, origin_context)
+                future = attach_known_future(
+                    targets, data, kf, feature_versions=feature_versions
+                )
+                outputs.append(
+                    provider.predict(
+                        model,
+                        state,
+                        future,
+                        sorted(targets.horizon.unique().astype(int).tolist()),
+                        origin_context,
+                    )
+                )
+            except (ContractViolationError, FailureSinkError):
+                raise  # 不正データ・契約違反を正常な欠測へ変換しない。
+            except Exception as exc:
+                record_failure(errors, origin_context, origin, exc)
     finally:
         provider.cleanup(context)
     result = (
@@ -159,7 +198,9 @@ def run_fixed_provider(
         "errors": errors,
         "availability_mode": availability_mode,
         "excluded_unique_ids": model.state["excluded_unique_ids"] if model else (),
-        "fit_calls": 1,
+        "training_policy": policy,
+        "fit_calls": fit_calls,
+        "refit_cutoffs": tuple(refit_cutoffs),
         "unclassified_error_count": sum(e["error"] == "UNCLASSIFIED_ERROR" for e in errors),
         "status": "SUCCESS"
         if ledger.status.eq("SUCCESS").all()
@@ -167,6 +208,48 @@ def run_fixed_provider(
         if ledger.status.eq("SUCCESS").any()
         else "FAILED",
     }
+
+
+def run_fixed_provider(
+    data: pd.DataFrame,
+    dataset: ForecastDataset,
+    config: ProviderConfig,
+    context: RunContext,
+    *,
+    availability_mode: str,
+    feature_versions: pd.DataFrame | None = None,
+) -> dict:
+    """互換用の固定学習runner。"""
+    return run_provider(
+        data,
+        dataset,
+        config,
+        context,
+        availability_mode=availability_mode,
+        training_policy="FIXED",
+        feature_versions=feature_versions,
+    )
+
+
+def run_monthly_provider(
+    data: pd.DataFrame,
+    dataset: ForecastDataset,
+    config: ProviderConfig,
+    context: RunContext,
+    *,
+    availability_mode: str,
+    feature_versions: pd.DataFrame | None = None,
+) -> dict:
+    """月の最初の予定originで学習窓を拡大するreference runner。"""
+    return run_provider(
+        data,
+        dataset,
+        config,
+        context,
+        availability_mode=availability_mode,
+        training_policy="MONTHLY_EXPANDING",
+        feature_versions=feature_versions,
+    )
 
 
 def run_fixed_baseline(

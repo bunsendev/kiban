@@ -357,13 +357,28 @@ class SqliteRunStore:
                 )
             )
 
-    def get_model_artifact(self, run_id: str) -> str | None:
+    def get_model_artifact(
+        self,
+        run_id: str,
+        origin_from: date | None = None,
+        origin_before: date | None = None,
+    ) -> str | None:
+        if (origin_from is None) != (origin_before is None):
+            raise ValueError("origin期間は開始と終了を同時に指定します")
+        condition = ""
+        params: tuple[object, ...] = (run_id,)
+        if origin_from is not None and origin_before is not None:
+            if origin_from >= origin_before:
+                raise ValueError("origin期間が不正です")
+            condition = "AND origin_date>=? AND origin_date<? "
+            params = (run_id, origin_from.isoformat(), origin_before.isoformat())
         with self._connect() as db:
             row = db.execute(
                 "SELECT model_artifact FROM forecast_origins WHERE run_id=? "
                 "AND status='SUCCEEDED' AND model_artifact IS NOT NULL "
-                "ORDER BY origin_date LIMIT 1",
-                (run_id,),
+                + condition
+                + "ORDER BY origin_date LIMIT 1",
+                params,
             ).fetchone()
             return None if row is None else row["model_artifact"]
 

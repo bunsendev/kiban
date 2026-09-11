@@ -138,7 +138,11 @@ class EvaluationRegistryService:
             datasets[run_id] = dataset_from_snapshot(snapshot)
             outputs[run_id] = _prediction_frame(result["values"])
             run_details[run_id] = (definition["provider_id"], definition["model_name"])
-            if conformance.fixed_ranking_eligible:
+            # 月次再学習は仕様上reference比較であり、固定学習の正式順位へ混ぜない。
+            if (
+                conformance.fixed_ranking_eligible
+                and definition.get("training_policy", "FIXED") == "FIXED"
+            ):
                 eligible.add(run_id)
         if truth_snapshot is None:
             raise ValueError("run_idsは1件以上必要です")

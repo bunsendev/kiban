@@ -3,7 +3,6 @@
 import hashlib
 import subprocess
 import sys
-from pathlib import Path
 
 from acceptance_support import acceptance_payload, build_three_product_daily
 from fastapi.testclient import TestClient
@@ -12,6 +11,7 @@ from forecast_provider.acceptance import SqliteAcceptanceStore
 from forecast_provider.acceptance.checks import evaluate_acceptance
 from forecast_provider.acceptance.report import publish_report
 from forecast_provider.api import create_app
+from forecast_provider.catalog.files import snapshot_path
 from forecast_provider.jobs import SqliteRunStore
 
 
@@ -61,7 +61,7 @@ def test_anonymized_case_is_dry_run_and_cannot_be_approved(tmp_path):
         next(item for item in checks if item["check_id"] == "REAL_DATA_DECLARATION")
     ]
     for key in ("report_uri", "markdown_uri"):
-        path = Path(result[key].replace("file:///", ""))
+        path = snapshot_path(result[key])
         assert path.exists()
         checksum_key = "report_sha256" if key == "report_uri" else "markdown_sha256"
         assert hashlib.sha256(path.read_bytes()).hexdigest() == result[checksum_key]

@@ -45,6 +45,7 @@ class ExperimentCreate(BaseModel):
     preprocessing_version: str = Field(min_length=1)
     seed: int
     resource_profile: str = Field(min_length=1)
+    training_policy: Literal["FIXED", "MONTHLY_EXPANDING"] = "FIXED"
 
 
 class RunCreate(BaseModel):

@@ -22,6 +22,7 @@ from ..jobs import ForecastValue, OriginOutput
 from ..jobs.contracts import OriginLease, RunStore
 from ..run_context import RunContext
 from ..runner import available_history
+from ..training import calendar_month, training_cutoff, training_dataset
 
 
 class FixedProviderExecutor:
@@ -44,7 +45,7 @@ class FixedProviderExecutor:
         self.provider_factory = provider_factory
         self.codec_factory = codec_factory
         self.logger_name = logger_name
-        self._models: dict[str, tuple[object, ArtifactRef]] = {}
+        self._models: dict[tuple[str, object], tuple[object, ArtifactRef]] = {}
 
     def __call__(self, lease: OriginLease) -> OriginOutput:
         run = self.runs.get_run(lease.run_id)
@@ -73,15 +74,20 @@ class FixedProviderExecutor:
         provider = self.provider_factory()
         if provider.metadata().provider_id != config.provider_id:
             raise ValueError("executorとexperimentのprovider_idが一致しません")
+        policy = experiment.definition.get("training_policy", "FIXED")
+        cutoff = training_cutoff(dataset, lease.origin.origin_date, policy)
+        model_dataset = training_dataset(dataset, cutoff)
         model, model_artifact = self._model(
             lease.run_id,
             provider,
             repository,
             data,
             feature_versions,
-            dataset,
+            model_dataset,
             config,
             context,
+            cutoff,
+            policy,
         )
         origin = pd.Timestamp(lease.origin.origin_date)
         history = available_history(
@@ -93,9 +99,11 @@ class FixedProviderExecutor:
         )
         history = history[history.ds.ge(pd.Timestamp(dataset.train_start))]
         ref = provider.refresh_context(model, history, lease.origin.origin_date, context)
-        context_artifact = repository.save_context(ref, model_artifact, dataset, config, context)
+        context_artifact = repository.save_context(
+            ref, model_artifact, model_dataset, config, context
+        )
         restored = repository.load_context(
-            context_artifact, model_artifact, dataset, config, context
+            context_artifact, model_artifact, model_dataset, config, context
         )
         targets = build_plan(dataset)
         targets = targets[targets.origin_date.eq(origin)]
@@ -112,19 +120,34 @@ class FixedProviderExecutor:
         )
 
     def _model(
-        self, run_id, provider, repository, data, feature_versions, dataset, config, context
+        self,
+        run_id,
+        provider,
+        repository,
+        data,
+        feature_versions,
+        dataset,
+        config,
+        context,
+        cutoff,
+        policy,
     ):
-        if run_id in self._models:
-            return self._models[run_id]
-        fit_context = context.for_origin(dataset.train_end)
-        stored = self.runs.get_model_artifact(run_id)
+        cache_key = (run_id, cutoff)
+        if cache_key in self._models:
+            return self._models[cache_key]
+        fit_context = context.for_origin(cutoff)
+        if policy == "MONTHLY_EXPANDING":
+            origin_from, origin_before = calendar_month(context.origin_date)
+            stored = self.runs.get_model_artifact(run_id, origin_from, origin_before)
+        else:
+            stored = self.runs.get_model_artifact(run_id)
         if stored:
             artifact = ArtifactRef.from_dict(json.loads(stored))
             model = repository.load_model(artifact, dataset, config, fit_context)
         else:
             train = available_history(
                 data,
-                pd.Timestamp(dataset.train_end),
+                pd.Timestamp(cutoff),
                 availability_mode=dataset.availability_mode,
                 known_future_columns=tuple(dataset.known_future_columns),
                 feature_versions=feature_versions,
@@ -133,7 +156,7 @@ class FixedProviderExecutor:
             fitted = provider.fit_parameters(train, dataset, config, fit_context)
             artifact = repository.save_model(fitted, dataset, config, fit_context)
             model = repository.load_model(artifact, dataset, config, fit_context)
-        self._models[run_id] = (model, artifact)
+        self._models[cache_key] = (model, artifact)
         return model, artifact
 
 

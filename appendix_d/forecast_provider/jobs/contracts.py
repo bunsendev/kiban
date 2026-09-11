@@ -108,7 +108,12 @@ class RunStore(Protocol):
 
     def list_runnable_runs(self) -> tuple[tuple[str, str], ...]: ...
 
-    def get_model_artifact(self, run_id: str) -> str | None: ...
+    def get_model_artifact(
+        self,
+        run_id: str,
+        origin_from: date | None = None,
+        origin_before: date | None = None,
+    ) -> str | None: ...
 
     def get_run_results(self, run_id: str) -> dict | None: ...
 
