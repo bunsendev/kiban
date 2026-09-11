@@ -151,6 +151,18 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+  lifecycle-scheduler:
+    profiles: ["worker"]
+    build: .
+    command:
+      - kiban-lifecycle-scheduler
+      - --postgres-dsn
+      - postgresql://kiban:local-development-only@postgres:5432/kiban
+      - --poll-seconds
+      - "60"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   kiban-postgres:

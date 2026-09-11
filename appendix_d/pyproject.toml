@@ -31,6 +31,7 @@ kiban-matching-worker = "forecast_provider.matching_worker:main"
 kiban-daily-worker = "forecast_provider.daily_worker:main"
 kiban-acceptance-worker = "forecast_provider.acceptance_worker:main"
 kiban-selection-worker = "forecast_provider.selection_worker:main"
+kiban-lifecycle-scheduler = "forecast_provider.lifecycle_worker:main"
 kiban-db = "forecast_provider.operations.database:main"
 
 [tool.setuptools.packages.find]
@@ -48,6 +49,7 @@ forecast_provider = [
     "selection/*.sql",
     "evaluation_registry/*.sql",
     "reporting/*.sql",
+    "lifecycle/*.sql",
     "ui/static/*",
 ]
 

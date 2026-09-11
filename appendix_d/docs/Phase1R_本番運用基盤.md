@@ -88,7 +88,7 @@ backupはowner・privilegeを除いたcustom archiveと、schema version、作�
 restoreは既存objectを置換するため、API・Worker停止、直前backup、別環境での復旧試験を行ったうえで実施する。
 
 ```powershell
-docker compose --env-file .env.production -f compose.production.yaml stop api run-worker statsforecast-worker import-worker normalization-worker matching-worker daily-worker acceptance-worker selection-worker
+docker compose --env-file .env.production -f compose.production.yaml stop api run-worker statsforecast-worker import-worker normalization-worker matching-worker daily-worker acceptance-worker selection-worker lifecycle-scheduler
 docker compose --env-file .env.production -f compose.production.yaml --profile operations run --rm db-operations restore --manifest /backups/<name>.manifest.json --confirm-database kiban
 ```
 

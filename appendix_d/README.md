@@ -2,7 +2,7 @@
 
 v2.8レビューの指摘を反映した予測・比較コアです。
 コード、全体仕様、統合仕様、開始ガイド、テスト、人工データデモ、検証記録を同梱しています。
-予定完全性、日次状態、少数実品目の受入判定基盤、StatsForecast AutoETS、比較CSV、採用判断台帳、管理画面、role別認可、OIDC、TLS・監視・DB backupの本番運用基盤まで実装済みです。実データでの受入・復旧試験と環境固有のIdP接続は後続作業です。
+予定完全性、日次状態、少数実品目の受入判定基盤、StatsForecast AutoETS、比較CSV、採用判断台帳、管理画面、role別認可、OIDC、TLS・監視・DB backup、月次再学習と安全なモデル切替まで実装済みです。実データでの受入・trial・復旧試験と環境固有のIdP接続は後続作業です。
 
 ## 最初に読む
 
@@ -68,11 +68,11 @@ test_results.txtはこの版の実測記録です。依存はrequirementsファ�
 
 ## Run API / Worker
 
-APIと全Provider依存は`pip install -e ".[api,postgres,statsforecast,auth]"`で追加する。developmentでは`KIBAN_POSTGRES_DSN`、`KIBAN_API_TOKEN`、`KIBAN_API_SUBJECT`、`KIBAN_SNAPSHOT_ROOT`、`KIBAN_REPORT_ROOT`を設定し、`uvicorn forecast_provider.api.factory:from_environment --factory`で起動する。productionでは外部IdPのJWTまたは更新可能なcredential file、Host allowlist、HTTPSを必須とする。認証・認可は[Phase 1Q](docs/Phase1Q_認証認可とセキュリティ.md)、OIDC・TLS・監視・backupは[Phase 1R](docs/Phase1R_本番運用基盤.md)を参照する。snapshotと実験を登録後、保存済みexperiment IDからrunを作る。組込baseline Workerは`kiban-worker --postgres-dsn <DSN> --builtin-baseline --artifact-root <DIR> --work-root <DIR> --worker-id <ID>`、AutoETS Workerは同じ引数に`--statsforecast-ets`を指定して起動する。Dockerでは`docker compose --profile statsforecast-worker up -d --build statsforecast-worker`を使用する。共通実行は[実験SnapshotとBaseline統合](docs/Phase1F_実験SnapshotとBaseline統合.md)、AutoETS固有条件は[StatsForecast AutoETS Provider](docs/Phase1M_StatsForecast_AutoETS.md)を参照する。
+APIと全Provider依存は`pip install -e ".[api,postgres,statsforecast,auth]"`で追加する。developmentでは`KIBAN_POSTGRES_DSN`、`KIBAN_API_TOKEN`、`KIBAN_API_SUBJECT`、`KIBAN_SNAPSHOT_ROOT`、`KIBAN_REPORT_ROOT`を設定し、`uvicorn forecast_provider.api.factory:from_environment --factory`で起動する。productionでは外部IdPのJWTまたは更新可能なcredential file、Host allowlist、HTTPSを必須とする。認証・認可は[Phase 1Q](docs/Phase1Q_認証認可とセキュリティ.md)、OIDC・TLS・監視・backupは[Phase 1R](docs/Phase1R_本番運用基盤.md)を参照する。snapshotと実験を登録後、保存済みexperiment IDからrunを作る。組込baseline Workerは`kiban-worker --postgres-dsn <DSN> --builtin-baseline --artifact-root <DIR> --work-root <DIR> --worker-id <ID>`、AutoETS Workerは同じ引数に`--statsforecast-ets`を指定して起動する。月次運用は`kiban-lifecycle-scheduler`で期限到来cycleを登録する。共通実行は[実験SnapshotとBaseline統合](docs/Phase1F_実験SnapshotとBaseline統合.md)、AutoETS固有条件は[StatsForecast AutoETS Provider](docs/Phase1M_StatsForecast_AutoETS.md)、月次運用は[継続学習と安全なモデル切替](docs/Phase1S_継続学習とモデル切替.md)を参照する。
 
 ## 本番運用
 
-`deploy/compose.production.yaml`はCaddy、API、PostgreSQL、全Workerを分離し、外部へは80/443だけを公開する。APIは`/health`、`/ready`、認証付き`/metrics`を提供し、変更操作をsubject付きJSON logへ出力する。DB操作は`kiban-db backup|verify|restore`またはproduction Composeの`db-operations`を使用する。導入・rotation・復元停止手順は[本番運用基盤](docs/Phase1R_本番運用基盤.md)を参照する。
+`deploy/compose.production.yaml`はCaddy、API、PostgreSQL、全Workerとlifecycle schedulerを分離し、外部へは80/443だけを公開する。APIは`/health`、`/ready`、認証付き`/metrics`を提供し、変更操作をsubject付きJSON logへ出力する。DB操作は`kiban-db backup|verify|restore`またはproduction Composeの`db-operations`を使用する。導入・rotation・復元停止手順は[本番運用基盤](docs/Phase1R_本番運用基盤.md)を参照する。
 
 Provider適合試験は`POST /api/provider-conformance-tests`へ記録し、`GET /api/providers`でモデル別の固定ランキング掲載可否を確認する。比較は`POST /api/comparisons`へ保存済みrun ID、各runの適合記録ID、truth snapshot IDを指定する。予測値と指標はrun台帳とchecksum検証済みsnapshotからサーバーが再計算する。詳細は[Provider適合試験と比較結果の永続化](docs/Phase1N_評価レジストリ.md)を参照する。
 

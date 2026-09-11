@@ -14,6 +14,7 @@ from .acceptance_routes import install_acceptance_routes
 from .daily_routes import install_daily_routes
 from .evaluation_routes import install_evaluation_routes
 from .ingestion_routes import install_ingestion_routes
+from .lifecycle_routes import install_lifecycle_routes
 from .master_routes import install_master_routes
 from .normalization_routes import install_normalization_routes
 from .observability import install_observability
@@ -68,6 +69,7 @@ def create_app(
     security_settings: SecuritySettings | None = None,
     legacy_subject: str = "local-admin",
     readiness_checks: Mapping[str, Callable[[], bool]] | None = None,
+    lifecycle=None,
 ) -> FastAPI:
     if isinstance(api_token, str) and not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -154,6 +156,17 @@ def create_app(
                 snapshot_root,
             ),
         )
+
+    if lifecycle is not None:
+        if evaluation_registry is None or reporting is None:
+            raise ValueError("lifecycleには評価台帳と採用台帳が必要です")
+        from ..lifecycle import LifecycleService, TrialLifecycleService
+
+        lifecycle_service = LifecycleService(
+            store, catalog, evaluation_registry, reporting, lifecycle
+        )
+        trial_service = TrialLifecycleService(store, catalog, evaluation_registry, lifecycle)
+        install_lifecycle_routes(app, authorize, lifecycle_service, trial_service)
 
     @app.post("/api/snapshots", response_model=Created, status_code=201)
     def create_snapshot(

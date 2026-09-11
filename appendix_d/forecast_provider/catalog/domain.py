@@ -8,6 +8,7 @@ from datetime import date
 from ..contracts import ForecastDataset, ProviderConfig
 from ..errors import ProviderError
 from ..registry import registry
+from ..training import normalize_training_policy
 from .contracts import ExperimentRecord, SnapshotRecord
 
 FORMAT_VERSION = 1
@@ -46,6 +47,7 @@ def make_snapshot(manifest: dict) -> SnapshotRecord:
 
 
 def make_experiment(snapshot: SnapshotRecord, definition: dict) -> ExperimentRecord:
+    training_policy = normalize_training_policy(definition.get("training_policy", "FIXED"))
     config = config_from_definition(definition)
     try:
         validation = registry.create(config.provider_id).validate(
@@ -55,7 +57,11 @@ def make_experiment(snapshot: SnapshotRecord, definition: dict) -> ExperimentRec
         raise ValueError("未登録providerです") from exc
     if not validation.ok:
         raise ValueError(str(validation.issues))
-    normalized = {**definition, "snapshot_id": snapshot.snapshot_id}
+    normalized = {
+        **definition,
+        "snapshot_id": snapshot.snapshot_id,
+        "training_policy": training_policy,
+    }
     fingerprint = digest(normalized)
     return ExperimentRecord(
         fingerprint, FORMAT_VERSION, fingerprint, snapshot.snapshot_id, normalized

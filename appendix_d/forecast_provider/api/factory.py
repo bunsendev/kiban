@@ -11,6 +11,7 @@ from ..daily import PostgresDailyStore
 from ..evaluation_registry import PostgresEvaluationRegistryStore
 from ..ingestion import PostgresIngestionStore
 from ..jobs import PostgresRunStore
+from ..lifecycle import PostgresLifecycleStore
 from ..master import PostgresMasterStore
 from ..normalization import PostgresNormalizationStore
 from ..reporting import PostgresReportingStore
@@ -177,4 +178,5 @@ def from_environment():
             "snapshot_root": lambda: _readable_directory(snapshot_root),
             "report_root": lambda: _writable_directory(reporting_root),
         },
+        lifecycle=PostgresLifecycleStore(dsn),
     )

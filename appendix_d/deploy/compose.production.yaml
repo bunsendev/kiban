@@ -208,6 +208,15 @@ services:
       - --postgres-dsn-file
       - /run/secrets/postgres_dsn
 
+  lifecycle-scheduler:
+    <<: *worker-base
+    command:
+      - kiban-lifecycle-scheduler
+      - --postgres-dsn-file
+      - /run/secrets/postgres_dsn
+      - --poll-seconds
+      - "60"
+
   db-operations:
     profiles: ["operations"]
     build:
