@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="3〜5品目の実データ受入caseと技術判定を管理する画面">
+  <title>実データ受入 | Yosoku Kiban</title>
+  <link rel="stylesheet" href="/ui/assets/styles.css">
+  <link rel="stylesheet" href="/ui/assets/acceptance.css">
+  <script type="module" src="/ui/assets/acceptance_app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">本文へ移動</a>
+  <header class="topbar">
+    <div class="brand-block">
+      <span class="eyebrow">YOSOKU KIBAN / DATA ACCEPTANCE</span>
+      <h1>3〜5品目 実データ受入</h1>
+      <a class="workspace-link" href="/ui/readiness">データ準備へ</a>
+      <a class="workspace-link" href="/ui/selection">重要品目選定へ</a>
+      <a class="workspace-link" href="/ui">比較・採用へ</a>
+      <a class="workspace-link" href="/ui/lifecycle">Lifecycle運用へ</a>
+    </div>
+    <form id="connection-form" class="connection" aria-label="API接続">
+      <label for="api-token">API token</label>
+      <div class="connection-row"><input id="api-token" type="password" autocomplete="off" required placeholder="Bearer tokenを入力"><button class="button primary" type="submit">接続</button></div>
+      <p class="field-note">tokenはこの画面のメモリ内だけで使用します。</p>
+    </form>
+    <div id="session-controls" class="session-controls" hidden>
+      <span class="connection-state">接続済み</span><span id="session-identity" class="session-identity"></span>
+      <button id="refresh-button" class="button quiet" type="button">更新</button><button id="disconnect-button" class="button quiet" type="button">切断</button>
+    </div>
+  </header>
+
+  <main id="workspace" class="page-shell">
+    <div id="notice" class="notice" role="status" aria-live="polite">API tokenを入力して受入台帳を読み込んでください。</div>
+    <section class="summary-grid" aria-label="実データ受入サマリー">
+      <article class="summary-card accent-blue"><span>受入case</span><strong id="case-count">—</strong></article>
+      <article class="summary-card accent-cyan"><span>処理待ち・実行中</span><strong id="active-count">—</strong></article>
+      <article class="summary-card accent-green"><span>技術判定PASSED</span><strong id="passed-count">—</strong></article>
+      <article class="summary-card accent-amber"><span>FAILED・匿名検証</span><strong id="review-count">—</strong></article>
+    </section>
+
+    <details class="acceptance-drawer">
+      <summary>新しい受入caseを作成</summary>
+      <form id="case-form" class="drawer-form case-form">
+        <label>INITIAL選定版<select id="case-selection" required></select></label>
+        <label>日次build<select id="case-build" required></select></label>
+        <label>acceptance version<input id="case-version" value="initial-real-data-v1" required></label>
+        <label>データ区分<select id="case-data-kind"><option value="REAL">REAL</option><option value="ANONYMIZED">ANONYMIZED（DRY_RUN）</option></select></label>
+        <label>availability mode<select id="case-availability"><option value="OBSERVED">OBSERVED</option><option value="ASSUMED">ASSUMED</option></select></label>
+        <label>系列別最小利用日数<input id="case-min-days" type="number" min="1" value="730" required></label>
+        <label>欠損率上限<input id="case-missing-rate" type="number" min="0" max="1" step="0.001" value="0.01" required></label>
+        <label>部分・不正率上限<input id="case-invalid-rate" type="number" min="0" max="1" step="0.001" value="0.001" required></label>
+        <div class="span-all"><span class="field-label">選定品目</span><div id="case-products" class="product-preview"></div></div>
+        <label class="span-all">受入目的<textarea id="case-purpose" rows="2" required></textarea></label>
+        <button class="button primary span-all" data-permission="ANALYZE" type="submit">受入caseを登録</button>
+      </form>
+    </details>
+
+    <section class="workbench acceptance-workbench">
+      <aside class="comparison-rail" aria-labelledby="case-heading">
+        <div class="section-heading"><div><span class="eyebrow">ACCEPTANCE CASES</span><h2 id="case-heading">受入caseを選択</h2></div><span id="case-filter-count" class="count-chip">0件</span></div>
+        <label class="search-field" for="case-search"><span>case・版・目的・データ区分で絞り込み</span><input id="case-search" type="search" placeholder="検索"></label>
+        <div id="case-list" class="comparison-list"></div>
+      </aside>
+
+      <section class="detail-panel" aria-live="polite">
+        <div id="detail-empty" class="empty-state"><div class="empty-mark" aria-hidden="true">AC</div><h2>受入caseを選ぶと技術判定を表示します</h2><p>処理状態とoutcomeを分け、10項目の実測値・期待値、レポートchecksum、業務判断を確認できます。</p></div>
+        <div id="detail-content" hidden>
+          <header class="detail-header"><div><span class="eyebrow">ACCEPTANCE CASE</span><h2 id="case-outcome-title">—</h2><code id="case-id">—</code></div><div id="case-status"></div></header>
+          <div id="case-lineage" class="lineage-grid acceptance-lineage"></div>
+          <section id="report-records" class="report-grid"></section>
+          <nav class="tabs" aria-label="受入確認"><button class="tab active" type="button" data-tab="checks" aria-selected="true">技術チェック</button><button class="tab" type="button" data-tab="decision" aria-selected="false">業務判断</button></nav>
+
+          <section id="tab-checks" class="tab-panel">
+            <div class="table-wrap"><table><caption>Phase 1K 技術チェック</caption><thead><tr><th>チェック</th><th>判定</th><th>実測値</th><th>期待値</th><th>詳細</th></tr></thead><tbody id="check-list"></tbody></table></div>
+          </section>
+
+          <section id="tab-decision" class="tab-panel" hidden>
+            <div id="decision-eligibility" class="eligibility-banner"></div>
+            <div class="action-layout">
+              <form id="decision-form" class="action-card">
+                <div class="card-heading"><span class="step-number">01</span><div><h3>業務判断を記録</h3><p>技術判定と元数量照合を確認して版付きで保存します。</p></div></div>
+                <label>判断<select id="decision-value"><option value="APPROVED">APPROVED</option><option value="REJECTED">REJECTED</option></select></label>
+                <label>decision version<input id="decision-version" value="acceptance-decision-v1" required></label>
+                <label>判断理由<textarea id="decision-reason" rows="3" required></textarea></label>
+                <p class="field-note">判断者は接続中の認証主体として記録されます。</p>
+                <button class="button primary wide" data-permission="APPROVE" type="submit">業務判断を保存</button>
+              </form>
+              <section class="ledger-card"><div class="subheading"><h3>判断履歴</h3><span>上書き不可</span></div><div id="decision-list" class="record-list"></div></section>
+            </div>
+          </section>
+        </div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>

@@ -127,3 +127,37 @@ def test_selection_ui_serves_separate_modules_with_complete_dom_contract(tmp_pat
     assert len(ids) == len(re.findall(r'id="([^"]+)"', page.text))
     references = set(re.findall(r'(?:byId|document\.getElementById)\("([^"]+)"\)', scripts))
     assert references <= ids
+
+
+def test_acceptance_ui_serves_separate_modules_with_complete_dom_contract(tmp_path):
+    database = tmp_path / "acceptance-ui.sqlite3"
+    api = TestClient(create_app(SqliteRunStore(database), SqliteCatalogStore(database), "token"))
+
+    page = api.get("/ui/acceptance")
+    app = api.get("/ui/assets/acceptance_app.js")
+    client = api.get("/ui/assets/acceptance_api.js")
+    renderer = api.get("/ui/assets/acceptance_render.js")
+    styles = api.get("/ui/assets/acceptance.css")
+
+    assert all(value.status_code == 200 for value in (page, app, client, renderer, styles))
+    assert "3〜5品目 実データ受入" in page.text
+    assert 'type="module" src="/ui/assets/acceptance_app.js"' in page.text
+    assert 'href="/ui/selection"' in page.text
+    assert 'href="/ui/acceptance"' in api.get("/ui").text
+    assert 'href="/ui/acceptance"' in api.get("/ui/lifecycle").text
+    assert 'href="/ui/acceptance"' in api.get("/ui/readiness").text
+    assert 'href="/ui/acceptance"' in api.get("/ui/selection").text
+    assert page.headers["cache-control"] == "no-store"
+    assert "frame-ancestors 'none'" in page.headers["content-security-policy"]
+    scripts = app.text + client.text + renderer.text
+    assert "localStorage" not in scripts
+    assert "sessionStorage" not in scripts
+    assert 'request("/api/acceptance-cases")' in client.text
+    assert 'request("/api/selections")' in client.text
+    assert 'data-permission="ANALYZE"' in page.text
+    assert 'data-permission="APPROVE"' in page.text
+
+    ids = set(re.findall(r'id="([^"]+)"', page.text))
+    assert len(ids) == len(re.findall(r'id="([^"]+)"', page.text))
+    references = set(re.findall(r'(?:byId|document\.getElementById)\("([^"]+)"\)', scripts))
+    assert references <= ids

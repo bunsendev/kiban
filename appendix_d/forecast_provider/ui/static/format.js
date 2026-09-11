@@ -40,7 +40,7 @@ export function statusTone(value) {
     return "positive";
   }
   if (["REJECTED", "FAILED", "MISSING", "PARTIAL_OR_INVALID", false].includes(value)) return "negative";
-  if (["DRY_RUN", "RUNNING", "QUEUED", "PARTIAL", "ROLLED_BACK", "TENTATIVE", "NOT_HANDLED"].includes(value)) return "warning";
+  if (["DRY_RUN", "RUNNING", "QUEUED", "PARTIAL", "ROLLED_BACK", "TENTATIVE", "NOT_HANDLED", "NOT_EVALUATED"].includes(value)) return "warning";
   return "neutral";
 }
 
@@ -70,6 +70,7 @@ export function decisionLabel(value) {
     NOT_HANDLED: "取扱期間外",
     CLOSED: "休業",
     PARTIAL_OR_INVALID: "部分・不正",
+    NOT_EVALUATED: "対象外",
   };
   return labels[value] || value || "未判断";
 }

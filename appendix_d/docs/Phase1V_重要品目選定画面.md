@@ -66,7 +66,7 @@ APPROVE利用者は選定可能な候補を選び、候補に含まれるcenter�
 1. `/ui/readiness`で取扱期間、予定ファイル完全性、日次6状態を確認する。
 2. 全候補を含む成功済み日次buildから候補jobを登録し、selection Workerを実行する。
 3. INITIALでは安定品、間欠品、JAN変更品を可能な範囲で含む3〜5品目を確定する。
-4. 確定した品目・centerを使って日次buildを再発行し、Phase 1Kの実データ受入caseを作成する。
+4. 確定した品目・centerを使って日次buildを再発行し、[Phase 1W専用画面](Phase1W_実データ受入画面.md)からPhase 1Kの実データ受入caseを作成する。
 5. 全3年の候補母集団ではFULLとして20〜50品目を確定し、新しいExperiment IDを発行する。
 
 ## 未実施事項
