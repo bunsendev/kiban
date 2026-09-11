@@ -1,3 +1,30 @@
+# v2.9 Phase 1V 実行検証記録
+
+Date: 2026-09-12 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 1V
+
+- pytest: 全379件。Linux Dockerで374 passed、PostgreSQL依存5 skipped、PostgreSQL 17実DBで該当5件を含む選択suite 7 passed。FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- JavaScript: 既存moduleと重要品目選定画面3 moduleを`node --check`し、構文エラー0。
+- 候補job: 成功済み日次build、候補版、業務指定商品、欠損率・CV・0率条件、目的をANALYZE権限で登録し、一覧表示。
+- 候補指標: 数量、構成比、変動係数、出荷0率、欠損率、利用可能日、対象日、JAN変更、分類、center、選定可否を表示。
+- 選定版: INITIAL 3〜5品目またはFULL 20〜50品目を、候補内centerの部分集合、品目別理由、全体根拠付きでAPPROVE利用者が確定。
+- 不変履歴: selection version、scope、選定者、日時、根拠、品目・center・理由を一覧表示し、上書きは既存storeで拒否。
+- Worker境界: 候補計算をHTTP内で実行せず、独立selection Workerの結果を更新操作で再取得。
+- 状態整合: job登録と選定版確定後にサーバー台帳を再読込し、欠測を0へ変換しない。
+- token保護: tokenをmodule memoryだけに保持し、URL、cookie、`localStorage`、`sessionStorage`へ保存しない。
+- DOM安全性: 全静的ID参照をHTMLと照合し、動的な台帳値を`textContent`で挿入。
+- module分割: HTML 96行、API 34行、描画205行、画面制御278行、固有CSS 41行、DB一覧読み取り27行に分割。
+- 実画面: Docker配信した狭幅画面で未接続表示と、ADMIN接続後の4 summary・DB台帳読込みを確認。
+- Docker API: imageを再buildし、`/ui/selection`と全asset 200、一覧API、`/health=ok`、`/ready=ready`を確認。
+- wheel: DB一覧読み取りと重要品目選定画面のHTML・CSS・3 JavaScript moduleを含む200ファイルを確認。
+- 配布ZIP: 300ファイル、secret・backup・`.env.production`を除外し、UTF-8 filename flag、SHA256SUMS 300/300一致。
+
 # v2.9 Phase 1U 実行検証記録
 
 Date: 2026-09-11 JST

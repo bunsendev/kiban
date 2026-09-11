@@ -58,3 +58,12 @@ def install_ui_routes(app) -> None:
             media_type="text/html; charset=utf-8",
             headers=SECURITY_HEADERS,
         )
+
+    @app.get("/ui/selection", include_in_schema=False)
+    @app.get("/ui/selection/", include_in_schema=False)
+    def selection_ui():
+        return FileResponse(
+            STATIC_ROOT / "selection.html",
+            media_type="text/html; charset=utf-8",
+            headers=SECURITY_HEADERS,
+        )

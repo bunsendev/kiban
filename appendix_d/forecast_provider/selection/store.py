@@ -4,6 +4,7 @@ import sqlite3
 from pathlib import Path
 
 from .contracts import CandidateJob, SelectionCandidate, SelectionItem, SelectionVersion
+from .read_store import SelectionReadStoreMixin
 from .records import (
     candidate_from_row,
     encode_json,
@@ -13,7 +14,7 @@ from .records import (
 )
 
 
-class SqliteSelectionStore:
+class SqliteSelectionStore(SelectionReadStoreMixin):
     def __init__(self, path: Path) -> None:
         self.path = path
         self._initialize()

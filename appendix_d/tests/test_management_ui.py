@@ -94,3 +94,36 @@ def test_readiness_ui_serves_separate_modules_with_complete_dom_contract(tmp_pat
     ids = set(re.findall(r'id="([^"]+)"', page.text))
     references = set(re.findall(r'(?:byId|document\.getElementById)\("([^"]+)"\)', scripts))
     assert references <= ids
+
+
+def test_selection_ui_serves_separate_modules_with_complete_dom_contract(tmp_path):
+    database = tmp_path / "selection-ui.sqlite3"
+    api = TestClient(create_app(SqliteRunStore(database), SqliteCatalogStore(database), "token"))
+
+    page = api.get("/ui/selection")
+    app = api.get("/ui/assets/selection_app.js")
+    client = api.get("/ui/assets/selection_api.js")
+    renderer = api.get("/ui/assets/selection_render.js")
+    styles = api.get("/ui/assets/selection.css")
+
+    assert all(value.status_code == 200 for value in (page, app, client, renderer, styles))
+    assert "重要品目候補・選定" in page.text
+    assert 'type="module" src="/ui/assets/selection_app.js"' in page.text
+    assert 'href="/ui/readiness"' in page.text
+    assert 'href="/ui/selection"' in api.get("/ui").text
+    assert 'href="/ui/selection"' in api.get("/ui/lifecycle").text
+    assert 'href="/ui/selection"' in api.get("/ui/readiness").text
+    assert page.headers["cache-control"] == "no-store"
+    assert "frame-ancestors 'none'" in page.headers["content-security-policy"]
+    scripts = app.text + client.text + renderer.text
+    assert "localStorage" not in scripts
+    assert "sessionStorage" not in scripts
+    assert 'request("/api/selection-candidate-jobs")' in client.text
+    assert 'request("/api/selections")' in client.text
+    assert 'data-permission="ANALYZE"' in page.text
+    assert 'data-permission="APPROVE"' in page.text
+
+    ids = set(re.findall(r'id="([^"]+)"', page.text))
+    assert len(ids) == len(re.findall(r'id="([^"]+)"', page.text))
+    references = set(re.findall(r'(?:byId|document\.getElementById)\("([^"]+)"\)', scripts))
+    assert references <= ids

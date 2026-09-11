@@ -127,6 +127,7 @@ def test_postgres_candidate_job_and_selection_are_persisted():
         }
     )
     store.put_candidate_job(candidate_job)
+    assert store.list_candidate_jobs()[0].candidate_job_id == candidate_job.candidate_job_id
     assert SelectionProcessor(store, daily).process_next().status == "SUCCEEDED"
     candidates = store.list_candidates(candidate_job.candidate_job_id)
     assert len(candidates) == 3
@@ -149,4 +150,5 @@ def test_postgres_candidate_job_and_selection_are_persisted():
     )
     saved = store.put_selection(selection)
     assert saved.selection_id == selection.selection_id
+    assert store.list_selections()[0].selection_id == selection.selection_id
     assert len(store.list_selection_items(selection.selection_id)) == 3

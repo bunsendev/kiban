@@ -57,6 +57,9 @@ def test_candidate_worker_and_immutable_initial_selection(tmp_path):
     )
     assert created.status_code == 202
     job_id = created.json()["id"]
+    queued = api.get("/api/selection-candidate-jobs").json()[0]
+    assert queued["candidate_job_id"] == job_id
+    assert queued["status"] == "QUEUED"
     subprocess.run(
         [
             sys.executable,
@@ -68,10 +71,11 @@ def test_candidate_worker_and_immutable_initial_selection(tmp_path):
         ],
         check=True,
     )
+    jobs = api.get("/api/selection-candidate-jobs").json()
+    assert jobs[0]["candidate_job_id"] == job_id
+    assert jobs[0]["status"] == "SUCCEEDED"
     assert api.get(f"/api/selection-candidate-jobs/{job_id}").json()["status"] == "SUCCEEDED"
-    candidates = api.get(
-        f"/api/selection-candidate-jobs/{job_id}/candidates"
-    ).json()
+    candidates = api.get(f"/api/selection-candidate-jobs/{job_id}/candidates").json()
     assert len(candidates) == 3
     assert candidates[0]["business_designated"] is True
     assert abs(sum(float(item["quantity_share"]) for item in candidates) - 1) < 1e-12
@@ -100,6 +104,7 @@ def test_candidate_worker_and_immutable_initial_selection(tmp_path):
     saved = api.post("/api/selections", json=request)
     assert saved.status_code == 201
     selection_id = saved.json()["id"]
+    assert api.get("/api/selections").json()[0]["selection_id"] == selection_id
     assert len(api.get(f"/api/selections/{selection_id}/items").json()) == 3
     request["rationale"] = "同じ版を変更"
     assert api.post("/api/selections", json=request).status_code == 409
