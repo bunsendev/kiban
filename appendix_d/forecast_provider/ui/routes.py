@@ -49,3 +49,12 @@ def install_ui_routes(app) -> None:
             media_type="text/html; charset=utf-8",
             headers=SECURITY_HEADERS,
         )
+
+    @app.get("/ui/readiness", include_in_schema=False)
+    @app.get("/ui/readiness/", include_in_schema=False)
+    def readiness_ui():
+        return FileResponse(
+            STATIC_ROOT / "readiness.html",
+            media_type="text/html; charset=utf-8",
+            headers=SECURITY_HEADERS,
+        )

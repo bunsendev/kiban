@@ -2,7 +2,7 @@
 
 v2.8レビューの指摘を反映した予測・比較コアです。
 コード、全体仕様、統合仕様、開始ガイド、テスト、人工データデモ、検証記録を同梱しています。
-予定完全性、日次状態、少数実品目の受入判定基盤、StatsForecast AutoETS、比較CSV、採用判断台帳、比較・採用・Lifecycle管理画面、role別認可、OIDC、TLS・監視・DB backup、月次再学習と安全なモデル切替まで実装済みです。実データでの受入・trial・復旧試験と環境固有のIdP接続は後続作業です。
+予定完全性、日次状態、少数実品目の受入判定基盤、StatsForecast AutoETS、比較CSV、採用判断台帳、比較・採用・Lifecycle・データ準備管理画面、role別認可、OIDC、TLS・監視・DB backup、月次再学習と安全なモデル切替まで実装済みです。実データでの受入・trial・復旧試験と環境固有のIdP接続は後続作業です。
 
 ## 最初に読む
 
@@ -85,6 +85,10 @@ API起動後にdevelopmentでは`http://127.0.0.1:58000/ui`を開き、設定し
 ## Lifecycle運用画面
 
 `http://127.0.0.1:58000/ui/lifecycle`では、Lifecycle計画、現在championとrevision、月次cycle、切替履歴、trial予測・評価を参照できる。ANALYZE権限でscheduler、cycle処理、予測事前記録、APPROVE権限で計画作成、昇格、rollback、trial評価を操作する。操作後はサーバー台帳を再読込する。詳細は[Lifecycle運用画面](docs/Phase1T_Lifecycle運用画面.md)を参照する。
+
+## 取扱期間・欠測判定画面
+
+`http://127.0.0.1:58000/ui/readiness`では、商品×centerの取扱期間履歴と日次buildのファイル完全性、6種類の日次状態、欠測理由を確認できる。APPROVE権限で取扱期間を登録し、日次行は状態・商品・centerで絞り込む。欠測を0へ変換せず、操作後はサーバー台帳を再読込する。詳細は[取扱期間と欠測判定画面](docs/Phase1U_取扱期間と欠測判定画面.md)を参照する。
 
 ソース編集後、ハッシュ再生成前の配布整合テスト失敗は想定内ですが、その状態で出荷しないでください。
 

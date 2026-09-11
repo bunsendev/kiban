@@ -147,5 +147,12 @@ def test_postgres_daily_build_publishes_snapshot(tmp_path):
     result = DailyProcessor(daily, catalog, tmp_path / "snapshots").process_next()
     assert result.status == "SUCCEEDED"
     assert [item.state for item in daily.list_values(job.build_id)] == ["OBSERVED", "CLOSED"]
+    assert daily.list_jobs()[0].build_id == job.build_id
+    assert daily.readiness_summary(job.build_id)["state_counts"] == {
+        "CLOSED": 1,
+        "OBSERVED": 1,
+    }
+    total, page = daily.list_values_page(job.build_id, state="CLOSED", limit=1)
+    assert total == 1 and page[0].state == "CLOSED"
     snapshot = catalog.get_snapshot(result.snapshot_id)
     assert snapshot.manifest["provenance"]["daily_build_id"] == job.build_id

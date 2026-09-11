@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="取扱期間と日次欠測状態を確認するデータ準備画面">
+  <title>データ準備 | Yosoku Kiban</title>
+  <link rel="stylesheet" href="/ui/assets/styles.css">
+  <link rel="stylesheet" href="/ui/assets/readiness.css">
+  <script type="module" src="/ui/assets/readiness_app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">本文へ移動</a>
+  <header class="topbar">
+    <div class="brand-block">
+      <span class="eyebrow">YOSOKU KIBAN / DATA READINESS</span>
+      <h1>取扱期間・欠測判定</h1>
+      <a class="workspace-link" href="/ui">比較・採用へ</a>
+      <a class="workspace-link" href="/ui/lifecycle">Lifecycle運用へ</a>
+    </div>
+    <form id="connection-form" class="connection" aria-label="API接続">
+      <label for="api-token">API token</label>
+      <div class="connection-row"><input id="api-token" type="password" autocomplete="off" required placeholder="Bearer tokenを入力"><button class="button primary" type="submit">接続</button></div>
+      <p class="field-note">tokenはこの画面のメモリ内だけで使用します。</p>
+    </form>
+    <div id="session-controls" class="session-controls" hidden>
+      <span class="connection-state">接続済み</span><span id="session-identity" class="session-identity"></span>
+      <button id="refresh-button" class="button quiet" type="button">更新</button><button id="disconnect-button" class="button quiet" type="button">切断</button>
+    </div>
+  </header>
+
+  <main id="workspace" class="page-shell">
+    <div id="notice" class="notice" role="status" aria-live="polite">API tokenを入力してデータ準備台帳を読み込んでください。</div>
+    <section class="summary-grid" aria-label="データ準備サマリー">
+      <article class="summary-card accent-blue"><span>canonical商品</span><strong id="product-count">—</strong></article>
+      <article class="summary-card accent-green"><span>取扱期間</span><strong id="period-count">—</strong></article>
+      <article class="summary-card accent-cyan"><span>日次build</span><strong id="build-count">—</strong></article>
+      <article class="summary-card accent-amber"><span>選択buildの要確認行</span><strong id="issue-count">—</strong></article>
+    </section>
+
+    <details class="readiness-drawer">
+      <summary>取扱期間を登録</summary>
+      <form id="period-form" class="drawer-form readiness-form">
+        <label>商品<select id="period-product" required></select></label>
+        <label>center ID<input id="period-center" required></label>
+        <label>period version<input id="period-version" value="handling-v1" required></label>
+        <label>開始日<input id="period-from" type="date" required></label>
+        <label>終了日<input id="period-to" type="date"><span class="field-note">継続中は空欄</span></label>
+        <label>確度<select id="period-status"><option value="CONFIRMED">確認済み</option><option value="TENTATIVE">暫定</option></select></label>
+        <label class="span-all">根拠<textarea id="period-basis" rows="2" required></textarea></label>
+        <button class="button primary span-all" data-permission="APPROVE" type="submit">取扱期間を保存</button>
+      </form>
+    </details>
+
+    <section class="period-ledger">
+      <div class="section-heading"><div><span class="eyebrow">HANDLING PERIODS</span><h2>取扱期間履歴</h2></div><span id="period-filter-count" class="count-chip">0件</span></div>
+      <label class="search-field compact-search" for="period-search"><span>商品・center・versionで絞り込み</span><input id="period-search" type="search" placeholder="検索"></label>
+      <div id="period-list" class="period-grid"></div>
+    </section>
+
+    <section class="workbench readiness-workbench">
+      <aside class="comparison-rail" aria-labelledby="build-heading">
+        <div class="section-heading"><div><span class="eyebrow">DAILY BUILDS</span><h2 id="build-heading">日次buildを選択</h2></div><span id="build-filter-count" class="count-chip">0件</span></div>
+        <label class="search-field" for="build-search"><span>build・selection・period版で絞り込み</span><input id="build-search" type="search" placeholder="検索"></label>
+        <div id="build-list" class="comparison-list"></div>
+      </aside>
+
+      <section class="detail-panel" aria-live="polite">
+        <div id="detail-empty" class="empty-state"><div class="empty-mark" aria-hidden="true">DR</div><h2>日次buildを選ぶと欠測判定を表示します</h2><p>予定ファイルの完全性と商品×center×日付の6状態を分けて確認できます。</p></div>
+        <div id="detail-content" hidden>
+          <header class="detail-header"><div><span class="eyebrow">DAILY BUILD</span><h2 id="build-status-title">—</h2><code id="build-id">—</code></div><div id="build-status"></div></header>
+          <div id="build-lineage" class="lineage-grid readiness-lineage"></div>
+
+          <nav class="tabs" aria-label="欠測確認"><button class="tab active" type="button" data-tab="summary" aria-selected="true">判定概要</button><button class="tab" type="button" data-tab="values" aria-selected="false">日次行</button><button class="tab" type="button" data-tab="files" aria-selected="false">ファイル完全性</button></nav>
+
+          <section id="tab-summary" class="tab-panel">
+            <div id="state-summary" class="state-grid"></div>
+            <section class="ledger-card"><div class="subheading"><h3>要確認理由</h3><span>欠測を0へ変換しません</span></div><div id="issue-list" class="record-list"></div></section>
+          </section>
+
+          <section id="tab-values" class="tab-panel" hidden>
+            <form id="value-filter-form" class="filter-bar">
+              <label>状態<select id="value-state"><option value="">すべて</option><option value="MISSING">MISSING</option><option value="PARTIAL_OR_INVALID">PARTIAL_OR_INVALID</option><option value="NOT_HANDLED">NOT_HANDLED</option><option value="OBSERVED">OBSERVED</option><option value="CONFIRMED_ZERO">CONFIRMED_ZERO</option><option value="CLOSED">CLOSED</option></select></label>
+              <label>商品ID<input id="value-product"></label><label>center ID<input id="value-center"></label>
+              <button class="button secondary" type="submit">絞り込む</button>
+            </form>
+            <div class="table-wrap"><table><caption id="value-caption">日次行</caption><thead><tr><th>日付</th><th>商品 / center</th><th>状態</th><th>raw / y</th><th>理由</th></tr></thead><tbody id="value-list"></tbody></table></div>
+            <div class="pager"><button id="previous-page" class="button secondary" type="button">前へ</button><span id="page-state">—</span><button id="next-page" class="button secondary" type="button">次へ</button></div>
+          </section>
+
+          <section id="tab-files" class="tab-panel" hidden>
+            <div class="table-wrap"><table><caption>center×対象日の予定ファイル完全性</caption><thead><tr><th>対象日 / center</th><th>状態</th><th>有効 / 予定</th><th>0確定</th><th>不足・不正path</th></tr></thead><tbody id="file-list"></tbody></table></div>
+          </section>
+        </div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>

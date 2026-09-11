@@ -14,6 +14,7 @@ def install_daily_routes(app: FastAPI, authorize, daily) -> None:
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)
     approve = authorize.require(Permission.APPROVE)
+
     @app.post("/api/file-schedules", response_model=Created, status_code=201)
     def create_file_schedule(
         request: FileScheduleCreate,
@@ -67,6 +68,10 @@ def install_daily_routes(app: FastAPI, authorize, daily) -> None:
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    @app.get("/api/daily-builds")
+    def list_daily_builds(_principal: Annotated[Principal, Depends(read)]):
+        return [value.__dict__ for value in daily.list_jobs()]
+
     @app.get("/api/daily-builds/{build_id}")
     def get_daily_build(
         build_id: str,
@@ -94,3 +99,37 @@ def install_daily_routes(app: FastAPI, authorize, daily) -> None:
         if daily.get_job(build_id) is None:
             raise HTTPException(status_code=404, detail="日次buildが見つかりません")
         return [value.__dict__ for value in daily.list_values(build_id)]
+
+    @app.get("/api/daily-builds/{build_id}/readiness")
+    def get_daily_readiness(
+        build_id: str,
+        _principal: Annotated[Principal, Depends(read)],
+    ):
+        if daily.get_job(build_id) is None:
+            raise HTTPException(status_code=404, detail="日次buildが見つかりません")
+        return daily.readiness_summary(build_id)
+
+    @app.get("/api/daily-builds/{build_id}/value-page")
+    def get_daily_value_page(
+        build_id: str,
+        _principal: Annotated[Principal, Depends(read)],
+        state: str | None = None,
+        canonical_product_id: str | None = None,
+        center_id: str | None = None,
+        limit: int = 200,
+        offset: int = 0,
+    ):
+        if daily.get_job(build_id) is None:
+            raise HTTPException(status_code=404, detail="日次buildが見つかりません")
+        try:
+            total, items = daily.list_values_page(
+                build_id,
+                state=state,
+                canonical_product_id=canonical_product_id,
+                center_id=center_id,
+                limit=limit,
+                offset=offset,
+            )
+            return {"total": total, "limit": limit, "offset": offset, "items": items}
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc

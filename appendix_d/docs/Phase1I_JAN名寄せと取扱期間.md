@@ -18,4 +18,4 @@ canonical productはJAN変更に依存しない商品IDで、作成者と理由�
 - `POST /api/jan-mappings`、`GET /api/jan-mappings`
 - `POST /api/handling-periods`、`GET /api/handling-periods`
 
-この段階では規格・内容量・入数の自動抽出、JAN補正、自動承認、日次0補完、予定ファイル完全性、dataset snapshot自動発行を行わない。
+この段階では規格・内容量・入数の自動抽出、JAN補正、自動承認、日次0補完、予定ファイル完全性、dataset snapshot自動発行を行わない。取扱期間の登録・履歴確認は後続の[Phase 1U専用画面](Phase1U_取扱期間と欠測判定画面.md)からも行える。

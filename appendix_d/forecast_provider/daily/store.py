@@ -4,6 +4,7 @@ import sqlite3
 from pathlib import Path
 
 from .contracts import ClosedDay, DailyBuildJob, DailyValue, FileCompleteness, FileSchedule
+from .readiness_store import ReadinessStoreMixin
 from .records import (
     completeness_from_row,
     daily_value_from_row,
@@ -15,7 +16,7 @@ from .records import (
 from .upstream import source_inputs, validate_job_inputs
 
 
-class SqliteDailyStore:
+class SqliteDailyStore(ReadinessStoreMixin):
     def __init__(self, path: Path) -> None:
         self.path = path
         self._initialize()
