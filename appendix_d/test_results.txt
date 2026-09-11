@@ -1,3 +1,31 @@
+# v2.9 Phase 1W 実行検証記録
+
+Date: 2026-09-12 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 1W
+
+- pytest: 全380件。Linux Dockerで375 passed、PostgreSQL依存5 skipped、PostgreSQL 17実DBで受入・日次・選定・Lifecycleを含むsuite 7 passed。FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- JavaScript: 実データ受入画面3 moduleを`node --check`し、構文エラー0。
+- case作成: INITIAL 3〜5品目の確定済み選定版と成功済み日次buildを選び、data kind、availability mode、品質閾値、目的をANALYZE権限で登録。
+- Worker境界: 技術判定をHTTP内で実行せず、独立acceptance Workerの処理結果を更新操作で再取得。
+- 技術判定: 契約順の10項目について、日本語名、check ID、判定、実測値、期待値、詳細を表示。
+- 品質レポート: JSON・MarkdownのURIとSHA-256 checksumを表示し、レポート本文をWeb APIから配信しない。
+- 業務判断: 技術処理完了後にAPPROVE利用者が版、判断、理由を追記。APPROVEDはREALかつPASSEDだけ画面で選択可能とし、APIで最終検証。
+- 不変履歴: case、10項目判定、業務判断履歴をサーバー台帳から再取得し、認証主体を依頼者・判断者として記録。
+- token保護: tokenをmodule memoryだけに保持し、URL、cookie、`localStorage`、`sessionStorage`へ保存しない。
+- DOM安全性: 全静的ID参照をHTMLと照合し、動的な台帳値を`textContent`で挿入。
+- module分割: HTML 93行、API 30行、描画197行、画面制御235行、固有CSS 22行に分割。
+- 実画面: Docker配信した狭幅画面で未接続表示、ADMIN接続後の4 summary、28件の台帳、10項目技術判定、業務判断フォームを確認。確認後に切断してtokenを破棄。
+- Docker API: imageを再buildし、`/ui/acceptance`と全asset 200、受入・選定一覧API、`/health=ok`、`/ready=ready`を確認。
+- wheel: 実データ受入画面のHTML・CSS・3 JavaScript moduleを含む205ファイルを確認。
+- 配布ZIP: 307ファイル、secret・backup・`.env.production`を除外し、UTF-8 filename flag、SHA256SUMS 307/307一致。
+- 実データ: リポジトリへ投入せず、既存のテスト台帳だけで画面表示を確認。実業務の受入完了は宣言しない。
+
 # v2.9 Phase 1V 実行検証記録
 
 Date: 2026-09-12 JST
