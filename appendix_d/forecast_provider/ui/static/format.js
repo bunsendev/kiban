@@ -36,11 +36,11 @@ export function parseList(value) {
 }
 
 export function statusTone(value) {
-  if (["ADOPTED", "APPROVED", "PASSED", "SUCCEEDED", "READY", "PROMOTED", "COMPLETE", "INITIALIZED", true].includes(value)) {
+  if (["ADOPTED", "APPROVED", "PASSED", "SUCCEEDED", "READY", "PROMOTED", "COMPLETE", "INITIALIZED", "CONFIRMED", "OBSERVED", "CONFIRMED_ZERO", "CLOSED", true].includes(value)) {
     return "positive";
   }
-  if (["REJECTED", "FAILED", false].includes(value)) return "negative";
-  if (["DRY_RUN", "RUNNING", "QUEUED", "PARTIAL", "ROLLED_BACK"].includes(value)) return "warning";
+  if (["REJECTED", "FAILED", "MISSING", "PARTIAL_OR_INVALID", false].includes(value)) return "negative";
+  if (["DRY_RUN", "RUNNING", "QUEUED", "PARTIAL", "ROLLED_BACK", "TENTATIVE", "NOT_HANDLED"].includes(value)) return "warning";
   return "neutral";
 }
 
@@ -62,6 +62,14 @@ export function decisionLabel(value) {
     CONTINUE: "継続",
     COMPLETE: "完了",
     PARTIAL: "一部失敗",
+    CONFIRMED: "確認済み",
+    TENTATIVE: "暫定",
+    OBSERVED: "実績あり",
+    CONFIRMED_ZERO: "0確定",
+    MISSING: "欠測",
+    NOT_HANDLED: "取扱期間外",
+    CLOSED: "休業",
+    PARTIAL_OR_INVALID: "部分・不正",
   };
   return labels[value] || value || "未判断";
 }

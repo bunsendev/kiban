@@ -96,6 +96,26 @@ def test_api_to_separate_daily_worker_emits_all_states_and_snapshot(tmp_path):
     assert rows[2]["y"] is None
     assert rows[4]["y"] == 0
     assert rows[4]["available_at"] == "2025-11-30T15:00:00+00:00"
+    builds = api.get("/api/daily-builds").json()
+    assert builds[0]["build_id"] == build_id
+    readiness = api.get(f"/api/daily-builds/{build_id}/readiness").json()
+    assert readiness["value_count"] == 6
+    assert readiness["state_counts"] == {
+        "CLOSED": 1,
+        "CONFIRMED_ZERO": 1,
+        "MISSING": 1,
+        "NOT_HANDLED": 1,
+        "OBSERVED": 1,
+        "PARTIAL_OR_INVALID": 1,
+    }
+    missing = api.get(f"/api/daily-builds/{build_id}/value-page", params={"state": "MISSING"})
+    assert missing.status_code == 200
+    assert missing.json()["total"] == 1
+    assert missing.json()["items"][0]["state"] == "MISSING"
+    assert (
+        api.get(f"/api/daily-builds/{build_id}/value-page", params={"state": "INVALID"}).status_code
+        == 422
+    )
     completeness = api.get(f"/api/daily-builds/{build_id}/completeness").json()
     assert completeness[2]["status"] == "COMPLETE"
     assert completeness[2]["zero_confirmable"] is False

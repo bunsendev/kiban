@@ -40,6 +40,8 @@ Workerは日次値を`unique_id,canonical_product_id,center_id,ds,y,daily_state,
 - `POST /api/daily-builds`、`GET /api/daily-builds/{id}`
 - `GET /api/daily-builds/{id}/completeness`、`GET /api/daily-builds/{id}/values`
 
+後続の[Phase 1U専用画面](Phase1U_取扱期間と欠測判定画面.md)は、build一覧、DB集計、条件付きページングAPIを追加し、完全性・6状態・欠測理由を一つの画面で確認できるようにする。
+
 PostgreSQLとAPIを起動した後、日次Workerだけを追加起動できる。
 
 ```powershell

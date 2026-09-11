@@ -1,3 +1,30 @@
+# v2.9 Phase 1U 実行検証記録
+
+Date: 2026-09-11 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 1U
+
+- pytest: 全378件。Linux Dockerで373 passed、PostgreSQL依存5 skipped、PostgreSQL 17実DBで該当5件を含む選択suite 7 passed。FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- JavaScript: 既存moduleとデータ準備画面3 moduleを`node --check`し、構文エラー0。
+- 取扱期間: canonical商品、商品×centerの期間、確度、版、認証subject、根拠を表示し、APPROVE利用者の登録を既存APIへ接続。
+- 日次build: schedule、JAN mapping、取扱期間、selection、`as_of`、snapshotの系譜と、予定ファイル完全性を表示。
+- 6状態: `OBSERVED`、`CONFIRMED_ZERO`、`MISSING`、`NOT_HANDLED`、`CLOSED`、`PARTIAL_OR_INVALID`を別集計し、理由別件数を表示。
+- 検索: 状態・商品・centerをDB側で絞り込み、1〜500件の上限付きoffset/limitで日次行を取得。
+- 権限と監査: READ参照、APPROVE取扱期間登録を画面へ反映し、最終認可、期間競合、監査主体はAPIで再検証。
+- 状態整合: 取扱期間の保存後にサーバー台帳を再読込し、欠測・期間外・部分不正を0へ変換しない。
+- token保護: tokenをmodule memoryだけに保持し、URL、cookie、`localStorage`、`sessionStorage`へ保存しない。
+- DOM安全性: 全静的ID参照をHTMLと照合し、動的な台帳値を`textContent`で挿入。
+- module分割: HTML 100行、API 43行、描画185行、画面制御227行、固有CSS 34行、DB読み取り集計94行に分割。
+- 実画面: Docker配信した狭幅画面でheader、接続、4 summary、取扱期間登録、期間履歴のresponsive表示を確認。
+- Docker API: imageを再buildし、`/ui/readiness`と全asset 200、`/health=ok`、`/ready=ready`を確認。
+- wheel: DB読み取り集計とデータ準備画面のHTML・CSS・3 JavaScript moduleを含む194ファイルを確認。
+- 配布ZIP: 292ファイル、secret・backup・`.env.production`を除外し、UTF-8 filename flag、SHA256SUMS 292/292一致。
+
 # v2.9 Phase 1T 実行検証記録
 
 Date: 2026-09-11 JST

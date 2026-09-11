@@ -64,3 +64,33 @@ def test_lifecycle_ui_serves_separate_modules_with_complete_dom_contract(tmp_pat
     ids = set(re.findall(r'id="([^"]+)"', page.text))
     references = set(re.findall(r'(?:byId|document\.getElementById)\("([^"]+)"\)', scripts))
     assert references <= ids
+
+
+def test_readiness_ui_serves_separate_modules_with_complete_dom_contract(tmp_path):
+    database = tmp_path / "readiness-ui.sqlite3"
+    api = TestClient(create_app(SqliteRunStore(database), SqliteCatalogStore(database), "token"))
+
+    page = api.get("/ui/readiness")
+    app = api.get("/ui/assets/readiness_app.js")
+    client = api.get("/ui/assets/readiness_api.js")
+    renderer = api.get("/ui/assets/readiness_render.js")
+    styles = api.get("/ui/assets/readiness.css")
+
+    assert all(value.status_code == 200 for value in (page, app, client, renderer, styles))
+    assert "取扱期間・欠測判定" in page.text
+    assert 'type="module" src="/ui/assets/readiness_app.js"' in page.text
+    assert 'href="/ui"' in page.text
+    assert 'href="/ui/lifecycle"' in page.text
+    assert 'href="/ui/readiness"' in api.get("/ui").text
+    assert 'href="/ui/readiness"' in api.get("/ui/lifecycle").text
+    assert page.headers["cache-control"] == "no-store"
+    assert "frame-ancestors 'none'" in page.headers["content-security-policy"]
+    scripts = app.text + client.text + renderer.text
+    assert "localStorage" not in scripts
+    assert "sessionStorage" not in scripts
+    assert 'request("/api/daily-builds")' in client.text
+    assert 'data-permission="APPROVE"' in page.text
+
+    ids = set(re.findall(r'id="([^"]+)"', page.text))
+    references = set(re.findall(r'(?:byId|document\.getElementById)\("([^"]+)"\)', scripts))
+    assert references <= ids

@@ -82,6 +82,7 @@ button { cursor: pointer; }
   font-size: 0.82rem;
   font-weight: 800;
 }
+.workspace-link + .workspace-link { margin-left: 0.8rem; }
 
 .connection { justify-self: end; width: min(100%, 520px); }
 .connection label { color: #b9c8d8; font-size: 0.875rem; font-weight: 700; }
