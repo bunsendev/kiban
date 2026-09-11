@@ -14,6 +14,7 @@ def install_selection_routes(app: FastAPI, authorize, selection) -> None:
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)
     approve = authorize.require(Permission.APPROVE)
+
     @app.post(
         "/api/selection-candidate-jobs",
         response_model=Created,
@@ -34,6 +35,12 @@ def install_selection_routes(app: FastAPI, authorize, selection) -> None:
             raise HTTPException(status_code=404, detail="日次buildが見つかりません") from exc
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.get("/api/selection-candidate-jobs")
+    def list_candidate_jobs(
+        _principal: Annotated[Principal, Depends(read)],
+    ):
+        return [value.__dict__ for value in selection.list_candidate_jobs()]
 
     @app.get("/api/selection-candidate-jobs/{candidate_job_id}")
     def get_candidate_job(
@@ -70,6 +77,12 @@ def install_selection_routes(app: FastAPI, authorize, selection) -> None:
             raise HTTPException(status_code=404, detail="候補算出jobが見つかりません") from exc
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.get("/api/selections")
+    def list_selections(
+        _principal: Annotated[Principal, Depends(read)],
+    ):
+        return [value.__dict__ for value in selection.list_selections()]
 
     @app.get("/api/selections/{selection_id}")
     def get_selection(
