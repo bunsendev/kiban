@@ -76,3 +76,12 @@ def install_ui_routes(app) -> None:
             media_type="text/html; charset=utf-8",
             headers=SECURITY_HEADERS,
         )
+
+    @app.get("/ui/intake", include_in_schema=False)
+    @app.get("/ui/intake/", include_in_schema=False)
+    def intake_ui():
+        return FileResponse(
+            STATIC_ROOT / "intake.html",
+            media_type="text/html; charset=utf-8",
+            headers=SECURITY_HEADERS,
+        )

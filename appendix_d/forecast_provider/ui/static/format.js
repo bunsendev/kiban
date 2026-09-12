@@ -36,11 +36,11 @@ export function parseList(value) {
 }
 
 export function statusTone(value) {
-  if (["ADOPTED", "APPROVED", "PASSED", "SUCCEEDED", "READY", "PROMOTED", "COMPLETE", "INITIALIZED", "CONFIRMED", "OBSERVED", "CONFIRMED_ZERO", "CLOSED", true].includes(value)) {
+  if (["ADOPTED", "APPROVED", "PASSED", "SUCCEEDED", "READY", "PROMOTED", "COMPLETE", "INITIALIZED", "CONFIRMED", "OBSERVED", "CONFIRMED_ZERO", "CLOSED", "ACCEPTED", true].includes(value)) {
     return "positive";
   }
-  if (["REJECTED", "FAILED", "MISSING", "PARTIAL_OR_INVALID", false].includes(value)) return "negative";
-  if (["DRY_RUN", "RUNNING", "QUEUED", "PARTIAL", "ROLLED_BACK", "TENTATIVE", "NOT_HANDLED", "NOT_EVALUATED"].includes(value)) return "warning";
+  if (["REJECTED", "FAILED", "MISSING", "PARTIAL_OR_INVALID", "QUARANTINED", false].includes(value)) return "negative";
+  if (["DRY_RUN", "RUNNING", "QUEUED", "PARTIAL", "ROLLED_BACK", "TENTATIVE", "NOT_HANDLED", "NOT_EVALUATED", "CORRECTION_CANDIDATE"].includes(value)) return "warning";
   return "neutral";
 }
 
@@ -71,6 +71,10 @@ export function decisionLabel(value) {
     CLOSED: "休業",
     PARTIAL_OR_INVALID: "部分・不正",
     NOT_EVALUATED: "対象外",
+    ACCEPTED: "採用可能",
+    QUARANTINED: "隔離",
+    DUPLICATE: "重複",
+    CORRECTION_CANDIDATE: "訂正版候補",
   };
   return labels[value] || value || "未判断";
 }

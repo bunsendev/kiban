@@ -9,3 +9,5 @@ Workerは単一ファイル、フォルダ、ZIPを扱う。入力root外へのp
 文字コードはBOM付きUTF-8、UTF-8、CP932を置換なしで判定する。判定不能なファイルは`QUARANTINED`としてerrorを残し、同じjob内の正常ファイルは継続する。この段階では列名を推測せず、行の正規化や数量集計を行わない。
 
 Composeでは`KIBAN_IMPORT_DIR`をread-only入力、`KIBAN_RAW_ARCHIVE_DIR`を不変原本の保存先として取込Workerへmountする。実データはGitと配布ZIPに含めない。
+
+取込job、原本状態、checksum、encoding、重複・訂正系譜の画面操作は[Phase 1X 原本取込・正規化画面](Phase1X_原本取込正規化画面.md)を参照する。

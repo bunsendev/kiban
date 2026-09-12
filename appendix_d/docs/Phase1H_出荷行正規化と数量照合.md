@@ -13,3 +13,5 @@ mappingは出荷日、JAN、商品名、数量、単位、center、行区分、�
 訂正版候補は自動採用しない。`POST /api/source-selections`でlogical path、原本ID、decision version、担当者、理由を保存して初めて正規化できる。選択履歴は`GET /api/source-selections`で取得でき、新版選択後は旧原本を別mappingで新規処理できない。
 
 この段階ではJAN名寄せ、返品・取消の業務対応、日次集計、予定ファイルに基づく0/欠測判断を行わない。後続処理は採用行と隔離・照合結果を入力にする。
+
+列mapping、訂正版採用、正規化job、隔離行、数量照合の画面操作は[Phase 1X 原本取込・正規化画面](Phase1X_原本取込正規化画面.md)を参照する。

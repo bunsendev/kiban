@@ -53,6 +53,13 @@ class SqliteNormalizationStore:
             ).fetchone()
             return None if row is None else self._mapping(row)
 
+    def list_mappings(self) -> list[ColumnMapping]:
+        with self._connect() as db:
+            return [
+                self._mapping(row)
+                for row in db.execute("SELECT * FROM column_mappings ORDER BY mapping_id")
+            ]
+
     @staticmethod
     def _mapping(row):
         return ColumnMapping(
@@ -203,6 +210,64 @@ class SqliteNormalizationStore:
             counts.get("QUARANTINED", 0),
             row["error"],
         )
+
+    def list_jobs(self) -> list[NormalizationJob]:
+        with self._connect() as db:
+            ids = [
+                row[0]
+                for row in db.execute(
+                    "SELECT normalization_id FROM normalization_jobs "
+                    "ORDER BY created_at DESC,normalization_id DESC"
+                )
+            ]
+        return [value for job_id in ids if (value := self.get_job(job_id)) is not None]
+
+    def summary(self, normalization_id: str) -> dict | None:
+        job = self.get_job(normalization_id)
+        if job is None:
+            return None
+        with self._connect() as db:
+            reconciliation = db.execute(
+                "SELECT * FROM quantity_reconciliations WHERE normalization_id=?",
+                (normalization_id,),
+            ).fetchone()
+        return {
+            **job.__dict__,
+            "reconciliation": None if reconciliation is None else dict(reconciliation),
+        }
+
+    def list_rows_page(
+        self,
+        normalization_id: str,
+        *,
+        status: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[int, list[dict]]:
+        if status not in {None, "ACCEPTED", "QUARANTINED"}:
+            raise ValueError("statusはACCEPTEDまたはQUARANTINEDです")
+        if not 1 <= limit <= 500:
+            raise ValueError("limitは1以上500以下です")
+        if offset < 0:
+            raise ValueError("offsetは0以上です")
+        where = "normalization_id=?"
+        params: list[object] = [normalization_id]
+        if status is not None:
+            where += " AND status=?"
+            params.append(status)
+        with self._connect() as db:
+            total = db.execute(
+                f"SELECT count(*) FROM shipment_rows WHERE {where}", params
+            ).fetchone()[0]
+            rows = [
+                dict(row)
+                for row in db.execute(
+                    f"SELECT * FROM shipment_rows WHERE {where} "
+                    "ORDER BY row_number LIMIT ? OFFSET ?",
+                    (*params, limit, offset),
+                )
+            ]
+        return int(total), rows
 
     def complete(self, normalization_id: str, rows: list[ShipmentRow], value: Reconciliation):
         with self._connect() as db:

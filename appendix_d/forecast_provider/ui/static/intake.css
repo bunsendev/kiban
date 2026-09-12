@@ -1,0 +1,32 @@
+.intake-actions { display: grid; grid-template-columns: minmax(260px, 0.7fr) minmax(420px, 1.3fr); gap: 0.8rem; margin-bottom: 1rem; }
+.intake-drawer { background: var(--surface); border: 1px solid var(--line); box-shadow: 0 5px 16px rgba(22, 40, 66, 0.04); }
+.intake-drawer summary { padding: 0.85rem 1rem; color: var(--navy); font-weight: 800; cursor: pointer; }
+.compact-form { grid-template-columns: 1fr; }
+.mapping-form { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.span-all { grid-column: 1 / -1; }
+.intake-workbench { min-height: 840px; }
+.intake-rail { display: grid; align-content: start; gap: 1.5rem; }
+.rail-group + .rail-group { padding-top: 1.25rem; border-top: 1px solid #cfd8e1; }
+.intake-list { max-height: 290px; }
+.intake-operation-grid { margin: 1rem 0; }
+.source-lineage { display: grid; gap: 0.2rem; }
+.source-lineage code { max-width: 300px; overflow-wrap: anywhere; font-size: 0.7rem; }
+.reconciliation-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.65rem; margin: 1rem 0; }
+.reconciliation-card { padding: 0.85rem; background: #f7f9fb; border-top: 3px solid var(--cyan); }
+.reconciliation-card span, .reconciliation-card strong { display: block; }
+.reconciliation-card span { color: var(--muted); font-size: 0.76rem; font-weight: 800; }
+.reconciliation-card strong { margin-top: 0.2rem; font-size: 1.2rem; }
+.row-toolbar { display: grid; grid-template-columns: minmax(180px, 1fr) auto auto auto; align-items: end; gap: 0.55rem; margin: 1rem 0 0.7rem; }
+.row-toolbar > span { align-self: center; color: var(--muted); font-size: 0.82rem; font-weight: 800; }
+.row-error { max-width: 260px; color: var(--red); overflow-wrap: anywhere; }
+
+@media (max-width: 1000px) {
+  .intake-actions { grid-template-columns: 1fr; }
+  .mapping-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .reconciliation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 680px) {
+  .mapping-form, .reconciliation-grid, .row-toolbar { grid-template-columns: 1fr; }
+  .span-all { grid-column: auto; }
+}

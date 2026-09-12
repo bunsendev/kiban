@@ -18,6 +18,12 @@ def install_ingestion_routes(app: FastAPI, authorize, ingestion) -> None:
     ):
         return Created(id=ingestion.enqueue(request.source_path).import_id)
 
+    @app.get("/api/imports")
+    def list_imports(
+        _principal: Annotated[Principal, Depends(read)],
+    ):
+        return [value.__dict__ for value in ingestion.list_jobs()]
+
     @app.get("/api/imports/{import_id}")
     def get_import(
         import_id: str,
