@@ -90,7 +90,9 @@ Phase 2AでApache-2.0のTimesFM 2.5 200Mを4つ目の予測Providerとして追�
 
 Phase 2BでTimesFM専用Workerの起動前検査と運用計測を追加した。固定checkpoint、モデル初期化、warm-up、反復推論、CPU時間、process peak RSS、cgroup上限を分離して測り、技術判定を内容アドレス方式のJSONへ保存する。benchmark serviceはCPU 2、memory 4 GiB、networkなし、checkpoint read-onlyで動作する。詳細は[TimesFM運用計測](docs/Phase2B_TimesFM運用計測.md)。
 
-次は実業務原本をPhase 1Xから取り込み、数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進む。その後、全3年の重要品目選定とPhase 1Sの将来trialを開始する。
+Phase 2Cで実データ受入プリフライトを追加した。原本を読む前に5つのdata rootの存在・権限・symlink・重複・application境界と、PostgreSQL 17のPhase 1X〜1K必須schema・Worker権限を10項目で検査し、path・DSN・原本名を含まない不変JSON証跡を保存する。詳細は[実データ受入プリフライト](docs/Phase2C_実データ受入プリフライト.md)。
+
+次はプリフライトが`READY_FOR_DATA`の環境へ実業務原本を配置し、Phase 1Xから数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進む。その後、全3年の重要品目選定とPhase 1Sの将来trialを開始する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
 ## 変更報告

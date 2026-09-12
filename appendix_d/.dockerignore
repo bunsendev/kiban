@@ -8,6 +8,7 @@ build
 dist
 timesfm_checkpoint
 timesfm_benchmark_output
+preflight_output
 snapshot_input
 import_input
 raw_archive

@@ -47,5 +47,11 @@ def test_case_rejects_ambiguous_acceptance_scope(field, value, message):
 
 
 def test_release_excludes_all_runtime_data_and_acceptance_reports():
-    protected = {"snapshot_input", "import_input", "raw_archive", "acceptance_output"}
+    protected = {
+        "snapshot_input",
+        "import_input",
+        "raw_archive",
+        "acceptance_output",
+        "preflight_output",
+    }
     assert all(protected.isdisjoint(path.parts) for path in release_files())

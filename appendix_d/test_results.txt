@@ -1,3 +1,27 @@
+# v2.9 Phase 2C 実行検証記録
+
+Date: 2026-09-13 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+PostgreSQL: 17
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2C
+
+- pytest: Linux DockerでPostgreSQL 17実DBと実TimesFM checkpointを含む全416件を実行。FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- 実プリフライト: 開発Composeの非root一回実行serviceで10技術チェックすべて`PASSED`、outcome `READY_FOR_DATA`。
+- filesystem: 5 rootの存在・読取・symlinkなし・相互非重複・application外を確認。inputのwrite拒否、archive・snapshot・acceptance・preflightのwrite成功を実mountで確認。
+- PostgreSQL: major 17、Phase 1X〜1K必須23 relation、欠落0、SELECT・INSERT・UPDATE権限不足0。
+- 不変証跡: preflight ID `ff9677964a61c0e5f727acf44c1c28f82fb09a474b1cc730230bd18edf51ec4d`、report SHA-256 `eb0cbcb2d8e6c92525335bce5d2d2915aa683707ce126c959425a4e1688cdecf`。DSN、database/user名、local path、directory entry、原本名を含めない。
+- Compose: 開発・本番の専用`preflight` profileを解決。本番DSNはsecret file、inputはread-only mount。
+- demo: 人工3系列・3年、2 Provider各1,095/1,095成功、official ranking成立。実データではない。
+- scale_check: 人工100系列、37起点、POINT 54,500行/Provider、POINT+QUANTILE 218,000行、重複0、通期評価成立。
+- wheel: 241ファイル中、分割したプリフライト7moduleと`kiban-real-data-preflight` entry pointを確認。
+- 配布保護: 実データrootとプリフライト出力をGit、Docker build context、配布ZIPから除外し、365ファイルのchecksum一致を確認。
+- 実データ: 原本未提供のため取込、数量照合、JAN判断、3〜5品目受入、精度、業務承認は未実施。`READY_FOR_DATA`で代替しない。
+
 # v2.9 Phase 2B 実行検証記録
 
 Date: 2026-09-13 JST

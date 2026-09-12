@@ -2,7 +2,7 @@
 
 v2.8レビューの指摘を反映した予測・比較コアです。
 コード、全体仕様、統合仕様、開始ガイド、テスト、人工データデモ、検証記録を同梱しています。
-予定完全性、日次状態、少数実品目の受入判定基盤、StatsForecast AutoETS、MLForecast Ridge、TimesFM 2.5と専用Worker運用計測、比較CSV、採用判断台帳、比較・採用・Lifecycle・原本取込・正規化・JAN名寄せ・商品マスター・データ準備・重要品目選定・実データ受入管理画面、role別認可、OIDC、TLS・監視・DB backup、月次再学習と安全なモデル切替まで実装済みです。実データでの受入・trial・復旧試験と環境固有のIdP接続は後続作業です。
+予定完全性、日次状態、少数実品目の受入判定基盤、実データ受入プリフライト、StatsForecast AutoETS、MLForecast Ridge、TimesFM 2.5と専用Worker運用計測、比較CSV、採用判断台帳、比較・採用・Lifecycle・原本取込・正規化・JAN名寄せ・商品マスター・データ準備・重要品目選定・実データ受入管理画面、role別認可、OIDC、TLS・監視・DB backup、月次再学習と安全なモデル切替まで実装済みです。実データでの受入・trial・復旧試験と環境固有のIdP接続は後続作業です。
 
 ## 最初に読む
 
@@ -71,6 +71,8 @@ test_results.txtはこの版の実測記録です。依存はrequirementsファ�
 APIと軽量な全Provider依存は`pip install -e ".[api,postgres,statsforecast,mlforecast,timesfm,auth]"`で追加する。developmentでは`KIBAN_POSTGRES_DSN`、`KIBAN_API_TOKEN`、`KIBAN_API_SUBJECT`、`KIBAN_SNAPSHOT_ROOT`、`KIBAN_REPORT_ROOT`を設定し、`uvicorn forecast_provider.api.factory:from_environment --factory`で起動する。productionでは外部IdPのJWTまたは更新可能なcredential file、Host allowlist、HTTPSを必須とする。snapshotと実験を登録後、保存済みexperiment IDからrunを作る。組込baseline Workerは`--builtin-baseline`、AutoETS Workerは`--statsforecast-ets`、MLForecast Ridge Workerは`--mlforecast-ridge`、TimesFM専用Workerは`--timesfm-2p5`を指定する。TimesFMのCPU PyTorchと検証済み重みは専用Workerだけに置く。共通実行は[実験SnapshotとBaseline統合](docs/Phase1F_実験SnapshotとBaseline統合.md)、各追加Providerは[StatsForecast AutoETS](docs/Phase1M_StatsForecast_AutoETS.md)、[MLForecast Ridge](docs/Phase1Z_MLForecast_Ridge.md)、[TimesFM 2.5](docs/Phase2A_TimesFM_2p5.md)、月次運用は[継続学習と安全なモデル切替](docs/Phase1S_継続学習とモデル切替.md)を参照する。
 
 TimesFM専用Workerを実業務runへ使う前に、`docker compose --profile timesfm-benchmark run --rm timesfm-benchmark`で固定checkpoint、cgroup隔離、モデル初期化、warm-up後の推論時間、CPU時間、peak RSSを確認する。既定はCPU 2、memory 4 GiB、人工3系列、context 512日、horizon 15である。JSONレポートは`timesfm_benchmark_output`へ内容アドレス方式で保存される。詳細は[TimesFM運用計測](docs/Phase2B_TimesFM運用計測.md)を参照する。
+
+実業務原本を配置する前に、`docker compose --profile preflight run --rm --build real-data-preflight`を実行する。inputの実効read-only、archive・snapshot・受入・証跡rootのwrite、領域分離、PostgreSQL 17の必須23 relationとWorker権限を10項目で確認する。`READY_FOR_DATA`は投入準備完了だけを示し、実データ受入や業務判断ではない。詳細は[実データ受入プリフライト](docs/Phase2C_実データ受入プリフライト.md)を参照する。
 
 ## 本番運用
 
