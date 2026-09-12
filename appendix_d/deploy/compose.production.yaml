@@ -148,6 +148,23 @@ services:
       - worker-state:/var/lib/kiban
       - ${KIBAN_SNAPSHOT_DIR:-../snapshot_input}:/var/lib/kiban/snapshots:ro
 
+  mlforecast-worker:
+    <<: *worker-base
+    command:
+      - kiban-worker
+      - --postgres-dsn-file
+      - /run/secrets/postgres_dsn
+      - --mlforecast-ridge
+      - --worker-id
+      - production-mlforecast-ridge-1
+      - --artifact-root
+      - /var/lib/kiban/artifacts
+      - --work-root
+      - /var/lib/kiban/work
+    volumes:
+      - worker-state:/var/lib/kiban
+      - ${KIBAN_SNAPSHOT_DIR:-../snapshot_input}:/var/lib/kiban/snapshots:ro
+
   import-worker:
     <<: *worker-base
     command:

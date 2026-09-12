@@ -129,13 +129,13 @@ def test_metadata_registry_and_explicit_configuration(tmp_path) -> None:
         provider.fit_parameters(make_data(), make_dataset(), bad_interval, make_context(tmp_path))
 
 
-def test_baseline_registry_imports_without_optional_statsforecast() -> None:
+def test_baseline_registry_imports_without_optional_providers() -> None:
     code = """
 import importlib.util
 original = importlib.util.find_spec
-def without_statsforecast(name, *args, **kwargs):
-    return None if name == 'statsforecast' else original(name, *args, **kwargs)
-importlib.util.find_spec = without_statsforecast
+def without_optional(name, *args, **kwargs):
+    return None if name in {'statsforecast', 'mlforecast'} else original(name, *args, **kwargs)
+importlib.util.find_spec = without_optional
 from forecast_provider.registry import registry
 assert [item.provider_id for item in registry.list_metadata()] == ['builtin-baseline']
 """

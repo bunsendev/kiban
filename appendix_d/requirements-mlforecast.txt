@@ -1,0 +1,21 @@
+# Phase 1Z Linux/Python 3.12で検証したMLForecast依存。
+-r requirements.txt
+mlforecast==1.1.0
+scikit-learn==1.9.1
+joblib==1.6.0
+optuna==5.0.0
+alembic==1.20.0
+colorlog==6.12.0
+SQLAlchemy==2.0.52
+PyYAML==6.0.3
+Mako==1.4.1
+MarkupSafe==3.0.3
+greenlet==3.5.5
+typing_extensions==4.16.0
+coreforecast==0.0.18
+utilsforecast==0.2.16
+cloudpickle==3.1.2
+fsspec==2026.7.0
+narwhals==2.26.0
+scipy==1.18.1
+threadpoolctl==3.6.0

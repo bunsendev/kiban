@@ -84,6 +84,8 @@ Phase 1Xで専用原本取込・正規化画面を追加し、取込job、原本
 
 Phase 1Yで専用JAN名寄せ・商品マスター画面を追加し、成功済み正規化jobからの名寄せjob登録、候補根拠・center別数量、canonical product、版付き判断、JAN有効期間をrole別APIへ接続した。名称一致だけでは統合せず、候補計算は独立Workerが行う。詳細は[JAN名寄せ・商品マスター画面](docs/Phase1Y_JAN名寄せ商品マスター画面.md)。
 
+Phase 1Zで`mlforecast==1.1.0`と`scikit-learn==1.9.1`のRidgeを3つ目の予測Providerとして追加した。lag・曜日特徴をMLForecastで生成し、系列別の係数を固定して各起点の履歴へ再帰適用する。pickleを使わないJSON artifact、共通runner、独立Worker、開発・本番Composeまで接続した。詳細は[MLForecast Ridge Provider](docs/Phase1Z_MLForecast_Ridge.md)。
+
 次は実業務原本をPhase 1Xから取り込み、数量照合後にPhase 1YでJAN名寄せ判断と有効期間を確定し、Phase 1J〜1Kを実行する。その後、全3年の重要品目選定とPhase 1Sの将来trialを開始する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 

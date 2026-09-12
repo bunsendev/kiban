@@ -1,3 +1,28 @@
+# v2.9 Phase 1Z 実行検証記録
+
+Date: 2026-09-12 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 1Z
+
+- pytest: 全389件。WindowsではPostgreSQL 17実DBを含む389 passed、Linux Dockerでは384 passed、PostgreSQL依存5 skipped。FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- MLForecast: `mlforecast==1.1.0`と`scikit-learn==1.9.1`を固定し、lag 1・7・14・28日と曜日を使う系列別Ridgeを追加。
+- 固定学習: alpha 1.0、Cholesky solver、実観測かつ前方補完後56日以上を条件とし、各起点では係数と切片を更新せず再帰予測。
+- 時点契約: 日次化後の欠損を過去方向だけから前方補完し、確定0を維持。TRAIN外と起点より未来の実績を学習・予測に使用しない。
+- 予測一致: 保存可能な係数表現による8日再帰予測がMLForecastのネイティブ予測と数値一致。
+- artifact: 特徴名、係数、切片、alphaをpickleなしの版付きJSONへ保存し、SHA-256署名、run、experiment、系列集合、学習条件の不一致と改ざんを拒否。
+- 共通比較: builtin baseline、StatsForecast AutoETS、MLForecast Ridgeの3 Providerが同じ固定runner、予定表、失敗台帳、正式比較集合を使用。
+- Worker: `--mlforecast-ridge`の独立Workerを追加し、SQLite APIから2起点を処理してmodel artifact再利用とcontext artifact分離を確認。
+- PostgreSQL: PostgreSQL 17実DBのrun、日次、受入、選定、LifecycleとMLForecast Provider・Workerを含む選択suite 14 passed。
+- Docker: 依存固定済みimageをbuildし、Linux全テスト、`/health=ok`、`/ready=ready`、3 Provider一覧を確認。開発profileと本番workers profileに専用Workerを追加。
+- wheel: MLForecast Provider、状態、codec、executorを含む221ファイルを確認。
+- 配布ZIP: 332ファイル、secret・backup・`.env.production`を除外し、UTF-8 filename flag、SHA256SUMS 332/332一致。
+- 実データ: リポジトリへ投入せず、人工fixtureとPostgreSQL実DBで契約・統合を検証。実データ精度、業務効果、処理時間、実業務受入完了は宣言しない。
+
 # v2.9 Phase 1Y 実行検証記録
 
 Date: 2026-09-12 JST

@@ -22,6 +22,7 @@ api = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
 auth = ["PyJWT[crypto]>=2.13,<3"]
 test = ["httpx>=0.27,<1"]
 statsforecast = ["statsforecast==2.1.1"]
+mlforecast = ["mlforecast==1.1.0", "scikit-learn==1.9.1"]
 
 [project.scripts]
 kiban-worker = "forecast_provider.worker_process:main"
