@@ -95,6 +95,20 @@ def test_api_to_separate_import_worker(tmp_path):
     api.headers["Authorization"] = "Bearer token"
     created = api.post("/api/imports", json={"source_path": "shipment.csv"})
     assert created.status_code == 202
+    queued = api.get("/api/imports")
+    assert queued.status_code == 200
+    assert queued.json() == [
+        {
+            "import_id": created.json()["id"],
+            "source_path": "shipment.csv",
+            "status": "QUEUED",
+            "file_count": 0,
+            "accepted_count": 0,
+            "quarantined_count": 0,
+            "duplicate_count": 0,
+            "error": None,
+        }
+    ]
 
     subprocess.run(
         [
@@ -115,3 +129,4 @@ def test_api_to_separate_import_worker(tmp_path):
     assert result.status_code == 200
     assert result.json()["status"] == "SUCCEEDED"
     assert result.json()["files"][0]["status"] == "ACCEPTED"
+    assert api.get("/api/imports").json()[0]["accepted_count"] == 1

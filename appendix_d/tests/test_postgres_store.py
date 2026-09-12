@@ -3,6 +3,7 @@
 import os
 import uuid
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -19,11 +20,16 @@ from forecast_provider.evaluation_registry import (
     make_comparison_record,
     make_conformance,
 )
-from forecast_provider.ingestion import PostgresIngestionStore
+from forecast_provider.ingestion import PostgresIngestionStore, SourceFile
 from forecast_provider.jobs import OriginOutput, PostgresRunStore, RunDefinition
 from forecast_provider.jobs.postgres_store import _HybridRow
 from forecast_provider.master import PostgresMasterStore, make_product
-from forecast_provider.normalization import PostgresNormalizationStore, make_mapping
+from forecast_provider.normalization import (
+    PostgresNormalizationStore,
+    Reconciliation,
+    ShipmentRow,
+    make_mapping,
+)
 from forecast_provider.registry import registry
 from forecast_provider.reporting import (
     PostgresReportingStore,
@@ -123,6 +129,18 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
     assert ingestion.claim().import_id == job.import_id
     ingestion.finish(job.import_id)
     assert ingestion.get_job(job.import_id).status == "SUCCEEDED"
+    source_file = SourceFile(
+        str(uuid.uuid4()),
+        job.import_id,
+        job.source_path,
+        42,
+        uuid.uuid4().hex * 2,
+        "utf-8",
+        "ACCEPTED",
+        f"/tmp/{job.source_path}",
+    )
+    ingestion.record_file(source_file)
+    assert any(value.import_id == job.import_id for value in ingestion.list_jobs())
     normalization = PostgresNormalizationStore(dsn)
     mapping = make_mapping(
         {
@@ -140,6 +158,42 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
     )
     normalization.put_mapping(mapping)
     assert normalization.get_mapping(mapping.mapping_id) == mapping
+    assert mapping in normalization.list_mappings()
+    normalization_job = normalization.enqueue(source_file.source_file_id, mapping.mapping_id)
+    row = ShipmentRow(
+        normalization_job.normalization_id,
+        source_file.source_file_id,
+        2,
+        "C1",
+        "2026-02-01",
+        f"jan-{uuid.uuid4().hex}",
+        "PostgreSQL商品",
+        Decimal("2"),
+        "PACK",
+        "SHIPMENT",
+        "2026-02-02T00:00:00+09:00",
+        "ACCEPTED",
+        None,
+    )
+    reconciliation = Reconciliation(
+        normalization_job.normalization_id,
+        Decimal("2"),
+        Decimal("2"),
+        Decimal("0"),
+        Decimal("0"),
+    )
+    normalization.complete(normalization_job.normalization_id, [row], reconciliation)
+    assert any(
+        value.normalization_id == normalization_job.normalization_id
+        for value in normalization.list_jobs()
+    )
+    assert normalization.summary(normalization_job.normalization_id)["reconciliation"][
+        "accepted_quantity"
+    ] == "2"
+    total, page = normalization.list_rows_page(
+        normalization_job.normalization_id, status="ACCEPTED", limit=1
+    )
+    assert total == 1 and page[0]["raw_jan"] == row.raw_jan
     master = PostgresMasterStore(dsn)
     product = make_product(
         f"PostgreSQL確認-{uuid.uuid4()}", "test@example.test", "live store適合確認"

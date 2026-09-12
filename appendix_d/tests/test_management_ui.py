@@ -6,7 +6,9 @@ from fastapi.testclient import TestClient
 
 from forecast_provider.api import create_app
 from forecast_provider.catalog import SqliteCatalogStore
+from forecast_provider.ingestion import SqliteIngestionStore
 from forecast_provider.jobs import SqliteRunStore
+from forecast_provider.normalization import SqliteNormalizationStore
 
 
 def test_management_ui_serves_modular_assets_without_persisting_token(tmp_path):
@@ -154,6 +156,52 @@ def test_acceptance_ui_serves_separate_modules_with_complete_dom_contract(tmp_pa
     assert "sessionStorage" not in scripts
     assert 'request("/api/acceptance-cases")' in client.text
     assert 'request("/api/selections")' in client.text
+    assert 'data-permission="ANALYZE"' in page.text
+    assert 'data-permission="APPROVE"' in page.text
+
+    ids = set(re.findall(r'id="([^"]+)"', page.text))
+    assert len(ids) == len(re.findall(r'id="([^"]+)"', page.text))
+    references = set(re.findall(r'(?:byId|document\.getElementById)\("([^"]+)"\)', scripts))
+    assert references <= ids
+
+
+def test_intake_ui_serves_paginated_modules_with_complete_dom_contract(tmp_path):
+    database = tmp_path / "intake-ui.sqlite3"
+    api = TestClient(
+        create_app(
+            SqliteRunStore(database),
+            SqliteCatalogStore(database),
+            "token",
+            ingestion=SqliteIngestionStore(database),
+            normalization=SqliteNormalizationStore(database),
+        )
+    )
+
+    page = api.get("/ui/intake")
+    app = api.get("/ui/assets/intake_app.js")
+    client = api.get("/ui/assets/intake_api.js")
+    forms = api.get("/ui/assets/intake_forms.js")
+    renderer = api.get("/ui/assets/intake_render.js")
+    styles = api.get("/ui/assets/intake.css")
+
+    assert all(
+        value.status_code == 200 for value in (page, app, client, forms, renderer, styles)
+    )
+    assert "原本取込・正規化" in page.text
+    assert 'type="module" src="/ui/assets/intake_app.js"' in page.text
+    assert 'href="/ui/intake"' in api.get("/ui").text
+    assert 'href="/ui/intake"' in api.get("/ui/lifecycle").text
+    assert 'href="/ui/intake"' in api.get("/ui/readiness").text
+    assert 'href="/ui/intake"' in api.get("/ui/selection").text
+    assert 'href="/ui/intake"' in api.get("/ui/acceptance").text
+    assert page.headers["cache-control"] == "no-store"
+    assert "frame-ancestors 'none'" in page.headers["content-security-policy"]
+    scripts = app.text + client.text + forms.text + renderer.text
+    assert "localStorage" not in scripts
+    assert "sessionStorage" not in scripts
+    assert 'request("/api/imports")' in client.text
+    assert 'request("/api/mappings")' in client.text
+    assert "/row-page?" in client.text
     assert 'data-permission="ANALYZE"' in page.text
     assert 'data-permission="APPROVE"' in page.text
 

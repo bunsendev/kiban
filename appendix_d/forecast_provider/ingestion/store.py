@@ -55,6 +55,16 @@ class SqliteIngestionStore:
             row["error"],
         )
 
+    def list_jobs(self) -> list[ImportJob]:
+        with self._connect() as db:
+            ids = [
+                row[0]
+                for row in db.execute(
+                    "SELECT import_id FROM import_jobs ORDER BY created_at DESC,import_id DESC"
+                )
+            ]
+        return [value for import_id in ids if (value := self.get_job(import_id)) is not None]
+
     def claim(self) -> ImportJob | None:
         import_id = None
         with self._connect() as db:

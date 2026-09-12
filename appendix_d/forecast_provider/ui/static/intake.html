@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="原本取込、訂正版採用、列mapping、正規化と数量照合を管理する画面">
+  <title>原本取込・正規化 | Yosoku Kiban</title>
+  <link rel="stylesheet" href="/ui/assets/styles.css">
+  <link rel="stylesheet" href="/ui/assets/intake.css">
+  <script type="module" src="/ui/assets/intake_app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">本文へ移動</a>
+  <header class="topbar">
+    <div class="brand-block">
+      <span class="eyebrow">YOSOKU KIBAN / SOURCE INTAKE</span>
+      <h1>原本取込・正規化</h1>
+      <a class="workspace-link" href="/ui/readiness">データ準備へ</a>
+      <a class="workspace-link" href="/ui/selection">重要品目選定へ</a>
+      <a class="workspace-link" href="/ui/acceptance">実データ受入へ</a>
+      <a class="workspace-link" href="/ui">比較・採用へ</a>
+      <a class="workspace-link" href="/ui/lifecycle">Lifecycle運用へ</a>
+    </div>
+    <form id="connection-form" class="connection" aria-label="API接続">
+      <label for="api-token">API token</label>
+      <div class="connection-row"><input id="api-token" type="password" autocomplete="off" required placeholder="Bearer tokenを入力"><button class="button primary" type="submit">接続</button></div>
+      <p class="field-note">tokenはこの画面のメモリ内だけで使用します。</p>
+    </form>
+    <div id="session-controls" class="session-controls" hidden>
+      <span class="connection-state">接続済み</span><span id="session-identity" class="session-identity"></span>
+      <button id="refresh-button" class="button quiet" type="button">更新</button><button id="disconnect-button" class="button quiet" type="button">切断</button>
+    </div>
+  </header>
+
+  <main id="workspace" class="page-shell">
+    <div id="notice" class="notice" role="status" aria-live="polite">API tokenを入力して原本台帳を読み込んでください。</div>
+    <section class="summary-grid" aria-label="原本取込サマリー">
+      <article class="summary-card accent-blue"><span>取込job</span><strong id="import-count">—</strong></article>
+      <article class="summary-card accent-green"><span>採用・訂正版候補</span><strong id="accepted-file-count">—</strong></article>
+      <article class="summary-card accent-amber"><span>訂正版候補・隔離</span><strong id="review-file-count">—</strong></article>
+      <article class="summary-card accent-cyan"><span>正規化済み行</span><strong id="normalized-row-count">—</strong></article>
+    </section>
+
+    <section class="intake-actions" aria-label="原本処理の登録">
+      <details class="intake-drawer">
+        <summary>01 原本取込jobを登録</summary>
+        <form id="import-form" class="drawer-form compact-form">
+          <label>管理対象入力rootからの相対path<input id="import-source-path" required placeholder="batch/shipments.zip"></label>
+          <p class="field-note">ローカルPCの任意pathやブラウザーuploadではなく、サーバー管理領域内の相対pathを指定します。</p>
+          <button class="button primary" data-permission="ANALYZE" type="submit">取込jobを登録</button>
+        </form>
+      </details>
+      <details class="intake-drawer">
+        <summary>02 列mappingを登録</summary>
+        <form id="mapping-form" class="drawer-form mapping-form">
+          <label>日付列<input id="mapping-date" value="出荷日" required></label>
+          <label>JAN列<input id="mapping-jan" value="JAN" required></label>
+          <label>商品名列<input id="mapping-product" value="商品名" required></label>
+          <label>数量列<input id="mapping-quantity" value="数量" required></label>
+          <label>単位列<input id="mapping-unit" value="単位" required></label>
+          <label>center取得方法<select id="mapping-center-mode"><option value="COLUMN">原本列</option><option value="FIXED">固定値</option></select></label>
+          <label>center列または固定値<input id="mapping-center" value="センター" required></label>
+          <label>行区分列<input id="mapping-row-type" value="行区分"></label>
+          <label>availability mode<select id="mapping-availability"><option value="ASSUMED">ASSUMED</option><option value="OBSERVED">OBSERVED</option></select></label>
+          <label>利用可能時刻列<input id="mapping-available-at" disabled></label>
+          <label>file mode<select id="mapping-file-mode"><option value="FULL">FULL</option><option value="DELTA">DELTA</option></select></label>
+          <label>日付形式<input id="mapping-date-formats" value="%Y/%m/%d" required><span class="field-note">カンマ区切り</span></label>
+          <label>許可単位<input id="mapping-units" value="PACK" required><span class="field-note">カンマ区切り</span></label>
+          <button class="button primary span-all" data-permission="ANALYZE" type="submit">列mappingを登録</button>
+        </form>
+      </details>
+    </section>
+
+    <section class="workbench intake-workbench">
+      <aside class="comparison-rail intake-rail" aria-label="処理job一覧">
+        <div class="rail-group">
+          <div class="section-heading"><div><span class="eyebrow">IMPORT JOBS</span><h2>原本取込</h2></div><span id="import-filter-count" class="count-chip">0件</span></div>
+          <label class="search-field" for="import-search"><span>path・job IDで絞り込み</span><input id="import-search" type="search" placeholder="検索"></label>
+          <div id="import-list" class="comparison-list intake-list"></div>
+        </div>
+        <div class="rail-group">
+          <div class="section-heading"><div><span class="eyebrow">NORMALIZATION JOBS</span><h2>正規化</h2></div><span id="normalization-filter-count" class="count-chip">0件</span></div>
+          <label class="search-field" for="normalization-search"><span>job・原本・mappingで絞り込み</span><input id="normalization-search" type="search" placeholder="検索"></label>
+          <div id="normalization-list" class="comparison-list intake-list"></div>
+        </div>
+      </aside>
+
+      <section class="detail-panel" aria-live="polite">
+        <div id="detail-empty" class="empty-state"><div class="empty-mark" aria-hidden="true">IN</div><h2>取込または正規化jobを選択してください</h2><p>原本を上書きせず、訂正版の採用履歴、隔離理由、数量照合を追跡できます。</p></div>
+
+        <div id="import-detail" hidden>
+          <header class="detail-header"><div><span class="eyebrow">IMPORT JOB</span><h2 id="import-title">—</h2><code id="import-id">—</code></div><div id="import-status"></div></header>
+          <div id="import-lineage" class="lineage-grid"></div>
+          <div class="table-wrap"><table><caption>取込原本</caption><thead><tr><th>logical path</th><th>状態</th><th>encoding</th><th>size</th><th>checksum・系譜</th><th>エラー</th></tr></thead><tbody id="source-file-list"></tbody></table></div>
+          <div class="action-layout intake-operation-grid">
+            <form id="source-selection-form" class="action-card">
+              <div class="card-heading"><span class="step-number">03</span><div><h3>原本版を採用</h3><p>訂正版候補を理由・版付きで選択します。</p></div></div>
+              <label>原本<select id="source-selection-file" required></select></label>
+              <label>decision version<input id="source-selection-version" value="source-selection-v1" required></label>
+              <label>理由<textarea id="source-selection-reason" rows="2" required></textarea></label>
+              <button class="button secondary wide" data-permission="APPROVE" type="submit">原本版を採用</button>
+            </form>
+            <form id="normalization-form" class="action-card">
+              <div class="card-heading"><span class="step-number">04</span><div><h3>正規化jobを登録</h3><p>採用中原本と不変mappingをWorkerへ渡します。</p></div></div>
+              <label>原本<select id="normalization-source-file" required></select></label>
+              <label>列mapping<select id="normalization-mapping" required></select></label>
+              <button class="button primary wide" data-permission="ANALYZE" type="submit">正規化jobを登録</button>
+            </form>
+          </div>
+          <section class="ledger-card"><div class="subheading"><h3>原本採用履歴</h3><span>上書き不可</span></div><div id="source-selection-list" class="record-list"></div></section>
+        </div>
+
+        <div id="normalization-detail" hidden>
+          <header class="detail-header"><div><span class="eyebrow">NORMALIZATION JOB</span><h2 id="normalization-title">—</h2><code id="normalization-id">—</code></div><div id="normalization-status"></div></header>
+          <div id="normalization-lineage" class="lineage-grid"></div>
+          <section id="reconciliation-grid" class="reconciliation-grid"></section>
+          <div class="row-toolbar"><label>行状態<select id="row-status"><option value="">すべて</option><option value="ACCEPTED">採用</option><option value="QUARANTINED">隔離</option></select></label><span id="row-page-count">0件</span><button id="row-previous" class="button secondary" type="button">前へ</button><button id="row-next" class="button secondary" type="button">次へ</button></div>
+          <div class="table-wrap"><table><caption>正規化行（100件ずつ）</caption><thead><tr><th>行</th><th>状態</th><th>日付・center</th><th>JAN・商品</th><th>数量・単位</th><th>利用可能時刻</th><th>隔離理由</th></tr></thead><tbody id="normalized-row-list"></tbody></table></div>
+        </div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>

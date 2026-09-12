@@ -192,6 +192,9 @@ def test_api_to_separate_normalization_worker_and_quality(tmp_path):
     api.headers["Authorization"] = "Bearer token"
     mapping_response = api.post("/api/mappings", json=mapping_definition())
     assert mapping_response.status_code == 201
+    mappings = api.get("/api/mappings")
+    assert mappings.status_code == 200
+    assert mappings.json()[0]["mapping_id"] == mapping_response.json()["id"]
     created = api.post(
         "/api/normalizations",
         json={
@@ -200,6 +203,9 @@ def test_api_to_separate_normalization_worker_and_quality(tmp_path):
         },
     )
     assert created.status_code == 202
+    jobs = api.get("/api/normalizations")
+    assert jobs.status_code == 200
+    assert jobs.json()[0]["status"] == "QUEUED"
     subprocess.run(
         [
             sys.executable,
@@ -214,6 +220,20 @@ def test_api_to_separate_normalization_worker_and_quality(tmp_path):
     result = api.get(f"/api/normalizations/{created.json()['id']}")
     assert result.status_code == 200
     assert result.json()["accepted_rows"] == 1
+    summary = api.get(f"/api/normalizations/{created.json()['id']}/summary")
+    assert summary.status_code == 200
+    assert summary.json()["reconciliation"]["accepted_quantity"] == "4"
+    page = api.get(
+        f"/api/normalizations/{created.json()['id']}/row-page",
+        params={"status": "ACCEPTED", "limit": 1, "offset": 0},
+    )
+    assert page.status_code == 200
+    assert page.json()["total"] == 1
+    assert page.json()["items"][0]["raw_jan"] == "0012345678901"
+    assert api.get(
+        f"/api/normalizations/{created.json()['id']}/row-page",
+        params={"status": "INVALID"},
+    ).status_code == 422
     assert api.get("/api/quality").json() == {
         "files": {"ACCEPTED": 1},
         "encodings": {"utf-8": 1},

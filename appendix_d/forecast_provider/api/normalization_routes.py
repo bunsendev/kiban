@@ -25,6 +25,12 @@ def install_normalization_routes(app: FastAPI, authorize, normalization) -> None
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    @app.get("/api/mappings")
+    def list_mappings(
+        _principal: Annotated[Principal, Depends(read)],
+    ):
+        return [value.__dict__ for value in normalization.list_mappings()]
+
     @app.get("/api/mappings/{mapping_id}")
     def get_mapping(
         mapping_id: str,
@@ -64,6 +70,12 @@ def install_normalization_routes(app: FastAPI, authorize, normalization) -> None
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    @app.get("/api/normalizations")
+    def list_normalizations(
+        _principal: Annotated[Principal, Depends(read)],
+    ):
+        return [value.__dict__ for value in normalization.list_jobs()]
+
     @app.get("/api/normalizations/{normalization_id}")
     def get_normalization(
         normalization_id: str,
@@ -73,6 +85,34 @@ def install_normalization_routes(app: FastAPI, authorize, normalization) -> None
         if value is None:
             raise HTTPException(status_code=404, detail="normalizationが見つかりません")
         return value
+
+    @app.get("/api/normalizations/{normalization_id}/summary")
+    def get_normalization_summary(
+        normalization_id: str,
+        _principal: Annotated[Principal, Depends(read)],
+    ):
+        value = normalization.summary(normalization_id)
+        if value is None:
+            raise HTTPException(status_code=404, detail="normalizationが見つかりません")
+        return value
+
+    @app.get("/api/normalizations/{normalization_id}/row-page")
+    def get_normalization_row_page(
+        normalization_id: str,
+        _principal: Annotated[Principal, Depends(read)],
+        status: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ):
+        if normalization.get_job(normalization_id) is None:
+            raise HTTPException(status_code=404, detail="normalizationが見つかりません")
+        try:
+            total, items = normalization.list_rows_page(
+                normalization_id, status=status, limit=limit, offset=offset
+            )
+            return {"total": total, "limit": limit, "offset": offset, "items": items}
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.get("/api/quality")
     def get_quality(

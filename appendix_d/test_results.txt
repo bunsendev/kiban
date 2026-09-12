@@ -1,3 +1,31 @@
+# v2.9 Phase 1X 実行検証記録
+
+Date: 2026-09-12 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 1X
+
+- pytest: 全381件。Linux Dockerで376 passed、PostgreSQL依存5 skipped、PostgreSQL 17実DBで取込・mapping・正規化一覧、数量summary、行ページを含むsuite 7 passed。FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- JavaScript: 原本取込・正規化画面4 moduleを`node --check`し、構文エラー0。
+- 取込台帳: READ権限で取込job一覧、状態別原本件数、原本checksum・encoding・size・重複/訂正系譜・隔離理由を表示。
+- 原本採用: APPROVE権限で採用可能原本または訂正版候補をdecision version・理由付きで追記し、認証subjectを判断者として記録。
+- 列mapping: ANALYZE権限で列、固定center、日付形式、許可単位、availability mode、ファイル方式を内容アドレス方式で登録。
+- 正規化: ANALYZE権限で採用中原本とmappingからjobを登録し、独立normalization Workerの処理結果を再取得。
+- 数量照合: parseable、accepted、quarantined、unexplained quantityを表示し、正規化行を状態条件付きで100件ずつ取得。
+- Worker境界: 取込・正規化をHTTP内で実行せず、独立Workerが処理し、画面は操作後にサーバー台帳を再読込。
+- token保護: tokenをmodule memoryだけに保持し、URL、cookie、`localStorage`、`sessionStorage`へ保存しない。
+- DOM安全性: 全静的ID参照をHTMLと照合し、動的な台帳値を`textContent`で挿入。
+- module分割: HTML 125行、API 57行、入力変換31行、描画238行、画面制御306行、固有CSS 32行に分割。
+- 実画面: Docker配信した狭幅画面で未接続表示、ADMIN接続後の4 summary、取込75件、正規化36件、原本系譜、数量照合、行ページ、前後境界を確認。確認後に切断してtokenを破棄。
+- Docker API: `/ui/intake`と全asset 200、取込・mapping・正規化一覧、数量summary、行ページ、品質API、`/health=ok`、`/ready=ready`を確認。
+- wheel: 原本取込・正規化画面のHTML・CSS・4 JavaScript moduleを含む211ファイルを確認。
+- 配布ZIP: 315ファイル、secret・backup・`.env.production`を除外し、UTF-8 filename flag、SHA256SUMS 315/315一致。
+- 実データ: リポジトリへ投入せず、既存の人工テスト台帳とPostgreSQL実DBだけで画面・契約を検証。実業務の原本取込・数量照合・受入完了は宣言しない。
+
 # v2.9 Phase 1W 実行検証記録
 
 Date: 2026-09-12 JST
