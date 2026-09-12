@@ -18,12 +18,12 @@ from forecast_provider.contracts import ForecastDataset, ProviderConfig, RunCont
 from forecast_provider.errors import ContractViolationError, NonRetryableProviderError
 from forecast_provider.evaluation import compare_runs
 from forecast_provider.frames import validate_predict_frame
+from forecast_provider.providers.causal_series import prepare_daily_series
 from forecast_provider.providers.mlforecast_codec import MLForecastRidgeCodec
 from forecast_provider.providers.mlforecast_state import (
     LAGS,
     fit_ridge,
     predict_ridge,
-    prepare_daily_series,
 )
 from forecast_provider.registry import registry
 from forecast_provider.run_context import cutoff_for_origin

@@ -80,6 +80,10 @@ def _register_providers() -> None:
         from .providers import mlforecast_ridge
 
         registry.register(mlforecast_ridge.PROVIDER_ID, mlforecast_ridge.build)
+    if importlib.util.find_spec("timesfm") is not None:
+        from .providers import timesfm_2p5
+
+        registry.register(timesfm_2p5.PROVIDER_ID, timesfm_2p5.build)
 
 
 _register_providers()

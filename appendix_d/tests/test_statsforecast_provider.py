@@ -20,8 +20,8 @@ from forecast_provider.contracts import ForecastDataset, ProviderConfig, RunCont
 from forecast_provider.errors import ContractViolationError, NonRetryableProviderError
 from forecast_provider.evaluation import compare_runs
 from forecast_provider.frames import validate_predict_frame
+from forecast_provider.providers.causal_series import prepare_daily_series
 from forecast_provider.providers.statsforecast_codec import StatsForecastETSCodec
-from forecast_provider.providers.statsforecast_state import prepare_daily_series
 from forecast_provider.registry import registry
 from forecast_provider.run_context import cutoff_for_origin
 from forecast_provider.runner import run_fixed_provider
@@ -134,7 +134,8 @@ def test_baseline_registry_imports_without_optional_providers() -> None:
 import importlib.util
 original = importlib.util.find_spec
 def without_optional(name, *args, **kwargs):
-    return None if name in {'statsforecast', 'mlforecast'} else original(name, *args, **kwargs)
+    hidden = {'statsforecast', 'mlforecast', 'timesfm'}
+    return None if name in hidden else original(name, *args, **kwargs)
 importlib.util.find_spec = without_optional
 from forecast_provider.registry import registry
 assert [item.provider_id for item in registry.list_metadata()] == ['builtin-baseline']

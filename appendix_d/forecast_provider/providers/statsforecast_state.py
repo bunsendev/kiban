@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from datetime import date
 from numbers import Integral, Real
 from typing import Any
 
@@ -18,21 +17,6 @@ PREPROCESSING_VERSION = "statsforecast-causal-ffill-v1"
 MODEL_PARAMS = {"season_length": 7, "model": "ZZZ"}
 MODEL_PAYLOAD_FIELDS = {"m", "components", "par", "n_params", "fit"}
 FIT_FIELDS = {"x", "fn", "nit", "simplex"}
-
-
-def prepare_daily_series(
-    group: pd.DataFrame, start: date, end: date
-) -> tuple[pd.Series, int, int]:
-    """指定期間を日次化し、過去方向だけから補完する。先頭欠損は除く。"""
-    index = pd.date_range(start, end, freq="D")
-    source = group.set_index("ds")["y"].astype("float64").reindex(index)
-    actual_count = int(source.notna().sum())
-    filled = source.ffill().dropna().astype("float64")
-    filled.name = "y"
-    filled.index.name = "ds"
-    imputed_count = int(len(filled) - source.loc[filled.index].notna().sum())
-    return filled, actual_count, imputed_count
-
 
 def fit_auto_ets(series: pd.Series, params: dict[str, Any]):
     """依存を任意化するため、StatsForecastは実行時だけimportする。"""

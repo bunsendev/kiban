@@ -21,6 +21,7 @@ acceptance_output/*
 !acceptance_output/.gitkeep
 report_output/*
 !report_output/.gitkeep
+timesfm_checkpoint/*
 deploy/secrets/*
 !deploy/secrets/.gitkeep
 deploy/backups/*

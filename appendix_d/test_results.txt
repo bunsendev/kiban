@@ -1,3 +1,29 @@
+# v2.9 Phase 2A 実行検証記録
+
+Date: 2026-09-12 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2A
+
+- pytest: Linux DockerでPostgreSQL 17実DBと実TimesFM checkpointを含む全397件を実行。FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- OSS・license: `timesfm==3.0.2`のTimesFM 2.5 200Mを採用。sourceと2.5までの重みはApache-2.0。非商用・非本番用途に制限されるTimesFM 3.0重みは取得・使用対象外。
+- checkpoint: repository `google/timesfm-2.5-200m-pytorch`、revision `1d952420fba87f3c6dee4f240de0f1a0fbc790e3`、size 925,181,104 byte、SHA-256 `2f776efe6245e42b24bc4153ffdf61810140210e4bd3b01fb21f7aa779ab6ce8`を公式表示と取得済みfileの両方で確認。
+- offline境界: Provider/runtimeは検証済みローカルsafetensorsだけを直接ロードし、Hub mixinと実行時network lookupを使用しない。取得は運用者の明示CLIへ分離。
+- zero-shot契約: 因果的に前方補完した起点以前の最大512日を入力し、horizon 1〜400のPOINTを予測。TRAIN外と未来実績を変更しても同一起点の予測が一致。
+- artifact: 重み、ローカルpath、PyTorch objectを含まない版付きJSONへ固定weights ID、checksum、size、系列と実験条件を保存。改ざんと条件不一致を拒否。
+- 共通化: 日次因果前処理をbaseline以外の3 Providerで共通moduleへ集約し、TimesFMも共通runner、snapshot、予定表、失敗台帳、評価契約を使用。
+- Worker: `--timesfm-2p5`専用executorを追加。SQLite APIから2起点を処理し、model artifact再利用とcontext artifact分離を確認。
+- 実checkpoint smoke: WindowsとLinux専用Workerで1系列・64日・horizon 1を実行し、いずれもshape `(1, 1)`の有限値を確認。Linux実行ではHub lookupなし。
+- Docker: APIとTimesFM専用Workerをbuild。APIは4 Providerを列挙しつつ`torch=None`、専用Workerだけが`torch==2.14.0+cpu`とread-only checkpoint volumeを使用。開発・本番Composeを解決。
+- PostgreSQL: PostgreSQL 17実DBを使う取込、日次、受入、選定、評価、Lifecycleの全結合試験をLinux suiteへ含めた。
+- wheel: TimesFM Provider、checkpoint、runtime、codec、executorを含む227ファイルを確認。
+- 配布ZIP: 345ファイル、重み・secret・backup・`.env.production`を除外し、UTF-8 filename flag、SHA256SUMS 345/345一致。
+- 実データ: リポジトリへ投入せず、人工fixtureと公式重みで契約・統合だけを検証。実データ精度、業務効果、実運用処理時間、実業務受入完了は宣言しない。
+
 # v2.9 Phase 1Z 実行検証記録
 
 Date: 2026-09-12 JST
