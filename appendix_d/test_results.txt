@@ -1,3 +1,25 @@
+# v2.9 Phase 2B 実行検証記録
+
+Date: 2026-09-13 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2B
+
+- pytest: Linux DockerでPostgreSQL 17実DBと実TimesFM checkpointを含む全405件を実行。FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- 実行境界: `timesfm-benchmark` serviceを`network_mode: none`、CPU 2.0、memory 4 GiB、checkpoint read-only、レポート領域のみwrite可能として実行。
+- checkpoint起動前検査: 固定size 925,181,104 byteとSHA-256 `2f776efe6245e42b24bc4153ffdf61810140210e4bd3b01fb21f7aa779ab6ce8`を8.179秒で再検証してからmodelをロード。
+- 人工負荷: 3系列、context 512日、horizon 15、warm-up 1回、計測3回。モデル初期化17.288秒、warm-up後の予測wall time中央値2.863秒、nearest-rank p95・最大3.120秒。
+- resource: process peak RSS 2,175,868,928 byte、checkpoint実効read-only、実cgroup上限CPU 2.0・memory 4,294,967,296 byteを記録し、8技術チェックすべて`PASSED`。
+- 不変レポート: benchmark ID `2e095edabb0f877fc9b0c34b4aa6ba5f2d6612896c0c4b79cb439db4a8a57238`、report SHA-256 `f7023f355f467461f136e428b7ad3e7a8eba0dbc55e8c252a6f8584a6c51b121`。ローカルcheckpoint path、重み、入力系列、予測値を含めない。
+- Docker: 開発・本番Composeを解決し、通常TimesFM Workerにも同じCPU 2.0・memory 4 GiB上限を追加。API imageにはPyTorchとcheckpointを導入しない。
+- wheel: 234ファイル中、分割したTimesFM運用計測7moduleと`kiban-timesfm-benchmark` entry pointを確認。
+- 配布保護: checkpointと計測出力をGit、Docker build context、配布ZIPから除外し、355ファイルのchecksum一致を確認。
+- 実データ: 人工系列と公式重みによる技術計測であり、実データ精度、業務効果、本番SLAを宣言しない。
+
 # v2.9 Phase 2A 実行検証記録
 
 Date: 2026-09-12 JST

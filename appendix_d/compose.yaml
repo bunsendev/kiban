@@ -119,6 +119,41 @@ services:
       - kiban-worker:/var/lib/kiban
       - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots:ro
       - ${KIBAN_TIMESFM_DIR:-./timesfm_checkpoint}:/var/lib/kiban/timesfm:ro
+    deploy:
+      resources:
+        limits:
+          cpus: ${KIBAN_TIMESFM_CPUS:-2.0}
+          memory: ${KIBAN_TIMESFM_MEMORY:-4G}
+  timesfm-benchmark:
+    profiles: ["timesfm-benchmark"]
+    build:
+      context: .
+      args:
+        KIBAN_INSTALL_TIMESFM_TORCH: "1"
+    environment:
+      KIBAN_TIMESFM_CHECKPOINT: /var/lib/kiban/timesfm/model.safetensors
+    command:
+      - kiban-timesfm-benchmark
+      - --output-root
+      - /var/lib/kiban/benchmark
+      - --cpu-limit
+      - ${KIBAN_TIMESFM_CPUS:-2.0}
+      - --memory-limit-bytes
+      - ${KIBAN_TIMESFM_MEMORY_BYTES:-4294967296}
+      - --max-peak-rss-bytes
+      - ${KIBAN_TIMESFM_MEMORY_BYTES:-4294967296}
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ${KIBAN_TIMESFM_DIR:-./timesfm_checkpoint}:/var/lib/kiban/timesfm:ro
+      - ${KIBAN_TIMESFM_BENCHMARK_DIR:-./timesfm_benchmark_output}:/var/lib/kiban/benchmark
+    deploy:
+      resources:
+        limits:
+          cpus: ${KIBAN_TIMESFM_CPUS:-2.0}
+          memory: ${KIBAN_TIMESFM_MEMORY:-4G}
   import-worker:
     profiles: ["worker"]
     build: .

@@ -36,6 +36,7 @@ kiban-selection-worker = "forecast_provider.selection_worker:main"
 kiban-lifecycle-scheduler = "forecast_provider.lifecycle_worker:main"
 kiban-db = "forecast_provider.operations.database:main"
 kiban-timesfm-checkpoint = "forecast_provider.providers.timesfm_checkpoint:main"
+kiban-timesfm-benchmark = "forecast_provider.timesfm_benchmark.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["forecast_provider*"]
