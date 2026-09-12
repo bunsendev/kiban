@@ -341,6 +341,11 @@ def test_api_to_separate_matching_worker_and_approval_endpoints(tmp_path):
         json={"normalization_ids": [normalized_job.normalization_id]},
     )
     assert created.status_code == 202
+    jobs = api.get("/api/matching/jobs")
+    assert jobs.status_code == 200
+    assert jobs.json()[0]["matching_job_id"] == created.json()["id"]
+    assert jobs.json()[0]["status"] == "QUEUED"
+    assert jobs.json()[0]["candidate_count"] == 0
     subprocess.run(
         [
             sys.executable,
@@ -355,7 +360,9 @@ def test_api_to_separate_matching_worker_and_approval_endpoints(tmp_path):
     result = api.get(f"/api/matching/jobs/{created.json()['id']}")
     assert result.status_code == 200
     assert result.json()["status"] == "SUCCEEDED"
+    assert api.get("/api/matching/jobs").json()[0]["status"] == "SUCCEEDED"
     assert len(result.json()["candidates"]) == 1
+    assert api.get("/api/matching/jobs").json()[0]["candidate_count"] == 1
     candidate_id = result.json()["candidates"][0]["candidate_id"]
     product = api.post(
         "/api/products",

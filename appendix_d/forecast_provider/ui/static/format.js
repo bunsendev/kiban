@@ -36,11 +36,11 @@ export function parseList(value) {
 }
 
 export function statusTone(value) {
-  if (["ADOPTED", "APPROVED", "PASSED", "SUCCEEDED", "READY", "PROMOTED", "COMPLETE", "INITIALIZED", "CONFIRMED", "OBSERVED", "CONFIRMED_ZERO", "CLOSED", "ACCEPTED", true].includes(value)) {
+  if (["ADOPTED", "APPROVED", "PASSED", "SUCCEEDED", "READY", "PROMOTED", "COMPLETE", "INITIALIZED", "CONFIRMED", "OBSERVED", "CONFIRMED_ZERO", "CLOSED", "ACCEPTED", "SAME_PRODUCT", true].includes(value)) {
     return "positive";
   }
   if (["REJECTED", "FAILED", "MISSING", "PARTIAL_OR_INVALID", "QUARANTINED", false].includes(value)) return "negative";
-  if (["DRY_RUN", "RUNNING", "QUEUED", "PARTIAL", "ROLLED_BACK", "TENTATIVE", "NOT_HANDLED", "NOT_EVALUATED", "CORRECTION_CANDIDATE"].includes(value)) return "warning";
+  if (["DRY_RUN", "RUNNING", "QUEUED", "PARTIAL", "ROLLED_BACK", "TENTATIVE", "NOT_HANDLED", "NOT_EVALUATED", "CORRECTION_CANDIDATE", "SUCCESSOR", "UNRESOLVED", "DATE_HANDOFF"].includes(value)) return "warning";
   return "neutral";
 }
 
@@ -75,6 +75,13 @@ export function decisionLabel(value) {
     QUARANTINED: "隔離",
     DUPLICATE: "重複",
     CORRECTION_CANDIDATE: "訂正版候補",
+    SAME_PRODUCT: "同一商品",
+    DIFFERENT_PRODUCT: "別商品",
+    SUCCESSOR: "後継商品",
+    UNRESOLVED: "追加確認",
+    SAME_NORMALIZED_NAME: "正規化名一致",
+    SIMILAR_NAME: "名称類似",
+    DATE_HANDOFF: "期間切替",
   };
   return labels[value] || value || "未判断";
 }
