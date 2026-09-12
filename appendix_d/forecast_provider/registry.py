@@ -76,6 +76,10 @@ def _register_providers() -> None:
         from .providers import statsforecast_ets
 
         registry.register(statsforecast_ets.PROVIDER_ID, statsforecast_ets.build)
+    if importlib.util.find_spec("mlforecast") is not None:
+        from .providers import mlforecast_ridge
+
+        registry.register(mlforecast_ridge.PROVIDER_ID, mlforecast_ridge.build)
 
 
 _register_providers()
