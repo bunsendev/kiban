@@ -31,6 +31,7 @@ EXCLUDE_DIRS = {
     "raw_archive",
     "acceptance_output",
     "report_output",
+    "timesfm_checkpoint",
     "build",
     "dist",
     "secrets",

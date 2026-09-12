@@ -2,7 +2,7 @@
 
 v2.8レビューの指摘を反映した予測・比較コアです。
 コード、全体仕様、統合仕様、開始ガイド、テスト、人工データデモ、検証記録を同梱しています。
-予定完全性、日次状態、少数実品目の受入判定基盤、StatsForecast AutoETS、MLForecast Ridge、比較CSV、採用判断台帳、比較・採用・Lifecycle・原本取込・正規化・JAN名寄せ・商品マスター・データ準備・重要品目選定・実データ受入管理画面、role別認可、OIDC、TLS・監視・DB backup、月次再学習と安全なモデル切替まで実装済みです。実データでの受入・trial・復旧試験と環境固有のIdP接続は後続作業です。
+予定完全性、日次状態、少数実品目の受入判定基盤、StatsForecast AutoETS、MLForecast Ridge、TimesFM 2.5、比較CSV、採用判断台帳、比較・採用・Lifecycle・原本取込・正規化・JAN名寄せ・商品マスター・データ準備・重要品目選定・実データ受入管理画面、role別認可、OIDC、TLS・監視・DB backup、月次再学習と安全なモデル切替まで実装済みです。実データでの受入・trial・復旧試験と環境固有のIdP接続は後続作業です。
 
 ## 最初に読む
 
@@ -68,7 +68,7 @@ test_results.txtはこの版の実測記録です。依存はrequirementsファ�
 
 ## Run API / Worker
 
-APIと全Provider依存は`pip install -e ".[api,postgres,statsforecast,mlforecast,auth]"`で追加する。developmentでは`KIBAN_POSTGRES_DSN`、`KIBAN_API_TOKEN`、`KIBAN_API_SUBJECT`、`KIBAN_SNAPSHOT_ROOT`、`KIBAN_REPORT_ROOT`を設定し、`uvicorn forecast_provider.api.factory:from_environment --factory`で起動する。productionでは外部IdPのJWTまたは更新可能なcredential file、Host allowlist、HTTPSを必須とする。認証・認可は[Phase 1Q](docs/Phase1Q_認証認可とセキュリティ.md)、OIDC・TLS・監視・backupは[Phase 1R](docs/Phase1R_本番運用基盤.md)を参照する。snapshotと実験を登録後、保存済みexperiment IDからrunを作る。組込baseline Workerは`kiban-worker --postgres-dsn <DSN> --builtin-baseline --artifact-root <DIR> --work-root <DIR> --worker-id <ID>`、AutoETS Workerは同じ引数に`--statsforecast-ets`、MLForecast Ridge Workerは`--mlforecast-ridge`を指定して起動する。月次運用は`kiban-lifecycle-scheduler`で期限到来cycleを登録する。共通実行は[実験SnapshotとBaseline統合](docs/Phase1F_実験SnapshotとBaseline統合.md)、AutoETS固有条件は[StatsForecast AutoETS Provider](docs/Phase1M_StatsForecast_AutoETS.md)、Ridge固有条件は[MLForecast Ridge Provider](docs/Phase1Z_MLForecast_Ridge.md)、月次運用は[継続学習と安全なモデル切替](docs/Phase1S_継続学習とモデル切替.md)を参照する。
+APIと軽量な全Provider依存は`pip install -e ".[api,postgres,statsforecast,mlforecast,timesfm,auth]"`で追加する。developmentでは`KIBAN_POSTGRES_DSN`、`KIBAN_API_TOKEN`、`KIBAN_API_SUBJECT`、`KIBAN_SNAPSHOT_ROOT`、`KIBAN_REPORT_ROOT`を設定し、`uvicorn forecast_provider.api.factory:from_environment --factory`で起動する。productionでは外部IdPのJWTまたは更新可能なcredential file、Host allowlist、HTTPSを必須とする。snapshotと実験を登録後、保存済みexperiment IDからrunを作る。組込baseline Workerは`--builtin-baseline`、AutoETS Workerは`--statsforecast-ets`、MLForecast Ridge Workerは`--mlforecast-ridge`、TimesFM専用Workerは`--timesfm-2p5`を指定する。TimesFMのCPU PyTorchと検証済み重みは専用Workerだけに置く。共通実行は[実験SnapshotとBaseline統合](docs/Phase1F_実験SnapshotとBaseline統合.md)、各追加Providerは[StatsForecast AutoETS](docs/Phase1M_StatsForecast_AutoETS.md)、[MLForecast Ridge](docs/Phase1Z_MLForecast_Ridge.md)、[TimesFM 2.5](docs/Phase2A_TimesFM_2p5.md)、月次運用は[継続学習と安全なモデル切替](docs/Phase1S_継続学習とモデル切替.md)を参照する。
 
 ## 本番運用
 

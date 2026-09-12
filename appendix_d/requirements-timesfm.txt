@@ -1,0 +1,7 @@
+# Phase 2A Linux/Python 3.12で検証するTimesFM基本依存。PyTorchは専用Workerだけに導入する。
+-r requirements.txt
+timesfm==3.0.2
+huggingface-hub==1.31.0
+safetensors==0.8.0
+filelock==3.32.6
+hf-xet==1.6.0

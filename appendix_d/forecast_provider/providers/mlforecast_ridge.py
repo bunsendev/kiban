@@ -28,13 +28,13 @@ from ..errors import ContractViolationError, InsufficientHistoryError, NonRetrya
 from ..fingerprint import parameter_fingerprint
 from ..frames import validate_fit_frame, validate_future_frame, validate_history_frame
 from ..run_context import validate_context_ref
+from .causal_series import prepare_daily_series
 from .mlforecast_state import (
     MODEL_PARAMS,
     PREPROCESSING_VERSION,
     fit_ridge,
     model_signature,
     predict_ridge,
-    prepare_daily_series,
 )
 
 PROVIDER_ID = "mlforecast-ridge"

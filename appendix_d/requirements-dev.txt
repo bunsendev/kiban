@@ -1,5 +1,6 @@
 -r requirements-statsforecast.txt
 -r requirements-mlforecast.txt
+-r requirements-timesfm.txt
 -r requirements-auth.txt
 pytest==9.1.1
 ruff==0.16.6

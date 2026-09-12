@@ -165,6 +165,31 @@ services:
       - worker-state:/var/lib/kiban
       - ${KIBAN_SNAPSHOT_DIR:-../snapshot_input}:/var/lib/kiban/snapshots:ro
 
+  timesfm-worker:
+    <<: *worker-base
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        KIBAN_INSTALL_TIMESFM_TORCH: "1"
+    environment:
+      KIBAN_TIMESFM_CHECKPOINT: /var/lib/kiban/timesfm/model.safetensors
+    command:
+      - kiban-worker
+      - --postgres-dsn-file
+      - /run/secrets/postgres_dsn
+      - --timesfm-2p5
+      - --worker-id
+      - production-timesfm-2p5-1
+      - --artifact-root
+      - /var/lib/kiban/artifacts
+      - --work-root
+      - /var/lib/kiban/work
+    volumes:
+      - worker-state:/var/lib/kiban
+      - ${KIBAN_SNAPSHOT_DIR:-../snapshot_input}:/var/lib/kiban/snapshots:ro
+      - ${KIBAN_TIMESFM_DIR:?KIBAN_TIMESFM_DIR is required}:/var/lib/kiban/timesfm:ro
+
   import-worker:
     <<: *worker-base
     command:

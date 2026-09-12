@@ -93,6 +93,32 @@ services:
     volumes:
       - kiban-worker:/var/lib/kiban
       - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots:ro
+  timesfm-worker:
+    profiles: ["timesfm-worker"]
+    build:
+      context: .
+      args:
+        KIBAN_INSTALL_TIMESFM_TORCH: "1"
+    environment:
+      KIBAN_TIMESFM_CHECKPOINT: /var/lib/kiban/timesfm/model.safetensors
+    command:
+      - kiban-worker
+      - --postgres-dsn
+      - postgresql://kiban:local-development-only@postgres:5432/kiban
+      - --timesfm-2p5
+      - --worker-id
+      - timesfm-worker-compose-1
+      - --artifact-root
+      - /var/lib/kiban/artifacts
+      - --work-root
+      - /var/lib/kiban/work
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - kiban-worker:/var/lib/kiban
+      - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots:ro
+      - ${KIBAN_TIMESFM_DIR:-./timesfm_checkpoint}:/var/lib/kiban/timesfm:ro
   import-worker:
     profiles: ["worker"]
     build: .

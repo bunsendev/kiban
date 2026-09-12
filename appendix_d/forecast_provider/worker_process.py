@@ -13,6 +13,7 @@ from .executors import (
     BuiltinBaselineExecutor,
     MLForecastRidgeExecutor,
     StatsForecastETSExecutor,
+    TimesFM2p5Executor,
 )
 from .jobs import PostgresRunStore, SqliteRunStore, resume_run
 from .jobs.contracts import OriginExecutor, RunStore
@@ -54,6 +55,7 @@ def main(argv: list[str] | None = None) -> int:
     executor.add_argument("--builtin-baseline", action="store_true")
     executor.add_argument("--statsforecast-ets", action="store_true")
     executor.add_argument("--mlforecast-ridge", action="store_true")
+    executor.add_argument("--timesfm-2p5", action="store_true")
     parser.add_argument("--artifact-root", type=Path, default=Path("artifact_output/objects"))
     parser.add_argument("--work-root", type=Path, default=Path("worker_output"))
     parser.add_argument("--worker-id", default="worker-1")
@@ -76,6 +78,8 @@ def main(argv: list[str] | None = None) -> int:
         execute = StatsForecastETSExecutor(store, catalog, args.artifact_root, args.work_root)
     elif args.mlforecast_ridge:
         execute = MLForecastRidgeExecutor(store, catalog, args.artifact_root, args.work_root)
+    elif args.timesfm_2p5:
+        execute = TimesFM2p5Executor(store, catalog, args.artifact_root, args.work_root)
     else:
         execute = load_executor(args.executor)
     while True:
