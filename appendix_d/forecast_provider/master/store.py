@@ -52,19 +52,20 @@ class SqliteMasterStore:
         with self._connect() as db:
             for normalization_id in normalization_ids:
                 row = db.execute(
-                    "SELECT n.status,n.source_file_id,s.status,s.logical_path "
+                    "SELECT n.status AS normalization_status,n.source_file_id,"
+                    "s.status AS source_status,s.logical_path "
                     "FROM normalization_jobs n JOIN source_files s "
                     "ON s.source_file_id=n.source_file_id WHERE n.normalization_id=?",
                     (normalization_id,),
                 ).fetchone()
-                if row is None or row[0] != "SUCCEEDED":
+                if row is None or row["normalization_status"] != "SUCCEEDED":
                     raise ValueError("成功済みnormalizationだけを指定できます")
                 latest = db.execute(
                     "SELECT source_file_id FROM source_file_selections WHERE logical_path=? "
                     "ORDER BY decided_at DESC,selection_id DESC LIMIT 1",
-                    (row[3],),
+                    (row["logical_path"],),
                 ).fetchone()
-                if latest is not None and latest[0] != row[1]:
+                if latest is not None and latest[0] != row["source_file_id"]:
                     raise ValueError("現在採用中ではない原本のnormalizationです")
 
     def get_job(self, matching_job_id: str) -> MatchingJob | None:
@@ -73,6 +74,15 @@ class SqliteMasterStore:
                 "SELECT * FROM matching_jobs WHERE matching_job_id=?", (matching_job_id,)
             ).fetchone()
             return None if row is None else _job(row)
+
+    def list_jobs(self) -> list[MatchingJob]:
+        with self._connect() as db:
+            return [
+                _job(row)
+                for row in db.execute(
+                    "SELECT * FROM matching_jobs ORDER BY created_at DESC,matching_job_id DESC"
+                )
+            ]
 
     def claim(self) -> MatchingJob | None:
         job_id = None

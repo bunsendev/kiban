@@ -8,6 +8,7 @@ from forecast_provider.api import create_app
 from forecast_provider.catalog import SqliteCatalogStore
 from forecast_provider.ingestion import SqliteIngestionStore
 from forecast_provider.jobs import SqliteRunStore
+from forecast_provider.master import SqliteMasterStore
 from forecast_provider.normalization import SqliteNormalizationStore
 
 
@@ -202,6 +203,56 @@ def test_intake_ui_serves_paginated_modules_with_complete_dom_contract(tmp_path)
     assert 'request("/api/imports")' in client.text
     assert 'request("/api/mappings")' in client.text
     assert "/row-page?" in client.text
+    assert 'data-permission="ANALYZE"' in page.text
+    assert 'data-permission="APPROVE"' in page.text
+
+    ids = set(re.findall(r'id="([^"]+)"', page.text))
+    assert len(ids) == len(re.findall(r'id="([^"]+)"', page.text))
+    references = set(re.findall(r'(?:byId|document\.getElementById)\("([^"]+)"\)', scripts))
+    assert references <= ids
+
+
+def test_matching_ui_serves_audited_modular_workflow(tmp_path):
+    database = tmp_path / "matching-ui.sqlite3"
+    api = TestClient(
+        create_app(
+            SqliteRunStore(database),
+            SqliteCatalogStore(database),
+            "token",
+            normalization=SqliteNormalizationStore(database),
+            master=SqliteMasterStore(database),
+        )
+    )
+
+    page = api.get("/ui/matching")
+    app = api.get("/ui/assets/matching_app.js")
+    client = api.get("/ui/assets/matching_api.js")
+    forms = api.get("/ui/assets/matching_forms.js")
+    renderer = api.get("/ui/assets/matching_render.js")
+    styles = api.get("/ui/assets/matching.css")
+
+    assert all(
+        value.status_code == 200 for value in (page, app, client, forms, renderer, styles)
+    )
+    assert "JAN名寄せ・商品マスター" in page.text
+    assert 'type="module" src="/ui/assets/matching_app.js"' in page.text
+    routes = (
+        "/ui",
+        "/ui/lifecycle",
+        "/ui/readiness",
+        "/ui/selection",
+        "/ui/acceptance",
+        "/ui/intake",
+    )
+    assert all('href="/ui/matching"' in api.get(path).text for path in routes)
+    assert page.headers["cache-control"] == "no-store"
+    scripts = app.text + client.text + forms.text + renderer.text
+    assert "localStorage" not in scripts
+    assert "sessionStorage" not in scripts
+    assert 'request("/api/matching/jobs")' in client.text
+    assert 'request("/api/products")' in client.text
+    assert 'request("/api/matching/decisions")' in client.text
+    assert 'request("/api/jan-mappings")' in client.text
     assert 'data-permission="ANALYZE"' in page.text
     assert 'data-permission="APPROVE"' in page.text
 

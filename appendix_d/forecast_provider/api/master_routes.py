@@ -26,6 +26,7 @@ def install_master_routes(app: FastAPI, authorize, master) -> None:
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)
     approve = authorize.require(Permission.APPROVE)
+
     @app.post("/api/matching/jobs", response_model=Created, status_code=status.HTTP_202_ACCEPTED)
     def create_matching_job(
         request: MatchingJobCreate,
@@ -37,6 +38,18 @@ def install_master_routes(app: FastAPI, authorize, master) -> None:
             return Created(id=value.matching_job_id)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/matching/jobs")
+    def list_matching_jobs(
+        _principal: Annotated[Principal, Depends(read)],
+    ):
+        return [
+            {
+                **value.__dict__,
+                "candidate_count": len(master.list_candidates(value.matching_job_id)),
+            }
+            for value in master.list_jobs()
+        ]
 
     @app.get("/api/matching/jobs/{matching_job_id}")
     def get_matching_job(

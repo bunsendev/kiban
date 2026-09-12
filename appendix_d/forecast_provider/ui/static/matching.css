@@ -1,0 +1,28 @@
+.matching-actions { display: grid; gap: 0.7rem; margin-bottom: 1rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.matching-drawer { background: var(--surface); border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(22, 40, 66, 0.04); }
+.matching-drawer summary { padding: 0.8rem 1rem; color: var(--navy); font-weight: 800; cursor: pointer; }
+.drawer-form { display: grid; gap: 0.75rem; padding: 0 1rem 1rem; }
+.matching-job-form, .jan-mapping-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.span-all { grid-column: 1 / -1; }
+.matching-workbench { grid-template-columns: minmax(300px, 390px) minmax(0, 1fr); }
+.matching-rail { display: grid; gap: 1rem; align-content: start; }
+.matching-list { max-height: 330px; }
+.rail-group + .rail-group { padding-top: 1rem; border-top: 1px solid var(--line); }
+.code-list { display: grid; gap: 0.4rem; }
+.code-list code { padding: 0.45rem 0.6rem; overflow-wrap: anywhere; background: #f5f7fa; }
+.candidate-empty { padding: 2rem 1rem; margin: 1rem 0; text-align: center; color: var(--muted); border: 1px dashed var(--line); }
+.candidate-heading { display: flex; justify-content: space-between; gap: 1rem; margin: 1.5rem 0 1rem; padding-top: 1.2rem; border-top: 1px solid var(--line); }
+.candidate-heading h3 { margin: 0.2rem 0; font-size: 1.25rem; }
+.reason-list { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.4rem; }
+.evidence-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.6rem; }
+.evidence-card { padding: 0.75rem; background: #f7f9fb; border: 1px solid var(--soft-line); }
+.evidence-card span { display: block; color: var(--muted); font-size: 0.78rem; font-weight: 700; }
+.evidence-card strong { display: block; overflow-wrap: anywhere; }
+.quantity-layout, .catalog-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; margin-top: 0.8rem; }
+.quantity-row { display: grid; grid-template-columns: minmax(70px, 0.5fr) 1fr; gap: 0.6rem; padding: 0.35rem 0; border-bottom: 1px solid var(--soft-line); }
+.quantity-row code { overflow-wrap: anywhere; }
+.decision-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; margin: 0.9rem 0; }
+.decision-form .card-heading { grid-column: 1 / -1; }
+.compact-records { max-height: 310px; overflow: auto; }
+@media (max-width: 1080px) { .matching-actions, .evidence-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .matching-workbench { grid-template-columns: 1fr; } .matching-rail { border-right: 0; border-bottom: 1px solid var(--line); grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .matching-actions, .matching-job-form, .jan-mapping-form, .matching-rail, .evidence-grid, .quantity-layout, .catalog-layout, .decision-form { grid-template-columns: 1fr; } .span-all, .decision-form .card-heading { grid-column: auto; } .candidate-heading { display: block; } .reason-list { justify-content: flex-start; margin-top: 0.6rem; } }

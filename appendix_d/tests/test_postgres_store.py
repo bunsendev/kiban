@@ -23,7 +23,7 @@ from forecast_provider.evaluation_registry import (
 from forecast_provider.ingestion import PostgresIngestionStore, SourceFile
 from forecast_provider.jobs import OriginOutput, PostgresRunStore, RunDefinition
 from forecast_provider.jobs.postgres_store import _HybridRow
-from forecast_provider.master import PostgresMasterStore, make_product
+from forecast_provider.master import PostgresMasterStore, make_matching_job, make_product
 from forecast_provider.normalization import (
     PostgresNormalizationStore,
     Reconciliation,
@@ -195,6 +195,19 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
     )
     assert total == 1 and page[0]["raw_jan"] == row.raw_jan
     master = PostgresMasterStore(dsn)
+    matching_job = make_matching_job(
+        {
+            "normalization_ids": [normalization_job.normalization_id],
+            "policy_version": "postgres-list-v1",
+            "similarity_threshold": 0.85,
+            "handoff_similarity_threshold": 0.6,
+            "max_handoff_gap_days": 31,
+        }
+    )
+    master.put_job(matching_job)
+    assert any(
+        value.matching_job_id == matching_job.matching_job_id for value in master.list_jobs()
+    )
     product = make_product(
         f"PostgreSQL確認-{uuid.uuid4()}", "test@example.test", "live store適合確認"
     )

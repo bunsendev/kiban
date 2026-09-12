@@ -1,3 +1,32 @@
+# v2.9 Phase 1Y 実行検証記録
+
+Date: 2026-09-12 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 1Y
+
+- pytest: 全382件。Linux Dockerで377 passed、PostgreSQL依存5 skipped、PostgreSQL 17実DBで名寄せjob一覧と既存の取込・日次・受入・選定・Lifecycleを含むsuite 7 passed。FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- JavaScript: JAN名寄せ・商品マスター画面4 moduleを`node --check`し、構文エラー0。
+- 名寄せjob: READ権限で状態、内容アドレス条件、入力正規化job、候補件数を一覧表示し、ANALYZE権限で成功済み正規化jobから登録。
+- 候補根拠: 左右JAN、代表商品名、名称類似度、初回・最終出荷日、併存日数、切替空白日数、単位、center別数量、候補理由を表示。
+- 商品台帳: APPROVE権限でcanonical productを作成者・理由付きで追記し、JANに依存しない商品IDとして一覧表示。
+- 版付き判断: SAME_PRODUCT、DIFFERENT_PRODUCT、SUCCESSOR、UNRESOLVEDをmapping version・理由付きで追記し、認証subjectを判断者として記録。
+- JAN有効期間: 開始・終了日の両端を含む対応を版・理由付きで追記し、同じJAN・版の期間重複をサーバーが拒否。
+- Worker境界: 候補計算をHTTP内で実行せず、独立matching Workerの処理結果を更新操作で再取得。名称一致だけでは商品を統合しない。
+- PostgreSQL互換: JOIN内の同名status列を明示aliasで参照し、成功済み正規化jobの検証がSQLiteとPostgreSQLで一致することを実DB確認。
+- token保護: tokenをmodule memoryだけに保持し、URL、cookie、`localStorage`、`sessionStorage`へ保存しない。
+- DOM安全性: 全静的ID参照をHTMLと照合し、動的な台帳値を`textContent`で挿入。
+- module分割: HTML 123行、API 44行、入力変換49行、描画230行、画面制御274行、固有CSS 28行に分割。
+- 実画面: Docker配信した狭幅画面で未接続表示、ADMIN接続後の4 summary、名寄せjob一覧・条件詳細、canonical product 264件、JAN有効期間127件を確認。確認後に切断してtokenを破棄。
+- Docker API: `/ui/matching`と全asset 200、名寄せjob・商品・判断・JAN対応・正規化一覧とjob詳細API 200、`/health=ok`、`/ready=ready`を確認。
+- wheel: JAN名寄せ画面のHTML・CSS・4 JavaScript moduleを含む217ファイルを確認。
+- 配布ZIP: 323ファイル、secret・backup・`.env.production`を除外し、UTF-8 filename flag、SHA256SUMS 323/323一致。
+- 実データ: リポジトリへ投入せず、人工fixtureとPostgreSQL実DBだけで画面・契約を検証。実業務の名寄せ判断、JAN有効期間確定、実データ受入完了は宣言しない。
+
 # v2.9 Phase 1X 実行検証記録
 
 Date: 2026-09-12 JST

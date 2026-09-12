@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="JAN名寄せ候補、canonical product、版付き判断、JAN有効期間を管理する画面">
+  <title>JAN名寄せ・商品マスター | Yosoku Kiban</title>
+  <link rel="stylesheet" href="/ui/assets/styles.css">
+  <link rel="stylesheet" href="/ui/assets/matching.css">
+  <script type="module" src="/ui/assets/matching_app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">本文へ移動</a>
+  <header class="topbar">
+    <div class="brand-block">
+      <span class="eyebrow">YOSOKU KIBAN / MASTER MATCHING</span>
+      <h1>JAN名寄せ・商品マスター</h1>
+      <a class="workspace-link" href="/ui/intake">原本取込・正規化へ</a>
+      <a class="workspace-link" href="/ui/readiness">データ準備へ</a>
+      <a class="workspace-link" href="/ui/selection">重要品目選定へ</a>
+      <a class="workspace-link" href="/ui/acceptance">実データ受入へ</a>
+      <a class="workspace-link" href="/ui">比較・採用へ</a>
+      <a class="workspace-link" href="/ui/lifecycle">Lifecycle運用へ</a>
+    </div>
+    <form id="connection-form" class="connection" aria-label="API接続">
+      <label for="api-token">API token</label>
+      <div class="connection-row"><input id="api-token" type="password" autocomplete="off" required placeholder="Bearer tokenを入力"><button class="button primary" type="submit">接続</button></div>
+      <p class="field-note">tokenはこの画面のメモリ内だけで使用します。</p>
+    </form>
+    <div id="session-controls" class="session-controls" hidden>
+      <span class="connection-state">接続済み</span><span id="session-identity" class="session-identity"></span>
+      <button id="refresh-button" class="button quiet" type="button">更新</button><button id="disconnect-button" class="button quiet" type="button">切断</button>
+    </div>
+  </header>
+
+  <main id="workspace" class="page-shell">
+    <div id="notice" class="notice" role="status" aria-live="polite">API tokenを入力して名寄せ台帳を読み込んでください。</div>
+    <section class="summary-grid" aria-label="JAN名寄せサマリー">
+      <article class="summary-card accent-blue"><span>名寄せjob</span><strong id="job-count">—</strong></article>
+      <article class="summary-card accent-amber"><span>判断対象候補</span><strong id="candidate-count">—</strong></article>
+      <article class="summary-card accent-green"><span>canonical product</span><strong id="product-count">—</strong></article>
+      <article class="summary-card accent-cyan"><span>JAN有効期間</span><strong id="mapping-count">—</strong></article>
+    </section>
+
+    <section class="matching-actions" aria-label="商品マスター操作">
+      <details class="matching-drawer">
+        <summary>01 名寄せjobを登録</summary>
+        <form id="matching-job-form" class="drawer-form matching-job-form">
+          <label class="span-all">成功済み正規化job<select id="job-normalizations" multiple size="6" required></select><span class="field-note">CtrlまたはCommandで複数選択</span></label>
+          <label>policy version<input id="job-policy" value="jan-candidate-v1" required></label>
+          <label>通常類似度<input id="job-similarity" type="number" min="0" max="1" step="0.01" value="0.85" required></label>
+          <label>切替候補類似度<input id="job-handoff-similarity" type="number" min="0" max="1" step="0.01" value="0.60" required></label>
+          <label>最大切替空白日数<input id="job-gap-days" type="number" min="0" max="366" value="31" required></label>
+          <button class="button primary span-all" data-permission="ANALYZE" type="submit">名寄せjobを登録</button>
+        </form>
+      </details>
+      <details class="matching-drawer">
+        <summary>02 canonical productを登録</summary>
+        <form id="product-form" class="drawer-form compact-form">
+          <label>表示名<input id="product-name" required></label>
+          <label>登録理由<textarea id="product-reason" rows="2" required></textarea></label>
+          <button class="button secondary" data-permission="APPROVE" type="submit">商品を登録</button>
+        </form>
+      </details>
+      <details class="matching-drawer">
+        <summary>03 JAN有効期間を登録</summary>
+        <form id="jan-mapping-form" class="drawer-form jan-mapping-form">
+          <label>JAN<input id="mapping-jan" required></label>
+          <label>canonical product<select id="mapping-product" required></select></label>
+          <label>valid from<input id="mapping-valid-from" type="date" required></label>
+          <label>valid to<input id="mapping-valid-to" type="date"></label>
+          <label>mapping version<input id="mapping-version" value="mapping-v1" required></label>
+          <label class="span-all">理由<textarea id="mapping-reason" rows="2" required></textarea></label>
+          <button class="button secondary span-all" data-permission="APPROVE" type="submit">JAN有効期間を登録</button>
+        </form>
+      </details>
+    </section>
+
+    <section class="workbench matching-workbench">
+      <aside class="comparison-rail matching-rail" aria-label="名寄せjobと候補一覧">
+        <div class="rail-group">
+          <div class="section-heading"><div><span class="eyebrow">MATCHING JOBS</span><h2>名寄せjob</h2></div><span id="job-filter-count" class="count-chip">0件</span></div>
+          <label class="search-field" for="job-search"><span>job・policyで絞り込み</span><input id="job-search" type="search" placeholder="検索"></label>
+          <div id="job-list" class="comparison-list matching-list"></div>
+        </div>
+        <div class="rail-group">
+          <div class="section-heading"><div><span class="eyebrow">CANDIDATES</span><h2>候補</h2></div><span id="candidate-filter-count" class="count-chip">0件</span></div>
+          <label class="search-field" for="candidate-search"><span>JAN・商品名で絞り込み</span><input id="candidate-search" type="search" placeholder="検索"></label>
+          <div id="candidate-list" class="comparison-list matching-list"></div>
+        </div>
+      </aside>
+
+      <section class="detail-panel" aria-live="polite">
+        <div id="detail-empty" class="empty-state"><div class="empty-mark" aria-hidden="true">JAN</div><h2>名寄せjobを選択してください</h2><p>名称類似だけで自動統合せず、候補根拠と版付き判断を追跡できます。</p></div>
+        <div id="job-detail" hidden>
+          <header class="detail-header"><div><span class="eyebrow">MATCHING JOB</span><h2 id="job-title">—</h2><code id="job-id">—</code></div><div id="job-status"></div></header>
+          <div id="job-lineage" class="lineage-grid"></div>
+          <section class="ledger-card"><div class="subheading"><h3>使用した正規化job</h3><span>内容アドレス条件</span></div><div id="job-normalization-list" class="code-list"></div></section>
+
+          <div id="candidate-empty" class="candidate-empty"><h3>候補を選択してください</h3><p>左右JAN、名称、期間、center別数量と判断履歴を表示します。</p></div>
+          <div id="candidate-detail" hidden>
+            <header class="candidate-heading"><div><span class="eyebrow">MATCHING CANDIDATE</span><h3 id="candidate-title">—</h3><code id="candidate-id">—</code></div><div id="candidate-reasons" class="reason-list"></div></header>
+            <div id="candidate-evidence" class="evidence-grid"></div>
+            <div class="quantity-layout"><section class="ledger-card"><h3>左JAN center別数量</h3><div id="left-quantities"></div></section><section class="ledger-card"><h3>右JAN center別数量</h3><div id="right-quantities"></div></section></div>
+            <form id="decision-form" class="action-card decision-form">
+              <div class="card-heading"><span class="step-number">04</span><div><h3>候補を判断</h3><p>自動統合せず、版・理由・canonical productを記録します。</p></div></div>
+              <label>判断<select id="decision-value"><option value="UNRESOLVED">追加確認</option><option value="SAME_PRODUCT">同一商品</option><option value="DIFFERENT_PRODUCT">別商品</option><option value="SUCCESSOR">後継商品</option></select></label>
+              <label>左JANの商品<select id="decision-left-product"></select></label>
+              <label>右JANの商品<select id="decision-right-product"></select></label>
+              <label>mapping version<input id="decision-version" value="mapping-v1" required></label>
+              <label class="span-all">理由<textarea id="decision-reason" rows="2" required></textarea></label>
+              <button class="button primary span-all" data-permission="APPROVE" type="submit">判断を記録</button>
+            </form>
+            <section class="ledger-card"><div class="subheading"><h3>判断履歴</h3><span>上書き不可</span></div><div id="decision-list" class="record-list"></div></section>
+          </div>
+        </div>
+        <div class="catalog-layout"><section class="ledger-card"><div class="subheading"><h3>canonical products</h3><span id="product-list-count"></span></div><div id="product-list" class="record-list compact-records"></div></section><section class="ledger-card"><div class="subheading"><h3>JAN有効期間</h3><span id="mapping-list-count"></span></div><div id="mapping-list" class="record-list compact-records"></div></section></div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>
