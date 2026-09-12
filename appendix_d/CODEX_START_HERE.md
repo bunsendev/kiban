@@ -88,7 +88,9 @@ Phase 1Zで`mlforecast==1.1.0`と`scikit-learn==1.9.1`のRidgeを3つ目の予�
 
 Phase 2AでApache-2.0のTimesFM 2.5 200Mを4つ目の予測Providerとして追加した。固定revision・size・SHA-256で検証したローカル重みだけを使い、実行時ダウンロードを禁止する。最大512日の因果的context、POINT予測、重みを含まないJSON artifact、PyTorchを分離した専用Worker、開発・本番Composeまで接続した。TimesFM 3.0重みは非商用ライセンスのため対象外である。詳細は[TimesFM 2.5 Provider](docs/Phase2A_TimesFM_2p5.md)。
 
-次は検証済みTimesFM重みを運用管理領域へ配置し、専用Workerの処理時間とresource使用量を計測する。並行して実業務原本をPhase 1Xから取り込み、数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進む。その後、全3年の重要品目選定とPhase 1Sの将来trialを開始する。
+Phase 2BでTimesFM専用Workerの起動前検査と運用計測を追加した。固定checkpoint、モデル初期化、warm-up、反復推論、CPU時間、process peak RSS、cgroup上限を分離して測り、技術判定を内容アドレス方式のJSONへ保存する。benchmark serviceはCPU 2、memory 4 GiB、networkなし、checkpoint read-onlyで動作する。詳細は[TimesFM運用計測](docs/Phase2B_TimesFM運用計測.md)。
+
+次は実業務原本をPhase 1Xから取り込み、数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進む。その後、全3年の重要品目選定とPhase 1Sの将来trialを開始する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
 ## 変更報告

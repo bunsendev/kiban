@@ -32,6 +32,7 @@ EXCLUDE_DIRS = {
     "acceptance_output",
     "report_output",
     "timesfm_checkpoint",
+    "timesfm_benchmark_output",
     "build",
     "dist",
     "secrets",

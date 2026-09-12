@@ -46,6 +46,11 @@ def forecast_timesfm(
 
 
 def _runtime(checkpoint: CheckpointRef):
+    return load_timesfm_runtime(checkpoint)
+
+
+def load_timesfm_runtime(checkpoint: CheckpointRef):
+    """検証済みcheckpointから固定設定runtimeをロードしてprocess内で再利用する。"""
     key = (str(checkpoint.path), checkpoint.sha256)
     with _LOCK:
         cached = _RUNTIMES.get(key)

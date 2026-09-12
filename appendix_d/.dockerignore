@@ -7,6 +7,7 @@ __pycache__
 build
 dist
 timesfm_checkpoint
+timesfm_benchmark_output
 snapshot_input
 import_input
 raw_archive
