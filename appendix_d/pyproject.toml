@@ -39,6 +39,7 @@ kiban-timesfm-checkpoint = "forecast_provider.providers.timesfm_checkpoint:main"
 kiban-timesfm-benchmark = "forecast_provider.timesfm_benchmark.cli:main"
 kiban-real-data-preflight = "forecast_provider.real_data_preflight.cli:main"
 kiban-oidc-preflight = "forecast_provider.oidc_preflight.cli:main"
+kiban-mapping-dry-run = "forecast_provider.mapping_dry_run.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["forecast_provider*"]

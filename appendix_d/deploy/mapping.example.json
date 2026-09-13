@@ -1,0 +1,13 @@
+{
+  "allowed_units": ["個"],
+  "availability_mode": "ASSUMED",
+  "center_column": "物流拠点",
+  "date_column": "出荷日",
+  "date_formats": ["%Y/%m/%d"],
+  "file_mode": "FULL",
+  "jan_column": "JANコード",
+  "product_name_column": "商品名称",
+  "quantity_column": "出荷数量",
+  "row_type_column": "明細種別",
+  "unit_column": "数量単位"
+}

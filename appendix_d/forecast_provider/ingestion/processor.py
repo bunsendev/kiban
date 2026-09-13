@@ -108,7 +108,7 @@ class ImportProcessor:
         digest = hashlib.sha256(data).hexdigest()
         duplicate = self.store.find_hash(digest)
         previous = self.store.find_logical(logical_path)
-        encoding, error = _strict_encoding(data)
+        encoding, error = detect_encoding(data)
         status = (
             "QUARANTINED"
             if error
@@ -148,7 +148,7 @@ class ImportProcessor:
         )
 
 
-def _strict_encoding(data: bytes) -> tuple[str | None, str | None]:
+def detect_encoding(data: bytes) -> tuple[str | None, str | None]:
     encodings = (
         ("utf-8-sig", "utf-8", "cp932") if data.startswith(b"\xef\xbb\xbf") else ("utf-8", "cp932")
     )
