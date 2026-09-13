@@ -9,6 +9,7 @@ dist
 timesfm_checkpoint
 timesfm_benchmark_output
 preflight_output
+recovery_output
 snapshot_input
 import_input
 raw_archive
@@ -18,5 +19,6 @@ artifact_output
 worker_output
 deploy/secrets
 deploy/backups
+deploy/recovery-reports
 .env
 deploy/.env.production

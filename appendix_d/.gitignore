@@ -24,7 +24,10 @@ report_output/*
 timesfm_checkpoint/*
 timesfm_benchmark_output/*
 preflight_output/*
+recovery_output/*
 deploy/secrets/*
 !deploy/secrets/.gitkeep
 deploy/backups/*
 !deploy/backups/.gitkeep
+deploy/recovery-reports/*
+!deploy/recovery-reports/.gitkeep

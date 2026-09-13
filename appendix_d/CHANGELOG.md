@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 2D
+
+- PostgreSQL custom archiveを内部生成の一時DBへ復元する`kiban-db drill`を追加。
+- backup前後の元DB安定性、archive検証、復元、schema・全table内のstreaming指紋一致、一時DB削除を6項目で判定。
+- DSN、DB/user名、path、relation名、行値を含まない内容アドレス方式の訓練証跡を追加。
+- DB archive、CLI、指紋、一時DB、訓練runner、証跡を独立moduleへ分割。
+- 開発・本番Composeのoperations profileにbackup・証跡volumeとread-only実行境界を追加。
+
 ## Phase 1R
 
 - 外部IdPのJWT access tokenをJWKS、非対称署名、issuer、audience、時刻claim、role mappingで検証するOIDC modeを追加。

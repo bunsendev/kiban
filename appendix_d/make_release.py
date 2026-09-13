@@ -34,10 +34,12 @@ EXCLUDE_DIRS = {
     "timesfm_checkpoint",
     "timesfm_benchmark_output",
     "preflight_output",
+    "recovery_output",
     "build",
     "dist",
     "secrets",
     "backups",
+    "recovery-reports",
 }
 EXCLUDE_SUFFIX = {".egg-info"}
 SUMS = "SHA256SUMS.json"

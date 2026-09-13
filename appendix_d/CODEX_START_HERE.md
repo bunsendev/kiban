@@ -92,6 +92,8 @@ Phase 2BでTimesFM専用Workerの起動前検査と運用計測を追加した�
 
 Phase 2Cで実データ受入プリフライトを追加した。原本を読む前に5つのdata rootの存在・権限・symlink・重複・application境界と、PostgreSQL 17のPhase 1X〜1K必須schema・Worker権限を10項目で検査し、path・DSN・原本名を含まない不変JSON証跡を保存する。詳細は[実データ受入プリフライト](docs/Phase2C_実データ受入プリフライト.md)。
 
+Phase 2DでPostgreSQL隔離リカバリ訓練を追加した。内部生成した一時DBだけへcustom archiveを復元し、backup前後の元DB安定性、archive検証、schema・全table内容のstreaming指紋一致、一時DB削除を判定する。証跡にDSN、DB/user名、path、relation名、行値を含めない。詳細は[Phase2D PostgreSQL隔離リカバリ訓練](docs/Phase2D_PostgreSQL隔離リカバリ訓練.md)。
+
 次はプリフライトが`READY_FOR_DATA`の環境へ実業務原本を配置し、Phase 1Xから数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進む。その後、全3年の重要品目選定とPhase 1Sの将来trialを開始する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
