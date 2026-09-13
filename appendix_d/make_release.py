@@ -35,6 +35,7 @@ EXCLUDE_DIRS = {
     "timesfm_benchmark_output",
     "preflight_output",
     "oidc_preflight_output",
+    "mapping_dry_run_output",
     "recovery_output",
     "build",
     "dist",

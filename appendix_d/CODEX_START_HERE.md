@@ -98,7 +98,9 @@ Phase 2Eで全7管理画面のOIDC Authorization Code + PKCEログインを追�
 
 Phase 2Fで外部IdP接続プリフライトを追加した。DiscoveryとJWKSを証明書検証付きHTTPSで直接取得し、設定との完全一致、Authorization Code、PKCE S256、署名方式、互換鍵と`kid`を14項目で検査する。URL・host名・公開鍵値・例外本文を含めない不変JSON証跡を保存する。詳細は[外部IdP接続プリフライト](docs/Phase2F_外部IdP接続プリフライト.md)。
 
-次はプリフライトが`READY_FOR_DATA`の環境へ実業務原本を配置し、Phase 1Xから数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進む。その後、全3年の重要品目選定とPhase 1Sの将来trialを開始する。
+Phase 2Gでクレンジング・列マッピングドライランを追加した。入力rootとマッピングをread-onlyで読み、Phase 1Hと同じ規則により文字コード、ヘッダー、サンプル行、隔離理由、数量照合を台帳更新なしで判定する。証跡にはpath、列名、原値、数量を保存しない。詳細は[クレンジング・列マッピングドライラン](docs/Phase2G_クレンジング列マッピングドライラン.md)。
+
+次はプリフライトが`READY_FOR_DATA`の環境で実業務原本へPhase 2Gを実行し、`READY_FOR_NORMALIZATION`または隔離理由を確認する。その後Phase 1Xから全行の数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進み、全3年の重要品目選定とPhase 1Sの将来trialを開始する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
 ## 変更報告

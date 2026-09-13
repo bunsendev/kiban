@@ -45,12 +45,12 @@ def normalize_csv(normalization_id, source, mapping):
         reader = csv.DictReader(stream, strict=True)
         if len(reader.fieldnames or ()) != len(set(reader.fieldnames or ())):
             raise ValueError("原本headerに重複があります")
-        required = _required_columns(mapping)
+        required = required_columns(mapping)
         missing = sorted(required - set(reader.fieldnames or ()))
         if missing:
             raise ValueError(f"mapping対象列が原本にありません: {', '.join(missing)}")
         rows = [
-            _normalize_row(normalization_id, source.source_file_id, number, raw, mapping)
+            normalize_row(normalization_id, source.source_file_id, number, raw, mapping)
             for number, raw in enumerate(reader, start=2)
         ]
     parseable = sum((row.quantity for row in rows if row.quantity is not None), Decimal(0))
@@ -68,7 +68,7 @@ def normalize_csv(normalization_id, source, mapping):
     return rows, reconciliation
 
 
-def _required_columns(mapping):
+def required_columns(mapping):
     keys = {
         mapping["date_column"],
         mapping["jan_column"],
@@ -82,7 +82,7 @@ def _required_columns(mapping):
     return keys
 
 
-def _normalize_row(normalization_id, source_file_id, row_number, raw, mapping):
+def normalize_row(normalization_id, source_file_id, row_number, raw, mapping):
     errors = []
     raw_jan = _cell(raw, mapping["jan_column"])
     raw_name = _cell(raw, mapping["product_name_column"])

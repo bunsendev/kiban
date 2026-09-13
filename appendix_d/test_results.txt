@@ -1,3 +1,24 @@
+# v2.9 Phase 2G 実行検証記録
+
+Date: 2026-09-13 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+PostgreSQL: 17
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2G
+
+- pytest: Linux DockerでPostgreSQL 17実DBと実TimesFM checkpointを含む全454件を実行。FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- 無更新検査: Phase 1Gの厳密な文字コード判定とPhase 1Hの列マッピング・正規化規則を共用し、入力CSVとマッピングをread-onlyで検査。PostgreSQL、原本archive、取込・正規化台帳を更新しない。
+- 入力境界: input root内の相対pathだけを許可し、絶対path、親移動、symlink、空ファイル、上限超過、未対応文字コード、重複ヘッダー、必須列不足を`BLOCKED`にする。
+- サンプル判定: 既定先頭1,000行について採用・隔離件数、固定code別の隔離理由、数量照合を判定。隔離行ありは`REVIEW_REQUIRED`、9項目合格は`READY_FOR_NORMALIZATION`。
+- 不変証跡: 入力とマッピングをSHA-256で識別し、原本path、ファイル名、列名、JAN、商品名、center、日付、数量、行値、例外本文を保存しない。人工2行のCompose実行で9/9項目`PASSED`、report SHA-256 `526c64776e3e2c6c921ddffca87a9682349d83df9e356996792a9c003be1ac5d`。
+- Compose: 開発・本番の`mapping-dry-run` serviceをnetworkなし、read-only root filesystem、`/tmp` tmpfs、入力・マッピングread-only、証跡専用write mountで構成解決。
+- wheel: 265ファイル中、マッピングドライランの7 moduleとCLI entry pointを確認。配布ZIPは398ファイルのchecksumが一致。
+- 未実施: 実業務原本によるマッピング確認、サンプル外を含む全行正規化、全件数量照合、隔離理由の業務確認、実データ受入。人工データの結果は実データ品質や予測精度を表さない。
+
 # v2.9 Phase 2F 実行検証記録
 
 Date: 2026-09-13 JST

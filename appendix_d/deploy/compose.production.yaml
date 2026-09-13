@@ -349,6 +349,34 @@ services:
     volumes:
       - ${KIBAN_OIDC_PREFLIGHT_DIR:?KIBAN_OIDC_PREFLIGHT_DIR is required}:/var/lib/kiban/oidc-preflight
 
+  mapping-dry-run:
+    profiles: ["mapping-preflight"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command:
+      - kiban-mapping-dry-run
+      - --input-root
+      - /var/lib/kiban/import-input
+      - --source
+      - ${KIBAN_MAPPING_SOURCE:?KIBAN_MAPPING_SOURCE is required}
+      - --mapping-file
+      - /etc/kiban/mapping.json
+      - --output-root
+      - /var/lib/kiban/mapping-dry-run
+      - --sample-rows
+      - ${KIBAN_MAPPING_SAMPLE_ROWS:-1000}
+      - --max-source-bytes
+      - ${KIBAN_MAPPING_MAX_SOURCE_BYTES:-100000000}
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ${KIBAN_IMPORT_DIR:?KIBAN_IMPORT_DIR is required}:/var/lib/kiban/import-input:ro
+      - ${KIBAN_MAPPING_FILE:?KIBAN_MAPPING_FILE is required}:/etc/kiban/mapping.json:ro
+      - ${KIBAN_MAPPING_DRY_RUN_DIR:?KIBAN_MAPPING_DRY_RUN_DIR is required}:/var/lib/kiban/mapping-dry-run
+
   selection-worker:
     <<: *worker-base
     command:
