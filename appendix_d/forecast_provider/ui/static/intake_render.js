@@ -49,6 +49,8 @@ function bytes(value) {
 
 export function renderSummary(dashboard) {
   const files = dashboard.quality.files || {};
+  document.getElementById("dry-run-count").textContent =
+    `${dashboard.validDryRunCount || 0} / ${dashboard.invalidDryRunCount || 0}`;
   document.getElementById("import-count").textContent = dashboard.imports.length;
   document.getElementById("accepted-file-count").textContent =
     (files.ACCEPTED || 0) + (files.CORRECTION_CANDIDATE || 0);
@@ -59,18 +61,25 @@ export function renderSummary(dashboard) {
 }
 
 function jobButton(kind, record, selectedKind, selectedId, onSelect) {
-  const id = kind === "import" ? record.import_id : record.normalization_id;
-  const title = kind === "import" ? record.source_path : shortId(record.normalization_id, 24);
-  const detail = kind === "import"
-    ? `${record.file_count}ファイル / 採用 ${record.accepted_count} / 隔離 ${record.quarantined_count}`
-    : `${record.total_rows}行 / 採用 ${record.accepted_rows} / 隔離 ${record.quarantined_rows}`;
+  const isDryRun = kind === "dry_run";
+  const id = isDryRun
+    ? record.report_sha256
+    : kind === "import" ? record.import_id : record.normalization_id;
+  const title = isDryRun
+    ? dateTime(record.checked_at)
+    : kind === "import" ? record.source_path : shortId(record.normalization_id, 24);
+  const detail = isDryRun
+    ? `${record.observations.sampled_rows}行 / 採用 ${record.observations.accepted_rows} / 隔離 ${record.observations.quarantined_rows}`
+    : kind === "import"
+      ? `${record.file_count}ファイル / 採用 ${record.accepted_count} / 隔離 ${record.quarantined_count}`
+      : `${record.total_rows}行 / 採用 ${record.accepted_rows} / 隔離 ${record.quarantined_rows}`;
   const button = node("button", {
     type: "button",
     className: `comparison-item${kind === selectedKind && id === selectedId ? " active" : ""}`,
   });
   button.append(
     node("strong", { text: title }),
-    node("span", { text: decisionLabel(record.status) }),
+    node("span", { text: decisionLabel(isDryRun ? record.outcome : record.status) }),
     node("span", { text: detail }),
     node("code", { text: shortId(id, 28), title: id }),
   );
@@ -79,6 +88,12 @@ function jobButton(kind, record, selectedKind, selectedId, onSelect) {
 }
 
 export function renderJobLists(dashboard, selection, queries, onSelect) {
+  const dryRunNeedle = queries.dryRuns.trim().toLocaleLowerCase("ja");
+  const dryRuns = dashboard.dryRuns.filter((record) =>
+    `${record.report_sha256} ${record.dry_run_id} ${record.outcome} ${record.mapping_id || ""}`
+      .toLocaleLowerCase("ja")
+      .includes(dryRunNeedle),
+  );
   const importNeedle = queries.imports.trim().toLocaleLowerCase("ja");
   const imports = dashboard.imports.filter((record) =>
     `${record.import_id} ${record.source_path}`.toLocaleLowerCase("ja").includes(importNeedle),
@@ -89,14 +104,60 @@ export function renderJobLists(dashboard, selection, queries, onSelect) {
       .toLocaleLowerCase("ja")
       .includes(normalizationNeedle),
   );
+  document.getElementById("dry-run-filter-count").textContent = `${dryRuns.length}件`;
   document.getElementById("import-filter-count").textContent = `${imports.length}件`;
   document.getElementById("normalization-filter-count").textContent = `${normalizations.length}件`;
+  replace("dry-run-list", dryRuns.length
+    ? dryRuns.map((record) => jobButton("dry_run", record, selection.kind, selection.id, onSelect))
+    : [empty(dashboard.dryRunConfigured
+      ? "ドライラン証跡はありません。"
+      : "証跡rootは未設定です。")]);
   replace("import-list", imports.length
     ? imports.map((record) => jobButton("import", record, selection.kind, selection.id, onSelect))
     : [empty("取込jobはありません。")] );
   replace("normalization-list", normalizations.length
     ? normalizations.map((record) => jobButton("normalization", record, selection.kind, selection.id, onSelect))
     : [empty("正規化jobはありません。")] );
+}
+
+function dryRunObservationCards(observations) {
+  const records = [
+    ["検査行", observations.sampled_rows],
+    ["採用行", observations.accepted_rows],
+    ["隔離行", observations.quarantined_rows],
+    ["サンプル打切り", observations.truncated ? "あり" : "なし"],
+  ];
+  return records.map(([label, value]) => node("article", { className: "reconciliation-card" }, [
+    node("span", { text: label }),
+    node("strong", { text: String(value) }),
+  ]));
+}
+
+export function renderMappingDryRunDetail(report) {
+  document.getElementById("dry-run-title").textContent = dateTime(report.checked_at);
+  document.getElementById("dry-run-id").textContent = report.dry_run_id;
+  replace("dry-run-status", [pill(report.outcome)]);
+  replace("dry-run-lineage", [
+    lineage("report SHA-256", report.report_sha256),
+    lineage("mapping ID", report.mapping_id),
+    lineage("原本 SHA-256", report.source_sha256),
+    lineage("sample上限", String(report.limits.sample_rows)),
+    lineage("原本size上限", bytes(report.limits.max_source_bytes)),
+    lineage("mapping size上限", bytes(report.limits.max_mapping_bytes)),
+  ]);
+  replace("dry-run-observations", dryRunObservationCards(report.observations));
+  replace("dry-run-check-list", report.checks.map((check) => node("tr", {}, [
+    node("td", {}, [node("code", { text: check.check_id })]),
+    node("td", {}, [pill(check.status)]),
+  ])));
+  const reasons = Object.entries(report.observations.quarantine_reason_counts);
+  replace("dry-run-reason-list", reasons.length
+    ? reasons.map(([reason, count]) => node("article", { className: "record-item" }, [
+      node("header", {}, [node("strong", { text: reason }), node("span", { text: `${count}件` })]),
+    ]))
+    : [empty("サンプル内の隔離理由はありません。")]);
+  replace("dry-run-limitation-list", report.limitations.map((value) => node("li", { text: value })));
+  showDetail("dry_run");
 }
 
 function sourceRows(files) {
@@ -233,6 +294,7 @@ export function renderNormalizationDetail(summary, page) {
 
 export function showDetail(kind = null) {
   document.getElementById("detail-empty").hidden = Boolean(kind);
+  document.getElementById("dry-run-detail").hidden = kind !== "dry_run";
   document.getElementById("import-detail").hidden = kind !== "import";
   document.getElementById("normalization-detail").hidden = kind !== "normalization";
 }

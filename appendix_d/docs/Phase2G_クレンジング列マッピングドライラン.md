@@ -45,6 +45,8 @@ docker compose --env-file deploy/.env.production `
 
 レポートは`mapping_dry_run_output/mapping-dry-run`へ内容アドレス方式で原子的に保存する。原本path、ファイル名、ヘッダー名、JAN、商品名、center、日付、数量、行値、例外本文は保存しない。入力とマッピングはSHA-256で識別し、判定、件数、上限、文字コード、実行時刻だけを保存する。
 
+保存後の証跡は[マッピングドライラン証跡レビュー](Phase2H_マッピングドライラン証跡レビュー.md)のAPIと`/ui/intake`から確認する。APIはchecksumとschemaを再検証し、検証できない証跡を表示対象から除外する。
+
 Compose serviceはnetworkを無効化し、入力rootとマッピングをread-only mountする。ドライランはPostgreSQLへ接続せず、原本archive、取込job、列マッピング台帳、正規化job、正規化行を作成しない。
 
 ## モジュール境界

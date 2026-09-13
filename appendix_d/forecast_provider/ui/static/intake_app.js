@@ -6,6 +6,7 @@ import {
   createNormalization,
   loadImport,
   loadIntakeDashboard,
+  loadMappingDryRun,
   loadNormalization,
   selectSource,
 } from "./intake_api.js";
@@ -13,6 +14,7 @@ import { mappingPayload, syncAvailability } from "./intake_forms.js";
 import {
   renderImportDetail,
   renderJobLists,
+  renderMappingDryRunDetail,
   renderNormalizationDetail,
   renderSummary,
   showDetail,
@@ -38,6 +40,7 @@ const elements = {
   sessionIdentity: byId("session-identity"),
   refresh: byId("refresh-button"),
   disconnect: byId("disconnect-button"),
+  dryRunSearch: byId("dry-run-search"),
   importSearch: byId("import-search"),
   normalizationSearch: byId("normalization-search"),
   rowStatus: byId("row-status"),
@@ -74,7 +77,11 @@ function drawLists() {
   renderJobLists(
     state.dashboard,
     { kind: state.selectedKind, id: state.selectedId },
-    { imports: elements.importSearch.value, normalizations: elements.normalizationSearch.value },
+    {
+      dryRuns: elements.dryRunSearch.value,
+      imports: elements.importSearch.value,
+      normalizations: elements.normalizationSearch.value,
+    },
     selectJob,
   );
 }
@@ -85,12 +92,23 @@ async function selectJob(kind, id, { status = "", offset = 0 } = {}) {
     && (kind !== "normalization" || (state.page?.offset === offset && state.rowStatus === status));
   if (samePage) return;
   setBusy(true);
-  notice(kind === "import" ? "原本取込の証跡を読み込んでいます。" : "正規化結果を読み込んでいます。");
+  const loadingMessages = {
+    dry_run: "checksum検証済みのドライラン証跡を読み込んでいます。",
+    import: "原本取込の証跡を読み込んでいます。",
+    normalization: "正規化結果を読み込んでいます。",
+  };
+  notice(loadingMessages[kind]);
   try {
     state.selectedKind = kind;
     state.selectedId = id;
     drawLists();
-    if (kind === "import") {
+    if (kind === "dry_run") {
+      state.detail = await loadMappingDryRun(id);
+      state.page = null;
+      state.rowStatus = "";
+      renderMappingDryRunDetail(state.detail);
+      notice("秘匿済みの判定・隔離理由・制約を読み込みました。", "success");
+    } else if (kind === "import") {
       state.detail = await loadImport(id);
       state.page = null;
       state.rowStatus = "";
@@ -137,14 +155,18 @@ async function refreshDashboard(preferred = { kind: state.selectedKind, id: stat
     state.permissions = new Set(state.dashboard.session.permissions);
     elements.sessionIdentity.textContent = `${state.dashboard.session.subject} / ${state.dashboard.session.roles.join(", ")}`;
     renderSummary(state.dashboard);
-    const preferredRecords = preferred.kind === "normalization"
-      ? state.dashboard.normalizations
-      : state.dashboard.imports;
-    const preferredKey = preferred.kind === "normalization" ? "normalization_id" : "import_id";
+    const recordSets = {
+      dry_run: [state.dashboard.dryRuns, "report_sha256"],
+      import: [state.dashboard.imports, "import_id"],
+      normalization: [state.dashboard.normalizations, "normalization_id"],
+    };
+    const [preferredRecords, preferredKey] = recordSets[preferred.kind] || [[], ""];
     const available = preferred.id && preferredRecords.some((record) => record[preferredKey] === preferred.id);
     const next = available
       ? preferred
-      : state.dashboard.imports[0]
+      : state.dashboard.dryRuns[0]
+        ? { kind: "dry_run", id: state.dashboard.dryRuns[0].report_sha256 }
+        : state.dashboard.imports[0]
         ? { kind: "import", id: state.dashboard.imports[0].import_id }
         : state.dashboard.normalizations[0]
           ? { kind: "normalization", id: state.dashboard.normalizations[0].normalization_id }
@@ -160,7 +182,12 @@ async function refreshDashboard(preferred = { kind: state.selectedKind, id: stat
       setBusy(false);
       await selectJob(next.kind, next.id);
     } else {
-      notice("接続しました。取込jobはまだありません。", "success");
+      notice(
+        state.dashboard.dryRunConfigured
+          ? "接続しました。ドライラン証跡と取込jobはまだありません。"
+          : "接続しました。ドライラン証跡rootは未設定です。",
+        "success",
+      );
     }
     return true;
   } catch (error) {
@@ -274,7 +301,15 @@ elements.disconnect.addEventListener("click", () => {
   elements.sessionIdentity.textContent = "";
   elements.importSearch.value = "";
   elements.normalizationSearch.value = "";
-  renderSummary({ imports: [], normalizations: [], quality: { files: {} } });
+  elements.dryRunSearch.value = "";
+  renderSummary({
+    dryRuns: [],
+    validDryRunCount: 0,
+    invalidDryRunCount: 0,
+    imports: [],
+    normalizations: [],
+    quality: { files: {} },
+  });
   replaceListsAfterDisconnect();
   showDetail();
   setBusy(false);
@@ -282,12 +317,15 @@ elements.disconnect.addEventListener("click", () => {
 });
 
 function replaceListsAfterDisconnect() {
+  byId("dry-run-filter-count").textContent = "0件";
   byId("import-filter-count").textContent = "0件";
   byId("normalization-filter-count").textContent = "0件";
+  byId("dry-run-list").replaceChildren();
   byId("import-list").replaceChildren();
   byId("normalization-list").replaceChildren();
 }
 
+elements.dryRunSearch.addEventListener("input", drawLists);
 elements.importSearch.addEventListener("input", drawLists);
 elements.normalizationSearch.addEventListener("input", drawLists);
 byId("mapping-availability").addEventListener("change", () => syncAvailability(byId));

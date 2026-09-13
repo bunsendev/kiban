@@ -36,7 +36,8 @@
 
   <main id="workspace" class="page-shell">
     <div id="notice" class="notice" role="status" aria-live="polite">API tokenを入力して原本台帳を読み込んでください。</div>
-    <section class="summary-grid" aria-label="原本取込サマリー">
+    <section class="summary-grid intake-summary-grid" aria-label="原本取込サマリー">
+      <article class="summary-card accent-cyan"><span>ドライラン 検証済み / 除外</span><strong id="dry-run-count">—</strong></article>
       <article class="summary-card accent-blue"><span>取込job</span><strong id="import-count">—</strong></article>
       <article class="summary-card accent-green"><span>採用・訂正版候補</span><strong id="accepted-file-count">—</strong></article>
       <article class="summary-card accent-amber"><span>訂正版候補・隔離</span><strong id="review-file-count">—</strong></article>
@@ -76,6 +77,11 @@
     <section class="workbench intake-workbench">
       <aside class="comparison-rail intake-rail" aria-label="処理job一覧">
         <div class="rail-group">
+          <div class="section-heading"><div><span class="eyebrow">MAPPING PREFLIGHT</span><h2>ドライラン</h2></div><span id="dry-run-filter-count" class="count-chip">0件</span></div>
+          <label class="search-field" for="dry-run-search"><span>判定・checksumで絞り込み</span><input id="dry-run-search" type="search" placeholder="検索"></label>
+          <div id="dry-run-list" class="comparison-list intake-list"></div>
+        </div>
+        <div class="rail-group">
           <div class="section-heading"><div><span class="eyebrow">IMPORT JOBS</span><h2>原本取込</h2></div><span id="import-filter-count" class="count-chip">0件</span></div>
           <label class="search-field" for="import-search"><span>path・job IDで絞り込み</span><input id="import-search" type="search" placeholder="検索"></label>
           <div id="import-list" class="comparison-list intake-list"></div>
@@ -88,7 +94,16 @@
       </aside>
 
       <section class="detail-panel" aria-live="polite">
-        <div id="detail-empty" class="empty-state"><div class="empty-mark" aria-hidden="true">IN</div><h2>取込または正規化jobを選択してください</h2><p>原本を上書きせず、訂正版の採用履歴、隔離理由、数量照合を追跡できます。</p></div>
+        <div id="detail-empty" class="empty-state"><div class="empty-mark" aria-hidden="true">IN</div><h2>ドライラン、取込、正規化から選択してください</h2><p>原本を上書きせず、事前判定、訂正版の採用履歴、隔離理由、数量照合を追跡できます。</p></div>
+
+        <div id="dry-run-detail" hidden>
+          <header class="detail-header"><div><span class="eyebrow">MAPPING DRY RUN</span><h2 id="dry-run-title">—</h2><code id="dry-run-id">—</code></div><div id="dry-run-status"></div></header>
+          <div id="dry-run-lineage" class="lineage-grid"></div>
+          <section id="dry-run-observations" class="reconciliation-grid"></section>
+          <div class="table-wrap"><table><caption>検査項目</caption><thead><tr><th>check ID</th><th>判定</th></tr></thead><tbody id="dry-run-check-list"></tbody></table></div>
+          <section class="ledger-card"><div class="subheading"><h3>隔離理由</h3><span>固定code・件数のみ</span></div><div id="dry-run-reason-list" class="record-list"></div></section>
+          <section class="ledger-card"><div class="subheading"><h3>判定の制約</h3><span>実データ受入ではありません</span></div><ul id="dry-run-limitation-list" class="dry-run-limitations"></ul></section>
+        </div>
 
         <div id="import-detail" hidden>
           <header class="detail-header"><div><span class="eyebrow">IMPORT JOB</span><h2 id="import-title">—</h2><code id="import-id">—</code></div><div id="import-status"></div></header>

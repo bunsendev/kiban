@@ -10,14 +10,23 @@ export function loadIntakeDashboard() {
     request("/api/source-selections"),
     request("/api/normalizations"),
     request("/api/quality"),
-  ]).then(([session, imports, mappings, selections, normalizations, quality]) => ({
+    request("/api/mapping-dry-runs"),
+  ]).then(([session, imports, mappings, selections, normalizations, quality, dryRunCatalog]) => ({
     session,
     imports,
     mappings,
     selections,
     normalizations,
     quality,
+    dryRuns: dryRunCatalog.items,
+    dryRunConfigured: dryRunCatalog.configured,
+    validDryRunCount: dryRunCatalog.valid_report_count,
+    invalidDryRunCount: dryRunCatalog.invalid_report_count,
   }));
+}
+
+export function loadMappingDryRun(reportSha256) {
+  return request(`/api/mapping-dry-runs/${encoded(reportSha256)}`);
 }
 
 export function loadImport(importId) {

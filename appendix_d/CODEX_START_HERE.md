@@ -100,7 +100,9 @@ Phase 2Fで外部IdP接続プリフライトを追加した。DiscoveryとJWKS�
 
 Phase 2Gでクレンジング・列マッピングドライランを追加した。入力rootとマッピングをread-onlyで読み、Phase 1Hと同じ規則により文字コード、ヘッダー、サンプル行、隔離理由、数量照合を台帳更新なしで判定する。証跡にはpath、列名、原値、数量を保存しない。詳細は[クレンジング・列マッピングドライラン](docs/Phase2G_クレンジング列マッピングドライラン.md)。
 
-次はプリフライトが`READY_FOR_DATA`の環境で実業務原本へPhase 2Gを実行し、`READY_FOR_NORMALIZATION`または隔離理由を確認する。その後Phase 1Xから全行の数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進み、全3年の重要品目選定とPhase 1Sの将来trialを開始する。
+Phase 2Hでマッピングドライラン証跡のread-only APIと原本取込管理画面のレビュー機能を追加した。APIは内容とファイル名のSHA-256、重複JSON key、固定schema、ID、判定整合性を再検証し、原値を含まない固定項目だけを返す。詳細は[マッピングドライラン証跡レビュー](docs/Phase2H_マッピングドライラン証跡レビュー.md)。
+
+次はプリフライトが`READY_FOR_DATA`の環境で実業務原本へPhase 2Gを実行し、Phase 2H画面で`READY_FOR_NORMALIZATION`または隔離理由を確認する。その後Phase 1Xから全行の数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進み、全3年の重要品目選定とPhase 1Sの将来trialを開始する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
 ## 変更報告

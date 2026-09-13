@@ -206,6 +206,7 @@ def test_intake_ui_serves_paginated_modules_with_complete_dom_contract(tmp_path)
     assert "sessionStorage" not in scripts
     assert 'request("/api/imports")' in client.text
     assert 'request("/api/mappings")' in client.text
+    assert 'request("/api/mapping-dry-runs")' in client.text
     assert "/row-page?" in client.text
     assert 'data-permission="ANALYZE"' in page.text
     assert 'data-permission="APPROVE"' in page.text

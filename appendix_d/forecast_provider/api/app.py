@@ -9,12 +9,14 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from ..catalog import CatalogStore
 from ..errors import ContractViolationError
 from ..jobs.contracts import RunStore
+from ..mapping_dry_run.catalog import MappingDryRunCatalog
 from ..ui import install_ui_routes
 from .acceptance_routes import install_acceptance_routes
 from .daily_routes import install_daily_routes
 from .evaluation_routes import install_evaluation_routes
 from .ingestion_routes import install_ingestion_routes
 from .lifecycle_routes import install_lifecycle_routes
+from .mapping_dry_run_routes import install_mapping_dry_run_routes
 from .master_routes import install_master_routes
 from .normalization_routes import install_normalization_routes
 from .observability import install_observability
@@ -72,6 +74,7 @@ def create_app(
     readiness_checks: Mapping[str, Callable[[], bool]] | None = None,
     lifecycle=None,
     oidc_login_settings: OidcLoginSettings | None = None,
+    mapping_dry_run_root: Path | None = None,
 ) -> FastAPI:
     if isinstance(api_token, str) and not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -100,6 +103,11 @@ def create_app(
         raise ValueError("authentication readiness check名は予約済みです")
     checks["authentication"] = authenticator.readiness
     install_observability(app, authorize, checks)
+    install_mapping_dry_run_routes(
+        app,
+        authorize,
+        MappingDryRunCatalog(mapping_dry_run_root),
+    )
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)
 

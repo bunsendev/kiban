@@ -10,6 +10,7 @@ from .contracts import (
     BLOCKING_CHECKS,
     DEFAULT_LIMITS,
     FORMAT_VERSION,
+    LIMITATIONS,
     SUITE_ID,
     DryRunLimits,
     InputFailure,
@@ -99,11 +100,7 @@ def collect_dry_run(
         "outcome": _outcome(checks),
         "checks": checks,
         "observations": observations,
-        "limitations": [
-            "sample外の行品質と全件数量は検査していない。",
-            "ドライランは原本取込、台帳登録、正規化job、業務承認を実行しない。",
-            "READY_FOR_NORMALIZATIONは実データ受入や予測精度を保証しない。",
-        ],
+        "limitations": list(LIMITATIONS),
     }
 
 
