@@ -2,7 +2,7 @@
 
 v2.8レビューの指摘を反映した予測・比較コアです。
 コード、全体仕様、統合仕様、開始ガイド、テスト、人工データデモ、検証記録を同梱しています。
-予定完全性、日次状態、少数実品目の受入判定基盤、実データ受入プリフライト、PostgreSQL隔離リカバリ訓練、StatsForecast AutoETS、MLForecast Ridge、TimesFM 2.5と専用Worker運用計測、比較CSV、採用判断台帳、比較・採用・Lifecycle・原本取込・正規化・JAN名寄せ・商品マスター・データ準備・重要品目選定・実データ受入管理画面、role別認可、OIDC、TLS・監視・DB backup、月次再学習と安全なモデル切替まで実装済みです。実データでの受入・trial・本番復旧訓練と環境固有のIdP接続は後続作業です。
+予定完全性、日次状態、少数実品目の受入判定基盤、実データ受入プリフライト、PostgreSQL隔離リカバリ訓練、外部IdP接続プリフライト、StatsForecast AutoETS、MLForecast Ridge、TimesFM 2.5と専用Worker運用計測、比較CSV、採用判断台帳、比較・採用・Lifecycle・原本取込・正規化・JAN名寄せ・商品マスター・データ準備・重要品目選定・実データ受入管理画面、role別認可、OIDC、TLS・監視・DB backup、月次再学習と安全なモデル切替まで実装済みです。実データでの受入・trial・本番復旧訓練と環境固有IdPでのログイン受入は後続作業です。
 
 ## 最初に読む
 
@@ -77,6 +77,8 @@ TimesFM専用Workerを実業務runへ使う前に、`docker compose --profile ti
 PostgreSQLのbackupを隔離された一時DBへ復元して検査する場合は、`docker compose --profile operations run --rm --build db-operations drill --backup-dir /backups --report-dir /recovery-reports`を実行する。元DBの書換えは行わず、前後安定性、archive、復元指紋、一時DB削除を検査する。詳細は[PostgreSQL隔離リカバリ訓練](docs/Phase2D_PostgreSQL隔離リカバリ訓練.md)を参照する。
 
 OIDC modeでは管理画面の「IdPでログイン」からAuthorization Code + PKCEを使用できる。IdPに`https://<domain>/ui/auth/callback`を登録し、authorization URL、token URL、public client IDを設定する。詳細は[OIDC PKCEログイン](docs/Phase2E_OIDC_PKCEログイン.md)を参照する。
+
+環境固有IdPの設定後、ログインを試す前に`docker compose --profile preflight run --rm --build oidc-preflight`を実行する。Discovery、endpoint完全一致、Authorization Code、PKCE S256、署名方式、JWKS鍵を14項目で検査する。詳細は[外部IdP接続プリフライト](docs/Phase2F_外部IdP接続プリフライト.md)を参照する。
 
 ## 本番運用
 
