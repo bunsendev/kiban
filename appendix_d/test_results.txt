@@ -1,3 +1,28 @@
+# v2.9 Phase 2D 実行検証記録
+
+Date: 2026-09-13 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14 / operations image 3.14.7
+PostgreSQL: 17.11
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2D
+
+- pytest: Linux DockerでPostgreSQL 17実DBと実TimesFM checkpointを含む全419件を実行。FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- 実リカバリ訓練: 開発ComposeのPostgreSQL 17.11、43 relationに対し、backup前後の元DB安定性、archive検証、内部生成一時DBの分離、復元、指紋一致、一時DB削除の6判定がすべて`PASSED`。
+- 指紋: schema、constraint、index、sequence、view、全table行をstreaming SHA-256に変換。元DBと復元DBは`b605bac642e97f6ce2c48065c1b85f35c5c371b2a8e94599457c74f65f3152e1`で一致。
+- 観測時間: backup 0.618秒、restore 0.367秒、全体3.839秒。開発用データの技術観測であり、本番RTO・RPOや災害復旧達成値ではない。
+- 不変証跡: report SHA-256 `4746b82b2b45bc1d5e5efcc3bf2d68eaa9b8f11aab086809a5cbbedd5f5b6f3a`、archive SHA-256 `72e1b6d86828c7f424a07d6a20000cc2e26a57a2e99dee2c66ee09cc8b7b50e62331332c338c`。証跡にDSN、DB/user名、path、一時DB名、relation名、行値、例外messageを含めない。
+- 失敗安全性: 復元失敗時も一時DB削除を実行し、利用者指定のDB名と元DBと同名の一時DBを拒否。実訓練後の`kiban_drill_%` DB残留0件。
+- Compose: 開発・本番operations profileを解決。専用imageはread-only root filesystem、`/tmp` tmpfs、backup・証跡だけをwrite mount。本番DSNはsecret file。
+- module分割: CLI 95行、archive 263行、訓緱6moduleは最大146行に分離し、従来の`forecast_provider.operations.database`参照を互換維持。
+- demo: 人工3系列・3年、2 Provider各1,095/1,095成功、official ranking成立。実データではない。
+- scale_check: 人工100系列、37起点、POINT 54,500行/Provider、POINT+QUANTILE 218,000行、重複0、通期評価成立。
+- wheel: 248ファイル中、DB archive、CLI、分割した訓緱6module、`kiban-db`を確認。
+- 実データ: 未提供のため本番構成での復旧、本番RTO・RPO、DB外領域の復旧は未実施。開発DBの`DRILL_PASSED`で代替しない。
+
 # v2.9 Phase 2C 実行検証記録
 
 Date: 2026-09-13 JST

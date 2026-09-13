@@ -275,6 +275,22 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+  db-operations:
+    profiles: ["operations"]
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.operations
+    environment:
+      KIBAN_POSTGRES_DSN: postgresql://kiban:local-development-only@postgres:5432/kiban
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ${KIBAN_BACKUP_DIR:-./deploy/backups}:/backups
+      - ${KIBAN_RECOVERY_REPORT_DIR:-./recovery_output}:/recovery-reports
 
 volumes:
   kiban-postgres:

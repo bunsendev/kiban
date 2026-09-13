@@ -2,7 +2,7 @@
 
 v2.8レビューの指摘を反映した予測・比較コアです。
 コード、全体仕様、統合仕様、開始ガイド、テスト、人工データデモ、検証記録を同梱しています。
-予定完全性、日次状態、少数実品目の受入判定基盤、実データ受入プリフライト、StatsForecast AutoETS、MLForecast Ridge、TimesFM 2.5と専用Worker運用計測、比較CSV、採用判断台帳、比較・採用・Lifecycle・原本取込・正規化・JAN名寄せ・商品マスター・データ準備・重要品目選定・実データ受入管理画面、role別認可、OIDC、TLS・監視・DB backup、月次再学習と安全なモデル切替まで実装済みです。実データでの受入・trial・復旧試験と環境固有のIdP接続は後続作業です。
+予定完全性、日次状態、少数実品目の受入判定基盤、実データ受入プリフライト、PostgreSQL隔離リカバリ訓練、StatsForecast AutoETS、MLForecast Ridge、TimesFM 2.5と専用Worker運用計測、比較CSV、採用判断台帳、比較・採用・Lifecycle・原本取込・正規化・JAN名寄せ・商品マスター・データ準備・重要品目選定・実データ受入管理画面、role別認可、OIDC、TLS・監視・DB backup、月次再学習と安全なモデル切替まで実装済みです。実データでの受入・trial・本番復旧訓練と環境固有のIdP接続は後続作業です。
 
 ## 最初に読む
 
@@ -74,9 +74,11 @@ TimesFM専用Workerを実業務runへ使う前に、`docker compose --profile ti
 
 実業務原本を配置する前に、`docker compose --profile preflight run --rm --build real-data-preflight`を実行する。inputの実効read-only、archive・snapshot・受入・証跡rootのwrite、領域分離、PostgreSQL 17の必須23 relationとWorker権限を10項目で確認する。`READY_FOR_DATA`は投入準備完了だけを示し、実データ受入や業務判断ではない。詳細は[実データ受入プリフライト](docs/Phase2C_実データ受入プリフライト.md)を参照する。
 
+PostgreSQLのbackupを隔離された一時DBへ復元して検査する場合は、`docker compose --profile operations run --rm --build db-operations drill --backup-dir /backups --report-dir /recovery-reports`を実行する。元DBの書換えは行わず、前後安定性、archive、復元指紋、一時DB削除を検査する。詳細は[PostgreSQL隔離リカバリ訓練](docs/Phase2D_PostgreSQL隔離リカバリ訓練.md)を参照する。
+
 ## 本番運用
 
-`deploy/compose.production.yaml`はCaddy、API、PostgreSQL、全Workerとlifecycle schedulerを分離し、外部へは80/443だけを公開する。APIは`/health`、`/ready`、認証付き`/metrics`を提供し、変更操作をsubject付きJSON logへ出力する。DB操作は`kiban-db backup|verify|restore`またはproduction Composeの`db-operations`を使用する。導入・rotation・復元停止手順は[本番運用基盤](docs/Phase1R_本番運用基盤.md)を参照する。
+`deploy/compose.production.yaml`はCaddy、API、PostgreSQL、全Workerとlifecycle schedulerを分離し、外部へは80/443だけを公開する。APIは`/health`、`/ready`、認証付き`/metrics`を提供し、変更操作をsubject付きJSON logへ出力する。DB操作は`kiban-db backup|verify|restore|drill`またはproduction Composeの`db-operations`を使用する。導入・rotation・復元停止手順は[本番運用基盤](docs/Phase1R_本番運用基盤.md)、訓練は[PostgreSQL隔離リカバリ訓練](docs/Phase2D_PostgreSQL隔離リカバリ訓練.md)を参照する。
 
 Provider適合試験は`POST /api/provider-conformance-tests`へ記録し、`GET /api/providers`でモデル別の固定ランキング掲載可否を確認する。比較は`POST /api/comparisons`へ保存済みrun ID、各runの適合記録ID、truth snapshot IDを指定する。予測値と指標はrun台帳とchecksum検証済みsnapshotからサーバーが再計算する。詳細は[Provider適合試験と比較結果の永続化](docs/Phase1N_評価レジストリ.md)を参照する。
 

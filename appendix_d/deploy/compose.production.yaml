@@ -345,6 +345,10 @@ services:
       - postgres_dsn
     volumes:
       - ${KIBAN_BACKUP_DIR:-./backups}:/backups
+      - ${KIBAN_RECOVERY_REPORT_DIR:-./recovery-reports}:/recovery-reports
+    read_only: true
+    tmpfs:
+      - /tmp
     depends_on:
       postgres:
         condition: service_healthy

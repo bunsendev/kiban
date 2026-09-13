@@ -81,6 +81,7 @@ CaddyからAPIへのHTTPはDockerの`edge` network内だけで、APIはCaddyが�
 docker compose --env-file .env.production -f compose.production.yaml --profile operations build db-operations
 docker compose --env-file .env.production -f compose.production.yaml --profile operations run --rm db-operations backup --output-dir /backups
 docker compose --env-file .env.production -f compose.production.yaml --profile operations run --rm db-operations verify --manifest /backups/<name>.manifest.json
+docker compose --env-file .env.production -f compose.production.yaml --profile operations run --rm db-operations drill --backup-dir /backups --report-dir /recovery-reports
 ```
 
 backupはowner・privilegeを除いたcustom archiveと、schema version、作成UTC、DB名、`pg_dump`版、byte数、SHA-256を持つmanifestを同じdirectoryへ作る。verifyはpath traversal、size、checksumを検査してから`pg_restore --list`を実行する。SHA-256は破損検出であり署名ではないため、archiveとmanifestの保存先自体を信頼できる権限・不変storageで保護する。
@@ -96,6 +97,8 @@ docker compose --env-file .env.production -f compose.production.yaml --profile o
 
 DB外のsnapshot、report、raw archive、acceptance report、model artifactは本CLIの対象外である。各mountを同じ復旧点として別途backupし、DBの参照URI・checksumと組み合わせる。
 
+`drill`はPhase 2Dで追加した隔離復元訓練である。内部生成の一時DBへ復元し、元DBの安定性、内容一致、一時DB削除まで検査する。実行前に書込みを停止する。詳細は[PostgreSQL隔離リカバリ訓練](Phase2D_PostgreSQL隔離リカバリ訓練.md)を参照する。
+
 ## モジュール境界
 
 | module | 責務 |
@@ -105,11 +108,13 @@ DB外のsnapshot、report、raw archive、acceptance report、model artifactは�
 | `api/http_security.py` | Host、HTTPS、response header |
 | `api/observability.py` | 監査log、liveness、readiness、metrics |
 | `runtime_config.py` | Worker共通のsecret file読込み |
-| `operations/database.py` | DB archive、manifest、checksum、restore安全条件 |
+| `operations/db_archive.py` | DB archive、manifest、checksum、restore安全条件 |
+| `operations/database.py` | DB運用CLIと従来importの互換維持 |
+| `operations/recovery/` | 一時DB、streaming指紋、訓練判定、不変証跡 |
 | `deploy/` | Caddy、本番Compose、DB操作image |
 
 `api/security.py`はPhase 1Qのimport互換だけを提供し、新規責務を持たない。
 
 ## 未実施
 
-実IdPとの疎通、公開証明書の実取得、実データrestore、災害復旧時間の計測、監視製品への接続、log不変保管、cloud backup、管理画面のAuthorization Code/PKCE loginは環境固有作業として未実施である。
+実IdPとの疎通、公開証明書の実取得、実データ・本番構成でのrestoreと災害復旧時間の計測、監視製品への接続、log不変保管、cloud backup、管理画面のAuthorization Code/PKCE loginは環境固有作業として未実施である。
