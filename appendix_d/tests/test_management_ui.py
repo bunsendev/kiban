@@ -19,6 +19,7 @@ def test_management_ui_serves_modular_assets_without_persisting_token(tmp_path):
     page = api.get("/ui")
     script = api.get("/ui/assets/app.js")
     api_client = api.get("/ui/assets/api.js")
+    pkce = api.get("/ui/assets/pkce.js")
     styles = api.get("/ui/assets/styles.css")
 
     assert page.status_code == script.status_code == api_client.status_code == 200
@@ -32,6 +33,9 @@ def test_management_ui_serves_modular_assets_without_persisting_token(tmp_path):
     assert script.headers["permissions-policy"] == "camera=(), microphone=(), geolocation=()"
     assert "localStorage" not in script.text + api_client.text
     assert "sessionStorage" not in script.text + api_client.text
+    assert "access_token" not in pkce.text.split("sessionStorage.setItem", 1)[1].split(";", 1)[0]
+    assert "localStorage" not in pkce.text
+    assert 'code_challenge_method", "S256"' in pkce.text
     assert "export-requested-by" not in page.text
     assert 'request("/api/session")' in api_client.text
     session = api.get("/api/session", headers={"Authorization": "Bearer token"})

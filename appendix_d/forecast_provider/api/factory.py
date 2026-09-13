@@ -20,6 +20,7 @@ from ..selection import PostgresSelectionStore
 from .app import create_app
 from .authentication import Authenticator, ReloadingTokenAuthenticator, Role, TokenAuthenticator
 from .http_security import SecuritySettings
+from .oidc_login import OidcLoginSettings
 
 
 def _postgres_readiness(dsn: str) -> bool:
@@ -147,6 +148,27 @@ def load_api_security(
     return authenticator, settings
 
 
+def load_oidc_login_settings(environment: Mapping[str, str]) -> OidcLoginSettings | None:
+    names = (
+        "KIBAN_OIDC_AUTHORIZATION_URL",
+        "KIBAN_OIDC_TOKEN_URL",
+        "KIBAN_OIDC_CLIENT_ID",
+    )
+    values = [environment.get(name) for name in names]
+    if not any(values):
+        return None
+    if not all(values):
+        missing = [name for name, value in zip(names, values, strict=True) if not value]
+        raise RuntimeError(f"OIDC UI login設定が不足しています: {', '.join(missing)}")
+    scopes = tuple(
+        value for value in environment.get("KIBAN_OIDC_SCOPES", "openid profile").split() if value
+    )
+    try:
+        return OidcLoginSettings(values[0] or "", values[1] or "", values[2] or "", scopes)
+    except ValueError as exc:
+        raise RuntimeError("OIDC UI login設定が不正です") from exc
+
+
 def from_environment():
     dsn = load_secret_setting(os.environ, "KIBAN_POSTGRES_DSN", max_bytes=8_192)
     root = os.environ.get("KIBAN_SNAPSHOT_ROOT")
@@ -179,4 +201,5 @@ def from_environment():
             "report_root": lambda: _writable_directory(reporting_root),
         },
         lifecycle=PostgresLifecycleStore(dsn),
+        oidc_login_settings=load_oidc_login_settings(os.environ),
     )

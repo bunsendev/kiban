@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 2E
+
+- 全7管理画面にOIDC Authorization Code + PKCE S256ログインを追加。
+- state・5分期限・redirect URIを検証し、callback queryを即時消去。
+- API側の固定HTTPS endpointでcodeを交換し、refresh token・ID tokenをブラウザーへ返さない境界を追加。
+- access tokenは既存のmodule memoryだけで使用し、URL・cookie・local/session storageに保存しない。
+- public client設定、code交換、共通PKCE UIを独立moduleに分割。
+
 ## Phase 2D
 
 - PostgreSQL custom archiveを内部生成の一時DBへ復元する`kiban-db drill`を追加。

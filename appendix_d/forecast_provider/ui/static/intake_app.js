@@ -1,3 +1,4 @@
+import { installPkceLogin } from "./pkce.js";
 import { ApiError, clearToken, setToken } from "./api.js";
 import {
   createImport,
@@ -304,3 +305,5 @@ byId("row-next").addEventListener("click", () =>
   }));
 syncAvailability(byId);
 setBusy(false);
+
+installPkceLogin();

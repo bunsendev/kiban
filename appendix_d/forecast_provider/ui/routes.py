@@ -34,6 +34,7 @@ def install_ui_routes(app) -> None:
 
     @app.get("/ui", include_in_schema=False)
     @app.get("/ui/", include_in_schema=False)
+    @app.get("/ui/auth/callback", include_in_schema=False)
     def management_ui():
         return FileResponse(
             STATIC_ROOT / "index.html",

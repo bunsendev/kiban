@@ -1,3 +1,4 @@
+import { installPkceLogin } from "./pkce.js";
 import { ApiError, clearToken, setToken } from "./api.js";
 import {
   createCandidateJob,
@@ -276,3 +277,5 @@ for (const tab of document.querySelectorAll(".tab")) {
 }
 redrawDraft();
 setBusy(false);
+
+installPkceLogin();

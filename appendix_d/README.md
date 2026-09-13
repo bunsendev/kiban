@@ -76,6 +76,8 @@ TimesFM専用Workerを実業務runへ使う前に、`docker compose --profile ti
 
 PostgreSQLのbackupを隔離された一時DBへ復元して検査する場合は、`docker compose --profile operations run --rm --build db-operations drill --backup-dir /backups --report-dir /recovery-reports`を実行する。元DBの書換えは行わず、前後安定性、archive、復元指紋、一時DB削除を検査する。詳細は[PostgreSQL隔離リカバリ訓練](docs/Phase2D_PostgreSQL隔離リカバリ訓練.md)を参照する。
 
+OIDC modeでは管理画面の「IdPでログイン」からAuthorization Code + PKCEを使用できる。IdPに`https://<domain>/ui/auth/callback`を登録し、authorization URL、token URL、public client IDを設定する。詳細は[OIDC PKCEログイン](docs/Phase2E_OIDC_PKCEログイン.md)を参照する。
+
 ## 本番運用
 
 `deploy/compose.production.yaml`はCaddy、API、PostgreSQL、全Workerとlifecycle schedulerを分離し、外部へは80/443だけを公開する。APIは`/health`、`/ready`、認証付き`/metrics`を提供し、変更操作をsubject付きJSON logへ出力する。DB操作は`kiban-db backup|verify|restore|drill`またはproduction Composeの`db-operations`を使用する。導入・rotation・復元停止手順は[本番運用基盤](docs/Phase1R_本番運用基盤.md)、訓練は[PostgreSQL隔離リカバリ訓練](docs/Phase2D_PostgreSQL隔離リカバリ訓練.md)を参照する。
