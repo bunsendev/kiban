@@ -1,3 +1,4 @@
+import { installPkceLogin } from "./pkce.js";
 import { ApiError, clearToken, setToken } from "./api.js";
 import {
   assessTrial,
@@ -254,3 +255,5 @@ for (const tab of document.querySelectorAll(".tab")) {
 }
 byId("plan-trial-start").value = new Date().toISOString().slice(0, 10);
 setBusy(false);
+
+installPkceLogin();

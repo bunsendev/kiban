@@ -94,6 +94,8 @@ Phase 2Cで実データ受入プリフライトを追加した。原本を読む
 
 Phase 2DでPostgreSQL隔離リカバリ訓練を追加した。内部生成した一時DBだけへcustom archiveを復元し、backup前後の元DB安定性、archive検証、schema・全table内容のstreaming指紋一致、一時DB削除を判定する。証跡にDSN、DB/user名、path、relation名、行値を含めない。詳細は[Phase2D PostgreSQL隔離リカバリ訓練](docs/Phase2D_PostgreSQL隔離リカバリ訓練.md)。
 
+Phase 2Eで全7管理画面のOIDC Authorization Code + PKCEログインを追加した。state、S256 challenge、code交換、callback URL消去を共通moduleで行い、access tokenはmodule memoryだけに保持する。詳細は[OIDC PKCEログイン](docs/Phase2E_OIDC_PKCEログイン.md)。
+
 次はプリフライトが`READY_FOR_DATA`の環境へ実業務原本を配置し、Phase 1Xから数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進む。その後、全3年の重要品目選定とPhase 1Sの将来trialを開始する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 

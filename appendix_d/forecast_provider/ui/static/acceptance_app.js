@@ -1,3 +1,4 @@
+import { installPkceLogin } from "./pkce.js";
 import { ApiError, clearToken, setToken } from "./api.js";
 import {
   createAcceptanceCase,
@@ -248,3 +249,5 @@ for (const tab of document.querySelectorAll(".tab")) {
 }
 renderProductPreview(null);
 setBusy(false);
+
+installPkceLogin();

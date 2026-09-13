@@ -18,6 +18,7 @@ from .lifecycle_routes import install_lifecycle_routes
 from .master_routes import install_master_routes
 from .normalization_routes import install_normalization_routes
 from .observability import install_observability
+from .oidc_login import OidcLoginSettings, install_oidc_login_routes
 from .reporting_routes import install_reporting_routes
 from .schemas import (
     Created,
@@ -70,6 +71,7 @@ def create_app(
     legacy_subject: str = "local-admin",
     readiness_checks: Mapping[str, Callable[[], bool]] | None = None,
     lifecycle=None,
+    oidc_login_settings: OidcLoginSettings | None = None,
 ) -> FastAPI:
     if isinstance(api_token, str) and not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -90,6 +92,7 @@ def create_app(
     )
     install_security_boundary(app, settings)
     install_ui_routes(app)
+    install_oidc_login_routes(app, oidc_login_settings)
     service = ApplicationService(store, catalog, snapshot_root)
     authorize = Authorizer(authenticator)
     checks = dict(readiness_checks or {})

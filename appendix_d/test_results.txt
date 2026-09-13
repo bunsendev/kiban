@@ -1,3 +1,26 @@
+# v2.9 Phase 2E 実行検証記録
+
+Date: 2026-09-13 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+PostgreSQL: 17
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2E
+
+- pytest: Linux DockerでPostgreSQL 17実DBと実TimesFM checkpointを含む全423件を実行。FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。JavaScript全moduleをNode.js `--check`で構文検査。
+- PKCE: Web Crypto SHA-256、base64url、S256 challenge、32byte state、48byte verifier、5分期限を共通`pkce.js`で実装。全7管理画面が同じmoduleを使用。
+- callback: state不一致・期限切れをcode交換前に拒否し、code/error queryを`history.replaceState`で即時消去。redirect URIはAPIがrequest originと固定pathから再構成して完全一致を検査。
+- code交換: userinfo・fragmentのないHTTPS token endpointへAPIがform POST。応答64 KiB、access token 16 KiB、有効期間1日以下を制限し、refresh token・ID tokenをブラウザーへ返さない。
+- token保護: access tokenは共通API clientのmodule memoryだけに保持。URL、cookie、`localStorage`、`sessionStorage`へ保存しない。sessionStorageはstate・verifier・戻り先・作成時刻だけを保持し、callback開始時に削除。
+- 互換性: OIDC UI設定がないtoken modeは従来の手入力Bearer tokenだけを表示。既存JWT署名・issuer・audience・role検証をそのまま使用。
+- 模擬IdP: public client設定取得、code交換、access token応答、callback配信、無効redirect、無効化modeをFastAPI結合試験で確認。実IdP疎通の代替ではない。
+- Compose: 本番APIにauthorization URL、token URL、public client ID、scopeの必須設定を追加し、構成解決を確認。client secretは使用しない。
+- wheel: 250ファイル中、`api/oidc_login.py`と`ui/static/pkce.js`の同梱を確認。配布ZIPは378ファイルのchecksumが一致。
+- 未実施: 環境固有IdPとの実疎通、管理者同意、role claim割当、IdP sessionの失効・logout連携、公開証明書の実取得は未実施。
+
 # v2.9 Phase 2D 実行検証記録
 
 Date: 2026-09-13 JST

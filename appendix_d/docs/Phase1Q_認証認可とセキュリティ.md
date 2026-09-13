@@ -62,4 +62,4 @@ API responseには`Cache-Control: no-store`、`X-Request-ID`、`X-Content-Type-O
 
 ## 対象外
 
-外部IdPのBearer JWT検証、JWKS・credential file rotation、TLS終端、監査log、readiness・metrics、DB backup/restoreはPhase 1Rで追加した。管理画面のAuthorization Code/PKCE login、token発行API、権限管理DB、秘密管理製品のAPI接続、電子署名は後続開発とする。
+外部IdPのBearer JWT検証、JWKS・credential file rotation、TLS終端、監査log、readiness・metrics、DB backup/restoreはPhase 1Rで追加した。管理画面のAuthorization Code/PKCE loginはPhase 2Eで追加した。権限管理DB、秘密管理製品のAPI接続、電子署名は後続開発とする。

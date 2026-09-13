@@ -1,3 +1,4 @@
+import { installPkceLogin } from "./pkce.js";
 import {
   ApiError,
   clearToken,
@@ -294,3 +295,5 @@ for (const tab of document.querySelectorAll(".tab")) {
   tab.addEventListener("click", () => setTab(tab.dataset.tab));
 }
 updateDecisionFields();
+
+installPkceLogin();
