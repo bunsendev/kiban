@@ -1,3 +1,24 @@
+# v2.9 Phase 2F 実行検証記録
+
+Date: 2026-09-13 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+PostgreSQL: 17
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2F
+
+- pytest: Linux DockerでPostgreSQL 17実DBと実TimesFM checkpointを含む全444件を実行。FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。
+- 公開HTTPS取得: system trust storeとhostname検証を使用し、redirect禁止、既定5秒timeout・128 KiB上限でDiscoveryとJWKSを取得する。取得・JSON解析失敗は接続先と例外本文を残さず`BLOCKED`へ変換。
+- Discovery: issuerとauthorization・token・JWKS endpointの設定完全一致、3 endpointのHTTPS、response type `code`、Authorization Code grant、PKCE `S256`、許可署名方式を検査。
+- JWKS: 1〜100鍵、許可方式とRSA/EC/OKP公開鍵要素の互換性、署名用途、verify操作、有効で重複のない`kid`を検査。対称鍵、暗号化用途、公開鍵要素欠落を拒否。
+- 不変証跡: 設定URLをSHA-256で識別し、接続先URL・host名・公開鍵値・例外本文を保存しない。公開参照IdPの実取得で14/14項目`PASSED`、report SHA-256 `4b817613fefcb7adaf89bb8a68f792b2d7af86b960b47977dad557b9b917a778`。
+- Compose: 開発・本番の`oidc-preflight` serviceをread-only root filesystem、`/tmp` tmpfs、証跡専用write mountで構成解決。公開参照IdPに対するCompose相当の実行で`READY_FOR_IDP_LOGIN`を確認。
+- wheel: 258ファイル中、共有署名方式、OIDCプリフライトの7 module、CLI entry pointを確認。配布ZIPは388ファイルのchecksumが一致。
+- 未実施: 利用予定の環境固有IdPによるclient・redirect URI・audience・role登録、管理者同意、実token発行とAPI検証、logout・失効連携。公開参照IdPの結果は環境固有IdPの受入を表さない。
+
 # v2.9 Phase 2E 実行検証記録
 
 Date: 2026-09-13 JST

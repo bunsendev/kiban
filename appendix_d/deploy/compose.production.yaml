@@ -322,6 +322,33 @@ services:
       - ${KIBAN_ACCEPTANCE_DIR:?KIBAN_ACCEPTANCE_DIR is required}:/var/lib/kiban/acceptance
       - ${KIBAN_PREFLIGHT_DIR:?KIBAN_PREFLIGHT_DIR is required}:/var/lib/kiban/preflight
 
+  oidc-preflight:
+    profiles: ["preflight"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command:
+      - kiban-oidc-preflight
+      - --issuer
+      - ${KIBAN_OIDC_ISSUER:?KIBAN_OIDC_ISSUER is required}
+      - --authorization-url
+      - ${KIBAN_OIDC_AUTHORIZATION_URL:?KIBAN_OIDC_AUTHORIZATION_URL is required}
+      - --token-url
+      - ${KIBAN_OIDC_TOKEN_URL:?KIBAN_OIDC_TOKEN_URL is required}
+      - --jwks-url
+      - ${KIBAN_OIDC_JWKS_URL:?KIBAN_OIDC_JWKS_URL is required}
+      - --algorithms
+      - ${KIBAN_OIDC_ALGORITHMS:-RS256}
+      - --output-root
+      - /var/lib/kiban/oidc-preflight
+    networks:
+      - edge
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ${KIBAN_OIDC_PREFLIGHT_DIR:?KIBAN_OIDC_PREFLIGHT_DIR is required}:/var/lib/kiban/oidc-preflight
+
   selection-worker:
     <<: *worker-base
     command:

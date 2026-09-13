@@ -8,11 +8,9 @@ from urllib.parse import urlsplit
 
 import jwt
 
+from ..oidc_algorithms import ASYMMETRIC_ALGORITHMS
 from .authentication import Principal, Role
 
-_ASYMMETRIC_ALGORITHMS = frozenset(
-    {"RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "EdDSA"}
-)
 _CLAIM_NAME = re.compile(r"^[A-Za-z0-9_.:-]{1,200}$")
 
 
@@ -39,7 +37,7 @@ class OidcSettings:
             raise ValueError("OIDC audienceは1文字以上500文字以下です")
         if not _CLAIM_NAME.fullmatch(self.role_claim):
             raise ValueError("OIDC role claimが不正です")
-        if not self.algorithms or not set(self.algorithms) <= _ASYMMETRIC_ALGORITHMS:
+        if not self.algorithms or not set(self.algorithms) <= ASYMMETRIC_ALGORITHMS:
             raise ValueError("OIDC algorithmは許可された非対称署名方式を指定します")
         if len(set(self.algorithms)) != len(self.algorithms):
             raise ValueError("OIDC algorithmは重複できません")
@@ -78,11 +76,7 @@ def _subject(claims: dict) -> str | None:
     if not isinstance(subject, str):
         return None
     subject = subject.strip()
-    if (
-        not subject
-        or len(subject) > 200
-        or any(ord(character) < 32 for character in subject)
-    ):
+    if not subject or len(subject) > 200 or any(ord(character) < 32 for character in subject):
         return None
     return subject
 
@@ -90,9 +84,7 @@ def _subject(claims: dict) -> str | None:
 def _roles(value, mapping: tuple[tuple[str, Role], ...]) -> tuple[Role, ...]:
     if isinstance(value, str):
         raw_roles = [value]
-    elif isinstance(value, (list, tuple)) and all(
-        isinstance(item, str) for item in value
-    ):
+    elif isinstance(value, (list, tuple)) and all(isinstance(item, str) for item in value):
         raw_roles = value
     else:
         return ()

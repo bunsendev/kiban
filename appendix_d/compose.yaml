@@ -253,6 +253,28 @@ services:
       - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots
       - ${KIBAN_ACCEPTANCE_DIR:-./acceptance_output}:/var/lib/kiban/acceptance
       - ${KIBAN_PREFLIGHT_DIR:-./preflight_output}:/var/lib/kiban/preflight
+  oidc-preflight:
+    profiles: ["preflight"]
+    build: .
+    command:
+      - kiban-oidc-preflight
+      - --issuer
+      - ${KIBAN_OIDC_ISSUER:-https://id.example.test/tenant}
+      - --authorization-url
+      - ${KIBAN_OIDC_AUTHORIZATION_URL:-https://id.example.test/tenant/authorize}
+      - --token-url
+      - ${KIBAN_OIDC_TOKEN_URL:-https://id.example.test/tenant/token}
+      - --jwks-url
+      - ${KIBAN_OIDC_JWKS_URL:-https://id.example.test/tenant/jwks}
+      - --algorithms
+      - ${KIBAN_OIDC_ALGORITHMS:-RS256}
+      - --output-root
+      - /var/lib/kiban/oidc-preflight
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ${KIBAN_OIDC_PREFLIGHT_DIR:-./oidc_preflight_output}:/var/lib/kiban/oidc-preflight
   selection-worker:
     profiles: ["worker"]
     build: .
