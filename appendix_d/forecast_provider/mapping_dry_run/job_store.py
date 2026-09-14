@@ -29,7 +29,14 @@ class SqliteMappingDryRunJobStore:
 
     @staticmethod
     def _job(row) -> MappingDryRunJob:
-        return MappingDryRunJob(**dict(row))
+        values = dict(row)
+        for name in ("requested_at", "started_at", "finished_at"):
+            value = values.get(name)
+            if isinstance(value, datetime):
+                if value.tzinfo is None:
+                    value = value.replace(tzinfo=UTC)
+                values[name] = value.astimezone(UTC).isoformat()
+        return MappingDryRunJob(**values)
 
     def enqueue(
         self, source_path: str, mapping_id: str, requested_by: str, sample_rows: int
@@ -140,6 +147,18 @@ class PostgresMappingDryRunJobStore(SqliteMappingDryRunJobStore):
             for statement in sql.split(";"):
                 if statement.strip():
                     db.execute(statement)
+            for column in ("requested_at", "started_at", "finished_at"):
+                row = db.execute(
+                    "SELECT data_type FROM information_schema.columns "
+                    "WHERE table_schema=current_schema() "
+                    "AND table_name='mapping_dry_run_jobs' AND column_name=%s",
+                    (column,),
+                ).fetchone()
+                if row and row["data_type"] == "timestamp without time zone":
+                    db.execute(
+                        f"ALTER TABLE mapping_dry_run_jobs ALTER COLUMN {column} "
+                        f"TYPE TIMESTAMPTZ USING {column} AT TIME ZONE 'UTC'"
+                    )
 
     def claim(self) -> MappingDryRunJob | None:
         with self._connect() as db:

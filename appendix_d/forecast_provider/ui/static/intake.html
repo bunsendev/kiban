@@ -45,42 +45,60 @@
       <article class="summary-card accent-cyan"><span>正規化済み行</span><strong id="normalized-row-count">—</strong></article>
     </section>
 
-    <section class="intake-actions" aria-label="原本処理の登録">
-      <details class="intake-drawer">
-        <summary>00 ローカルデータ検証jobを登録</summary>
-        <form id="dry-run-job-form" class="drawer-form compact-form">
-          <label>管理対象入力rootからのCSV相対path<input id="dry-run-source-path" required placeholder="batch/shipments.csv"></label>
-          <label>登録済み列mapping<select id="dry-run-mapping" required></select></label>
+    <section class="validation-wizard" aria-labelledby="validation-wizard-title">
+      <header class="wizard-header">
+        <div><span class="eyebrow">LOCAL DATA CHECK</span><h2 id="validation-wizard-title">はじめてのデータ検証</h2></div>
+        <p>CSVと列の対応付けを選ぶだけで、元データを変更せずに検査します。</p>
+      </header>
+      <form id="dry-run-job-form" class="wizard-grid">
+        <article id="wizard-source-step" class="wizard-step">
+          <div class="card-heading"><span class="step-number">01</span><div><h3>CSVを選ぶ</h3><p>管理対象フォルダー内のCSVだけを表示します。</p></div></div>
+          <label>検証するCSV<select id="dry-run-source-path" required></select></label>
+          <p id="dry-run-source-info" class="selection-help">接続するとCSVの情報を表示します。</p>
+        </article>
+        <article id="wizard-mapping-step" class="wizard-step">
+          <div class="card-heading"><span class="step-number">02</span><div><h3>列の対応付けを選ぶ</h3><p>CSVの列を日付、JAN、数量などに対応付けます。</p></div></div>
+          <label>列の対応付け<select id="dry-run-mapping" required></select></label>
+          <p id="dry-run-mapping-info" class="selection-help">登録済みの対応付けから選択します。</p>
+          <button id="open-mapping-button" class="button quiet" type="button">新しい対応付けを作成</button>
+        </article>
+        <article id="wizard-run-step" class="wizard-step">
+          <div class="card-heading"><span class="step-number">03</span><div><h3>検証を実行する</h3><p>完了まで画面が自動更新されます。</p></div></div>
           <label>検査する最大行数<input id="dry-run-sample-rows" type="number" min="1" max="10000" value="1000" required></label>
-          <p class="field-note">原値をAPIへ送らず、Workerが管理領域内のCSVを検査します。</p>
-          <button class="button primary" data-permission="ANALYZE" type="submit">検証jobを登録</button>
+          <p class="field-note">CSVの中身はAPIや検査証跡へ保存しません。</p>
+          <button id="dry-run-submit" class="button primary wide" data-permission="ANALYZE" data-blocked="true" type="submit">このCSVを検証</button>
+        </article>
+      </form>
+      <div id="validation-progress" class="validation-progress" role="status">CSVと列の対応付けを選択してください。</div>
+    </section>
+
+    <section class="advanced-heading"><div><span class="eyebrow">ADVANCED OPERATIONS</span><h2>列設定と原本取込</h2></div><p>列の対応付けを追加するときや、検証後の原本を取り込むときに使用します。</p></section>
+    <section class="intake-actions" aria-label="列設定と原本取込">
+      <details id="mapping-drawer" class="intake-drawer">
+        <summary>列の対応付けを作成</summary>
+        <form id="mapping-form" class="drawer-form mapping-form">
+          <label>日付列<input id="mapping-date" value="出荷日" required></label>
+          <label>JAN列<input id="mapping-jan" value="JANコード" required></label>
+          <label>商品名列<input id="mapping-product" value="商品名称" required></label>
+          <label>数量列<input id="mapping-quantity" value="出荷数量" required></label>
+          <label>単位列<input id="mapping-unit" value="数量単位" required></label>
+          <label>拠点の指定方法<select id="mapping-center-mode"><option value="COLUMN">CSVの列</option><option value="FIXED">すべて同じ拠点</option></select></label>
+          <label>拠点列または固定値<input id="mapping-center" value="物流拠点" required></label>
+          <label>明細種別列<input id="mapping-row-type" value="明細種別"></label>
+          <label>データの利用可能時点<select id="mapping-availability"><option value="ASSUMED">出荷日の翌日から利用</option><option value="OBSERVED">CSVの時刻列を使用</option></select></label>
+          <label>利用可能時刻列<input id="mapping-available-at" disabled></label>
+          <label>ファイルの更新方式<select id="mapping-file-mode"><option value="FULL">全件ファイル</option><option value="DELTA">差分ファイル</option></select></label>
+          <label>日付形式<input id="mapping-date-formats" value="%Y/%m/%d" required><span class="field-note">複数ある場合はカンマ区切り</span></label>
+          <label>許可する単位<input id="mapping-units" value="個" required><span class="field-note">複数ある場合はカンマ区切り</span></label>
+          <button class="button primary span-all" data-permission="ANALYZE" type="submit">この対応付けを登録</button>
         </form>
       </details>
       <details class="intake-drawer">
-        <summary>01 原本取込jobを登録</summary>
+        <summary>検証済みの原本を取り込む</summary>
         <form id="import-form" class="drawer-form compact-form">
           <label>管理対象入力rootからの相対path<input id="import-source-path" required placeholder="batch/shipments.zip"></label>
           <p class="field-note">ローカルPCの任意pathやブラウザーuploadではなく、サーバー管理領域内の相対pathを指定します。</p>
           <button class="button primary" data-permission="ANALYZE" type="submit">取込jobを登録</button>
-        </form>
-      </details>
-      <details class="intake-drawer">
-        <summary>02 列mappingを登録</summary>
-        <form id="mapping-form" class="drawer-form mapping-form">
-          <label>日付列<input id="mapping-date" value="出荷日" required></label>
-          <label>JAN列<input id="mapping-jan" value="JAN" required></label>
-          <label>商品名列<input id="mapping-product" value="商品名" required></label>
-          <label>数量列<input id="mapping-quantity" value="数量" required></label>
-          <label>単位列<input id="mapping-unit" value="単位" required></label>
-          <label>center取得方法<select id="mapping-center-mode"><option value="COLUMN">原本列</option><option value="FIXED">固定値</option></select></label>
-          <label>center列または固定値<input id="mapping-center" value="センター" required></label>
-          <label>行区分列<input id="mapping-row-type" value="行区分"></label>
-          <label>availability mode<select id="mapping-availability"><option value="ASSUMED">ASSUMED</option><option value="OBSERVED">OBSERVED</option></select></label>
-          <label>利用可能時刻列<input id="mapping-available-at" disabled></label>
-          <label>file mode<select id="mapping-file-mode"><option value="FULL">FULL</option><option value="DELTA">DELTA</option></select></label>
-          <label>日付形式<input id="mapping-date-formats" value="%Y/%m/%d" required><span class="field-note">カンマ区切り</span></label>
-          <label>許可単位<input id="mapping-units" value="PACK" required><span class="field-note">カンマ区切り</span></label>
-          <button class="button primary span-all" data-permission="ANALYZE" type="submit">列mappingを登録</button>
         </form>
       </details>
     </section>
@@ -115,14 +133,15 @@
         <div id="dry-run-job-detail" hidden>
           <header class="detail-header"><div><span class="eyebrow">LOCAL VALIDATION JOB</span><h2 id="dry-run-job-title">—</h2><code id="dry-run-job-id">—</code></div><div id="dry-run-job-status"></div></header>
           <div id="dry-run-job-lineage" class="lineage-grid"></div>
-          <section class="ledger-card"><div class="subheading"><h3>実行状態</h3><span>Worker処理</span></div><p id="dry-run-job-message">—</p></section>
+          <section class="ledger-card"><div class="subheading"><h3>実行状態</h3><span>Worker処理</span></div><p id="dry-run-job-message">—</p><button id="dry-run-job-report-button" class="button secondary" type="button" hidden>このジョブの検証結果を表示</button></section>
         </div>
 
         <div id="dry-run-detail" hidden>
           <header class="detail-header"><div><span class="eyebrow">MAPPING DRY RUN</span><h2 id="dry-run-title">—</h2><code id="dry-run-id">—</code></div><div id="dry-run-status"></div></header>
           <div id="dry-run-lineage" class="lineage-grid"></div>
           <section id="dry-run-observations" class="reconciliation-grid"></section>
-          <div class="table-wrap"><table><caption>検査項目</caption><thead><tr><th>check ID</th><th>判定</th></tr></thead><tbody id="dry-run-check-list"></tbody></table></div>
+          <section id="dry-run-guidance" class="result-guidance"></section>
+          <div class="table-wrap"><table><caption>検査項目</caption><thead><tr><th>検査内容</th><th>判定</th><th>確認・修正方法</th></tr></thead><tbody id="dry-run-check-list"></tbody></table></div>
           <section class="ledger-card"><div class="subheading"><h3>隔離理由</h3><span>固定code・件数のみ</span></div><div id="dry-run-reason-list" class="record-list"></div></section>
           <section class="ledger-card"><div class="subheading"><h3>判定の制約</h3><span>実データ受入ではありません</span></div><ul id="dry-run-limitation-list" class="dry-run-limitations"></ul></section>
         </div>

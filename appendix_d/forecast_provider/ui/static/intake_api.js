@@ -12,7 +12,8 @@ export function loadIntakeDashboard() {
     request("/api/quality"),
     request("/api/mapping-dry-runs"),
     request("/api/mapping-dry-run-jobs"),
-  ]).then(([session, imports, mappings, selections, normalizations, quality, dryRunCatalog, dryRunJobs]) => ({
+    request("/api/mapping-dry-run-sources"),
+  ]).then(([session, imports, mappings, selections, normalizations, quality, dryRunCatalog, dryRunJobs, sourceCatalog]) => ({
     session,
     imports,
     mappings,
@@ -24,6 +25,8 @@ export function loadIntakeDashboard() {
     validDryRunCount: dryRunCatalog.valid_report_count,
     invalidDryRunCount: dryRunCatalog.invalid_report_count,
     dryRunJobs,
+    sources: sourceCatalog.items,
+    sourceCatalogConfigured: sourceCatalog.configured,
   }));
 }
 

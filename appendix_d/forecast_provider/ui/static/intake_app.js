@@ -20,6 +20,7 @@ import {
   renderMappingDryRunJobDetail,
   renderNormalizationDetail,
   renderSummary,
+  renderValidationSetup,
   showDetail,
 } from "./intake_render.js";
 
@@ -32,6 +33,8 @@ const state = {
   rowStatus: "",
   permissions: new Set(),
   busy: false,
+  pollTimer: null,
+  pollAttempts: 0,
 };
 
 const byId = (id) => document.getElementById(id);
@@ -43,13 +46,62 @@ const elements = {
   sessionIdentity: byId("session-identity"),
   refresh: byId("refresh-button"),
   disconnect: byId("disconnect-button"),
+  dryRunJobReport: byId("dry-run-job-report-button"),
   dryRunJobSearch: byId("dry-run-job-search"),
+  dryRunSource: byId("dry-run-source-path"),
+  dryRunMapping: byId("dry-run-mapping"),
   dryRunSearch: byId("dry-run-search"),
   importSearch: byId("import-search"),
   normalizationSearch: byId("normalization-search"),
   rowStatus: byId("row-status"),
   notice: byId("notice"),
+  validationProgress: byId("validation-progress"),
+  mappingDrawer: byId("mapping-drawer"),
 };
+
+function clearDryRunPoll() {
+  if (state.pollTimer !== null) window.clearTimeout(state.pollTimer);
+  state.pollTimer = null;
+}
+
+function scheduleDryRunPoll(jobId) {
+  clearDryRunPoll();
+  if (state.pollAttempts >= 30) {
+    elements.validationProgress.className = "validation-progress warning";
+    elements.validationProgress.textContent = "処理待ちが続いています。Workerが起動しているか確認し、必要に応じて「更新」を押してください。";
+    return;
+  }
+  state.pollTimer = window.setTimeout(() => pollDryRunJob(jobId), 2000);
+}
+
+async function pollDryRunJob(jobId) {
+  state.pollTimer = null;
+  if (state.selectedKind !== "dry_run_job" || state.selectedId !== jobId) return;
+  if (state.busy) {
+    scheduleDryRunPoll(jobId);
+    return;
+  }
+  state.pollAttempts += 1;
+  try {
+    const job = await loadMappingDryRunJob(jobId);
+    state.detail = job;
+    const summary = state.dashboard?.dryRunJobs.find((item) => item.job_id === jobId);
+    if (summary) Object.assign(summary, job);
+    drawLists();
+    renderMappingDryRunJobDetail(job);
+    if (["QUEUED", "RUNNING"].includes(job.status)) {
+      scheduleDryRunPoll(jobId);
+      return;
+    }
+    await refreshDashboard({ kind: "dry_run_job", id: jobId });
+    if (job.status === "SUCCEEDED" && job.report_sha256) {
+      await selectJob("dry_run", job.report_sha256);
+      notice("検証が完了しました。判定と修正方法を表示しています。", "success");
+    }
+  } catch (error) {
+    handleError(error);
+  }
+}
 
 function notice(message, tone = "") {
   elements.notice.className = `notice${tone ? ` ${tone}` : ""}`;
@@ -96,6 +148,8 @@ async function selectJob(kind, id, { status = "", offset = 0 } = {}) {
   const samePage = kind === state.selectedKind && id === state.selectedId
     && (kind !== "normalization" || (state.page?.offset === offset && state.rowStatus === status));
   if (samePage) return;
+  clearDryRunPoll();
+  if (kind !== "dry_run_job") state.pollAttempts = 0;
   setBusy(true);
   const loadingMessages = {
     dry_run_job: "ローカルデータ検証jobを読み込んでいます。",
@@ -115,10 +169,11 @@ async function selectJob(kind, id, { status = "", offset = 0 } = {}) {
       renderMappingDryRunJobDetail(state.detail);
       notice(
         state.detail.status === "SUCCEEDED"
-          ? "検証jobは完了しました。ドライラン一覧から判定を確認できます。"
+          ? "検証jobは完了しました。このジョブの検証結果を表示できます。"
           : "検証Workerの完了後に更新してください。",
         state.detail.status === "SUCCEEDED" ? "success" : "",
       );
+      if (["QUEUED", "RUNNING"].includes(state.detail.status)) scheduleDryRunPoll(id);
     } else if (kind === "dry_run") {
       state.detail = await loadMappingDryRun(id);
       state.page = null;
@@ -247,8 +302,9 @@ byId("dry-run-job-form").addEventListener("submit", async (event) => {
       sample_rows: Number(value("dry-run-sample-rows")),
     });
     setBusy(false);
+    state.pollAttempts = 0;
     await refreshDashboard({ kind: "dry_run_job", id: created.id });
-    notice("検証jobを登録しました。Worker完了後に更新してください。", "success");
+    notice("検証を開始しました。完了まで自動で更新します。", "success");
   } catch (error) {
     handleError(error);
   } finally {
@@ -262,10 +318,13 @@ byId("mapping-form").addEventListener("submit", async (event) => {
   setBusy(true);
   notice("列、時点方式、許可単位を検証しています。");
   try {
-    await createMapping(mappingPayload(byId));
+    const created = await createMapping(mappingPayload(byId));
     setBusy(false);
     await refreshDashboard();
-    notice("内容アドレス方式の列mappingを登録しました。", "success");
+    elements.dryRunMapping.value = created.id;
+    renderValidationSetup(state.dashboard);
+    elements.mappingDrawer.open = false;
+    notice("列の対応付けを登録し、検証フォームへ設定しました。", "success");
   } catch (error) {
     handleError(error);
   } finally {
@@ -328,7 +387,12 @@ elements.connectionForm.addEventListener("submit", async (event) => {
   }
 });
 elements.refresh.addEventListener("click", () => refreshDashboard());
+elements.dryRunJobReport.addEventListener("click", () => {
+  const reportSha256 = elements.dryRunJobReport.dataset.reportSha256;
+  if (reportSha256) selectJob("dry_run", reportSha256);
+});
 elements.disconnect.addEventListener("click", () => {
+  clearDryRunPoll();
   clearToken();
   state.dashboard = null;
   state.selectedKind = null;
@@ -353,6 +417,8 @@ elements.disconnect.addEventListener("click", () => {
     imports: [],
     normalizations: [],
     quality: { files: {} },
+    sources: [],
+    sourceCatalogConfigured: false,
   });
   replaceListsAfterDisconnect();
   showDetail();
@@ -375,6 +441,13 @@ elements.dryRunJobSearch.addEventListener("input", drawLists);
 elements.dryRunSearch.addEventListener("input", drawLists);
 elements.importSearch.addEventListener("input", drawLists);
 elements.normalizationSearch.addEventListener("input", drawLists);
+elements.dryRunSource.addEventListener("change", () => renderValidationSetup(state.dashboard));
+elements.dryRunMapping.addEventListener("change", () => renderValidationSetup(state.dashboard));
+byId("open-mapping-button").addEventListener("click", () => {
+  elements.mappingDrawer.open = true;
+  elements.mappingDrawer.scrollIntoView({ behavior: "smooth", block: "start" });
+  byId("mapping-date").focus();
+});
 byId("mapping-availability").addEventListener("change", () => syncAvailability(byId));
 elements.rowStatus.addEventListener("change", () =>
   selectJob("normalization", state.selectedId, { status: elements.rowStatus.value, offset: 0 }));

@@ -10,6 +10,7 @@ from ..catalog import CatalogStore
 from ..errors import ContractViolationError
 from ..jobs.contracts import RunStore
 from ..mapping_dry_run.catalog import MappingDryRunCatalog
+from ..mapping_dry_run.sources import MappingDryRunSourceCatalog
 from ..ui import install_ui_routes
 from .acceptance_routes import install_acceptance_routes
 from .daily_routes import install_daily_routes
@@ -76,6 +77,7 @@ def create_app(
     oidc_login_settings: OidcLoginSettings | None = None,
     mapping_dry_run_root: Path | None = None,
     mapping_dry_run_jobs=None,
+    mapping_dry_run_input_root: Path | None = None,
 ) -> FastAPI:
     if isinstance(api_token, str) and not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -110,6 +112,7 @@ def create_app(
         MappingDryRunCatalog(mapping_dry_run_root),
         mapping_dry_run_jobs,
         normalization,
+        MappingDryRunSourceCatalog(mapping_dry_run_input_root),
     )
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)
