@@ -1,5 +1,5 @@
-.intake-actions { display: grid; grid-template-columns: minmax(260px, 0.7fr) minmax(420px, 1.3fr); gap: 0.8rem; margin-bottom: 1rem; }
-.intake-summary-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.intake-actions { display: grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); gap: 0.8rem; margin-bottom: 1rem; }
+.intake-summary-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .intake-rail .intake-list { max-height: 230px; }
 .dry-run-limitations { margin-bottom: 0; padding-left: 1.25rem; color: var(--muted); }
 .intake-drawer { background: var(--surface); border: 1px solid var(--line); box-shadow: 0 5px 16px rgba(22, 40, 66, 0.04); }

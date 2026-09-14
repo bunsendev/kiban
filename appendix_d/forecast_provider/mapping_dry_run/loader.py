@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePath
 
 from ..ingestion.processor import detect_encoding
+from ..normalization.contracts import ColumnMapping
 from ..normalization.domain import make_mapping
 from .contracts import DryRunLimits, InputFailure
 
@@ -74,4 +75,15 @@ def load_mapping(mapping_file: Path, limits: DryRunLimits):
     except InputFailure:
         raise
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise InputFailure("MAPPING_CONTRACT") from exc
+
+
+def validate_mapping(mapping: ColumnMapping) -> ColumnMapping:
+    """台帳から読んだ不変mappingを同じcontractで再検証する。"""
+    try:
+        validated = make_mapping(mapping.definition)
+        if validated != mapping:
+            raise ValueError
+        return validated
+    except ValueError as exc:
         raise InputFailure("MAPPING_CONTRACT") from exc

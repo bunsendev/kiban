@@ -17,7 +17,7 @@ from .contracts import (
     check,
 )
 from .inspector import inspect_sample
-from .loader import load_mapping, load_source
+from .loader import load_mapping, load_source, validate_mapping
 from .report import fingerprint, publish_report
 
 
@@ -30,10 +30,10 @@ def _outcome(checks: list[dict]) -> str:
     return "READY_FOR_NORMALIZATION"
 
 
-def collect_dry_run(
+def _collect_dry_run(
     input_root: Path,
     relative_source: str,
-    mapping_file: Path,
+    mapping_loader,
     limits: DryRunLimits = DEFAULT_LIMITS,
     *,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
@@ -41,7 +41,7 @@ def collect_dry_run(
     checks: list[dict] = []
     conditions = {"suite_id": SUITE_ID, "limits": limits.as_dict()}
     try:
-        mapping = load_mapping(mapping_file, limits)
+        mapping = mapping_loader()
         checks.append(check("MAPPING_CONTRACT", True, True, True))
         conditions["mapping_id"] = mapping.mapping_id
         source = load_source(input_root, relative_source, limits)
@@ -102,6 +102,40 @@ def collect_dry_run(
         "observations": observations,
         "limitations": list(LIMITATIONS),
     }
+
+
+def collect_dry_run(
+    input_root: Path,
+    relative_source: str,
+    mapping_file: Path,
+    limits: DryRunLimits = DEFAULT_LIMITS,
+    *,
+    now: Callable[[], datetime] = lambda: datetime.now(UTC),
+) -> dict:
+    return _collect_dry_run(
+        input_root,
+        relative_source,
+        lambda: load_mapping(mapping_file, limits),
+        limits,
+        now=now,
+    )
+
+
+def collect_dry_run_for_mapping(
+    input_root: Path,
+    relative_source: str,
+    mapping,
+    limits: DryRunLimits = DEFAULT_LIMITS,
+    *,
+    now: Callable[[], datetime] = lambda: datetime.now(UTC),
+) -> dict:
+    return _collect_dry_run(
+        input_root,
+        relative_source,
+        lambda: validate_mapping(mapping),
+        limits,
+        now=now,
+    )
 
 
 def run_dry_run(

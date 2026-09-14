@@ -8,6 +8,7 @@ from forecast_provider.api import create_app
 from forecast_provider.catalog import SqliteCatalogStore
 from forecast_provider.ingestion import SqliteIngestionStore
 from forecast_provider.jobs import SqliteRunStore
+from forecast_provider.mapping_dry_run import SqliteMappingDryRunJobStore
 from forecast_provider.master import SqliteMasterStore
 from forecast_provider.normalization import SqliteNormalizationStore
 
@@ -179,6 +180,7 @@ def test_intake_ui_serves_paginated_modules_with_complete_dom_contract(tmp_path)
             "token",
             ingestion=SqliteIngestionStore(database),
             normalization=SqliteNormalizationStore(database),
+            mapping_dry_run_jobs=SqliteMappingDryRunJobStore(database),
         )
     )
 
@@ -207,6 +209,8 @@ def test_intake_ui_serves_paginated_modules_with_complete_dom_contract(tmp_path)
     assert 'request("/api/imports")' in client.text
     assert 'request("/api/mappings")' in client.text
     assert 'request("/api/mapping-dry-runs")' in client.text
+    assert 'request("/api/mapping-dry-run-jobs")' in client.text
+    assert "00 ローカルデータ検証jobを登録" in page.text
     assert "/row-page?" in client.text
     assert 'data-permission="ANALYZE"' in page.text
     assert 'data-permission="APPROVE"' in page.text

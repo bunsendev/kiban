@@ -12,6 +12,7 @@ from ..evaluation_registry import PostgresEvaluationRegistryStore
 from ..ingestion import PostgresIngestionStore
 from ..jobs import PostgresRunStore
 from ..lifecycle import PostgresLifecycleStore
+from ..mapping_dry_run import PostgresMappingDryRunJobStore
 from ..master import PostgresMasterStore
 from ..normalization import PostgresNormalizationStore
 from ..reporting import PostgresReportingStore
@@ -182,6 +183,7 @@ def from_environment():
     reporting_root = Path(report_root)
     mapping_dry_run_value = os.environ.get("KIBAN_MAPPING_DRY_RUN_DIR")
     mapping_dry_run_root = Path(mapping_dry_run_value) if mapping_dry_run_value else None
+    mapping_dry_run_jobs = PostgresMappingDryRunJobStore(dsn)
     readiness_checks = {
         "postgres": lambda: _postgres_readiness(dsn),
         "snapshot_root": lambda: _readable_directory(snapshot_root),
@@ -210,4 +212,5 @@ def from_environment():
         lifecycle=PostgresLifecycleStore(dsn),
         oidc_login_settings=load_oidc_login_settings(os.environ),
         mapping_dry_run_root=mapping_dry_run_root,
+        mapping_dry_run_jobs=mapping_dry_run_jobs,
     )

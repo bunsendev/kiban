@@ -302,6 +302,26 @@ services:
       - ${KIBAN_IMPORT_DIR:-./import_input}:/var/lib/kiban/import-input:ro
       - ${KIBAN_MAPPING_FILE:-./deploy/mapping.example.json}:/etc/kiban/mapping.json:ro
       - ${KIBAN_MAPPING_DRY_RUN_DIR:-./mapping_dry_run_output}:/var/lib/kiban/mapping-dry-run
+  mapping-dry-run-worker:
+    profiles: ["worker"]
+    build: .
+    command:
+      - kiban-mapping-dry-run-worker
+      - --postgres-dsn
+      - postgresql://kiban:local-development-only@postgres:5432/kiban
+      - --input-root
+      - /var/lib/kiban/import-input
+      - --output-root
+      - /var/lib/kiban/mapping-dry-run
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ${KIBAN_IMPORT_DIR:-./import_input}:/var/lib/kiban/import-input:ro
+      - ${KIBAN_MAPPING_DRY_RUN_DIR:-./mapping_dry_run_output}:/var/lib/kiban/mapping-dry-run
   selection-worker:
     profiles: ["worker"]
     build: .

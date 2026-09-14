@@ -11,7 +11,8 @@ export function loadIntakeDashboard() {
     request("/api/normalizations"),
     request("/api/quality"),
     request("/api/mapping-dry-runs"),
-  ]).then(([session, imports, mappings, selections, normalizations, quality, dryRunCatalog]) => ({
+    request("/api/mapping-dry-run-jobs"),
+  ]).then(([session, imports, mappings, selections, normalizations, quality, dryRunCatalog, dryRunJobs]) => ({
     session,
     imports,
     mappings,
@@ -22,7 +23,19 @@ export function loadIntakeDashboard() {
     dryRunConfigured: dryRunCatalog.configured,
     validDryRunCount: dryRunCatalog.valid_report_count,
     invalidDryRunCount: dryRunCatalog.invalid_report_count,
+    dryRunJobs,
   }));
+}
+
+export function createMappingDryRunJob(payload) {
+  return request("/api/mapping-dry-run-jobs", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function loadMappingDryRunJob(jobId) {
+  return request(`/api/mapping-dry-run-jobs/${encoded(jobId)}`);
 }
 
 export function loadMappingDryRun(reportSha256) {
