@@ -211,6 +211,8 @@ def test_intake_ui_serves_paginated_modules_with_complete_dom_contract(tmp_path)
     assert 'request("/api/mapping-dry-runs")' in client.text
     assert 'request("/api/mapping-dry-run-jobs")' in client.text
     assert "00 ローカルデータ検証jobを登録" in page.text
+    assert "このジョブの検証結果を表示" in page.text
+    assert 'selectJob("dry_run", reportSha256)' in app.text
     assert "/row-page?" in client.text
     assert 'data-permission="ANALYZE"' in page.text
     assert 'data-permission="APPROVE"' in page.text

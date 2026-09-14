@@ -160,9 +160,14 @@ export function renderMappingDryRunJobDetail(job) {
     QUEUED: "Workerの処理を待っています。更新すると最新状態を確認できます。",
     RUNNING: "管理対象CSVを検査しています。原値は証跡へ保存しません。",
     FAILED: "実行基盤で処理できませんでした。エラーcodeを確認してください。",
-    SUCCEEDED: "検査証跡を作成しました。ドライラン一覧から判定を確認できます。",
+    SUCCEEDED: "検査証跡を作成しました。下のボタンからこのジョブの判定を確認できます。",
   };
   document.getElementById("dry-run-job-message").textContent = messages[job.status] || "—";
+  const reportButton = document.getElementById("dry-run-job-report-button");
+  reportButton.dataset.reportSha256 = job.report_sha256 || "";
+  reportButton.dataset.blocked = String(!job.report_sha256);
+  reportButton.disabled = !job.report_sha256;
+  reportButton.hidden = !job.report_sha256;
   showDetail("dry_run_job");
 }
 

@@ -43,6 +43,7 @@ const elements = {
   sessionIdentity: byId("session-identity"),
   refresh: byId("refresh-button"),
   disconnect: byId("disconnect-button"),
+  dryRunJobReport: byId("dry-run-job-report-button"),
   dryRunJobSearch: byId("dry-run-job-search"),
   dryRunSearch: byId("dry-run-search"),
   importSearch: byId("import-search"),
@@ -115,7 +116,7 @@ async function selectJob(kind, id, { status = "", offset = 0 } = {}) {
       renderMappingDryRunJobDetail(state.detail);
       notice(
         state.detail.status === "SUCCEEDED"
-          ? "検証jobは完了しました。ドライラン一覧から判定を確認できます。"
+          ? "検証jobは完了しました。このジョブの検証結果を表示できます。"
           : "検証Workerの完了後に更新してください。",
         state.detail.status === "SUCCEEDED" ? "success" : "",
       );
@@ -328,6 +329,10 @@ elements.connectionForm.addEventListener("submit", async (event) => {
   }
 });
 elements.refresh.addEventListener("click", () => refreshDashboard());
+elements.dryRunJobReport.addEventListener("click", () => {
+  const reportSha256 = elements.dryRunJobReport.dataset.reportSha256;
+  if (reportSha256) selectJob("dry_run", reportSha256);
+});
 elements.disconnect.addEventListener("click", () => {
   clearToken();
   state.dashboard = null;
