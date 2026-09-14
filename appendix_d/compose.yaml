@@ -26,6 +26,7 @@ services:
       KIBAN_SNAPSHOT_ROOT: /var/lib/kiban/snapshots
       KIBAN_REPORT_ROOT: /var/lib/kiban/reports
       KIBAN_MAPPING_DRY_RUN_DIR: /var/lib/kiban/mapping-dry-run
+      KIBAN_IMPORT_ROOT: /var/lib/kiban/import-input
     ports:
       - "127.0.0.1:58000:8000"
     depends_on:
@@ -35,6 +36,7 @@ services:
       - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots:ro
       - ${KIBAN_REPORT_DIR:-./report_output}:/var/lib/kiban/reports
       - ${KIBAN_MAPPING_DRY_RUN_DIR:-./mapping_dry_run_output}:/var/lib/kiban/mapping-dry-run:ro
+      - ${KIBAN_IMPORT_DIR:-./import_input}:/var/lib/kiban/import-input:ro
   worker:
     profiles: ["worker"]
     build: .

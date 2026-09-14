@@ -183,6 +183,8 @@ def from_environment():
     reporting_root = Path(report_root)
     mapping_dry_run_value = os.environ.get("KIBAN_MAPPING_DRY_RUN_DIR")
     mapping_dry_run_root = Path(mapping_dry_run_value) if mapping_dry_run_value else None
+    import_root_value = os.environ.get("KIBAN_IMPORT_ROOT")
+    import_root = Path(import_root_value) if import_root_value else None
     mapping_dry_run_jobs = PostgresMappingDryRunJobStore(dsn)
     readiness_checks = {
         "postgres": lambda: _postgres_readiness(dsn),
@@ -193,6 +195,8 @@ def from_environment():
         readiness_checks["mapping_dry_run_root"] = lambda: _readable_directory(
             mapping_dry_run_root
         )
+    if import_root is not None:
+        readiness_checks["import_root"] = lambda: _readable_directory(import_root)
     return create_app(
         PostgresRunStore(dsn),
         PostgresCatalogStore(dsn),
@@ -213,4 +217,5 @@ def from_environment():
         oidc_login_settings=load_oidc_login_settings(os.environ),
         mapping_dry_run_root=mapping_dry_run_root,
         mapping_dry_run_jobs=mapping_dry_run_jobs,
+        mapping_dry_run_input_root=import_root,
     )

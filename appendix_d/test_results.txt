@@ -1,3 +1,23 @@
+# v2.9 Phase 2J 実行検証記録
+
+Date: 2026-09-14 JST
+OS: Windows 11
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2J
+
+- pytest: WindowsでLinux専用peak RSS試験1件を除く全432件が成功、13件skip。FastAPI TestClient由来のdeprecation warning 2件。Linux Docker試験はDocker Desktopの残留socket障害により未実施。
+- ruff / lint: `ruff check .`と`check_lint.py`が成功。JavaScript moduleはNode.js `--check`で構文検査。
+- 初回操作: `/ui/intake`をCSV選択、列の対応付け、検証実行の3手順に整理。mapping作成と検証後の原本取込は詳細操作として分離。
+- CSV候補API: 認証済みREAD利用者へ入力root内の通常CSVだけを列挙。相対path、size、更新時刻、文字コード、headerを返し、symlink、root外path、データ行、絶対pathを除外。
+- 事前案内: CSV headerとmappingの必須列を比較し、不足列を日本語で表示してjob登録を抑止。
+- 自動更新: job登録後は2秒間隔、最大30回で状態を更新し、成功時は該当する検証済み証跡へ移動。待機継続時はWorker確認を案内。
+- 結果案内: 固定check codeとoutcomeを日本語の検査名、判定、確認・修正方法へ変換。履歴は種類ごとに20件へ制限し、表示件数と総数を併記。
+- 時刻: PostgreSQL job列を`TIMESTAMPTZ`へ変更し、旧naive timestampをUTCとして移行。APIはUTC offset付きISO 8601、画面はlocal時刻で表示。
+- 未実施: Docker Desktop障害の復旧後に行うPostgreSQL 17実DB、専用Worker、実ブラウザーの結合試験。実業務原本による全行検査と業務判断。
+
 # v2.9 Phase 2I 実行検証記録
 
 Date: 2026-09-14 JST

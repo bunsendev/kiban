@@ -16,6 +16,7 @@ def install_mapping_dry_run_routes(
     catalog: MappingDryRunCatalog,
     jobs=None,
     mappings=None,
+    sources=None,
 ) -> None:
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)
@@ -41,6 +42,15 @@ def install_mapping_dry_run_routes(
         if report is None:
             raise HTTPException(status_code=404, detail="mappingドライラン証跡が見つかりません")
         return report
+
+    if sources is not None:
+
+        @app.get("/api/mapping-dry-run-sources")
+        def list_mapping_dry_run_sources(
+            _principal: Annotated[Principal, Depends(read)],
+            limit: Annotated[int, Query(ge=1, le=500)] = 200,
+        ):
+            return sources.list_sources(limit)
 
     if jobs is None or mappings is None:
         return
