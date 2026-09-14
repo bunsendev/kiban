@@ -1,5 +1,12 @@
 # v2.9 修正記録
 
+## Phase 2K
+
+- Docker Desktopのstale runtime socketをデータ削除せず退避し、backend、PostgreSQL、API、検証Workerを復旧する手順を追加。
+- liveness、readiness、安全なCSV候補、mapping、job、証跡9検査を一続きで確認する実動受入CLIを追加。
+- Workerが初回画面更新より先に完了した場合も、ウィザードが判定と修正方法へ自動移動するよう修正。
+- PostgreSQL 17実DBとブラウザー操作で、人工CSV 1行の採用、隔離0、`READY_FOR_NORMALIZATION`を確認。
+
 ## Phase 2J
 
 - `/ui/intake`の初回データ検証を、CSV選択、列の対応付け、実行の3手順ウィザードへ変更。

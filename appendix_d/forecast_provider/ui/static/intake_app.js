@@ -94,13 +94,17 @@ async function pollDryRunJob(jobId) {
       return;
     }
     await refreshDashboard({ kind: "dry_run_job", id: jobId });
-    if (job.status === "SUCCEEDED" && job.report_sha256) {
-      await selectJob("dry_run", job.report_sha256);
-      notice("検証が完了しました。判定と修正方法を表示しています。", "success");
-    }
+    await openCompletedDryRunReport(job);
   } catch (error) {
     handleError(error);
   }
+}
+
+async function openCompletedDryRunReport(job) {
+  if (job?.status !== "SUCCEEDED" || !job.report_sha256) return false;
+  await selectJob("dry_run", job.report_sha256);
+  notice("検証が完了しました。判定と修正方法を表示しています。", "success");
+  return true;
 }
 
 function notice(message, tone = "") {
@@ -304,7 +308,9 @@ byId("dry-run-job-form").addEventListener("submit", async (event) => {
     setBusy(false);
     state.pollAttempts = 0;
     await refreshDashboard({ kind: "dry_run_job", id: created.id });
-    notice("検証を開始しました。完了まで自動で更新します。", "success");
+    if (!await openCompletedDryRunReport(state.detail)) {
+      notice("検証を開始しました。完了まで自動で更新します。", "success");
+    }
   } catch (error) {
     handleError(error);
   } finally {

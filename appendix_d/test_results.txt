@@ -1,3 +1,25 @@
+# v2.9 Phase 2K 実行検証記録
+
+Date: 2026-09-14 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+Docker Desktop: 4.90.0
+Docker Engine: 29.7.2
+PostgreSQL: 17.11
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2K
+
+- 環境復旧: stale runtime socketをデータ領域と分けて退避し、backend直接起動後にDocker Desktopを接続。既存の約41.85 GiBのDocker data VHDX、volume、imageを削除せず復旧。
+- Compose: `postgres` healthy、`api`と`mapping-dry-run-worker` Up。`/health`は`ok`、`/ready`は`ready`でPostgreSQL、snapshot、report、mapping dry run、import root、認証の全checkが合格。
+- 実動受入CLI: job `e1f73533-bd90-40c6-90f3-a1a8d3125490`で人工CSV 1行を検査し、採用1、隔離0、固定9検査合格、`READY_FOR_NORMALIZATION`、report SHA-256 `d06805d70e7eb87c6bf35f7a2be03befed904c34426e1f0ab9c1a6281c8d3df6`。
+- UI受入: job `ce8079d3-a185-4c55-bb74-465ffa8bb69b`で、初回更新より先にWorkerが完了する条件から判定画面へ自動遷移。日本語の合格案内、採用1、隔離0、固定9検査の全件合格を実ブラウザーで確認。
+- pytest: Linux Dockerの全体実行で配布hash検査を除く463件成功、7件skip。hash更新後に配布hash、Linux peak RSS、Phase 2Kの6件を再実行して成功。WindowsはLinux専用peak RSS 1件を除く436件成功、13件skip。
+- 静的検査: `ruff check .`成功。`intake_app.js`はNode.js `--check`成功。
+- 配布: 420ファイルのmanifest checksum一致、日本語filenameのUTF-8 flagを確認。
+- 制約: 人工CSVによる無更新ドライランであり、原本取込、正規化、業務承認、実データ品質、予測精度を示さない。
+
 # v2.9 Phase 2J 実行検証記録
 
 Date: 2026-09-14 JST

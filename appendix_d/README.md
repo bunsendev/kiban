@@ -88,6 +88,8 @@ UIから検証を開始する場合は`docker compose --profile worker up -d --b
 
 初めて検証する利用者は`/ui/intake`の3手順ウィザードを使う。入力root内のCSV候補とヘッダーを安全に確認し、対応付けとの不足列を実行前に案内する。登録後は完了まで自動更新し、日本語の判定・修正方法へ移動する。詳細は[初回データ検証ウィザード](docs/Phase2J_初回データ検証ウィザード.md)を参照する。
 
+ローカル環境を一続きで確認する場合は、Docker ComposeでPostgreSQL、API、検証Workerを起動し、tokenを`KIBAN_API_TOKEN`へ設定して`kiban-local-validation-acceptance --source-path <相対CSV> --mapping-id <mapping ID>`を実行する。Docker Desktopのruntime socket障害を含む準備、復旧、UI受入は[ローカル検証環境と実動受入](docs/Phase2K_ローカル検証環境と実動受入.md)を参照する。
+
 ## 本番運用
 
 `deploy/compose.production.yaml`はCaddy、API、PostgreSQL、全Workerとlifecycle schedulerを分離し、外部へは80/443だけを公開する。APIは`/health`、`/ready`、認証付き`/metrics`を提供し、変更操作をsubject付きJSON logへ出力する。DB操作は`kiban-db backup|verify|restore|drill`またはproduction Composeの`db-operations`を使用する。導入・rotation・復元停止手順は[本番運用基盤](docs/Phase1R_本番運用基盤.md)、訓練は[PostgreSQL隔離リカバリ訓練](docs/Phase2D_PostgreSQL隔離リカバリ訓練.md)を参照する。
