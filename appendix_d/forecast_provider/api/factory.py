@@ -180,6 +180,17 @@ def from_environment():
     authenticator, security_settings = load_api_security(os.environ)
     snapshot_root = Path(root)
     reporting_root = Path(report_root)
+    mapping_dry_run_value = os.environ.get("KIBAN_MAPPING_DRY_RUN_DIR")
+    mapping_dry_run_root = Path(mapping_dry_run_value) if mapping_dry_run_value else None
+    readiness_checks = {
+        "postgres": lambda: _postgres_readiness(dsn),
+        "snapshot_root": lambda: _readable_directory(snapshot_root),
+        "report_root": lambda: _writable_directory(reporting_root),
+    }
+    if mapping_dry_run_root is not None:
+        readiness_checks["mapping_dry_run_root"] = lambda: _readable_directory(
+            mapping_dry_run_root
+        )
     return create_app(
         PostgresRunStore(dsn),
         PostgresCatalogStore(dsn),
@@ -195,11 +206,8 @@ def from_environment():
         PostgresReportingStore(dsn),
         reporting_root,
         security_settings=security_settings,
-        readiness_checks={
-            "postgres": lambda: _postgres_readiness(dsn),
-            "snapshot_root": lambda: _readable_directory(snapshot_root),
-            "report_root": lambda: _writable_directory(reporting_root),
-        },
+        readiness_checks=readiness_checks,
         lifecycle=PostgresLifecycleStore(dsn),
         oidc_login_settings=load_oidc_login_settings(os.environ),
+        mapping_dry_run_root=mapping_dry_run_root,
     )

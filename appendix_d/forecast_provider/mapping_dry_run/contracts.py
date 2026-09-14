@@ -7,6 +7,7 @@ from typing import Any
 
 FORMAT_VERSION = "kiban-mapping-dry-run-report/v1"
 SUITE_ID = "kiban-mapping-dry-run/v1"
+OUTCOMES = frozenset({"READY_FOR_NORMALIZATION", "REVIEW_REQUIRED", "BLOCKED"})
 BLOCKING_CHECKS = frozenset(
     {
         "SOURCE_PATH_SAFE",
@@ -19,6 +20,12 @@ BLOCKING_CHECKS = frozenset(
         "SAMPLE_ROWS",
         "QUANTITY_RECONCILIATION",
     }
+)
+CHECK_IDS = BLOCKING_CHECKS | {"SAMPLE_ACCEPTANCE"}
+LIMITATIONS = (
+    "sample外の行品質と全件数量は検査していない。",
+    "ドライランは原本取込、台帳登録、正規化job、業務承認を実行しない。",
+    "READY_FOR_NORMALIZATIONは実データ受入や予測精度を保証しない。",
 )
 
 

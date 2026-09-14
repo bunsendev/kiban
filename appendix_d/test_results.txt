@@ -1,3 +1,24 @@
+# v2.9 Phase 2H 実行検証記録
+
+Date: 2026-09-13 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+PostgreSQL: 17
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2H
+
+- pytest: Linux DockerでPostgreSQL 17実DBと実TimesFM checkpointを含む全459件を実行。FastAPI TestClient由来のdeprecation warning 2件。
+- ruff: All checks passed。JavaScript全moduleをNode.js `--check`で構文検査。
+- 証跡検証: 通常file、256 KiB上限、ファイル名と内容のSHA-256、厳密UTF-8、重複JSON key、固定schema・code・制約、条件から再計算したdry run ID、判定と観測件数の整合性をread時に確認。
+- 改変処理: checksum不一致、未知項目、schema不整合を一覧から除外して件数だけを返し、個別取得は内容・path・例外本文を含まない409にすることを確認。
+- 公開境界: READ認証付き一覧・詳細APIは識別子、上限、判定、検査状態、件数、固定隔離理由code、制約だけを返す。原本path、ファイル名、列名、JAN、商品名、center、日付、数量、行値を人工秘密値で非露出確認。
+- 管理画面: `/ui/intake`にドライラン一覧、検証済み・除外件数、判定、検査状態、隔離理由、制約を追加。狭いviewportでのresponsive表示とbrowser warning/error 0件を確認。
+- Compose: 開発・本番構成を解決。APIは証跡rootをread-only、Phase 2G実行serviceだけをwrite mount。再構築した開発APIはhealth `ok`、readiness `ready`、保存済み人工証跡3件を検証済み・除外0件として取得。
+- wheel: 269ファイル中、証跡schema・縮約・catalog・API routeの4 moduleを確認。配布ZIPは404ファイルのchecksumが一致。
+- 未実施: 実業務原本によるドライラン、サンプル外を含む全行正規化・全件数量照合、隔離理由の業務確認、実データ受入。人工証跡の表示結果は実データ品質や予測精度を表さない。
+
 # v2.9 Phase 2G 実行検証記録
 
 Date: 2026-09-13 JST

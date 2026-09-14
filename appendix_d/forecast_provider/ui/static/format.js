@@ -36,11 +36,11 @@ export function parseList(value) {
 }
 
 export function statusTone(value) {
-  if (["ADOPTED", "APPROVED", "PASSED", "SUCCEEDED", "READY", "PROMOTED", "COMPLETE", "INITIALIZED", "CONFIRMED", "OBSERVED", "CONFIRMED_ZERO", "CLOSED", "ACCEPTED", "SAME_PRODUCT", true].includes(value)) {
+  if (["ADOPTED", "APPROVED", "PASSED", "SUCCEEDED", "READY", "READY_FOR_NORMALIZATION", "PROMOTED", "COMPLETE", "INITIALIZED", "CONFIRMED", "OBSERVED", "CONFIRMED_ZERO", "CLOSED", "ACCEPTED", "SAME_PRODUCT", true].includes(value)) {
     return "positive";
   }
-  if (["REJECTED", "FAILED", "MISSING", "PARTIAL_OR_INVALID", "QUARANTINED", false].includes(value)) return "negative";
-  if (["DRY_RUN", "RUNNING", "QUEUED", "PARTIAL", "ROLLED_BACK", "TENTATIVE", "NOT_HANDLED", "NOT_EVALUATED", "CORRECTION_CANDIDATE", "SUCCESSOR", "UNRESOLVED", "DATE_HANDOFF"].includes(value)) return "warning";
+  if (["REJECTED", "FAILED", "BLOCKED", "MISSING", "PARTIAL_OR_INVALID", "QUARANTINED", false].includes(value)) return "negative";
+  if (["DRY_RUN", "REVIEW_REQUIRED", "RUNNING", "QUEUED", "PARTIAL", "ROLLED_BACK", "TENTATIVE", "NOT_HANDLED", "NOT_EVALUATED", "CORRECTION_CANDIDATE", "SUCCESSOR", "UNRESOLVED", "DATE_HANDOFF"].includes(value)) return "warning";
   return "neutral";
 }
 
@@ -56,6 +56,9 @@ export function decisionLabel(value) {
     RUNNING: "実行中",
     QUEUED: "待機中",
     READY: "昇格可能",
+    READY_FOR_NORMALIZATION: "正規化準備完了",
+    REVIEW_REQUIRED: "要確認",
+    BLOCKED: "停止",
     PROMOTED: "昇格済み",
     INITIALIZED: "初期化",
     ROLLED_BACK: "rollback",

@@ -12,7 +12,7 @@ from ..normalization.processor import normalize_row, required_columns
 from .contracts import InputFailure
 from .loader import SourceInput
 
-_REASON_CODES = {
+REASON_CODES = {
     "日付形式がmappingと一致しません": "INVALID_DATE",
     "数量が数値ではありません": "INVALID_QUANTITY",
     "数量が有限値ではありません": "NON_FINITE_QUANTITY",
@@ -25,6 +25,7 @@ _REASON_CODES = {
     "available_atがISO datetimeではありません": "INVALID_AVAILABLE_AT",
     "available_atはtimezone付きです": "AVAILABLE_AT_WITHOUT_TIMEZONE",
 }
+QUARANTINE_REASON_CODES = frozenset(REASON_CODES.values()) | {"UNCLASSIFIED"}
 
 
 @dataclass(frozen=True)
@@ -40,7 +41,7 @@ class Inspection:
 def _reason_codes(error: str | None) -> list[str]:
     if not error:
         return []
-    return [_REASON_CODES.get(item, "UNCLASSIFIED") for item in error.split("; ")]
+    return [REASON_CODES.get(item, "UNCLASSIFIED") for item in error.split("; ")]
 
 
 def inspect_sample(source: SourceInput, mapping: dict, sample_rows: int) -> Inspection:
