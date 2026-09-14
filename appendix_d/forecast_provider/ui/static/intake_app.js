@@ -3,10 +3,12 @@ import { ApiError, clearToken, setToken } from "./api.js";
 import {
   createImport,
   createMapping,
+  createMappingDryRunJob,
   createNormalization,
   loadImport,
   loadIntakeDashboard,
   loadMappingDryRun,
+  loadMappingDryRunJob,
   loadNormalization,
   selectSource,
 } from "./intake_api.js";
@@ -15,6 +17,7 @@ import {
   renderImportDetail,
   renderJobLists,
   renderMappingDryRunDetail,
+  renderMappingDryRunJobDetail,
   renderNormalizationDetail,
   renderSummary,
   showDetail,
@@ -40,6 +43,7 @@ const elements = {
   sessionIdentity: byId("session-identity"),
   refresh: byId("refresh-button"),
   disconnect: byId("disconnect-button"),
+  dryRunJobSearch: byId("dry-run-job-search"),
   dryRunSearch: byId("dry-run-search"),
   importSearch: byId("import-search"),
   normalizationSearch: byId("normalization-search"),
@@ -78,6 +82,7 @@ function drawLists() {
     state.dashboard,
     { kind: state.selectedKind, id: state.selectedId },
     {
+      dryRunJobs: elements.dryRunJobSearch.value,
       dryRuns: elements.dryRunSearch.value,
       imports: elements.importSearch.value,
       normalizations: elements.normalizationSearch.value,
@@ -93,6 +98,7 @@ async function selectJob(kind, id, { status = "", offset = 0 } = {}) {
   if (samePage) return;
   setBusy(true);
   const loadingMessages = {
+    dry_run_job: "ローカルデータ検証jobを読み込んでいます。",
     dry_run: "checksum検証済みのドライラン証跡を読み込んでいます。",
     import: "原本取込の証跡を読み込んでいます。",
     normalization: "正規化結果を読み込んでいます。",
@@ -102,7 +108,18 @@ async function selectJob(kind, id, { status = "", offset = 0 } = {}) {
     state.selectedKind = kind;
     state.selectedId = id;
     drawLists();
-    if (kind === "dry_run") {
+    if (kind === "dry_run_job") {
+      state.detail = await loadMappingDryRunJob(id);
+      state.page = null;
+      state.rowStatus = "";
+      renderMappingDryRunJobDetail(state.detail);
+      notice(
+        state.detail.status === "SUCCEEDED"
+          ? "検証jobは完了しました。ドライラン一覧から判定を確認できます。"
+          : "検証Workerの完了後に更新してください。",
+        state.detail.status === "SUCCEEDED" ? "success" : "",
+      );
+    } else if (kind === "dry_run") {
       state.detail = await loadMappingDryRun(id);
       state.page = null;
       state.rowStatus = "";
@@ -156,6 +173,7 @@ async function refreshDashboard(preferred = { kind: state.selectedKind, id: stat
     elements.sessionIdentity.textContent = `${state.dashboard.session.subject} / ${state.dashboard.session.roles.join(", ")}`;
     renderSummary(state.dashboard);
     const recordSets = {
+      dry_run_job: [state.dashboard.dryRunJobs, "job_id"],
       dry_run: [state.dashboard.dryRuns, "report_sha256"],
       import: [state.dashboard.imports, "import_id"],
       normalization: [state.dashboard.normalizations, "normalization_id"],
@@ -164,7 +182,9 @@ async function refreshDashboard(preferred = { kind: state.selectedKind, id: stat
     const available = preferred.id && preferredRecords.some((record) => record[preferredKey] === preferred.id);
     const next = available
       ? preferred
-      : state.dashboard.dryRuns[0]
+      : state.dashboard.dryRunJobs[0]
+        ? { kind: "dry_run_job", id: state.dashboard.dryRunJobs[0].job_id }
+        : state.dashboard.dryRuns[0]
         ? { kind: "dry_run", id: state.dashboard.dryRuns[0].report_sha256 }
         : state.dashboard.imports[0]
         ? { kind: "import", id: state.dashboard.imports[0].import_id }
@@ -208,6 +228,27 @@ byId("import-form").addEventListener("submit", async (event) => {
     setBusy(false);
     await refreshDashboard({ kind: "import", id: created.id });
     notice("取込jobを登録しました。Worker完了後に更新してください。", "success");
+  } catch (error) {
+    handleError(error);
+  } finally {
+    setBusy(false);
+  }
+});
+
+byId("dry-run-job-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (state.busy) return;
+  setBusy(true);
+  notice("ローカルデータ検証jobを登録しています。");
+  try {
+    const created = await createMappingDryRunJob({
+      source_path: value("dry-run-source-path"),
+      mapping_id: value("dry-run-mapping"),
+      sample_rows: Number(value("dry-run-sample-rows")),
+    });
+    setBusy(false);
+    await refreshDashboard({ kind: "dry_run_job", id: created.id });
+    notice("検証jobを登録しました。Worker完了後に更新してください。", "success");
   } catch (error) {
     handleError(error);
   } finally {
@@ -299,10 +340,13 @@ elements.disconnect.addEventListener("click", () => {
   elements.connectionForm.hidden = false;
   elements.sessionControls.hidden = true;
   elements.sessionIdentity.textContent = "";
+  elements.dryRunJobSearch.value = "";
   elements.importSearch.value = "";
   elements.normalizationSearch.value = "";
   elements.dryRunSearch.value = "";
   renderSummary({
+    mappings: [],
+    dryRunJobs: [],
     dryRuns: [],
     validDryRunCount: 0,
     invalidDryRunCount: 0,
@@ -317,14 +361,17 @@ elements.disconnect.addEventListener("click", () => {
 });
 
 function replaceListsAfterDisconnect() {
+  byId("dry-run-job-filter-count").textContent = "0件";
   byId("dry-run-filter-count").textContent = "0件";
   byId("import-filter-count").textContent = "0件";
   byId("normalization-filter-count").textContent = "0件";
+  byId("dry-run-job-list").replaceChildren();
   byId("dry-run-list").replaceChildren();
   byId("import-list").replaceChildren();
   byId("normalization-list").replaceChildren();
 }
 
+elements.dryRunJobSearch.addEventListener("input", drawLists);
 elements.dryRunSearch.addEventListener("input", drawLists);
 elements.importSearch.addEventListener("input", drawLists);
 elements.normalizationSearch.addEventListener("input", drawLists);

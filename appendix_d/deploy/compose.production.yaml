@@ -379,6 +379,20 @@ services:
       - ${KIBAN_MAPPING_FILE:?KIBAN_MAPPING_FILE is required}:/etc/kiban/mapping.json:ro
       - ${KIBAN_MAPPING_DRY_RUN_DIR:?KIBAN_MAPPING_DRY_RUN_DIR is required}:/var/lib/kiban/mapping-dry-run
 
+  mapping-dry-run-worker:
+    <<: *worker-base
+    command:
+      - kiban-mapping-dry-run-worker
+      - --postgres-dsn-file
+      - /run/secrets/postgres_dsn
+      - --input-root
+      - /var/lib/kiban/import-input
+      - --output-root
+      - /var/lib/kiban/mapping-dry-run
+    volumes:
+      - ${KIBAN_IMPORT_DIR:?KIBAN_IMPORT_DIR is required}:/var/lib/kiban/import-input:ro
+      - ${KIBAN_MAPPING_DRY_RUN_DIR:?KIBAN_MAPPING_DRY_RUN_DIR is required}:/var/lib/kiban/mapping-dry-run
+
   selection-worker:
     <<: *worker-base
     command:

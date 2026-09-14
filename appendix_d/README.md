@@ -2,7 +2,7 @@
 
 v2.8レビューの指摘を反映した予測・比較コアです。
 コード、全体仕様、統合仕様、開始ガイド、テスト、人工データデモ、検証記録を同梱しています。
-予定完全性、日次状態、少数実品目の受入判定基盤、実データ受入プリフライト、クレンジング・列マッピングドライランと検証済み証跡レビュー、PostgreSQL隔離リカバリ訓練、外部IdP接続プリフライト、StatsForecast AutoETS、MLForecast Ridge、TimesFM 2.5と専用Worker運用計測、比較CSV、採用判断台帳、比較・採用・Lifecycle・原本取込・正規化・JAN名寄せ・商品マスター・データ準備・重要品目選定・実データ受入管理画面、role別認可、OIDC、TLS・監視・DB backup、月次再学習と安全なモデル切替まで実装済みです。実データでの受入・trial・本番復旧訓練と環境固有IdPでのログイン受入は後続作業です。
+予定完全性、日次状態、少数実品目の受入判定基盤、実データ受入プリフライト、クレンジング・列マッピングドライランとUI起点の検証job・検証済み証跡レビュー、PostgreSQL隔離リカバリ訓練、外部IdP接続プリフライト、StatsForecast AutoETS、MLForecast Ridge、TimesFM 2.5と専用Worker運用計測、比較CSV、採用判断台帳、比較・採用・Lifecycle・原本取込・正規化・JAN名寄せ・商品マスター・データ準備・重要品目選定・実データ受入管理画面、role別認可、OIDC、TLS・監視・DB backup、月次再学習と安全なモデル切替まで実装済みです。実データでの受入・trial・本番復旧訓練と環境固有IdPでのログイン受入は後続作業です。
 
 ## 最初に読む
 
@@ -84,6 +84,8 @@ OIDC modeでは管理画面の「IdPでログイン」からAuthorization Code +
 
 APIは`KIBAN_MAPPING_DRY_RUN_DIR`をread-onlyで参照し、ファイル名と内容のSHA-256、重複JSON key、固定schema、ID、判定整合性を要求する。検証済み証跡と除外件数は`GET /api/mapping-dry-runs`、詳細は`GET /api/mapping-dry-runs/{report_sha256}`で参照できる。詳細は[マッピングドライラン証跡レビュー](docs/Phase2H_マッピングドライラン証跡レビュー.md)を参照する。
 
+UIから検証を開始する場合は`docker compose --profile worker up -d --build api mapping-dry-run-worker`で専用Workerを起動する。`/ui/intake`で入力root内のCSV相対path、登録済みmapping、sample行上限を指定すると、APIがjobを登録し、WorkerがPhase 2G検査を実行する。詳細は[ローカルデータ検証UI](docs/Phase2I_ローカルデータ検証UI.md)を参照する。
+
 ## 本番運用
 
 `deploy/compose.production.yaml`はCaddy、API、PostgreSQL、全Workerとlifecycle schedulerを分離し、外部へは80/443だけを公開する。APIは`/health`、`/ready`、認証付き`/metrics`を提供し、変更操作をsubject付きJSON logへ出力する。DB操作は`kiban-db backup|verify|restore|drill`またはproduction Composeの`db-operations`を使用する。導入・rotation・復元停止手順は[本番運用基盤](docs/Phase1R_本番運用基盤.md)、訓練は[PostgreSQL隔離リカバリ訓練](docs/Phase2D_PostgreSQL隔離リカバリ訓練.md)を参照する。
@@ -114,7 +116,7 @@ API起動後にdevelopmentでは`http://127.0.0.1:58000/ui`を開き、設定し
 
 ## 原本取込・正規化画面
 
-`http://127.0.0.1:58000/ui/intake`では、検証済みマッピングドライラン証跡、除外された証跡件数、取込job、原本checksum・encoding・重複/訂正系譜、版付き原本採用、列mapping、正規化job、隔離行、数量照合を確認・操作できる。取込・正規化は独立Workerが実行し、正規化行は状態条件付きで100件ずつ表示する。詳細は[原本取込・正規化画面](docs/Phase1X_原本取込正規化画面.md)と[マッピングドライラン証跡レビュー](docs/Phase2H_マッピングドライラン証跡レビュー.md)を参照する。
+`http://127.0.0.1:58000/ui/intake`では、ローカルデータ検証jobの登録・状態、検証済みマッピングドライラン証跡、除外された証跡件数、取込job、原本checksum・encoding・重複/訂正系譜、版付き原本採用、列mapping、正規化job、隔離行、数量照合を確認・操作できる。各処理は独立Workerが実行し、正規化行は状態条件付きで100件ずつ表示する。詳細は[原本取込・正規化画面](docs/Phase1X_原本取込正規化画面.md)、[マッピングドライラン証跡レビュー](docs/Phase2H_マッピングドライラン証跡レビュー.md)、[ローカルデータ検証UI](docs/Phase2I_ローカルデータ検証UI.md)を参照する。
 
 ## JAN名寄せ・商品マスター画面
 

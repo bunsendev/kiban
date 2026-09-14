@@ -49,6 +49,7 @@ function bytes(value) {
 
 export function renderSummary(dashboard) {
   const files = dashboard.quality.files || {};
+  document.getElementById("dry-run-job-count").textContent = dashboard.dryRunJobs.length;
   document.getElementById("dry-run-count").textContent =
     `${dashboard.validDryRunCount || 0} / ${dashboard.invalidDryRunCount || 0}`;
   document.getElementById("import-count").textContent = dashboard.imports.length;
@@ -58,19 +59,29 @@ export function renderSummary(dashboard) {
     (files.CORRECTION_CANDIDATE || 0) + (files.QUARANTINED || 0);
   document.getElementById("normalized-row-count").textContent =
     dashboard.normalizations.reduce((sum, job) => sum + job.accepted_rows, 0);
+  fillSelect(
+    "dry-run-mapping",
+    dashboard.mappings,
+    "列mappingを選択",
+    (mapping) => mapping.mapping_id,
+    (mapping) => `${mapping.definition.availability_mode} / ${mapping.definition.file_mode} / ${shortId(mapping.mapping_id, 16)}`,
+  );
 }
 
 function jobButton(kind, record, selectedKind, selectedId, onSelect) {
   const isDryRun = kind === "dry_run";
+  const isDryRunJob = kind === "dry_run_job";
   const id = isDryRun
     ? record.report_sha256
-    : kind === "import" ? record.import_id : record.normalization_id;
+    : isDryRunJob ? record.job_id : kind === "import" ? record.import_id : record.normalization_id;
   const title = isDryRun
     ? dateTime(record.checked_at)
-    : kind === "import" ? record.source_path : shortId(record.normalization_id, 24);
+    : isDryRunJob ? record.source_path
+      : kind === "import" ? record.source_path : shortId(record.normalization_id, 24);
   const detail = isDryRun
     ? `${record.observations.sampled_rows}行 / 採用 ${record.observations.accepted_rows} / 隔離 ${record.observations.quarantined_rows}`
-    : kind === "import"
+    : isDryRunJob ? `${record.sample_rows}行上限 / ${shortId(record.mapping_id, 18)}`
+      : kind === "import"
       ? `${record.file_count}ファイル / 採用 ${record.accepted_count} / 隔離 ${record.quarantined_count}`
       : `${record.total_rows}行 / 採用 ${record.accepted_rows} / 隔離 ${record.quarantined_rows}`;
   const button = node("button", {
@@ -88,6 +99,12 @@ function jobButton(kind, record, selectedKind, selectedId, onSelect) {
 }
 
 export function renderJobLists(dashboard, selection, queries, onSelect) {
+  const dryRunJobNeedle = queries.dryRunJobs.trim().toLocaleLowerCase("ja");
+  const dryRunJobs = dashboard.dryRunJobs.filter((record) =>
+    `${record.job_id} ${record.source_path} ${record.mapping_id} ${record.status}`
+      .toLocaleLowerCase("ja")
+      .includes(dryRunJobNeedle),
+  );
   const dryRunNeedle = queries.dryRuns.trim().toLocaleLowerCase("ja");
   const dryRuns = dashboard.dryRuns.filter((record) =>
     `${record.report_sha256} ${record.dry_run_id} ${record.outcome} ${record.mapping_id || ""}`
@@ -104,9 +121,13 @@ export function renderJobLists(dashboard, selection, queries, onSelect) {
       .toLocaleLowerCase("ja")
       .includes(normalizationNeedle),
   );
+  document.getElementById("dry-run-job-filter-count").textContent = `${dryRunJobs.length}件`;
   document.getElementById("dry-run-filter-count").textContent = `${dryRuns.length}件`;
   document.getElementById("import-filter-count").textContent = `${imports.length}件`;
   document.getElementById("normalization-filter-count").textContent = `${normalizations.length}件`;
+  replace("dry-run-job-list", dryRunJobs.length
+    ? dryRunJobs.map((record) => jobButton("dry_run_job", record, selection.kind, selection.id, onSelect))
+    : [empty("検証jobはありません。")] );
   replace("dry-run-list", dryRuns.length
     ? dryRuns.map((record) => jobButton("dry_run", record, selection.kind, selection.id, onSelect))
     : [empty(dashboard.dryRunConfigured
@@ -118,6 +139,31 @@ export function renderJobLists(dashboard, selection, queries, onSelect) {
   replace("normalization-list", normalizations.length
     ? normalizations.map((record) => jobButton("normalization", record, selection.kind, selection.id, onSelect))
     : [empty("正規化jobはありません。")] );
+}
+
+export function renderMappingDryRunJobDetail(job) {
+  document.getElementById("dry-run-job-title").textContent = job.source_path;
+  document.getElementById("dry-run-job-id").textContent = job.job_id;
+  replace("dry-run-job-status", [pill(job.status)]);
+  replace("dry-run-job-lineage", [
+    lineage("管理対象相対path", job.source_path),
+    lineage("列mapping", job.mapping_id),
+    lineage("検査行上限", String(job.sample_rows)),
+    lineage("登録者", job.requested_by),
+    lineage("登録日時", dateTime(job.requested_at)),
+    lineage("完了日時", dateTime(job.finished_at)),
+    lineage("判定", job.outcome ? decisionLabel(job.outcome) : null),
+    lineage("report SHA-256", job.report_sha256),
+    lineage("エラーcode", job.error_code),
+  ]);
+  const messages = {
+    QUEUED: "Workerの処理を待っています。更新すると最新状態を確認できます。",
+    RUNNING: "管理対象CSVを検査しています。原値は証跡へ保存しません。",
+    FAILED: "実行基盤で処理できませんでした。エラーcodeを確認してください。",
+    SUCCEEDED: "検査証跡を作成しました。ドライラン一覧から判定を確認できます。",
+  };
+  document.getElementById("dry-run-job-message").textContent = messages[job.status] || "—";
+  showDetail("dry_run_job");
 }
 
 function dryRunObservationCards(observations) {
@@ -294,6 +340,7 @@ export function renderNormalizationDetail(summary, page) {
 
 export function showDetail(kind = null) {
   document.getElementById("detail-empty").hidden = Boolean(kind);
+  document.getElementById("dry-run-job-detail").hidden = kind !== "dry_run_job";
   document.getElementById("dry-run-detail").hidden = kind !== "dry_run";
   document.getElementById("import-detail").hidden = kind !== "import";
   document.getElementById("normalization-detail").hidden = kind !== "normalization";

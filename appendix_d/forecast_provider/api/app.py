@@ -75,6 +75,7 @@ def create_app(
     lifecycle=None,
     oidc_login_settings: OidcLoginSettings | None = None,
     mapping_dry_run_root: Path | None = None,
+    mapping_dry_run_jobs=None,
 ) -> FastAPI:
     if isinstance(api_token, str) and not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -107,6 +108,8 @@ def create_app(
         app,
         authorize,
         MappingDryRunCatalog(mapping_dry_run_root),
+        mapping_dry_run_jobs,
+        normalization,
     )
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)

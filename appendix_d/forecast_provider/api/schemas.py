@@ -84,6 +84,13 @@ class MappingCreate(BaseModel):
     file_mode: Literal["FULL", "DELTA"]
 
 
+class MappingDryRunJobCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_path: str = Field(min_length=1, max_length=1_024)
+    mapping_id: str = Field(pattern=r"^map-[0-9a-f]{64}$")
+    sample_rows: int = Field(default=1_000, ge=1, le=10_000)
+
+
 class SourceSelectionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     logical_path: str = Field(min_length=1)

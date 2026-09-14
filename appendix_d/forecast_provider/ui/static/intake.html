@@ -37,6 +37,7 @@
   <main id="workspace" class="page-shell">
     <div id="notice" class="notice" role="status" aria-live="polite">API tokenを入力して原本台帳を読み込んでください。</div>
     <section class="summary-grid intake-summary-grid" aria-label="原本取込サマリー">
+      <article class="summary-card accent-amber"><span>検証job</span><strong id="dry-run-job-count">—</strong></article>
       <article class="summary-card accent-cyan"><span>ドライラン 検証済み / 除外</span><strong id="dry-run-count">—</strong></article>
       <article class="summary-card accent-blue"><span>取込job</span><strong id="import-count">—</strong></article>
       <article class="summary-card accent-green"><span>採用・訂正版候補</span><strong id="accepted-file-count">—</strong></article>
@@ -45,6 +46,16 @@
     </section>
 
     <section class="intake-actions" aria-label="原本処理の登録">
+      <details class="intake-drawer">
+        <summary>00 ローカルデータ検証jobを登録</summary>
+        <form id="dry-run-job-form" class="drawer-form compact-form">
+          <label>管理対象入力rootからのCSV相対path<input id="dry-run-source-path" required placeholder="batch/shipments.csv"></label>
+          <label>登録済み列mapping<select id="dry-run-mapping" required></select></label>
+          <label>検査する最大行数<input id="dry-run-sample-rows" type="number" min="1" max="10000" value="1000" required></label>
+          <p class="field-note">原値をAPIへ送らず、Workerが管理領域内のCSVを検査します。</p>
+          <button class="button primary" data-permission="ANALYZE" type="submit">検証jobを登録</button>
+        </form>
+      </details>
       <details class="intake-drawer">
         <summary>01 原本取込jobを登録</summary>
         <form id="import-form" class="drawer-form compact-form">
@@ -77,6 +88,11 @@
     <section class="workbench intake-workbench">
       <aside class="comparison-rail intake-rail" aria-label="処理job一覧">
         <div class="rail-group">
+          <div class="section-heading"><div><span class="eyebrow">LOCAL VALIDATION JOBS</span><h2>検証job</h2></div><span id="dry-run-job-filter-count" class="count-chip">0件</span></div>
+          <label class="search-field" for="dry-run-job-search"><span>path・mapping・job IDで絞り込み</span><input id="dry-run-job-search" type="search" placeholder="検索"></label>
+          <div id="dry-run-job-list" class="comparison-list intake-list"></div>
+        </div>
+        <div class="rail-group">
           <div class="section-heading"><div><span class="eyebrow">MAPPING PREFLIGHT</span><h2>ドライラン</h2></div><span id="dry-run-filter-count" class="count-chip">0件</span></div>
           <label class="search-field" for="dry-run-search"><span>判定・checksumで絞り込み</span><input id="dry-run-search" type="search" placeholder="検索"></label>
           <div id="dry-run-list" class="comparison-list intake-list"></div>
@@ -95,6 +111,12 @@
 
       <section class="detail-panel" aria-live="polite">
         <div id="detail-empty" class="empty-state"><div class="empty-mark" aria-hidden="true">IN</div><h2>ドライラン、取込、正規化から選択してください</h2><p>原本を上書きせず、事前判定、訂正版の採用履歴、隔離理由、数量照合を追跡できます。</p></div>
+
+        <div id="dry-run-job-detail" hidden>
+          <header class="detail-header"><div><span class="eyebrow">LOCAL VALIDATION JOB</span><h2 id="dry-run-job-title">—</h2><code id="dry-run-job-id">—</code></div><div id="dry-run-job-status"></div></header>
+          <div id="dry-run-job-lineage" class="lineage-grid"></div>
+          <section class="ledger-card"><div class="subheading"><h3>実行状態</h3><span>Worker処理</span></div><p id="dry-run-job-message">—</p></section>
+        </div>
 
         <div id="dry-run-detail" hidden>
           <header class="detail-header"><div><span class="eyebrow">MAPPING DRY RUN</span><h2 id="dry-run-title">—</h2><code id="dry-run-id">—</code></div><div id="dry-run-status"></div></header>
