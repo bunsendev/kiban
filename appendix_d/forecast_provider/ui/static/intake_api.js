@@ -63,6 +63,13 @@ export function loadMappingDryRunBatch(batchId) {
   return request(`/api/mapping-dry-run-batches/${encoded(batchId)}`);
 }
 
+export function createInventoryStructureProfile(sourcePrefix) {
+  return request("/api/inventory-structure-profiles", {
+    method: "POST",
+    body: JSON.stringify({ source_prefix: sourcePrefix }),
+  });
+}
+
 export function loadMappingDryRunSource(sourcePath) {
   return request(`/api/mapping-dry-run-sources?source_path=${encoded(sourcePath)}`)
     .then((catalog) => catalog.items[0] || null);

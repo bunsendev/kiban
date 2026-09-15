@@ -6,8 +6,14 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, s
 
 from ..mapping_dry_run.catalog import MappingDryRunCatalog
 from ..mapping_dry_run.evidence_schema import InvalidReportError
+from ..mapping_dry_run.inventory_profiles import InventoryProfileError
 from ..mapping_dry_run.uploads import SourceUploadError
-from .schemas import Created, MappingDryRunBatchCreate, MappingDryRunJobCreate
+from .schemas import (
+    Created,
+    InventoryProfileCreate,
+    MappingDryRunBatchCreate,
+    MappingDryRunJobCreate,
+)
 from .security import Permission, Principal
 
 
@@ -20,6 +26,7 @@ def install_mapping_dry_run_routes(
     sources=None,
     uploader=None,
     bulk_uploader=None,
+    inventory_profiler=None,
 ) -> None:
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)
@@ -99,6 +106,18 @@ def install_mapping_dry_run_routes(
             except SourceUploadError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
             return {**result, "uploaded_by": principal.subject}
+
+    if inventory_profiler is not None:
+
+        @app.post("/api/inventory-structure-profiles")
+        def create_inventory_structure_profile(
+            request: InventoryProfileCreate,
+            _principal: Annotated[Principal, Depends(analyze)],
+        ):
+            try:
+                return inventory_profiler.profile(request.source_prefix)
+            except InventoryProfileError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     if jobs is None or mappings is None:
         return

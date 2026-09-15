@@ -99,6 +99,11 @@ class MappingDryRunBatchCreate(BaseModel):
     sample_rows: int = Field(default=1_000, ge=1, le=10_000)
 
 
+class InventoryProfileCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_prefix: str = Field(min_length=1, max_length=1_024)
+
+
 class SourceSelectionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     logical_path: str = Field(min_length=1)
