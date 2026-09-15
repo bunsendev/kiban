@@ -10,6 +10,7 @@ from ..mapping_dry_run.inventory_profiles import InventoryProfileError
 from ..mapping_dry_run.uploads import SourceUploadError
 from .schemas import (
     Created,
+    InventoryNormalizationPreviewCreate,
     InventoryProfileCreate,
     MappingDryRunBatchCreate,
     MappingDryRunJobCreate,
@@ -28,6 +29,7 @@ def install_mapping_dry_run_routes(
     bulk_uploader=None,
     inventory_profiler=None,
     product_bridge=None,
+    inventory_preview=None,
 ) -> None:
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)
@@ -156,6 +158,23 @@ def install_mapping_dry_run_routes(
             content = await request.body()
             try:
                 return product_bridge.import_mapping(source_prefix, content)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if inventory_preview is not None:
+
+        @app.post("/api/inventory-normalization-previews")
+        def create_inventory_normalization_preview(
+            request: InventoryNormalizationPreviewCreate,
+            _principal: Annotated[Principal, Depends(analyze)],
+        ):
+            try:
+                return inventory_preview.run(
+                    request.source_prefix,
+                    request.product_mapping_id,
+                    request.unit_value,
+                    request.sample_rows,
+                )
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
 
