@@ -88,6 +88,8 @@ UIから検証を開始する場合は`docker compose --profile worker up -d --b
 
 初めて検証する利用者は`/ui/intake`の3手順ウィザードを使う。入力root内のCSV候補とヘッダーを安全に確認し、対応付けとの不足列を実行前に案内する。登録後は完了まで自動更新し、日本語の判定・修正方法へ移動する。詳細は[初回データ検証ウィザード](docs/Phase2J_初回データ検証ウィザード.md)を参照する。
 
+ローカル開発環境では`/ui/intake`から100 MB以下のCSVを直接アップロードできる。アップロードしたCSVは自動選択され、列の対応付け、分析、合格または隔離理由の確認まで一続きで操作する。準備と操作は[クライアントCSVアップロード検証](docs/Phase2L_クライアントCSVアップロード検証.md)を参照する。
+
 ローカル環境を一続きで確認する場合は、Docker ComposeでPostgreSQL、API、検証Workerを起動し、tokenを`KIBAN_API_TOKEN`へ設定して`kiban-local-validation-acceptance --source-path <相対CSV> --mapping-id <mapping ID>`を実行する。Docker Desktopのruntime socket障害を含む準備、復旧、UI受入は[ローカル検証環境と実動受入](docs/Phase2K_ローカル検証環境と実動受入.md)を参照する。
 
 ## 本番運用
@@ -120,7 +122,7 @@ API起動後にdevelopmentでは`http://127.0.0.1:58000/ui`を開き、設定し
 
 ## 原本取込・正規化画面
 
-`http://127.0.0.1:58000/ui/intake`では、ローカルデータ検証jobの登録・状態、検証済みマッピングドライラン証跡、除外された証跡件数、取込job、原本checksum・encoding・重複/訂正系譜、版付き原本採用、列mapping、正規化job、隔離行、数量照合を確認・操作できる。各処理は独立Workerが実行し、正規化行は状態条件付きで100件ずつ表示する。詳細は[原本取込・正規化画面](docs/Phase1X_原本取込正規化画面.md)、[マッピングドライラン証跡レビュー](docs/Phase2H_マッピングドライラン証跡レビュー.md)、[ローカルデータ検証UI](docs/Phase2I_ローカルデータ検証UI.md)を参照する。
+`http://127.0.0.1:58000/ui/intake`では、CSVアップロード、ローカルデータ検証jobの登録・状態、検証済みマッピングドライラン証跡、除外された証跡件数、取込job、原本checksum・encoding・重複/訂正系譜、版付き原本採用、列mapping、正規化job、隔離行、数量照合を確認・操作できる。各処理は独立Workerが実行し、正規化行は状態条件付きで100件ずつ表示する。詳細は[原本取込・正規化画面](docs/Phase1X_原本取込正規化画面.md)、[ローカルデータ検証UI](docs/Phase2I_ローカルデータ検証UI.md)、[クライアントCSVアップロード検証](docs/Phase2L_クライアントCSVアップロード検証.md)を参照する。
 
 ## JAN名寄せ・商品マスター画面
 

@@ -2,10 +2,11 @@
 
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 
 from ..mapping_dry_run.catalog import MappingDryRunCatalog
 from ..mapping_dry_run.evidence_schema import InvalidReportError
+from ..mapping_dry_run.uploads import SourceUploadError
 from .schemas import Created, MappingDryRunJobCreate
 from .security import Permission, Principal
 
@@ -17,6 +18,7 @@ def install_mapping_dry_run_routes(
     jobs=None,
     mappings=None,
     sources=None,
+    uploader=None,
 ) -> None:
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)
@@ -51,6 +53,27 @@ def install_mapping_dry_run_routes(
             limit: Annotated[int, Query(ge=1, le=500)] = 200,
         ):
             return sources.list_sources(limit)
+
+    if uploader is not None:
+
+        @app.post("/api/mapping-dry-run-uploads", status_code=status.HTTP_201_CREATED)
+        async def upload_mapping_dry_run_source(
+            request: Request,
+            principal: Annotated[Principal, Depends(analyze)],
+            filename: Annotated[str, Query(min_length=1, max_length=120)],
+        ):
+            content_length = request.headers.get("content-length")
+            try:
+                length = int(content_length) if content_length is not None else None
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail="Content-Lengthが不正です") from exc
+            if length is not None and length < 0:
+                raise HTTPException(status_code=400, detail="Content-Lengthが不正です")
+            try:
+                result = await uploader.save(filename, request.stream(), length)
+            except SourceUploadError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            return {**result, "uploaded_by": principal.subject}
 
     if jobs is None or mappings is None:
         return

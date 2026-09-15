@@ -37,6 +37,15 @@ export function createMappingDryRunJob(payload) {
   });
 }
 
+export function uploadMappingDryRunSource(file) {
+  const filename = encodeURIComponent(file.name);
+  return request(`/api/mapping-dry-run-uploads?filename=${filename}`, {
+    method: "POST",
+    body: file,
+    headers: { "Content-Type": "application/octet-stream" },
+  });
+}
+
 export function loadMappingDryRunJob(jobId) {
   return request(`/api/mapping-dry-run-jobs/${encoded(jobId)}`);
 }

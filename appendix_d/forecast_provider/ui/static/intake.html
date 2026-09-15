@@ -47,26 +47,31 @@
 
     <section class="validation-wizard" aria-labelledby="validation-wizard-title">
       <header class="wizard-header">
-        <div><span class="eyebrow">LOCAL DATA CHECK</span><h2 id="validation-wizard-title">はじめてのデータ検証</h2></div>
-        <p>CSVと列の対応付けを選ぶだけで、元データを変更せずに検査します。</p>
+        <div><span class="eyebrow">UPLOAD → ANALYZE → RESULT</span><h2 id="validation-wizard-title">はじめてのデータ検証</h2></div>
+        <p>CSVをアップロードし、列の対応付けを選ぶと、分析結果まで確認できます。</p>
       </header>
+      <form id="upload-form" class="upload-panel">
+        <div><strong>01 CSVをアップロード</strong><p>100 MB以下のCSVを新しい検証領域へ保存します。既存ファイルは上書きしません。</p></div>
+        <label>データファイル<input id="upload-file" type="file" accept=".csv,text/csv" required></label>
+        <button id="upload-submit" class="button primary" data-permission="ANALYZE" data-blocked="true" type="submit">アップロード</button>
+      </form>
       <form id="dry-run-job-form" class="wizard-grid">
         <article id="wizard-source-step" class="wizard-step">
-          <div class="card-heading"><span class="step-number">01</span><div><h3>CSVを選ぶ</h3><p>管理対象フォルダー内のCSVだけを表示します。</p></div></div>
+          <div class="card-heading"><span class="step-number">02</span><div><h3>CSVを選ぶ・確認する</h3><p>アップロード済みCSVのサイズ、文字コード、列名を確認します。</p></div></div>
           <label>検証するCSV<select id="dry-run-source-path" required></select></label>
           <p id="dry-run-source-info" class="selection-help">接続するとCSVの情報を表示します。</p>
         </article>
         <article id="wizard-mapping-step" class="wizard-step">
-          <div class="card-heading"><span class="step-number">02</span><div><h3>列の対応付けを選ぶ</h3><p>CSVの列を日付、JAN、数量などに対応付けます。</p></div></div>
+          <div class="card-heading"><span class="step-number">03</span><div><h3>列の対応付けを選ぶ</h3><p>CSVの列を日付、JAN、数量などに対応付けます。</p></div></div>
           <label>列の対応付け<select id="dry-run-mapping" required></select></label>
           <p id="dry-run-mapping-info" class="selection-help">登録済みの対応付けから選択します。</p>
           <button id="open-mapping-button" class="button quiet" type="button">新しい対応付けを作成</button>
         </article>
         <article id="wizard-run-step" class="wizard-step">
-          <div class="card-heading"><span class="step-number">03</span><div><h3>検証を実行する</h3><p>完了まで画面が自動更新されます。</p></div></div>
+          <div class="card-heading"><span class="step-number">04</span><div><h3>分析を実行する</h3><p>完了後、結果へ自動で移動します。</p></div></div>
           <label>検査する最大行数<input id="dry-run-sample-rows" type="number" min="1" max="10000" value="1000" required></label>
           <p class="field-note">CSVの中身はAPIや検査証跡へ保存しません。</p>
-          <button id="dry-run-submit" class="button primary wide" data-permission="ANALYZE" data-blocked="true" type="submit">このCSVを検証</button>
+          <button id="dry-run-submit" class="button primary wide" data-permission="ANALYZE" data-blocked="true" type="submit">このCSVを検証・分析</button>
         </article>
       </form>
       <div id="validation-progress" class="validation-progress" role="status">CSVと列の対応付けを選択してください。</div>

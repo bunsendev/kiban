@@ -1,0 +1,116 @@
+"""Phase 2L: クライアントのupload、分析、結果確認フロー。"""
+
+import asyncio
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+from forecast_provider.api import create_app
+from forecast_provider.catalog import SqliteCatalogStore
+from forecast_provider.jobs import SqliteRunStore
+from forecast_provider.mapping_dry_run import (
+    MappingDryRunSourceUploader,
+    SourceUploadError,
+    SqliteMappingDryRunJobStore,
+)
+from forecast_provider.normalization import SqliteNormalizationStore
+
+
+def _client(tmp_path: Path) -> tuple[TestClient, Path]:
+    database = tmp_path / "phase2l.sqlite3"
+    input_root = tmp_path / "input"
+    input_root.mkdir()
+    client = TestClient(
+        create_app(
+            SqliteRunStore(database),
+            SqliteCatalogStore(database),
+            "token",
+            normalization=SqliteNormalizationStore(database),
+            mapping_dry_run_jobs=SqliteMappingDryRunJobStore(database),
+            mapping_dry_run_input_root=input_root,
+        )
+    )
+    client.headers["Authorization"] = "Bearer token"
+    return client, input_root
+
+
+def test_upload_saves_new_csv_and_lists_only_safe_metadata(tmp_path):
+    client, input_root = _client(tmp_path)
+    body = "出荷日,JANコード,出荷数量\n2026/09/14,0012345678901,3\n".encode()
+
+    response = client.post(
+        "/api/mapping-dry-run-uploads?filename=shipment.csv",
+        content=body,
+        headers={"Content-Type": "application/octet-stream"},
+    )
+
+    assert response.status_code == 201
+    uploaded = response.json()
+    assert uploaded["filename"] == "shipment.csv"
+    assert uploaded["uploaded_by"] == "local-admin"
+    assert uploaded["source_path"].startswith("client-uploads/")
+    assert (input_root / uploaded["source_path"]).read_bytes() == body
+    catalog = client.get("/api/mapping-dry-run-sources").json()
+    item = next(
+        value for value in catalog["items"] if value["source_path"] == uploaded["source_path"]
+    )
+    assert item["columns"] == ["出荷日", "JANコード", "出荷数量"]
+    assert "0012345678901" not in client.get("/api/mapping-dry-run-sources").text
+
+
+def test_upload_rejects_non_csv_empty_and_unauthenticated(tmp_path):
+    client, input_root = _client(tmp_path)
+    assert (
+        client.post("/api/mapping-dry-run-uploads?filename=data.txt", content=b"x").status_code
+        == 422
+    )
+    assert (
+        client.post("/api/mapping-dry-run-uploads?filename=data.csv", content=b"").status_code
+        == 422
+    )
+    assert not list(input_root.rglob("*.csv"))
+    assert TestClient(client.app).post(
+        "/api/mapping-dry-run-uploads?filename=data.csv", content=b"x"
+    ).status_code == 401
+
+
+def test_upload_rejects_windows_invalid_or_reserved_filename(tmp_path):
+    client, input_root = _client(tmp_path)
+    for filename in ("CON.csv", "bad:name.csv", "trailing.csv."):
+        response = client.post(
+            f"/api/mapping-dry-run-uploads?filename={filename}", content=b"x"
+        )
+        assert response.status_code == 422
+    assert not list(input_root.rglob("*"))
+
+
+def test_streaming_limit_removes_partial_file(tmp_path):
+    input_root = tmp_path / "input"
+    input_root.mkdir()
+    uploader = MappingDryRunSourceUploader(input_root, max_bytes=4)
+
+    async def chunks():
+        yield b"123"
+        yield b"45"
+
+    try:
+        asyncio.run(uploader.save("data.csv", chunks()))
+    except SourceUploadError as exc:
+        assert "4 bytes以下" in str(exc)
+    else:
+        raise AssertionError("SourceUploadErrorが必要です")
+    assert not list(input_root.rglob("*"))
+
+
+def test_intake_ui_exposes_upload_analyze_result_flow(tmp_path):
+    client, _ = _client(tmp_path)
+    page = client.get("/ui/intake").text
+    app = client.get("/ui/assets/intake_app.js").text
+    api = client.get("/ui/assets/intake_api.js").text
+
+    assert "UPLOAD → ANALYZE → RESULT" in page
+    assert "CSVをアップロード" in page
+    assert "このCSVを検証・分析" in page
+    assert 'id="upload-file" type="file"' in page
+    assert "uploadMappingDryRunSource(file)" in app
+    assert 'request(`/api/mapping-dry-run-uploads?filename=${filename}`' in api

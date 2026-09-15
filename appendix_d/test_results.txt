@@ -1,3 +1,27 @@
+# v2.9 Phase 2L 実行検証記録
+
+Date: 2026-09-15 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+Docker Desktop: 4.90.0
+Docker Engine: 29.7.2
+PostgreSQL: 17.11
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2L
+
+- クライアント操作: `/ui/intake`で人工CSVを選択し、アップロード、列mapping選択、分析、結果への自動遷移を実ブラウザーで確認。
+- 合格結果: `SHIPMENT` 1行で検査1、採用1、隔離0、固定9検査すべて合格、`READY_FOR_NORMALIZATION`を表示。
+- 修正案内: `出荷` 1行で検査1、採用0、隔離1、`NON_SHIPMENT_ROW`を表示し、CSV修正と再検証を案内。
+- 保存境界: `.csv`、100 MB、安全なWindows互換ファイル名、ランダム専用directory、atomic確定、上書き禁止、途中書込み除去を検証。
+- 情報保護: upload応答とCSV候補APIに本文、行値、絶対pathを含めず、認証なしを401で拒否。
+- pytest: Linux Dockerで配布hash検査を除く468件成功、7件skip、1件deselect。WindowsはLinux専用peak RSSと更新前の配布hash検査を除く467件成功、7件skip。
+- 静的検査: `ruff check .`成功。変更した3 JavaScript moduleの`node --check`と`docker compose config --quiet`が成功。
+- Compose: 開発APIだけが入力rootへ書込み、mapping dry run Workerはread-onlyで参照。本番Composeの入力rootはread-onlyを維持。
+- 配布: 423ファイルのmanifest checksum一致、日本語filenameのUTF-8 flagを確認。
+- 制約: 人工CSVによる無更新ドライランであり、原本取込、正規化、業務承認、実データ品質、予測精度を示さない。
+
 # v2.9 Phase 2K 実行検証記録
 
 Date: 2026-09-14 JST
