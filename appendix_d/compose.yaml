@@ -324,6 +324,23 @@ services:
     volumes:
       - ${KIBAN_IMPORT_DIR:-./import_input}:/var/lib/kiban/import-input:ro
       - ${KIBAN_MAPPING_DRY_RUN_DIR:-./mapping_dry_run_output}:/var/lib/kiban/mapping-dry-run
+  inventory-normalization-worker:
+    profiles: ["worker"]
+    build: .
+    command:
+      - kiban-inventory-normalization-worker
+      - --postgres-dsn
+      - postgresql://kiban:local-development-only@postgres:5432/kiban
+      - --input-root
+      - /var/lib/kiban/import-input
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ${KIBAN_IMPORT_DIR:-./import_input}:/var/lib/kiban/import-input:ro
   selection-worker:
     profiles: ["worker"]
     build: .

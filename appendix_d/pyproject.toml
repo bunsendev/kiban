@@ -41,6 +41,7 @@ kiban-real-data-preflight = "forecast_provider.real_data_preflight.cli:main"
 kiban-oidc-preflight = "forecast_provider.oidc_preflight.cli:main"
 kiban-mapping-dry-run = "forecast_provider.mapping_dry_run.cli:main"
 kiban-mapping-dry-run-worker = "forecast_provider.mapping_dry_run_worker:main"
+kiban-inventory-normalization-worker = "forecast_provider.inventory_normalization_worker:main"
 kiban-local-validation-acceptance = "forecast_provider.local_validation_acceptance.cli:main"
 
 [tool.setuptools.packages.find]

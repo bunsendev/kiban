@@ -4,6 +4,7 @@ import {
   createImport,
   createInventoryStructureProfile,
   createInventoryNormalizationPreview,
+  createInventoryNormalizationJob,
   analyzeProductJanBridge,
   uploadProductJanMapping,
   createMapping,
@@ -14,6 +15,7 @@ import {
   loadIntakeDashboard,
   loadMappingDryRun,
   loadMappingDryRunJob,
+  loadInventoryNormalizationJob,
   loadMappingDryRunBatch,
   loadMappingDryRunSource,
   loadNormalization,
@@ -462,6 +464,32 @@ byId("inventory-preview-form").addEventListener("submit", async (event) => {
       `採用 ${report.accepted_rows.toLocaleString("ja-JP")}行、隔離 ${report.quarantined_rows.toLocaleString("ja-JP")}行。`,
       `判定: ${report.outcome}。証跡ID: ${report.report_id}`,
     ].join(" ");
+    if (report.outcome === "READY_FOR_INVENTORY_NORMALIZATION") {
+      const button = document.createElement("button");
+      button.className = "button primary";
+      button.type = "button";
+      button.textContent = "全在庫データを正規化";
+      button.addEventListener("click", async () => {
+        try {
+          const created = await createInventoryNormalizationJob({
+            source_prefix: state.uploadedBatchPrefix,
+            product_mapping_id: value("inventory-preview-mapping-id"),
+            unit_value: value("inventory-preview-unit"),
+          });
+          const poll = async () => {
+            const job = await loadInventoryNormalizationJob(created.id);
+            result.textContent = `${job.processed_file_count} / ${job.file_count || "—"}ファイル処理済み。採用 ${job.accepted_row_count}行、隔離 ${job.quarantined_row_count}行。状態: ${job.status}`;
+            if (["QUEUED", "RUNNING"].includes(job.status)) {
+              window.setTimeout(() => poll().catch(handleError), 2000);
+            }
+          };
+          await poll();
+        } catch (error) {
+          handleError(error);
+        }
+      });
+      result.append(button);
+    }
     notice(
       report.outcome === "READY_FOR_INVENTORY_NORMALIZATION"
         ? "在庫データは正規化準備完了です。"

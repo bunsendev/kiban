@@ -92,6 +92,17 @@ export function createInventoryNormalizationPreview(payload) {
   });
 }
 
+export function createInventoryNormalizationJob(payload) {
+  return request("/api/inventory-normalization-jobs", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function loadInventoryNormalizationJob(jobId) {
+  return request(`/api/inventory-normalization-jobs/${encoded(jobId)}`);
+}
+
 export function loadMappingDryRunSource(sourcePath) {
   return request(`/api/mapping-dry-run-sources?source_path=${encoded(sourcePath)}`)
     .then((catalog) => catalog.items[0] || null);

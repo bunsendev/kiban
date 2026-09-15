@@ -10,6 +10,7 @@ from ..mapping_dry_run.inventory_profiles import InventoryProfileError
 from ..mapping_dry_run.uploads import SourceUploadError
 from .schemas import (
     Created,
+    InventoryNormalizationJobCreate,
     InventoryNormalizationPreviewCreate,
     InventoryProfileCreate,
     MappingDryRunBatchCreate,
@@ -30,6 +31,7 @@ def install_mapping_dry_run_routes(
     inventory_profiler=None,
     product_bridge=None,
     inventory_preview=None,
+    inventory_normalization=None,
 ) -> None:
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)
@@ -177,6 +179,35 @@ def install_mapping_dry_run_routes(
                 )
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if inventory_normalization is not None:
+
+        @app.post(
+            "/api/inventory-normalization-jobs",
+            response_model=Created,
+            status_code=status.HTTP_202_ACCEPTED,
+        )
+        def create_inventory_normalization_job(
+            request: InventoryNormalizationJobCreate,
+            principal: Annotated[Principal, Depends(analyze)],
+        ):
+            job_id = inventory_normalization.enqueue(
+                request.source_prefix,
+                request.product_mapping_id,
+                request.unit_value,
+                principal.subject,
+            )
+            return Created(id=job_id)
+
+        @app.get("/api/inventory-normalization-jobs/{job_id}")
+        def get_inventory_normalization_job(
+            job_id: str,
+            _principal: Annotated[Principal, Depends(read)],
+        ):
+            value = inventory_normalization.get(job_id)
+            if value is None:
+                raise HTTPException(status_code=404, detail="在庫正規化jobが見つかりません")
+            return value
 
     if jobs is None or mappings is None:
         return
