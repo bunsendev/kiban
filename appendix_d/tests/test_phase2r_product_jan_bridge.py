@@ -76,3 +76,40 @@ def test_bridge_endpoints_require_authentication(tmp_path):
         == 401
     )
     assert client.get("/api/product-jan-bridge-template.csv?source_prefix=x").status_code == 401
+
+
+def test_mapping_upload_validates_coverage_and_saves_content_addressed_file(tmp_path):
+    client = _client(tmp_path)
+    uploaded = client.post(
+        "/api/mapping-dry-run-bulk-uploads?filename=data.zip", content=_zip()
+    ).json()
+    prefix = uploaded["source_prefix"]
+    incomplete = "商品コード,商品名,JAN,確認メモ\r\nP01,商品A,123,\r\n".encode()
+
+    report = client.post(
+        "/api/product-jan-mappings",
+        params={"source_prefix": prefix},
+        content=incomplete,
+    ).json()
+    assert report["status"] == "CORRECTION_REQUIRED"
+    assert report["issues"]["invalid_jans"] == 1
+    assert report["issues"]["missing_product_codes"] == 1
+    assert report["mapping_id"] is None
+
+    complete = (
+        "商品コード,商品名,JAN,確認メモ\r\n"
+        "P01,商品A,4901234567894,確認済み\r\n"
+        "P02,商品B,4006381333931,確認済み\r\n"
+    ).encode()
+    report = client.post(
+        "/api/product-jan-mappings",
+        params={"source_prefix": prefix},
+        content=complete,
+    ).json()
+    assert report["status"] == "READY"
+    assert report["completed_product_count"] == 2
+    mapping_id = report["mapping_id"]
+    assert mapping_id.startswith("product-jan-")
+    saved = tmp_path / "input" / "product-jan-mappings" / f"{mapping_id}.csv"
+    assert saved.is_file()
+    assert saved.read_bytes().startswith(b"\xef\xbb\xbf")

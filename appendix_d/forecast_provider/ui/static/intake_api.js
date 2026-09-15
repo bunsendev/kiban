@@ -77,6 +77,14 @@ export function analyzeProductJanBridge(sourcePrefix) {
   });
 }
 
+export function uploadProductJanMapping(sourcePrefix, file) {
+  return request(`/api/product-jan-mappings?source_prefix=${encoded(sourcePrefix)}`, {
+    method: "POST",
+    body: file,
+    headers: { "Content-Type": "text/csv" },
+  });
+}
+
 export function loadMappingDryRunSource(sourcePath) {
   return request(`/api/mapping-dry-run-sources?source_path=${encoded(sourcePath)}`)
     .then((catalog) => catalog.items[0] || null);
