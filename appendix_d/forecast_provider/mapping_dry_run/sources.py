@@ -91,3 +91,33 @@ class MappingDryRunSourceCatalog:
             if len(items) >= limit:
                 break
         return {"configured": True, "items": items}
+
+    def get_source(self, source_path: str) -> dict:
+        """指定された相対pathだけを一覧と同じ安全条件で返す。"""
+        if self.input_root is None:
+            return {"configured": False, "items": []}
+        try:
+            root = self.input_root.resolve(strict=True)
+        except OSError:
+            return {"configured": False, "items": []}
+        path = _safe_file(root, root / source_path)
+        if path is None or path.suffix.lower() != ".csv":
+            return {"configured": True, "items": []}
+        try:
+            stat = path.stat()
+        except OSError:
+            return {"configured": True, "items": []}
+        encoding, columns, error = _header(path)
+        return {
+            "configured": True,
+            "items": [
+                {
+                    "source_path": path.relative_to(root).as_posix(),
+                    "size_bytes": stat.st_size,
+                    "modified_at": datetime.fromtimestamp(stat.st_mtime, UTC).isoformat(),
+                    "encoding": encoding,
+                    "columns": columns,
+                    "header_error": error,
+                }
+            ],
+        }

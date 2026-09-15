@@ -1,11 +1,20 @@
 # v2.9 修正記録
 
+## Phase 2M
+
+- Windows現場PC向けに、WSL 2とDocker Desktopの検出・導入、環境生成、Compose構築、readiness確認を行う自動セットアップを追加。
+- PC固有の64文字接続codeを生成し、Git・配布対象外の`.env`と`.kiban`へ保存。
+- 起動、停止、状態確認、診断情報取得を日本語のダブルクリック操作へ分割し、共通処理をPowerShell moduleへ集約。
+- デスクトップへ起動・停止・状態確認ショートカットを作成し、通常停止ではPostgreSQL volumeを維持。
+- 診断情報から接続code、CSV本文、行値、環境変数、container logを除外。
+
 ## Phase 2L
 
 - `/ui/intake`へCSVアップロードを追加し、アップロード、列の対応付け、分析、結果確認を一続きで操作可能にした。
 - 100 MB上限、`.csv`限定、安全なファイル名、専用directory、atomic確定、途中ファイル除去を実装した。
 - APIとUIは本文や行値を応答・証跡へ含めず、開発Composeの検証Workerは入力rootをread-onlyで参照する。
 - 実ブラウザーで合格と隔離の両結果を確認し、原因と修正案まで表示できることを確認した。
+- ローカル検証の起動前確認、service起動、結果記録、通常停止・再開、障害確認を運用手順として整理した。
 
 ## Phase 2K
 

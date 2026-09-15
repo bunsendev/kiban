@@ -51,8 +51,8 @@
         <p>CSVをアップロードし、列の対応付けを選ぶと、分析結果まで確認できます。</p>
       </header>
       <form id="upload-form" class="upload-panel">
-        <div><strong>01 CSVをアップロード</strong><p>100 MB以下のCSVを新しい検証領域へ保存します。既存ファイルは上書きしません。</p></div>
-        <label>データファイル<input id="upload-file" type="file" accept=".csv,text/csv" required></label>
+        <div><strong>01 CSV・ZIPをアップロード</strong><p>CSV、またはCSVをまとめた100 MB以下のZIPを新しい検証領域へ保存します。既存ファイルは上書きしません。</p></div>
+        <label>データファイル<input id="upload-file" type="file" accept=".csv,.zip,text/csv,application/zip" required></label>
         <button id="upload-submit" class="button primary" data-permission="ANALYZE" data-blocked="true" type="submit">アップロード</button>
       </form>
       <form id="dry-run-job-form" class="wizard-grid">

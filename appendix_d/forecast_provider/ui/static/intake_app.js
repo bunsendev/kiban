@@ -9,9 +9,11 @@ import {
   loadIntakeDashboard,
   loadMappingDryRun,
   loadMappingDryRunJob,
+  loadMappingDryRunSource,
   loadNormalization,
   selectSource,
   uploadMappingDryRunSource,
+  uploadMappingDryRunBatch,
 } from "./intake_api.js";
 import { mappingPayload, syncAvailability } from "./intake_forms.js";
 import {
@@ -64,7 +66,7 @@ const elements = {
 function updateUploadButton() {
   const button = byId("upload-submit");
   const file = elements.uploadFile.files[0];
-  button.dataset.blocked = String(!file || !file.name.toLocaleLowerCase("en").endsWith(".csv"));
+  button.dataset.blocked = String(!file || !/\.(csv|zip)$/i.test(file.name));
   setBusy(state.busy);
 }
 
@@ -332,15 +334,29 @@ byId("upload-form").addEventListener("submit", async (event) => {
   const file = elements.uploadFile.files[0];
   if (state.busy || !file) return;
   setBusy(true);
-  notice("CSVを安全な検証領域へアップロードしています。");
+  const isZip = file.name.toLocaleLowerCase("en").endsWith(".zip");
+  notice(isZip ? "ZIP内のCSVを検査して一括アップロードしています。" : "CSVを安全な検証領域へアップロードしています。");
   try {
-    const uploaded = await uploadMappingDryRunSource(file);
+    const uploaded = isZip
+      ? await uploadMappingDryRunBatch(file)
+      : await uploadMappingDryRunSource(file);
     elements.uploadFile.value = "";
     setBusy(false);
     await refreshDashboard();
-    elements.dryRunSource.value = uploaded.source_path;
+    const uploadedPath = uploaded.source_path || uploaded.first_source_path;
+    if (!state.dashboard.sources.some((source) => source.source_path === uploadedPath)) {
+      const source = await loadMappingDryRunSource(uploadedPath);
+      if (source) state.dashboard.sources.push(source);
+      renderSummary(state.dashboard);
+    }
+    elements.dryRunSource.value = uploadedPath;
     renderValidationSetup(state.dashboard);
-    notice("アップロードしました。列の対応付けを選んで分析を実行してください。", "success");
+    notice(
+      isZip
+        ? `${uploaded.file_count.toLocaleString("ja-JP")}件のCSVを一括アップロードしました。`
+        : "アップロードしました。列の対応付けを選んで分析を実行してください。",
+      "success",
+    );
   } catch (error) {
     handleError(error);
   } finally {
