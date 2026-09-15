@@ -90,6 +90,8 @@ UIから検証を開始する場合は`docker compose --profile worker up -d --b
 
 ローカル開発環境では`/ui/intake`から100 MB以下のCSVを直接アップロードできる。アップロードしたCSVは自動選択され、列の対応付け、分析、合格または隔離理由の確認まで一続きで操作する。準備と操作は[クライアントCSVアップロード検証](docs/Phase2L_クライアントCSVアップロード検証.md)を参照する。
 
+Windows現場PCへ導入する場合は、配布ZIPを展開して`現場PCセットアップ.cmd`を実行する。WSL 2とDocker Desktopの不足を検出し、環境生成、service構築、readiness確認、ショートカット作成まで進める。日常操作はデスクトップの起動・停止・状態確認を使用する。詳細は[Windows現場PC自動セットアップ](docs/Phase2M_Windows現場PC自動セットアップ.md)を参照する。
+
 ローカル環境を一続きで確認する場合は、Docker ComposeでPostgreSQL、API、検証Workerを起動し、tokenを`KIBAN_API_TOKEN`へ設定して`kiban-local-validation-acceptance --source-path <相対CSV> --mapping-id <mapping ID>`を実行する。Docker Desktopのruntime socket障害を含む準備、復旧、UI受入は[ローカル検証環境と実動受入](docs/Phase2K_ローカル検証環境と実動受入.md)を参照する。
 
 ## 本番運用

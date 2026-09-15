@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 2M
+
+- Windows現場PC向けに、WSL 2とDocker Desktopの検出・導入、環境生成、Compose構築、readiness確認を行う自動セットアップを追加。
+- PC固有の64文字接続codeを生成し、Git・配布対象外の`.env`と`.kiban`へ保存。
+- 起動、停止、状態確認、診断情報取得を日本語のダブルクリック操作へ分割し、共通処理をPowerShell moduleへ集約。
+- デスクトップへ起動・停止・状態確認ショートカットを作成し、通常停止ではPostgreSQL volumeを維持。
+- 診断情報から接続code、CSV本文、行値、環境変数、container logを除外。
+
 ## Phase 2L
 
 - `/ui/intake`へCSVアップロードを追加し、アップロード、列の対応付け、分析、結果確認を一続きで操作可能にした。

@@ -1,3 +1,27 @@
+# v2.9 Phase 2M 実行検証記録
+
+Date: 2026-09-15 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12.14
+Docker Desktop: 4.90.0
+Docker Engine: 29.7.2
+PostgreSQL: 17.11
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2M
+
+- 環境判定: Windows PowerShell 5.1で配布hash、64 bit Windows、WSL 2、Docker Desktopの既存環境判定を実行し成功。
+- 自動導入: WSL未設定時の管理者昇格と`wsl --install --no-distribution`、Docker未導入時のwingetユーザー単位installを分離。再起動後は同じsetupを再実行して続行する。
+- 初期構築: runtime directoryとPC固有64文字tokenを生成し、PostgreSQL、API、mapping dry run Workerのbuild、起動、readiness確認を実行する。
+- 日常運用: 起動、停止、状態確認、診断を小さなscriptへ分割し、共通処理をPowerShell moduleへ集約。デスクトップショートカットを自動作成する。
+- データ保護: 通常停止はvolumeを削除せず、診断へtoken、CSV本文、行値、環境変数、container logを含めない。
+- 配布保護: setup開始前に`SHA256SUMS.json`の436ファイルを照合し、不足・改変時は導入を開始しない。
+- pytest: Linux Dockerの全474件成功、7件skip。WindowsはLinux専用peak RSS 1件を除く473件成功、7件skip。
+- 静的検査: `ruff check .`成功。PowerShell 6ファイルの構文解析とWindows PowerShell 5.1の`-CheckOnly`が成功。
+- 配布: 436ファイルのmanifest checksum一致、日本語filenameのUTF-8 flagを確認。
+- 制約: WSL有効化の管理者承認、必要時のPC再起動、Docker Desktopの組織別ライセンス判断、BIOS仮想化と社内policyは自動化しない。
+
 # v2.9 Phase 2L 実行検証記録
 
 Date: 2026-09-15 JST
