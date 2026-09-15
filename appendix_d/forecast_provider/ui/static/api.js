@@ -20,7 +20,9 @@ export async function request(path, options = {}) {
   if (!token) throw new ApiError(401, "API tokenを入力してください。");
   const headers = new Headers(options.headers || {});
   headers.set("Authorization", `Bearer ${token}`);
-  if (options.body) headers.set("Content-Type", "application/json");
+  if (options.body && !(options.body instanceof Blob) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
   const response = await fetch(path, { ...options, headers });
   if (!response.ok) {
     let message = `API error (${response.status})`;

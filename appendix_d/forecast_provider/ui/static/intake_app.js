@@ -11,6 +11,7 @@ import {
   loadMappingDryRunJob,
   loadNormalization,
   selectSource,
+  uploadMappingDryRunSource,
 } from "./intake_api.js";
 import { mappingPayload, syncAvailability } from "./intake_forms.js";
 import {
@@ -49,6 +50,7 @@ const elements = {
   dryRunJobReport: byId("dry-run-job-report-button"),
   dryRunJobSearch: byId("dry-run-job-search"),
   dryRunSource: byId("dry-run-source-path"),
+  uploadFile: byId("upload-file"),
   dryRunMapping: byId("dry-run-mapping"),
   dryRunSearch: byId("dry-run-search"),
   importSearch: byId("import-search"),
@@ -58,6 +60,13 @@ const elements = {
   validationProgress: byId("validation-progress"),
   mappingDrawer: byId("mapping-drawer"),
 };
+
+function updateUploadButton() {
+  const button = byId("upload-submit");
+  const file = elements.uploadFile.files[0];
+  button.dataset.blocked = String(!file || !file.name.toLocaleLowerCase("en").endsWith(".csv"));
+  setBusy(state.busy);
+}
 
 function clearDryRunPoll() {
   if (state.pollTimer !== null) window.clearTimeout(state.pollTimer);
@@ -318,6 +327,28 @@ byId("dry-run-job-form").addEventListener("submit", async (event) => {
   }
 });
 
+byId("upload-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const file = elements.uploadFile.files[0];
+  if (state.busy || !file) return;
+  setBusy(true);
+  notice("CSVを安全な検証領域へアップロードしています。");
+  try {
+    const uploaded = await uploadMappingDryRunSource(file);
+    elements.uploadFile.value = "";
+    setBusy(false);
+    await refreshDashboard();
+    elements.dryRunSource.value = uploaded.source_path;
+    renderValidationSetup(state.dashboard);
+    notice("アップロードしました。列の対応付けを選んで分析を実行してください。", "success");
+  } catch (error) {
+    handleError(error);
+  } finally {
+    setBusy(false);
+    updateUploadButton();
+  }
+});
+
 byId("mapping-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   if (state.busy) return;
@@ -448,6 +479,7 @@ elements.dryRunSearch.addEventListener("input", drawLists);
 elements.importSearch.addEventListener("input", drawLists);
 elements.normalizationSearch.addEventListener("input", drawLists);
 elements.dryRunSource.addEventListener("change", () => renderValidationSetup(state.dashboard));
+elements.uploadFile.addEventListener("change", updateUploadButton);
 elements.dryRunMapping.addEventListener("change", () => renderValidationSetup(state.dashboard));
 byId("open-mapping-button").addEventListener("click", () => {
   elements.mappingDrawer.open = true;

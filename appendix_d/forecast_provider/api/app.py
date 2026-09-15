@@ -11,6 +11,7 @@ from ..errors import ContractViolationError
 from ..jobs.contracts import RunStore
 from ..mapping_dry_run.catalog import MappingDryRunCatalog
 from ..mapping_dry_run.sources import MappingDryRunSourceCatalog
+from ..mapping_dry_run.uploads import MappingDryRunSourceUploader
 from ..ui import install_ui_routes
 from .acceptance_routes import install_acceptance_routes
 from .daily_routes import install_daily_routes
@@ -113,6 +114,7 @@ def create_app(
         mapping_dry_run_jobs,
         normalization,
         MappingDryRunSourceCatalog(mapping_dry_run_input_root),
+        MappingDryRunSourceUploader(mapping_dry_run_input_root),
     )
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)

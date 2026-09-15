@@ -6,13 +6,16 @@ from .jobs import MappingDryRunJob
 from .processor import MappingDryRunProcessor
 from .runner import run_dry_run
 from .sources import MappingDryRunSourceCatalog
+from .uploads import MappingDryRunSourceUploader, SourceUploadError
 
 __all__ = [
     "DryRunLimits",
     "MappingDryRunJob",
     "MappingDryRunProcessor",
     "MappingDryRunSourceCatalog",
+    "MappingDryRunSourceUploader",
     "PostgresMappingDryRunJobStore",
+    "SourceUploadError",
     "SqliteMappingDryRunJobStore",
     "run_dry_run",
 ]

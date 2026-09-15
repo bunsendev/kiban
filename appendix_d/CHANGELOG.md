@@ -1,5 +1,12 @@
 # v2.9 修正記録
 
+## Phase 2L
+
+- `/ui/intake`へCSVアップロードを追加し、アップロード、列の対応付け、分析、結果確認を一続きで操作可能にした。
+- 100 MB上限、`.csv`限定、安全なファイル名、専用directory、atomic確定、途中ファイル除去を実装した。
+- APIとUIは本文や行値を応答・証跡へ含めず、開発Composeの検証Workerは入力rootをread-onlyで参照する。
+- 実ブラウザーで合格と隔離の両結果を確認し、原因と修正案まで表示できることを確認した。
+
 ## Phase 2K
 
 - Docker Desktopのstale runtime socketをデータ削除せず退避し、backend、PostgreSQL、API、検証Workerを復旧する手順を追加。
