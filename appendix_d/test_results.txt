@@ -1,3 +1,22 @@
+# v2.9 Phase 2N 実行検証記録
+
+Date: 2026-09-15 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12
+Docker Desktop: 4.90.0
+Docker Engine: 29.7.2
+PostgreSQL: 17.11
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2N
+
+- 一括アップロード: `/ui/intake`から100 MB以下のZIPを受け付け、CSVだけを一つのbatchへatomic登録する。
+- 安全境界: 展開先逸脱、CSV以外、暗号化、同名衝突、5,000ファイル、個別100 MB、展開後2 GBを検査し、失敗時はbatch全体を除去する。
+- 実ファイル確認: ローカルの対象ZIP 45,241,052 bytesを検査し、CSV 3,869件、展開後524,621,084 bytesを登録。他形式0件、一時ファイル0件を確認。CSV本文と行値は出力・Git・配布へ含めない。
+- UI: CSV/ZIPの自動判定、処理中案内、登録件数表示、アップロード直後の先頭CSV選択を実装。
+- pytest: 一括登録、展開先逸脱、CSV以外のatomic拒否、UI契約を含む対象8件成功。全体477件成功、7件skip。配布manifest更新後のhash検査も成功。
+- 静的検査: 変更対象の`ruff check`成功。
 # v2.9 Phase 2M 実行検証記録
 
 Date: 2026-09-15 JST

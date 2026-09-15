@@ -19,6 +19,7 @@ def install_mapping_dry_run_routes(
     mappings=None,
     sources=None,
     uploader=None,
+    bulk_uploader=None,
 ) -> None:
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)
@@ -51,7 +52,10 @@ def install_mapping_dry_run_routes(
         def list_mapping_dry_run_sources(
             _principal: Annotated[Principal, Depends(read)],
             limit: Annotated[int, Query(ge=1, le=500)] = 200,
+            source_path: Annotated[str | None, Query(max_length=500)] = None,
         ):
+            if source_path is not None:
+                return sources.get_source(source_path)
             return sources.list_sources(limit)
 
     if uploader is not None:
@@ -71,6 +75,27 @@ def install_mapping_dry_run_routes(
                 raise HTTPException(status_code=400, detail="Content-Lengthが不正です")
             try:
                 result = await uploader.save(filename, request.stream(), length)
+            except SourceUploadError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            return {**result, "uploaded_by": principal.subject}
+
+    if bulk_uploader is not None:
+
+        @app.post("/api/mapping-dry-run-bulk-uploads", status_code=status.HTTP_201_CREATED)
+        async def upload_mapping_dry_run_batch(
+            request: Request,
+            principal: Annotated[Principal, Depends(analyze)],
+            filename: Annotated[str, Query(min_length=1, max_length=120)],
+        ):
+            content_length = request.headers.get("content-length")
+            try:
+                length = int(content_length) if content_length is not None else None
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail="Content-Lengthが不正です") from exc
+            if length is not None and length < 0:
+                raise HTTPException(status_code=400, detail="Content-Lengthが不正です")
+            try:
+                result = await bulk_uploader.save(filename, request.stream(), length)
             except SourceUploadError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
             return {**result, "uploaded_by": principal.subject}

@@ -46,6 +46,20 @@ export function uploadMappingDryRunSource(file) {
   });
 }
 
+export function uploadMappingDryRunBatch(file) {
+  const filename = encodeURIComponent(file.name);
+  return request(`/api/mapping-dry-run-bulk-uploads?filename=${filename}`, {
+    method: "POST",
+    body: file,
+    headers: { "Content-Type": "application/zip" },
+  });
+}
+
+export function loadMappingDryRunSource(sourcePath) {
+  return request(`/api/mapping-dry-run-sources?source_path=${encoded(sourcePath)}`)
+    .then((catalog) => catalog.items[0] || null);
+}
+
 export function loadMappingDryRunJob(jobId) {
   return request(`/api/mapping-dry-run-jobs/${encoded(jobId)}`);
 }

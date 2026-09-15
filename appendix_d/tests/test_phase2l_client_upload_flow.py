@@ -1,6 +1,8 @@
 """Phase 2L: クライアントのupload、分析、結果確認フロー。"""
 
 import asyncio
+import io
+import zipfile
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -114,3 +116,63 @@ def test_intake_ui_exposes_upload_analyze_result_flow(tmp_path):
     assert 'id="upload-file" type="file"' in page
     assert "uploadMappingDryRunSource(file)" in app
     assert 'request(`/api/mapping-dry-run-uploads?filename=${filename}`' in api
+
+
+def _zip(entries: dict[str, bytes]) -> bytes:
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, body in entries.items():
+            archive.writestr(name, body)
+    return output.getvalue()
+
+
+def test_zip_upload_registers_all_csv_files_as_one_batch(tmp_path):
+    client, input_root = _client(tmp_path)
+    body = _zip(
+        {
+            "在庫データ/在庫.csv": "日付,JANコード,在庫数量\n2026/09/14,001,3\n".encode(),
+            "在庫データ/出荷.csv": "出荷日,JANコード,出荷数量\n2026/09/14,001,1\n".encode(),
+        }
+    )
+
+    response = client.post(
+        "/api/mapping-dry-run-bulk-uploads?filename=batch.zip",
+        content=body,
+        headers={"Content-Type": "application/zip"},
+    )
+
+    assert response.status_code == 201
+    uploaded = response.json()
+    assert uploaded["file_count"] == 2
+    assert uploaded["uploaded_by"] == "local-admin"
+    batch = input_root / uploaded["source_prefix"]
+    assert len(list(batch.rglob("*.csv"))) == 2
+    assert not list(batch.rglob("*.zip"))
+    exact = client.get(
+        "/api/mapping-dry-run-sources", params={"source_path": uploaded["first_source_path"]}
+    ).json()
+    assert exact["items"][0]["source_path"] == uploaded["first_source_path"]
+
+
+def test_zip_upload_rejects_traversal_and_non_csv_atomically(tmp_path):
+    client, input_root = _client(tmp_path)
+    for entries in ({"../escape.csv": b"x"}, {"data.csv": b"x", "memo.txt": b"x"}):
+        response = client.post(
+            "/api/mapping-dry-run-bulk-uploads?filename=batch.zip",
+            content=_zip(entries),
+        )
+        assert response.status_code == 422
+    assert not list(input_root.rglob("*.csv"))
+
+
+def test_intake_ui_accepts_zip_bulk_upload(tmp_path):
+    client, _ = _client(tmp_path)
+    page = client.get("/ui/intake").text
+    app = client.get("/ui/assets/intake_app.js").text
+    api = client.get("/ui/assets/intake_api.js").text
+
+    assert "CSV・ZIPをアップロード" in page
+    assert 'accept=".csv,.zip,text/csv,application/zip"' in page
+    assert "uploadMappingDryRunBatch(file)" in app
+    assert "loadMappingDryRunSource(uploadedPath)" in app
+    assert "/api/mapping-dry-run-bulk-uploads?filename=" in api
