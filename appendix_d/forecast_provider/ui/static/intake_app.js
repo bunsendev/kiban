@@ -387,12 +387,19 @@ byId("inventory-profile-submit").addEventListener("click", async () => {
       .map((item) => item.column)
       .join("、") || "候補なし";
     const result = byId("inventory-profile-result");
+    const analysis = profile.mapping_analysis;
+    const recommendation = analysis.recommendation;
     result.hidden = false;
     result.textContent = [
       `在庫CSV ${profile.file_count}件 / ヘッダー構成 ${profile.header_pattern_count}種類。`,
       `日付候補: ${complete("date")}。数量候補: ${complete("quantity")}。`,
       `倉庫候補: ${complete("center")}。単位候補: ${complete("unit")}。`,
       `要確認: ${profile.issues.join("、") || "なし"}。`,
+      `値診断: ${analysis.sampled_rows.toLocaleString("ja-JP")}行。`,
+      recommendation.quantity_column
+        ? `数量は「${recommendation.quantity_column}」、日付はファイル名、倉庫は「${recommendation.center_column}」が候補です。`
+        : "値の充足条件を満たすmapping候補はありません。",
+      "単位の定義と商品コードからJANへの対応付けは業務確認が必要です。",
     ].join(" ");
     notice("在庫CSVの構造診断が完了しました。候補列を確認してください。", "success");
   } catch (error) {
