@@ -1,3 +1,20 @@
+# v2.9 Phase 2V 実行検証記録
+
+Date: 2026-09-16 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2V
+
+- 数量照合: 採用元数量と集約後数量をジョブと同じtransactionで保存し、一致判定を返す。
+- 結果参照: READ権限で件数、照合結果、日付・JAN・倉庫・単位・数量をページ取得できる。
+- CSV出力: EXPORT権限で全結果を決定的な順序のUTF-8 BOM付きCSVとして取得できる。
+- UI: 完了後に隔離理由、数量一致、先頭20件を表示し、全結果CSVをダウンロードできる。
+- データ保護: 元ファイル名、商品名、商品コード、絶対pathを結果API・CSVへ含めない。
+- テスト: 数量一致、ページング、CSV、BOM、未完了状態、認証を含む対象4件成功。
+- 静的検査: ruff、JavaScript構文、Compose構成検査に成功。
 # v2.9 Phase 2U 実行検証記録
 
 Date: 2026-09-16 JST

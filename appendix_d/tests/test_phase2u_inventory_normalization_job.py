@@ -91,6 +91,10 @@ def test_api_worker_aggregates_inventory_daily_quantities(tmp_path):
             "quantity": "5",
         }
     ]
+    summary = inventory.results(job_id, 10, 0)
+    assert summary["source_quantity"] == "5"
+    assert summary["normalized_quantity"] == "5"
+    assert summary["reconciled"] is True
     assert "秘密商品" not in str(job)
 
 

@@ -35,6 +35,7 @@ def install_mapping_dry_run_routes(
 ) -> None:
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)
+    export = authorize.require(Permission.EXPORT)
 
     @app.get("/api/mapping-dry-runs")
     def list_mapping_dry_runs(
@@ -208,6 +209,58 @@ def install_mapping_dry_run_routes(
             if value is None:
                 raise HTTPException(status_code=404, detail="在庫正規化jobが見つかりません")
             return value
+
+        @app.get("/api/inventory-normalization-jobs/{job_id}/results")
+        def get_inventory_normalization_results(
+            job_id: str,
+            _principal: Annotated[Principal, Depends(read)],
+            limit: Annotated[int, Query(ge=1, le=500)] = 100,
+            offset: Annotated[int, Query(ge=0)] = 0,
+        ):
+            job = inventory_normalization.get(job_id)
+            if job is None:
+                raise HTTPException(status_code=404, detail="在庫正規化jobが見つかりません")
+            if job["status"] != "SUCCEEDED":
+                raise HTTPException(status_code=409, detail="在庫正規化jobが完了していません")
+            results = inventory_normalization.results(job_id, limit, offset)
+            if results is None:
+                raise HTTPException(status_code=409, detail="数量照合情報がありません")
+            return results
+
+        @app.get("/api/inventory-normalization-jobs/{job_id}/results.csv")
+        def download_inventory_normalization_results(
+            job_id: str,
+            _principal: Annotated[Principal, Depends(export)],
+        ):
+            job = inventory_normalization.get(job_id)
+            if job is None:
+                raise HTTPException(status_code=404, detail="在庫正規化jobが見つかりません")
+            if job["status"] != "SUCCEEDED":
+                raise HTTPException(status_code=409, detail="在庫正規化jobが完了していません")
+            if inventory_normalization.results(job_id, 1, 0) is None:
+                raise HTTPException(status_code=409, detail="数量照合情報がありません")
+            output = io.StringIO()
+            writer = csv.writer(output, lineterminator="\r\n")
+            writer.writerow(["在庫日", "JAN", "倉庫コード", "単位", "数量"])
+            for value in inventory_normalization.list_values(job_id):
+                writer.writerow(
+                    [
+                        value["inventory_date"],
+                        value["jan"],
+                        value["center_id"],
+                        value["unit"],
+                        value["quantity"],
+                    ]
+                )
+            return Response(
+                "\ufeff" + output.getvalue(),
+                media_type="text/csv; charset=utf-8",
+                headers={
+                    "Content-Disposition": (
+                        f'attachment; filename="inventory-normalized-{job_id}.csv"'
+                    )
+                },
+            )
 
     if jobs is None or mappings is None:
         return

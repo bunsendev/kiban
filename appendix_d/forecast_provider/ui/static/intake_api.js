@@ -103,6 +103,12 @@ export function loadInventoryNormalizationJob(jobId) {
   return request(`/api/inventory-normalization-jobs/${encoded(jobId)}`);
 }
 
+export function loadInventoryNormalizationResults(jobId, limit = 20, offset = 0) {
+  return request(
+    `/api/inventory-normalization-jobs/${encoded(jobId)}/results?limit=${limit}&offset=${offset}`,
+  );
+}
+
 export function loadMappingDryRunSource(sourcePath) {
   return request(`/api/mapping-dry-run-sources?source_path=${encoded(sourcePath)}`)
     .then((catalog) => catalog.items[0] || null);

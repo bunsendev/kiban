@@ -26,3 +26,8 @@ CREATE TABLE IF NOT EXISTS inventory_daily_quantities (
   quantity TEXT NOT NULL,
   PRIMARY KEY(job_id, inventory_date, jan, center_id, unit)
 );
+CREATE TABLE IF NOT EXISTS inventory_normalization_summaries (
+  job_id TEXT PRIMARY KEY REFERENCES inventory_normalization_jobs(job_id),
+  source_quantity TEXT NOT NULL,
+  normalized_quantity TEXT NOT NULL
+);
