@@ -4,6 +4,7 @@ import {
   createImport,
   createInventoryStructureProfile,
   analyzeProductJanBridge,
+  uploadProductJanMapping,
   createMapping,
   createMappingDryRunJob,
   createMappingDryRunBatch,
@@ -400,8 +401,36 @@ byId("product-bridge-submit").addEventListener("click", async () => {
         "product-jan-mapping.csv",
       ).catch(handleError));
       result.append(button);
+      byId("product-mapping-upload-form").hidden = false;
     }
     notice("商品コードとJANの対応診断が完了しました。", "success");
+  } catch (error) {
+    handleError(error);
+  } finally {
+    setBusy(false);
+  }
+});
+
+byId("product-mapping-upload-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const file = byId("product-mapping-file").files[0];
+  if (state.busy || !file || !state.uploadedBatchPrefix) return;
+  setBusy(true);
+  notice("JAN対応表の重複・形式・充足率を検証しています。");
+  try {
+    const report = await uploadProductJanMapping(state.uploadedBatchPrefix, file);
+    const result = byId("product-mapping-upload-result");
+    result.hidden = false;
+    result.textContent = report.status === "READY"
+      ? `全${report.expected_product_count}商品のJAN対応表を保存しました。ID: ${report.mapping_id}`
+      : [
+        `${report.completed_product_count} / ${report.expected_product_count}商品を確認済みです。`,
+        `未記入 ${report.issues.blank_jans}、JAN形式不正 ${report.issues.invalid_jans}、重複 ${report.issues.duplicate_product_codes}、対象外 ${report.issues.unknown_product_codes}、不足 ${report.issues.missing_product_codes}。`,
+      ].join(" ");
+    notice(
+      report.status === "READY" ? "JAN対応表を検証して保存しました。" : "修正が必要な項目があります。",
+      report.status === "READY" ? "success" : "error",
+    );
   } catch (error) {
     handleError(error);
   } finally {

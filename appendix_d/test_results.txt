@@ -1,3 +1,20 @@
+# v2.9 Phase 2S 実行検証記録
+
+Date: 2026-09-16 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2S
+
+- 取込検査: UTF-8、固定列、5 MiB、10,000行、重複、対象外、不足、JAN桁数・EAN check digitを検査する。
+- 保存条件: 在庫商品の全件が有効JANで埋まった場合だけ、SHA-256 ID付きCSVを入力rootへatomic保存する。
+- UI: 記入済みJAN対応表を選択し、不備件数または保存済みmapping IDを確認できる。
+- データ保護: 商品コード、商品名、JAN、確認メモをAPIレスポンス、Git、配布ZIPへ含めない。
+- テスト: 不正JAN、不足、完全対応、内容アドレスID、BOM、認証を含む対象3件成功。
+- 静的検査: ruffとJavaScript構文検査に成功。
+
 # v2.9 Phase 2R 実行検証記録
 
 Date: 2026-09-15 JST

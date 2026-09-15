@@ -147,6 +147,18 @@ def install_mapping_dry_run_routes(
                 headers={"Content-Disposition": 'attachment; filename="product-jan-mapping.csv"'},
             )
 
+        @app.post("/api/product-jan-mappings", status_code=status.HTTP_201_CREATED)
+        async def import_product_jan_mapping(
+            request: Request,
+            source_prefix: Annotated[str, Query(min_length=1, max_length=1_024)],
+            _principal: Annotated[Principal, Depends(analyze)],
+        ):
+            content = await request.body()
+            try:
+                return product_bridge.import_mapping(source_prefix, content)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     if jobs is None or mappings is None:
         return
 
