@@ -12,6 +12,7 @@ from ..jobs.contracts import RunStore
 from ..mapping_dry_run.bulk_uploads import MappingDryRunBulkUploader
 from ..mapping_dry_run.catalog import MappingDryRunCatalog
 from ..mapping_dry_run.inventory_profiles import InventoryStructureProfiler
+from ..mapping_dry_run.product_bridge import ProductBridgeService
 from ..mapping_dry_run.sources import MappingDryRunSourceCatalog
 from ..mapping_dry_run.uploads import MappingDryRunSourceUploader
 from ..ui import install_ui_routes
@@ -119,6 +120,7 @@ def create_app(
         MappingDryRunSourceUploader(mapping_dry_run_input_root),
         MappingDryRunBulkUploader(mapping_dry_run_input_root),
         InventoryStructureProfiler(mapping_dry_run_input_root),
+        ProductBridgeService(mapping_dry_run_input_root),
     )
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)

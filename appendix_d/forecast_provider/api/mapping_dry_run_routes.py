@@ -27,6 +27,7 @@ def install_mapping_dry_run_routes(
     uploader=None,
     bulk_uploader=None,
     inventory_profiler=None,
+    product_bridge=None,
 ) -> None:
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)
@@ -118,6 +119,33 @@ def install_mapping_dry_run_routes(
                 return inventory_profiler.profile(request.source_prefix)
             except InventoryProfileError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if product_bridge is not None:
+
+        @app.post("/api/product-jan-bridge-analysis")
+        def analyze_product_jan_bridge(
+            request: InventoryProfileCreate,
+            _principal: Annotated[Principal, Depends(analyze)],
+        ):
+            try:
+                return product_bridge.analyze(request.source_prefix)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        @app.get("/api/product-jan-bridge-template.csv")
+        def download_product_jan_bridge_template(
+            source_prefix: Annotated[str, Query(min_length=1, max_length=1_024)],
+            _principal: Annotated[Principal, Depends(read)],
+        ):
+            try:
+                content = product_bridge.template(source_prefix)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            return Response(
+                content,
+                media_type="text/csv; charset=utf-8",
+                headers={"Content-Disposition": 'attachment; filename="product-jan-mapping.csv"'},
+            )
 
     if jobs is None or mappings is None:
         return

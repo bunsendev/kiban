@@ -84,6 +84,11 @@
         <button id="inventory-profile-submit" class="button secondary" data-permission="ANALYZE" type="button">在庫CSVを一括診断</button>
       </section>
       <section id="inventory-profile-result" class="validation-progress" hidden aria-live="polite"></section>
+      <section id="product-bridge-panel" class="upload-panel" hidden>
+        <div><strong>商品コードとJANの対応を準備</strong><p>出荷CSVで自動対応できるか診断し、不足する場合はJAN記入用CSVを出力します。</p></div>
+        <button id="product-bridge-submit" class="button secondary" data-permission="ANALYZE" type="button">JAN対応を診断</button>
+      </section>
+      <section id="product-bridge-result" class="validation-progress" hidden aria-live="polite"></section>
       <section id="dry-run-batch-result" class="validation-progress" hidden aria-live="polite"></section>
       <div id="validation-progress" class="validation-progress" role="status">CSVと列の対応付けを選択してください。</div>
     </section>

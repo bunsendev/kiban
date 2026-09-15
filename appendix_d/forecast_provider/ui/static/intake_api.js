@@ -70,6 +70,13 @@ export function createInventoryStructureProfile(sourcePrefix) {
   });
 }
 
+export function analyzeProductJanBridge(sourcePrefix) {
+  return request("/api/product-jan-bridge-analysis", {
+    method: "POST",
+    body: JSON.stringify({ source_prefix: sourcePrefix }),
+  });
+}
+
 export function loadMappingDryRunSource(sourcePath) {
   return request(`/api/mapping-dry-run-sources?source_path=${encoded(sourcePath)}`)
     .then((catalog) => catalog.items[0] || null);

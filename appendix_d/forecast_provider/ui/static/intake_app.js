@@ -3,6 +3,7 @@ import { ApiError, clearToken, download, setToken } from "./api.js";
 import {
   createImport,
   createInventoryStructureProfile,
+  analyzeProductJanBridge,
   createMapping,
   createMappingDryRunJob,
   createMappingDryRunBatch,
@@ -360,6 +361,7 @@ byId("upload-form").addEventListener("submit", async (event) => {
       byId("dry-run-batch-form").hidden = false;
       state.uploadedBatchPrefix = uploaded.source_prefix;
       byId("inventory-profile-panel").hidden = false;
+      byId("product-bridge-panel").hidden = false;
     }
     renderValidationSetup(state.dashboard);
     notice(
@@ -373,6 +375,37 @@ byId("upload-form").addEventListener("submit", async (event) => {
   } finally {
     setBusy(false);
     updateUploadButton();
+  }
+});
+
+byId("product-bridge-submit").addEventListener("click", async () => {
+  if (state.busy || !state.uploadedBatchPrefix) return;
+  setBusy(true);
+  notice("商品コードとJANの対応可否を診断しています。");
+  try {
+    const analysis = await analyzeProductJanBridge(state.uploadedBatchPrefix);
+    const result = byId("product-bridge-result");
+    result.hidden = false;
+    result.textContent = [
+      `出荷サンプル ${analysis.shipment_sampled_rows.toLocaleString("ja-JP")}行のうち、商品コードとJANの組は ${analysis.shipment_code_jan_pair_rows.toLocaleString("ja-JP")}行です。`,
+      `在庫の商品コードは ${analysis.inventory_distinct_product_codes.toLocaleString("ja-JP")}種類です。`,
+    ].join(" ");
+    if (analysis.status === "EXTERNAL_MAPPING_REQUIRED") {
+      const button = document.createElement("button");
+      button.className = "button secondary";
+      button.type = "button";
+      button.textContent = "JAN記入用CSVをダウンロード";
+      button.addEventListener("click", () => download(
+        `/api/product-jan-bridge-template.csv?source_prefix=${encodeURIComponent(state.uploadedBatchPrefix)}`,
+        "product-jan-mapping.csv",
+      ).catch(handleError));
+      result.append(button);
+    }
+    notice("商品コードとJANの対応診断が完了しました。", "success");
+  } catch (error) {
+    handleError(error);
+  } finally {
+    setBusy(false);
   }
 });
 
