@@ -16,12 +16,14 @@ from forecast_provider.normalization import SqliteNormalizationStore
 def _zip() -> bytes:
     header = (
         "ヘッダ入荷日,明細入荷日,商品コード,商品名,明細資産数量,内訳資産数量,"
-        "明細倉庫コード,ヘッダ倉庫コード,明細荷姿単位コード,内訳荷姿単位コード\n"
+        "明細倉庫コード,ヘッダ倉庫コード,明細荷姿単位コード,内訳荷姿単位コード,"
+        "明細バラ数\n"
     ).encode("cp932")
+    row = ",,P01,商品A,,,C01,C01,,,12\n".encode("cp932")
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w") as archive:
-        archive.writestr("在庫データ/加須日時在庫_1.csv", header)
-        archive.writestr("在庫データ/加須日時在庫_2.csv", header + b"\n")
+        archive.writestr("在庫データ/加須日時在庫_20260901.csv", header + row)
+        archive.writestr("在庫データ/加須日時在庫_20260902.csv", header + row)
         archive.writestr("在庫データ/加須日時出荷_1.csv", b"shipment\n")
     return output.getvalue()
 
@@ -62,6 +64,18 @@ def test_inventory_profile_reports_coverage_and_ambiguity_without_rows(tmp_path)
     assert "QUANTITY_COLUMN_AMBIGUOUS" in profile["issues"]
     assert "JAN_COLUMN_MISSING" in profile["issues"]
     assert profile["field_candidates"]["product_code"][0]["file_count"] == 2
+    analysis = profile["mapping_analysis"]
+    assert analysis["sampled_rows"] == 2
+    assert analysis["recommendation"] == {
+        "date_source": "FILENAME_YYYYMMDD",
+        "product_code_column": "商品コード",
+        "product_name_column": "商品名",
+        "quantity_column": "明細バラ数",
+        "center_column": "明細倉庫コード",
+        "unit_value": None,
+        "jan_mapping_required": True,
+        "status": "UNIT_AND_PRODUCT_MASTER_REQUIRED",
+    }
     assert "shipment" not in response.text
 
 

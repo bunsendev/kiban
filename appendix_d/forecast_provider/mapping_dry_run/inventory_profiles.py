@@ -9,6 +9,7 @@ from collections import Counter
 from pathlib import Path
 
 from ..ingestion.processor import detect_encoding
+from .inventory_mapping_analysis import InventoryMappingAnalyzer
 from .sources import MappingDryRunSourceCatalog
 
 FIELD_CANDIDATES = {
@@ -57,6 +58,7 @@ class InventoryStructureProfiler:
             }
             for header, count in sorted(headers.items(), key=lambda item: (-item[1], item[0]))
         ]
+        analysis = InventoryMappingAnalyzer(self.input_root).analyze(paths)
         return {
             "source_prefix": source_prefix,
             "status": "MAPPING_DECISION_REQUIRED",
@@ -65,6 +67,7 @@ class InventoryStructureProfiler:
             "patterns": patterns,
             "field_candidates": field_candidates,
             "issues": self._issues(field_candidates, len(paths)),
+            "mapping_analysis": analysis,
         }
 
     def _header(self, source_path: str) -> tuple[str, ...]:
