@@ -4,16 +4,54 @@
 
 ローカル開発環境の利用者が、サーバーのフォルダーを直接操作せずに `/ui/intake` からCSVをアップロードし、列の対応付け、分析、結果確認までを一続きで試せるようにする。
 
-## 準備
+## 運用フロー
+
+1. Docker Desktopを起動する。
+2. PowerShellでサービスを起動し、状態とAPIを確認する。
+3. UIでCSVをアップロードし、列の対応付けを選んで分析する。
+4. 合格または要確認の判定と件数を記録する。
+5. 作業終了時はサービスだけを停止し、次回は同じ台帳から再開する。
+
+## 1. 起動前確認
+
+次のソフトウェアが利用できることをPowerShellで確認する。
+
+```powershell
+git --version
+docker version
+docker compose version
+```
+
+`docker version`にClientとServerの両方が表示されればDocker Engineへ接続できている。Serverが表示されない場合はDocker Desktopの起動完了を待って再実行する。
+
+## 2. サービス起動
 
 PowerShellでリポジトリの `appendix_d` フォルダーへ移動し、次を実行する。
 
 ```powershell
+cd "C:\Users\zept0\OneDrive\ドキュメント\ChatGPT\New project\appendix_d"
 docker compose --profile worker up -d --build postgres api mapping-dry-run-worker
 docker compose ps
 ```
 
-`postgres` が `healthy`、`api` と `mapping-dry-run-worker` が `Up` であることを確認する。ブラウザーで `http://127.0.0.1:58000/ui/intake` を開き、開発用tokenを入力して接続する。既定のローカル構成を変更していない場合は `change-me-local` を使用する。
+正常な状態は次のとおり。
+
+| service | 正常な表示 |
+|---|---|
+| `postgres` | `Up ... (healthy)` |
+| `api` | `Up` |
+| `mapping-dry-run-worker` | `Up` |
+
+続けてAPIを確認する。
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:58000/health
+Invoke-RestMethod http://127.0.0.1:58000/ready
+```
+
+`/health`が `status = ok`、`/ready`が `status = ready` になり、各checkが `True` ならUI操作へ進む。
+
+## 3. 試験データ準備
 
 試験CSVは100 MB以下、拡張子 `.csv`、UTF-8または厳密に判定できる対応文字コードで用意する。合格確認に使える最小例は次のとおり。
 
@@ -22,7 +60,11 @@ docker compose ps
 2026/09/15,0012345678901,動作確認商品,5,個,C1,SHIPMENT
 ```
 
-## UI操作
+Excelで作成する場合は、保存形式に「CSV UTF-8（コンマ区切り）」を選ぶ。JANコードの先頭0を保持するため、JAN列は文字列として扱う。
+
+## 4. UI操作
+
+ブラウザーで `http://127.0.0.1:58000/ui/intake` を開く。開発用tokenを入力して「接続」を押す。既定のローカル構成を変更していない場合は `change-me-local` を使用する。
 
 1. 「01 CSVをアップロード」でファイルを選び、「アップロード」を押す。
 2. 「02 CSVを選ぶ・確認する」で、アップロードしたファイルが自動選択され、サイズ、文字コード、列名が表示されることを確認する。
@@ -31,6 +73,57 @@ docker compose ps
 5. 完了後に自動表示される結果で、検査行、採用行、隔離行、9件の検査項目を確認する。
 
 合格時は「検証に合格しました」と「このCSVは正規化へ進めます」が表示される。要確認時は隔離理由の固定codeと件数を確認し、CSVを修正して新しいファイルとして再度アップロードする。
+
+## 5. 結果判定と記録
+
+| 画面表示 | 判定 | 次の操作 |
+|---|---|---|
+| 検証に合格しました | 事前検証合格 | 検査行、採用行、隔離行、mapping ID、report SHA-256を記録する |
+| 修正をおすすめします | 要確認 | 隔離理由codeと件数を記録し、CSVを修正して別ファイル名で再検証する |
+| 検証を開始できない | 入力・設定不足 | 文字コード、列名、mapping、ファイルサイズを確認する |
+| Worker処理が完了しない | 実行環境異常 | service状態とWorker logを確認する |
+
+検証記録には最低限、実施日時、担当者、CSVの管理名、mapping ID、検査行数、採用行数、隔離行数、判定、隔離理由code、report SHA-256を残す。CSVの行値やtokenは記録へ転記しない。
+
+## 6. 終了と再開
+
+通常終了は次を使う。PostgreSQL volumeと台帳を維持するため、`--volumes`や`-v`は付けない。
+
+```powershell
+docker compose stop api mapping-dry-run-worker postgres
+```
+
+次回は次のコマンドで再開する。コードを変更していなければ `--build` は不要である。
+
+```powershell
+docker compose --profile worker up -d postgres api mapping-dry-run-worker
+docker compose ps
+```
+
+## 7. 障害時の確認
+
+最初に状態と直近100行のlogを確認する。
+
+```powershell
+docker compose ps
+docker compose logs --tail 100 api
+docker compose logs --tail 100 mapping-dry-run-worker
+docker compose logs --tail 100 postgres
+```
+
+- `api`へ接続できない場合は、`docker compose ps`で `127.0.0.1:58000->8000` を確認する。
+- `/ready`だけが失敗する場合は、応答のfalseになったcheckと対応serviceのlogを確認する。
+- jobが待機中のままの場合は、`mapping-dry-run-worker`が `Up` か確認して再起動する。
+- 同じCSVを修正した場合も、履歴を区別できる新しいファイル名でアップロードする。
+- Docker Desktopの予期しない終了が続く場合は、[ローカル検証環境と実動受入](Phase2K_ローカル検証環境と実動受入.md)の復旧手順を使う。
+
+```powershell
+docker compose restart api mapping-dry-run-worker
+```
+
+## 8. 定期的な確認
+
+ローカル運用開始時に `/health`、`/ready`、3 serviceの状態を確認する。コード更新後は `--build`付きで再起動し、合格用の人工CSVを1件通す。実業務CSVを試す場合は、組織の取扱規則に従い、検証結果が事前検証であることを明記する。
 
 ## 実装境界
 
