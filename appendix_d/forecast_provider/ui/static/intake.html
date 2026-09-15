@@ -86,7 +86,8 @@
           <label>JAN列<input id="mapping-jan" value="JANコード" required></label>
           <label>商品名列<input id="mapping-product" value="商品名称" required></label>
           <label>数量列<input id="mapping-quantity" value="出荷数量" required></label>
-          <label>単位列<input id="mapping-unit" value="数量単位" required></label>
+          <label>単位の指定方法<select id="mapping-unit-mode"><option value="COLUMN">CSVの列</option><option value="FIXED">すべて同じ単位</option></select></label>
+          <label>単位列または固定値<input id="mapping-unit" value="数量単位" required></label>
           <label>拠点の指定方法<select id="mapping-center-mode"><option value="COLUMN">CSVの列</option><option value="FIXED">すべて同じ拠点</option></select></label>
           <label>拠点列または固定値<input id="mapping-center" value="物流拠点" required></label>
           <label>明細種別列<input id="mapping-row-type" value="明細種別"></label>

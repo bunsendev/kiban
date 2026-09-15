@@ -107,6 +107,39 @@ def test_mapping_is_content_addressed_and_observed_requires_timestamp_column(tmp
         make_mapping(invalid)
 
 
+def test_fixed_unit_normalizes_csv_without_unit_column(tmp_path):
+    content = (
+        "出荷日,JAN,商品名,数量,センター,行区分\n"
+        "2026/01/01,0012345678901,商品A,4,C1,SHIPMENT\n"
+    )
+    _, ingestion, source_file, store, _ = environment(tmp_path, content)
+    definition = mapping_definition()
+    definition.pop("unit_column")
+    definition["unit_value"] = "個"
+    definition["allowed_units"] = ["個"]
+    mapping = make_mapping(definition)
+    store.put_mapping(mapping)
+
+    job = store.enqueue(source_file.source_file_id, mapping.mapping_id)
+    result = NormalizationProcessor(store, ingestion).process_next()
+
+    assert result.status == "SUCCEEDED"
+    row = store.results(job.normalization_id)["rows"][0]
+    assert row["status"] == "ACCEPTED"
+    assert row["unit"] == "個"
+
+
+def test_mapping_requires_exactly_one_unit_source():
+    missing = mapping_definition()
+    missing.pop("unit_column")
+    with pytest.raises(ValueError, match="unit_columnとunit_value"):
+        make_mapping(missing)
+    duplicate = mapping_definition()
+    duplicate["unit_value"] = "個"
+    with pytest.raises(ValueError, match="unit_columnとunit_value"):
+        make_mapping(duplicate)
+
+
 def test_correction_candidate_requires_explicit_versioned_selection(tmp_path):
     header = "出荷日,JAN,商品名,数量,単位,センター,行区分\n"
     source, ingestion, original, store, mapping = environment(

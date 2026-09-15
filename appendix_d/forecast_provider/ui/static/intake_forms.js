@@ -4,13 +4,15 @@ export function mappingPayload(byId) {
   const value = (id) => byId(id).value.trim();
   const center = value("mapping-center");
   const centerMode = value("mapping-center-mode");
+  const unitMode = value("mapping-unit-mode");
   const availability = value("mapping-availability");
   return {
     date_column: value("mapping-date"),
     jan_column: value("mapping-jan"),
     product_name_column: value("mapping-product"),
     quantity_column: value("mapping-quantity"),
-    unit_column: value("mapping-unit"),
+    unit_column: unitMode === "COLUMN" ? value("mapping-unit") : null,
+    unit_value: unitMode === "FIXED" ? value("mapping-unit") : null,
     center_column: centerMode === "COLUMN" ? center : null,
     center_value: centerMode === "FIXED" ? center : null,
     row_type_column: value("mapping-row-type") || null,

@@ -74,9 +74,8 @@ def required_columns(mapping):
         mapping["jan_column"],
         mapping["product_name_column"],
         mapping["quantity_column"],
-        mapping["unit_column"],
     }
-    for name in ("center_column", "row_type_column", "available_at_column"):
+    for name in ("unit_column", "center_column", "row_type_column", "available_at_column"):
         if mapping.get(name):
             keys.add(mapping[name])
     return keys
@@ -86,7 +85,11 @@ def normalize_row(normalization_id, source_file_id, row_number, raw, mapping):
     errors = []
     raw_jan = _cell(raw, mapping["jan_column"])
     raw_name = _cell(raw, mapping["product_name_column"])
-    unit = _cell(raw, mapping["unit_column"])
+    unit = (
+        _cell(raw, mapping["unit_column"])
+        if mapping.get("unit_column")
+        else mapping["unit_value"]
+    )
     center = (
         _cell(raw, mapping["center_column"])
         if mapping.get("center_column")

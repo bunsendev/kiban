@@ -51,7 +51,7 @@ function bytes(value) {
 
 function mappingLabel(mapping) {
   const definition = mapping.definition;
-  return `${definition.date_column}・${definition.jan_column}・${definition.quantity_column} / ${decisionLabel(definition.availability_mode)} / ${decisionLabel(definition.file_mode)}`;
+  return `${definition.date_column}・${definition.jan_column}・${definition.quantity_column} / 単位=${definition.unit_column || definition.unit_value} / ${decisionLabel(definition.availability_mode)} / ${decisionLabel(definition.file_mode)}`;
 }
 
 export function renderValidationSetup(dashboard) {
@@ -67,7 +67,7 @@ export function renderValidationSetup(dashboard) {
     mapping.definition.jan_column,
     mapping.definition.product_name_column,
     mapping.definition.quantity_column,
-    mapping.definition.unit_column,
+    mapping.definition.unit_column || null,
     mapping.definition.center?.mode === "COLUMN" ? mapping.definition.center.value : null,
     mapping.definition.row_type_column || null,
     mapping.definition.availability_mode === "OBSERVED" ? mapping.definition.available_at_column : null,
@@ -85,7 +85,7 @@ export function renderValidationSetup(dashboard) {
       : "管理対象入力フォルダーが設定されていません。環境設定を確認してください。";
   }
   mappingHelp.textContent = mapping
-    ? `日付=${mapping.definition.date_column}、JAN=${mapping.definition.jan_column}、数量=${mapping.definition.quantity_column}、単位=${mapping.definition.unit_column}`
+    ? `日付=${mapping.definition.date_column}、JAN=${mapping.definition.jan_column}、数量=${mapping.definition.quantity_column}、単位=${mapping.definition.unit_column || `固定値 ${mapping.definition.unit_value}`}`
     : dashboard.mappings.length ? "列の対応付けを選択してください。" : "先に新しい対応付けを作成してください。";
   document.getElementById("wizard-source-step").className = `wizard-step${source ? " complete" : dashboard.sources.length ? " ready" : ""}`;
   document.getElementById("wizard-mapping-step").className = `wizard-step${mapping ? " complete" : source ? " ready" : ""}`;
