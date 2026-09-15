@@ -15,7 +15,7 @@ from forecast_provider.mapping_dry_run import (
     SourceUploadError,
     SqliteMappingDryRunJobStore,
 )
-from forecast_provider.normalization import SqliteNormalizationStore
+from forecast_provider.normalization import SqliteNormalizationStore, make_mapping
 
 
 def _client(tmp_path: Path) -> tuple[TestClient, Path]:
@@ -71,17 +71,18 @@ def test_upload_rejects_non_csv_empty_and_unauthenticated(tmp_path):
         == 422
     )
     assert not list(input_root.rglob("*.csv"))
-    assert TestClient(client.app).post(
-        "/api/mapping-dry-run-uploads?filename=data.csv", content=b"x"
-    ).status_code == 401
+    assert (
+        TestClient(client.app)
+        .post("/api/mapping-dry-run-uploads?filename=data.csv", content=b"x")
+        .status_code
+        == 401
+    )
 
 
 def test_upload_rejects_windows_invalid_or_reserved_filename(tmp_path):
     client, input_root = _client(tmp_path)
     for filename in ("CON.csv", "bad:name.csv", "trailing.csv."):
-        response = client.post(
-            f"/api/mapping-dry-run-uploads?filename={filename}", content=b"x"
-        )
+        response = client.post(f"/api/mapping-dry-run-uploads?filename={filename}", content=b"x")
         assert response.status_code == 422
     assert not list(input_root.rglob("*"))
 
@@ -115,7 +116,7 @@ def test_intake_ui_exposes_upload_analyze_result_flow(tmp_path):
     assert "このCSVを検証・分析" in page
     assert 'id="upload-file" type="file"' in page
     assert "uploadMappingDryRunSource(file)" in app
-    assert 'request(`/api/mapping-dry-run-uploads?filename=${filename}`' in api
+    assert "request(`/api/mapping-dry-run-uploads?filename=${filename}`" in api
 
 
 def _zip(entries: dict[str, bytes]) -> bytes:
@@ -176,3 +177,49 @@ def test_intake_ui_accepts_zip_bulk_upload(tmp_path):
     assert "uploadMappingDryRunBatch(file)" in app
     assert "loadMappingDryRunSource(uploadedPath)" in app
     assert "/api/mapping-dry-run-bulk-uploads?filename=" in api
+
+
+def test_zip_batch_selects_shipments_and_exports_results(tmp_path):
+    client, _ = _client(tmp_path)
+    mapping = SqliteNormalizationStore(tmp_path / "phase2l.sqlite3").put_mapping
+    value = make_mapping(
+        {
+            "date_column": "出荷日",
+            "jan_column": "JAN",
+            "product_name_column": "商品名",
+            "quantity_column": "数量",
+            "unit_value": "個",
+            "center_column": "倉庫コード",
+            "date_formats": ["%Y/%m/%d"],
+            "allowed_units": ["個"],
+            "availability_mode": "ASSUMED",
+            "file_mode": "FULL",
+        }
+    )
+    mapping(value)
+    uploaded = client.post(
+        "/api/mapping-dry-run-bulk-uploads?filename=batch.zip",
+        content=_zip(
+            {
+                "在庫データ/出荷_01.csv": b"x",
+                "在庫データ/在庫_01.csv": b"x",
+            }
+        ),
+    ).json()
+
+    created = client.post(
+        "/api/mapping-dry-run-batches",
+        json={
+            "source_prefix": uploaded["source_prefix"],
+            "mapping_id": value.mapping_id,
+            "sample_rows": 100,
+        },
+    )
+    assert created.status_code == 202
+    batch = client.get(f"/api/mapping-dry-run-batches/{created.json()['id']}").json()
+    assert batch["selected_count"] == 1
+    assert batch["excluded_count"] == 1
+    assert batch["jobs"][0]["source_path"].endswith("出荷_01.csv")
+    result = client.get(f"/api/mapping-dry-run-batches/{batch['batch_id']}/results.csv")
+    assert result.status_code == 200
+    assert result.content.startswith(b"\xef\xbb\xbf")

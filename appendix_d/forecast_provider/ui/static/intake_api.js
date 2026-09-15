@@ -55,6 +55,14 @@ export function uploadMappingDryRunBatch(file) {
   });
 }
 
+export function createMappingDryRunBatch(payload) {
+  return request("/api/mapping-dry-run-batches", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function loadMappingDryRunBatch(batchId) {
+  return request(`/api/mapping-dry-run-batches/${encoded(batchId)}`);
+}
+
 export function loadMappingDryRunSource(sourcePath) {
   return request(`/api/mapping-dry-run-sources?source_path=${encoded(sourcePath)}`)
     .then((catalog) => catalog.items[0] || null);

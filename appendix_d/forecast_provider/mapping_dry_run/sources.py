@@ -121,3 +121,23 @@ class MappingDryRunSourceCatalog:
                 }
             ],
         }
+
+    def paths_under(self, source_prefix: str) -> list[str]:
+        """安全な相対prefix直下にあるCSV pathを全件返す。"""
+        if self.input_root is None:
+            return []
+        try:
+            root = self.input_root.resolve(strict=True)
+            prefix = (root / source_prefix).resolve(strict=True)
+        except OSError:
+            return []
+        if prefix != root and root not in prefix.parents:
+            return []
+        if not prefix.is_dir() or prefix.is_symlink():
+            return []
+        paths = []
+        for candidate in prefix.rglob("*.csv"):
+            path = _safe_file(root, candidate)
+            if path is not None:
+                paths.append(path.relative_to(root).as_posix())
+        return sorted(paths)

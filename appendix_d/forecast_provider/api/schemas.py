@@ -92,6 +92,13 @@ class MappingDryRunJobCreate(BaseModel):
     sample_rows: int = Field(default=1_000, ge=1, le=10_000)
 
 
+class MappingDryRunBatchCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_prefix: str = Field(min_length=1, max_length=1_024)
+    mapping_id: str = Field(pattern=r"^map-[0-9a-f]{64}$")
+    sample_rows: int = Field(default=1_000, ge=1, le=10_000)
+
+
 class SourceSelectionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     logical_path: str = Field(min_length=1)
