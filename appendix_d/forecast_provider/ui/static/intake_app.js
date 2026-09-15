@@ -2,6 +2,7 @@ import { installPkceLogin } from "./pkce.js";
 import { ApiError, clearToken, download, setToken } from "./api.js";
 import {
   createImport,
+  createInventoryStructureProfile,
   createMapping,
   createMappingDryRunJob,
   createMappingDryRunBatch,
@@ -41,6 +42,7 @@ const state = {
   pollTimer: null,
   pollAttempts: 0,
   batchPollTimer: null,
+  uploadedBatchPrefix: null,
 };
 
 const byId = (id) => document.getElementById(id);
@@ -356,6 +358,8 @@ byId("upload-form").addEventListener("submit", async (event) => {
     if (isZip) {
       byId("dry-run-batch-prefix").value = uploaded.source_prefix;
       byId("dry-run-batch-form").hidden = false;
+      state.uploadedBatchPrefix = uploaded.source_prefix;
+      byId("inventory-profile-panel").hidden = false;
     }
     renderValidationSetup(state.dashboard);
     notice(
@@ -369,6 +373,32 @@ byId("upload-form").addEventListener("submit", async (event) => {
   } finally {
     setBusy(false);
     updateUploadButton();
+  }
+});
+
+byId("inventory-profile-submit").addEventListener("click", async () => {
+  if (state.busy || !state.uploadedBatchPrefix) return;
+  setBusy(true);
+  notice("在庫CSVのヘッダー構造を全件診断しています。");
+  try {
+    const profile = await createInventoryStructureProfile(state.uploadedBatchPrefix);
+    const complete = (field) => profile.field_candidates[field]
+      .filter((item) => item.file_count === profile.file_count)
+      .map((item) => item.column)
+      .join("、") || "候補なし";
+    const result = byId("inventory-profile-result");
+    result.hidden = false;
+    result.textContent = [
+      `在庫CSV ${profile.file_count}件 / ヘッダー構成 ${profile.header_pattern_count}種類。`,
+      `日付候補: ${complete("date")}。数量候補: ${complete("quantity")}。`,
+      `倉庫候補: ${complete("center")}。単位候補: ${complete("unit")}。`,
+      `要確認: ${profile.issues.join("、") || "なし"}。`,
+    ].join(" ");
+    notice("在庫CSVの構造診断が完了しました。候補列を確認してください。", "success");
+  } catch (error) {
+    handleError(error);
+  } finally {
+    setBusy(false);
   }
 });
 
