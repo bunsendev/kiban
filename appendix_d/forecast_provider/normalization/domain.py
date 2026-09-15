@@ -12,7 +12,6 @@ def make_mapping(definition: dict) -> ColumnMapping:
         "jan_column",
         "product_name_column",
         "quantity_column",
-        "unit_column",
         "date_formats",
         "allowed_units",
         "availability_mode",
@@ -24,7 +23,14 @@ def make_mapping(definition: dict) -> ColumnMapping:
     unknown = sorted(
         definition.keys()
         - required
-        - {"center_column", "center_value", "row_type_column", "available_at_column"}
+        - {
+            "unit_column",
+            "unit_value",
+            "center_column",
+            "center_value",
+            "row_type_column",
+            "available_at_column",
+        }
     )
     if unknown:
         raise ValueError(f"列mappingに未知の項目があります: {', '.join(unknown)}")
@@ -33,6 +39,8 @@ def make_mapping(definition: dict) -> ColumnMapping:
             raise ValueError(f"{name}は空でない文字列です")
     if bool(definition.get("center_column")) == bool(definition.get("center_value")):
         raise ValueError("center_columnとcenter_valueは一方だけ指定します")
+    if bool(definition.get("unit_column")) == bool(definition.get("unit_value")):
+        raise ValueError("unit_columnとunit_valueは一方だけ指定します")
     if definition["availability_mode"] not in {"ASSUMED", "OBSERVED"}:
         raise ValueError("availability_modeが不正です")
     if definition["availability_mode"] == "OBSERVED" and not definition.get("available_at_column"):

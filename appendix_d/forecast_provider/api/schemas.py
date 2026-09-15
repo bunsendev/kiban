@@ -73,7 +73,8 @@ class MappingCreate(BaseModel):
     jan_column: str = Field(min_length=1)
     product_name_column: str = Field(min_length=1)
     quantity_column: str = Field(min_length=1)
-    unit_column: str = Field(min_length=1)
+    unit_column: str | None = None
+    unit_value: str | None = None
     center_column: str | None = None
     center_value: str | None = None
     row_type_column: str | None = None
