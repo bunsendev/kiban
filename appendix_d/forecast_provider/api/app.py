@@ -83,6 +83,7 @@ def create_app(
     mapping_dry_run_root: Path | None = None,
     mapping_dry_run_jobs=None,
     mapping_dry_run_input_root: Path | None = None,
+    inventory_normalization=None,
 ) -> FastAPI:
     if isinstance(api_token, str) and not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -123,6 +124,7 @@ def create_app(
         InventoryStructureProfiler(mapping_dry_run_input_root),
         ProductBridgeService(mapping_dry_run_input_root),
         InventoryNormalizationPreview(mapping_dry_run_input_root),
+        inventory_normalization,
     )
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)

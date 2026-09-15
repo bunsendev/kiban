@@ -112,6 +112,13 @@ class InventoryNormalizationPreviewCreate(BaseModel):
     sample_rows: int = Field(default=100, ge=1, le=1_000)
 
 
+class InventoryNormalizationJobCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_prefix: str = Field(min_length=1, max_length=1_024)
+    product_mapping_id: str = Field(pattern=r"^product-jan-[0-9a-f]{64}$")
+    unit_value: str = Field(min_length=1, max_length=20)
+
+
 class SourceSelectionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     logical_path: str = Field(min_length=1)

@@ -10,6 +10,7 @@ from ..catalog import PostgresCatalogStore
 from ..daily import PostgresDailyStore
 from ..evaluation_registry import PostgresEvaluationRegistryStore
 from ..ingestion import PostgresIngestionStore
+from ..inventory_normalization import PostgresInventoryNormalizationStore
 from ..jobs import PostgresRunStore
 from ..lifecycle import PostgresLifecycleStore
 from ..mapping_dry_run import PostgresMappingDryRunJobStore
@@ -218,4 +219,5 @@ def from_environment():
         mapping_dry_run_root=mapping_dry_run_root,
         mapping_dry_run_jobs=mapping_dry_run_jobs,
         mapping_dry_run_input_root=import_root,
+        inventory_normalization=PostgresInventoryNormalizationStore(dsn),
     )
