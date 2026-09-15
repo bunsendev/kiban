@@ -1,14 +1,16 @@
 import { installPkceLogin } from "./pkce.js";
-import { ApiError, clearToken, setToken } from "./api.js";
+import { ApiError, clearToken, download, setToken } from "./api.js";
 import {
   createImport,
   createMapping,
   createMappingDryRunJob,
+  createMappingDryRunBatch,
   createNormalization,
   loadImport,
   loadIntakeDashboard,
   loadMappingDryRun,
   loadMappingDryRunJob,
+  loadMappingDryRunBatch,
   loadMappingDryRunSource,
   loadNormalization,
   selectSource,
@@ -38,6 +40,7 @@ const state = {
   busy: false,
   pollTimer: null,
   pollAttempts: 0,
+  batchPollTimer: null,
 };
 
 const byId = (id) => document.getElementById(id);
@@ -350,6 +353,10 @@ byId("upload-form").addEventListener("submit", async (event) => {
       renderSummary(state.dashboard);
     }
     elements.dryRunSource.value = uploadedPath;
+    if (isZip) {
+      byId("dry-run-batch-prefix").value = uploaded.source_prefix;
+      byId("dry-run-batch-form").hidden = false;
+    }
     renderValidationSetup(state.dashboard);
     notice(
       isZip
@@ -362,6 +369,50 @@ byId("upload-form").addEventListener("submit", async (event) => {
   } finally {
     setBusy(false);
     updateUploadButton();
+  }
+});
+
+async function pollDryRunBatch(batchId) {
+  const batch = await loadMappingDryRunBatch(batchId);
+  const result = byId("dry-run-batch-result");
+  result.hidden = false;
+  const done = batch.counts.SUCCEEDED + batch.counts.FAILED;
+  result.replaceChildren(document.createTextNode(
+    `一括検証 ${done} / ${batch.selected_count}件完了（合格 ${batch.outcomes.READY_FOR_NORMALIZATION}、要確認 ${batch.outcomes.REVIEW_REQUIRED}、停止 ${batch.outcomes.BLOCKED}、対象外 ${batch.excluded_count}）`,
+  ));
+  if (batch.status === "COMPLETED") {
+    const button = document.createElement("button");
+    button.className = "button secondary";
+    button.type = "button";
+    button.textContent = "結果CSVをダウンロード";
+    button.addEventListener("click", () => download(
+      `/api/mapping-dry-run-batches/${encodeURIComponent(batchId)}/results.csv`,
+      `batch-${batchId}.csv`,
+    ).catch(handleError));
+    result.append(button);
+    notice("ZIP内の出荷CSVの一括検証が完了しました。", "success");
+  } else {
+    state.batchPollTimer = window.setTimeout(() => pollDryRunBatch(batchId).catch(handleError), 2000);
+  }
+}
+
+byId("dry-run-batch-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (state.busy) return;
+  setBusy(true);
+  notice("ZIP内の出荷CSVを判別し、一括検証を登録しています。");
+  try {
+    const created = await createMappingDryRunBatch({
+      source_prefix: value("dry-run-batch-prefix"),
+      mapping_id: value("dry-run-mapping"),
+      sample_rows: Number(value("dry-run-sample-rows")),
+    });
+    byId("dry-run-batch-form").hidden = true;
+    await pollDryRunBatch(created.id);
+  } catch (error) {
+    handleError(error);
+  } finally {
+    setBusy(false);
   }
 });
 

@@ -1,3 +1,22 @@
+# v2.9 Phase 2O 実行検証記録
+
+Date: 2026-09-15 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12
+PostgreSQL: 17.11
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2O
+
+- 自動判別: ZIP内のファイル名に`出荷`を含むCSVだけを一括検証対象とし、その他は対象外件数として保持する。
+- 台帳: batchと既存mappingドライランjobの関係を追記型で保存し、登録は同一transactionで完了する。
+- 進捗: 個別jobのQUEUED、RUNNING、SUCCEEDED、FAILEDと3種類の検証判定を画面で自動集計する。
+- 出力: 相対path、状態、判定、固定error code、証跡checksumだけをUTF-8 BOM付きCSVで出力する。
+- テスト: 一括対象判別、対象外集計、認証API、CSV BOM、既存単一CSVフローを確認。対象13件成功。
+- 全体検査: WindowsではLinux専用peak RSS 1件を除いて成功。ruffとJavaScript構文検査に成功。
+- 実データ保護: CSV本文・行値をAPI、結果CSV、Git、配布ZIPへ含めない。
+
 # v2.9 Phase 2N 実行検証記録
 
 Date: 2026-09-15 JST

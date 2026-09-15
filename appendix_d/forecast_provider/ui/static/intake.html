@@ -74,6 +74,12 @@
           <button id="dry-run-submit" class="button primary wide" data-permission="ANALYZE" data-blocked="true" type="submit">このCSVを検証・分析</button>
         </article>
       </form>
+      <form id="dry-run-batch-form" class="upload-panel" hidden>
+        <div><strong>ZIP内の出荷CSVを一括検証</strong><p>ファイル名に「出荷」を含むCSVを自動選択します。在庫CSVは対象外として件数を表示します。</p></div>
+        <input id="dry-run-batch-prefix" type="hidden">
+        <button id="dry-run-batch-submit" class="button primary" data-permission="ANALYZE" type="submit">出荷CSVを一括検証</button>
+      </form>
+      <section id="dry-run-batch-result" class="validation-progress" hidden aria-live="polite"></section>
       <div id="validation-progress" class="validation-progress" role="status">CSVと列の対応付けを選択してください。</div>
     </section>
 

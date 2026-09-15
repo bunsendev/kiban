@@ -37,6 +37,20 @@ export async function request(path, options = {}) {
   return response.status === 204 ? null : response.json();
 }
 
+export async function download(path, filename) {
+  if (!token) throw new ApiError(401, "API tokenを入力してください。");
+  const response = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) throw new ApiError(response.status, `CSV取得に失敗しました (${response.status})`);
+  const url = URL.createObjectURL(await response.blob());
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function loadDashboard() {
   return Promise.all([
     request("/api/session"),

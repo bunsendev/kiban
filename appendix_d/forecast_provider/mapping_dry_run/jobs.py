@@ -21,6 +21,18 @@ class MappingDryRunJob:
     error_code: str | None = None
 
 
+@dataclass(frozen=True)
+class MappingDryRunBatch:
+    batch_id: str
+    source_prefix: str
+    mapping_id: str
+    requested_by: str
+    sample_rows: int
+    requested_at: str
+    selected_count: int
+    excluded_count: int
+
+
 class MappingDryRunJobStore(Protocol):
     def enqueue(
         self, source_path: str, mapping_id: str, requested_by: str, sample_rows: int
@@ -30,8 +42,6 @@ class MappingDryRunJobStore(Protocol):
     def list_jobs(self) -> list[MappingDryRunJob]: ...
     def claim(self) -> MappingDryRunJob | None: ...
 
-    def complete(
-        self, job_id: str, dry_run_id: str, outcome: str, report_sha256: str
-    ) -> None: ...
+    def complete(self, job_id: str, dry_run_id: str, outcome: str, report_sha256: str) -> None: ...
 
     def fail(self, job_id: str, error_code: str) -> None: ...

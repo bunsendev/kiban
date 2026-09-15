@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ..jobs.postgres_store import _Connection
-from .jobs import MappingDryRunJob
+from .jobs import MappingDryRunBatch, MappingDryRunJob
 
 
 def _now() -> str:
@@ -93,7 +93,7 @@ class SqliteMappingDryRunJobStore:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute(
                 "SELECT job_id FROM mapping_dry_run_jobs WHERE status='QUEUED' "
-                "ORDER BY requested_at,job_id LIMIT 1"
+                "ORDER BY requested_at,rowid LIMIT 1"
             ).fetchone()
             if row is None:
                 return None
@@ -105,9 +105,7 @@ class SqliteMappingDryRunJobStore:
             )
         return self.get_job(job_id)
 
-    def complete(
-        self, job_id: str, dry_run_id: str, outcome: str, report_sha256: str
-    ) -> None:
+    def complete(self, job_id: str, dry_run_id: str, outcome: str, report_sha256: str) -> None:
         with self._connect() as db:
             db.execute(
                 "UPDATE mapping_dry_run_jobs SET status='SUCCEEDED',finished_at=?,dry_run_id=?,"
@@ -122,6 +120,93 @@ class SqliteMappingDryRunJobStore:
                 "WHERE job_id=?",
                 (_now(), error_code, job_id),
             )
+
+    def enqueue_batch(
+        self, source_prefix, source_paths, mapping_id, requested_by, sample_rows, excluded_count
+    ):
+        if not source_paths:
+            raise ValueError("一括検証の対象CSVがありません")
+        batch = MappingDryRunBatch(
+            str(uuid.uuid4()),
+            source_prefix,
+            mapping_id,
+            requested_by,
+            sample_rows,
+            _now(),
+            len(source_paths),
+            excluded_count,
+        )
+        with self._connect() as db:
+            db.execute("BEGIN")
+            db.execute(
+                "INSERT INTO mapping_dry_run_batches("
+                "batch_id,source_prefix,mapping_id,requested_by,"
+                "sample_rows,requested_at,selected_count,excluded_count) VALUES (?,?,?,?,?,?,?,?)",
+                tuple(batch.__dict__.values()),
+            )
+            for path in source_paths:
+                job = MappingDryRunJob(
+                    str(uuid.uuid4()),
+                    path,
+                    mapping_id,
+                    requested_by,
+                    "QUEUED",
+                    sample_rows,
+                    batch.requested_at,
+                )
+                db.execute(
+                    "INSERT INTO mapping_dry_run_jobs("
+                    "job_id,source_path,mapping_id,requested_by,status,"
+                    "sample_rows,requested_at) VALUES (?,?,?,?,?,?,?)",
+                    (
+                        job.job_id,
+                        job.source_path,
+                        job.mapping_id,
+                        job.requested_by,
+                        job.status,
+                        job.sample_rows,
+                        job.requested_at,
+                    ),
+                )
+                db.execute(
+                    "INSERT INTO mapping_dry_run_batch_jobs(batch_id,job_id) VALUES (?,?)",
+                    (batch.batch_id, job.job_id),
+                )
+        return batch
+
+    def get_batch(self, batch_id):
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT * FROM mapping_dry_run_batches WHERE batch_id=?", (batch_id,)
+            ).fetchone()
+            if row is None:
+                return None
+            jobs = db.execute(
+                "SELECT j.* FROM mapping_dry_run_jobs j "
+                "JOIN mapping_dry_run_batch_jobs b ON b.job_id=j.job_id "
+                "WHERE b.batch_id=? ORDER BY j.source_path",
+                (batch_id,),
+            ).fetchall()
+        return self._batch_summary(
+            MappingDryRunBatch(**dict(row)), [self._job(job) for job in jobs]
+        )
+
+    @staticmethod
+    def _batch_summary(batch, jobs):
+        counts = dict.fromkeys(("QUEUED", "RUNNING", "SUCCEEDED", "FAILED"), 0)
+        outcomes = dict.fromkeys(("READY_FOR_NORMALIZATION", "REVIEW_REQUIRED", "BLOCKED"), 0)
+        for job in jobs:
+            counts[job.status] += 1
+            if job.outcome:
+                outcomes[job.outcome] += 1
+        complete = counts["SUCCEEDED"] + counts["FAILED"] == batch.selected_count
+        return {
+            **batch.__dict__,
+            "status": "COMPLETED" if complete else "RUNNING",
+            "counts": counts,
+            "outcomes": outcomes,
+            "jobs": [job.__dict__ for job in jobs],
+        }
 
 
 class PostgresMappingDryRunJobStore(SqliteMappingDryRunJobStore):
