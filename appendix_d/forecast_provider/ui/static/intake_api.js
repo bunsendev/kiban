@@ -85,6 +85,13 @@ export function uploadProductJanMapping(sourcePrefix, file) {
   });
 }
 
+export function createInventoryNormalizationPreview(payload) {
+  return request("/api/inventory-normalization-previews", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function loadMappingDryRunSource(sourcePath) {
   return request(`/api/mapping-dry-run-sources?source_path=${encoded(sourcePath)}`)
     .then((catalog) => catalog.items[0] || null);

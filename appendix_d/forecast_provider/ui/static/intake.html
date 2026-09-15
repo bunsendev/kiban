@@ -95,6 +95,14 @@
         <button class="button primary" data-permission="ANALYZE" type="submit">対応表を検証・保存</button>
       </form>
       <section id="product-mapping-upload-result" class="validation-progress" hidden aria-live="polite"></section>
+      <form id="inventory-preview-form" class="upload-panel" hidden>
+        <div><strong>在庫正規化をプレビュー</strong><p>保存済みJAN対応表を使い、日付・JAN・数量・倉庫・単位への変換可否を確認します。</p></div>
+        <input id="inventory-preview-mapping-id" type="hidden">
+        <label>数量単位<input id="inventory-preview-unit" value="バラ" maxlength="20" required></label>
+        <label>1ファイルの検査行数<input id="inventory-preview-rows" type="number" min="1" max="1000" value="100" required></label>
+        <button class="button primary" data-permission="ANALYZE" type="submit">在庫正規化を検証</button>
+      </form>
+      <section id="inventory-preview-result" class="validation-progress" hidden aria-live="polite"></section>
       <section id="dry-run-batch-result" class="validation-progress" hidden aria-live="polite"></section>
       <div id="validation-progress" class="validation-progress" role="status">CSVと列の対応付けを選択してください。</div>
     </section>

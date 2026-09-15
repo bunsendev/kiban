@@ -3,6 +3,7 @@ import { ApiError, clearToken, download, setToken } from "./api.js";
 import {
   createImport,
   createInventoryStructureProfile,
+  createInventoryNormalizationPreview,
   analyzeProductJanBridge,
   uploadProductJanMapping,
   createMapping,
@@ -427,9 +428,45 @@ byId("product-mapping-upload-form").addEventListener("submit", async (event) => 
         `${report.completed_product_count} / ${report.expected_product_count}商品を確認済みです。`,
         `未記入 ${report.issues.blank_jans}、JAN形式不正 ${report.issues.invalid_jans}、重複 ${report.issues.duplicate_product_codes}、対象外 ${report.issues.unknown_product_codes}、不足 ${report.issues.missing_product_codes}。`,
       ].join(" ");
+    if (report.status === "READY") {
+      byId("inventory-preview-mapping-id").value = report.mapping_id;
+      byId("inventory-preview-form").hidden = false;
+    }
     notice(
       report.status === "READY" ? "JAN対応表を検証して保存しました。" : "修正が必要な項目があります。",
       report.status === "READY" ? "success" : "error",
+    );
+  } catch (error) {
+    handleError(error);
+  } finally {
+    setBusy(false);
+  }
+});
+
+byId("inventory-preview-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (state.busy || !state.uploadedBatchPrefix) return;
+  setBusy(true);
+  notice("在庫データの正規化可否を検証しています。");
+  try {
+    const report = await createInventoryNormalizationPreview({
+      source_prefix: state.uploadedBatchPrefix,
+      product_mapping_id: value("inventory-preview-mapping-id"),
+      unit_value: value("inventory-preview-unit"),
+      sample_rows: Number(value("inventory-preview-rows")),
+    });
+    const result = byId("inventory-preview-result");
+    result.hidden = false;
+    result.textContent = [
+      `${report.file_count.toLocaleString("ja-JP")}ファイル、${report.sampled_rows.toLocaleString("ja-JP")}行を検査しました。`,
+      `採用 ${report.accepted_rows.toLocaleString("ja-JP")}行、隔離 ${report.quarantined_rows.toLocaleString("ja-JP")}行。`,
+      `判定: ${report.outcome}。証跡ID: ${report.report_id}`,
+    ].join(" ");
+    notice(
+      report.outcome === "READY_FOR_INVENTORY_NORMALIZATION"
+        ? "在庫データは正規化準備完了です。"
+        : "隔離理由の確認が必要です。",
+      report.outcome === "READY_FOR_INVENTORY_NORMALIZATION" ? "success" : "error",
     );
   } catch (error) {
     handleError(error);
