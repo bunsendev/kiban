@@ -13,7 +13,9 @@ export function loadIntakeDashboard() {
     request("/api/mapping-dry-runs"),
     request("/api/mapping-dry-run-jobs"),
     request("/api/mapping-dry-run-sources"),
-  ]).then(([session, imports, mappings, selections, normalizations, quality, dryRunCatalog, dryRunJobs, sourceCatalog]) => ({
+    request("/api/inventory-normalization-jobs"),
+    request("/api/inventory-normalization-adoption"),
+  ]).then(([session, imports, mappings, selections, normalizations, quality, dryRunCatalog, dryRunJobs, sourceCatalog, inventoryJobs, inventoryAdoption]) => ({
     session,
     imports,
     mappings,
@@ -27,6 +29,8 @@ export function loadIntakeDashboard() {
     dryRunJobs,
     sources: sourceCatalog.items,
     sourceCatalogConfigured: sourceCatalog.configured,
+    inventoryJobs,
+    inventoryAdoption: inventoryAdoption.current,
   }));
 }
 
@@ -107,6 +111,17 @@ export function loadInventoryNormalizationResults(jobId, limit = 20, offset = 0)
   return request(
     `/api/inventory-normalization-jobs/${encoded(jobId)}/results?limit=${limit}&offset=${offset}`,
   );
+}
+
+export function loadInventoryNormalizationDecisions(jobId) {
+  return request(`/api/inventory-normalization-jobs/${encoded(jobId)}/decisions`);
+}
+
+export function createInventoryNormalizationDecision(jobId, payload) {
+  return request(`/api/inventory-normalization-jobs/${encoded(jobId)}/decisions`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function loadMappingDryRunSource(sourcePath) {

@@ -10,6 +10,7 @@ export function renderInventoryNormalizationResults(
   job,
   results,
   download,
+  options = {},
 ) {
   container.replaceChildren();
   const reasons = Object.entries(job.reason_counts)
@@ -58,4 +59,81 @@ export function renderInventoryNormalizationResults(
     `inventory-normalized-${jobId}.csv`,
   ));
   container.append(button);
+
+  const history = document.createElement("p");
+  const decisions = options.decisions || [];
+  history.textContent = decisions.length
+    ? `判断履歴: ${decisions.map((item) => `${item.decision_version} ${item.decision}`).join("、")}`
+    : "判断履歴はありません。";
+  container.append(history);
+
+  if (!options.canApprove) return;
+  const form = document.createElement("form");
+  form.className = "drawer-form compact-form";
+  const version = document.createElement("input");
+  version.required = true;
+  version.maxLength = 100;
+  version.value = `inventory-${jobId.slice(0, 8)}-v1`;
+  const decision = document.createElement("select");
+  const approved = document.createElement("option");
+  approved.value = "APPROVED";
+  approved.textContent = "採用";
+  approved.disabled = !results.reconciled || job.quarantined_row_count !== 0;
+  const rejected = document.createElement("option");
+  rejected.value = "REJECTED";
+  rejected.textContent = "却下";
+  decision.append(approved, rejected);
+  decision.value = approved.disabled ? "REJECTED" : "APPROVED";
+  const reason = document.createElement("textarea");
+  reason.required = true;
+  reason.maxLength = 1000;
+  reason.rows = 2;
+  reason.placeholder = "数量照合と隔離理由を確認した根拠";
+  const submit = document.createElement("button");
+  submit.className = "button primary";
+  submit.type = "submit";
+  submit.textContent = "判断を記録";
+  [
+    ["decision version", version],
+    ["判断", decision],
+    ["理由", reason],
+  ].forEach(([labelText, control]) => {
+    const label = document.createElement("label");
+    label.append(document.createTextNode(labelText), control);
+    form.append(label);
+  });
+  form.append(submit);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    submit.disabled = true;
+    try {
+      await options.createDecision(jobId, {
+        decision_version: version.value.trim(),
+        decision: decision.value,
+        reason: reason.value.trim(),
+      });
+      await options.onChanged();
+    } catch (error) {
+      options.onError(error);
+    } finally {
+      submit.disabled = false;
+    }
+  });
+  container.append(form);
+}
+
+export function renderInventoryNormalizationHistory(container, jobs, current, onOpen) {
+  container.replaceChildren();
+  jobs.forEach((job) => {
+    const button = document.createElement("button");
+    button.className = "record-item";
+    button.type = "button";
+    button.textContent = [
+      `${job.status} / ${job.processed_file_count} of ${job.file_count || "—"} files`,
+      `採用 ${job.accepted_row_count}行・隔離 ${job.quarantined_row_count}行`,
+      current?.job_id === job.job_id ? "現在の採用版" : "",
+    ].filter(Boolean).join(" / ");
+    button.addEventListener("click", () => onOpen(job));
+    container.append(button);
+  });
 }

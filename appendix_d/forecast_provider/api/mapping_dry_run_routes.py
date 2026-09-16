@@ -10,13 +10,14 @@ from ..mapping_dry_run.inventory_profiles import InventoryProfileError
 from ..mapping_dry_run.uploads import SourceUploadError
 from .schemas import (
     Created,
+    InventoryNormalizationDecisionCreate,
     InventoryNormalizationJobCreate,
     InventoryNormalizationPreviewCreate,
     InventoryProfileCreate,
     MappingDryRunBatchCreate,
     MappingDryRunJobCreate,
 )
-from .security import Permission, Principal
+from .security import Permission, Principal, audit_payload
 
 
 def install_mapping_dry_run_routes(
@@ -35,6 +36,7 @@ def install_mapping_dry_run_routes(
 ) -> None:
     read = authorize.require(Permission.READ)
     analyze = authorize.require(Permission.ANALYZE)
+    approve = authorize.require(Permission.APPROVE)
     export = authorize.require(Permission.EXPORT)
 
     @app.get("/api/mapping-dry-runs")
@@ -200,6 +202,13 @@ def install_mapping_dry_run_routes(
             )
             return Created(id=job_id)
 
+        @app.get("/api/inventory-normalization-jobs")
+        def list_inventory_normalization_jobs(
+            _principal: Annotated[Principal, Depends(read)],
+            limit: Annotated[int, Query(ge=1, le=200)] = 100,
+        ):
+            return inventory_normalization.list_jobs(limit)
+
         @app.get("/api/inventory-normalization-jobs/{job_id}")
         def get_inventory_normalization_job(
             job_id: str,
@@ -209,6 +218,40 @@ def install_mapping_dry_run_routes(
             if value is None:
                 raise HTTPException(status_code=404, detail="在庫正規化jobが見つかりません")
             return value
+
+        @app.post(
+            "/api/inventory-normalization-jobs/{job_id}/decisions",
+            response_model=Created,
+            status_code=status.HTTP_201_CREATED,
+        )
+        def decide_inventory_normalization_job(
+            job_id: str,
+            request: InventoryNormalizationDecisionCreate,
+            principal: Annotated[Principal, Depends(approve)],
+        ):
+            try:
+                decision_id = inventory_normalization.decide(
+                    job_id=job_id,
+                    **audit_payload(request, principal, "decided_by"),
+                )
+                return Created(id=decision_id)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        @app.get("/api/inventory-normalization-jobs/{job_id}/decisions")
+        def list_inventory_normalization_decisions(
+            job_id: str,
+            _principal: Annotated[Principal, Depends(read)],
+        ):
+            if inventory_normalization.get(job_id) is None:
+                raise HTTPException(status_code=404, detail="在庫正規化jobが見つかりません")
+            return inventory_normalization.list_decisions(job_id)
+
+        @app.get("/api/inventory-normalization-adoption")
+        def get_inventory_normalization_adoption(
+            _principal: Annotated[Principal, Depends(read)],
+        ):
+            return {"current": inventory_normalization.current_adoption()}
 
         @app.get("/api/inventory-normalization-jobs/{job_id}/results")
         def get_inventory_normalization_results(

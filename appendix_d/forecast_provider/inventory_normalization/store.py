@@ -4,6 +4,7 @@ import json
 import sqlite3
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from ..jobs.postgres_store import _Connection
@@ -11,6 +12,13 @@ from ..jobs.postgres_store import _Connection
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _same_quantity(left, right) -> bool:
+    try:
+        return Decimal(left) == Decimal(right)
+    except (InvalidOperation, TypeError):
+        return False
 
 
 class SqliteInventoryNormalizationStore:
@@ -49,6 +57,18 @@ class SqliteInventoryNormalizationStore:
         value = dict(row)
         value["reason_counts"] = json.loads(value.pop("reason_counts_json"))
         return value
+
+    def list_jobs(self, limit=100):
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT * FROM inventory_normalization_jobs "
+                "ORDER BY requested_at DESC,job_id DESC LIMIT ?",
+                (limit,),
+            )
+            values = [dict(row) for row in rows]
+        for value in values:
+            value["reason_counts"] = json.loads(value.pop("reason_counts_json"))
+        return values
 
     def claim(self):
         with self._connect() as db:
@@ -143,12 +163,75 @@ class SqliteInventoryNormalizationStore:
         summary = dict(summary)
         return {
             **summary,
-            "reconciled": summary["source_quantity"] == summary["normalized_quantity"],
+            "reconciled": _same_quantity(
+                summary["source_quantity"], summary["normalized_quantity"]
+            ),
             "total": count,
             "limit": limit,
             "offset": offset,
             "items": items,
         }
+
+    def decide(self, job_id, decision_version, decision, decided_by, reason):
+        if not all((job_id, decision_version, decision, decided_by, reason)):
+            raise ValueError("判断版・判断・担当者・理由は必須です")
+        if decision not in {"APPROVED", "REJECTED"}:
+            raise ValueError("判断が不正です")
+        decision_id = str(uuid.uuid4())
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT j.status,j.quarantined_row_count,s.source_quantity,"
+                "s.normalized_quantity FROM inventory_normalization_jobs j "
+                "LEFT JOIN inventory_normalization_summaries s ON s.job_id=j.job_id "
+                "WHERE j.job_id=?",
+                (job_id,),
+            ).fetchone()
+            if row is None or row["status"] != "SUCCEEDED":
+                raise ValueError("完了した在庫正規化jobだけを判断できます")
+            if decision == "APPROVED":
+                reconciled = _same_quantity(
+                    row["source_quantity"], row["normalized_quantity"]
+                )
+                if not reconciled or row["quarantined_row_count"] != 0:
+                    raise ValueError("数量一致かつ隔離0行のjobだけを採用できます")
+            existing = db.execute(
+                "SELECT decision_id FROM inventory_normalization_decisions "
+                "WHERE decision_version=?",
+                (decision_version,),
+            ).fetchone()
+            if existing is not None:
+                raise ValueError("同じdecision versionは再利用できません")
+            db.execute(
+                "INSERT INTO inventory_normalization_decisions VALUES (?,?,?,?,?,?,?)",
+                (
+                    decision_id,
+                    job_id,
+                    decision_version,
+                    decision,
+                    decided_by,
+                    reason,
+                    _now(),
+                ),
+            )
+        return decision_id
+
+    def list_decisions(self, job_id=None):
+        sql = "SELECT * FROM inventory_normalization_decisions"
+        params = ()
+        if job_id is not None:
+            sql += " WHERE job_id=?"
+            params = (job_id,)
+        sql += " ORDER BY decided_at,decision_id"
+        with self._connect() as db:
+            return [dict(row) for row in db.execute(sql, params)]
+
+    def current_adoption(self):
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT * FROM inventory_normalization_decisions "
+                "WHERE decision='APPROVED' ORDER BY decided_at DESC,decision_id DESC LIMIT 1"
+            ).fetchone()
+        return None if row is None else dict(row)
 
 
 class PostgresInventoryNormalizationStore(SqliteInventoryNormalizationStore):

@@ -5,6 +5,7 @@ import {
   createInventoryStructureProfile,
   createInventoryNormalizationPreview,
   createInventoryNormalizationJob,
+  createInventoryNormalizationDecision,
   analyzeProductJanBridge,
   uploadProductJanMapping,
   createMapping,
@@ -16,6 +17,7 @@ import {
   loadMappingDryRun,
   loadMappingDryRunJob,
   loadInventoryNormalizationJob,
+  loadInventoryNormalizationDecisions,
   loadInventoryNormalizationResults,
   loadMappingDryRunBatch,
   loadMappingDryRunSource,
@@ -24,7 +26,10 @@ import {
   uploadMappingDryRunSource,
   uploadMappingDryRunBatch,
 } from "./intake_api.js";
-import { renderInventoryNormalizationResults } from "./intake_inventory_results.js";
+import {
+  renderInventoryNormalizationHistory,
+  renderInventoryNormalizationResults,
+} from "./intake_inventory_results.js";
 import { mappingPayload, syncAvailability } from "./intake_forms.js";
 import {
   renderImportDetail,
@@ -73,7 +78,34 @@ const elements = {
   notice: byId("notice"),
   validationProgress: byId("validation-progress"),
   mappingDrawer: byId("mapping-drawer"),
+  inventoryHistory: byId("inventory-normalization-history"),
+  inventoryHistoryList: byId("inventory-normalization-history-list"),
 };
+
+async function openInventoryNormalizationJob(job) {
+  const result = byId("inventory-preview-result");
+  result.hidden = false;
+  if (job.status !== "SUCCEEDED") {
+    result.textContent = `${job.processed_file_count} / ${job.file_count || "—"}ファイル処理済み。状態: ${job.status}`;
+    return;
+  }
+  const [results, decisions] = await Promise.all([
+    loadInventoryNormalizationResults(job.job_id),
+    loadInventoryNormalizationDecisions(job.job_id),
+  ]);
+  renderInventoryNormalizationResults(result, job.job_id, job, results, download, {
+    decisions,
+    canApprove: state.permissions.has("APPROVE"),
+    createDecision: createInventoryNormalizationDecision,
+    onError: handleError,
+    onChanged: async () => {
+      await refreshDashboard();
+      const updated = state.dashboard.inventoryJobs.find((item) => item.job_id === job.job_id);
+      await openInventoryNormalizationJob(updated);
+      notice("在庫正規化結果の判断を記録しました。", "success");
+    },
+  });
+}
 
 function updateUploadButton() {
   const button = byId("upload-submit");
@@ -254,6 +286,13 @@ async function refreshDashboard(preferred = { kind: state.selectedKind, id: stat
     state.permissions = new Set(state.dashboard.session.permissions);
     elements.sessionIdentity.textContent = `${state.dashboard.session.subject} / ${state.dashboard.session.roles.join(", ")}`;
     renderSummary(state.dashboard);
+    elements.inventoryHistory.hidden = state.dashboard.inventoryJobs.length === 0;
+    renderInventoryNormalizationHistory(
+      elements.inventoryHistoryList,
+      state.dashboard.inventoryJobs,
+      state.dashboard.inventoryAdoption,
+      (job) => openInventoryNormalizationJob(job).catch(handleError),
+    );
     const recordSets = {
       dry_run_job: [state.dashboard.dryRunJobs, "job_id"],
       dry_run: [state.dashboard.dryRuns, "report_sha256"],
@@ -484,8 +523,7 @@ byId("inventory-preview-form").addEventListener("submit", async (event) => {
             if (["QUEUED", "RUNNING"].includes(job.status)) {
               window.setTimeout(() => poll().catch(handleError), 2000);
             } else if (job.status === "SUCCEEDED") {
-              const results = await loadInventoryNormalizationResults(created.id);
-              renderInventoryNormalizationResults(result, created.id, job, results, download);
+              await openInventoryNormalizationJob(job);
             }
           };
           await poll();
