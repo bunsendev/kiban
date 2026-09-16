@@ -119,6 +119,14 @@ class InventoryNormalizationJobCreate(BaseModel):
     unit_value: str = Field(min_length=1, max_length=20)
 
 
+class InventoryNormalizationDecisionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision_version: str = Field(min_length=1, max_length=100)
+    decision: Literal["APPROVED", "REJECTED"]
+    decided_by: str | None = Field(default=None, min_length=1)
+    reason: str = Field(min_length=1, max_length=1_000)
+
+
 class SourceSelectionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     logical_path: str = Field(min_length=1)

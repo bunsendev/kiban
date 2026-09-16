@@ -31,3 +31,14 @@ CREATE TABLE IF NOT EXISTS inventory_normalization_summaries (
   source_quantity TEXT NOT NULL,
   normalized_quantity TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS inventory_normalization_decisions (
+  decision_id TEXT PRIMARY KEY,
+  job_id TEXT NOT NULL REFERENCES inventory_normalization_jobs(job_id),
+  decision_version TEXT NOT NULL UNIQUE,
+  decision TEXT NOT NULL CHECK(decision IN ('APPROVED','REJECTED')),
+  decided_by TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  decided_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS inventory_normalization_decisions_job_idx
+  ON inventory_normalization_decisions(job_id, decided_at, decision_id);

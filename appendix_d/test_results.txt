@@ -1,3 +1,20 @@
+# v2.9 Phase 2W 実行検証記録
+
+Date: 2026-09-16 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2W
+
+- 採用gate: SUCCEEDED、数量一致、隔離0行を満たすjobだけをAPPROVEDにできる。
+- 不変履歴: 判断ID、job、判断版、判断、認証主体、理由、時刻を追記し、判断版を再利用しない。
+- 現在版: 最新APPROVED判断から正式な在庫正規化jobを一意に導出する。
+- UI: 最近のjob、数量照合、隔離理由、現在版、判断履歴と判断入力を再読込後も表示する。
+- 認可: 判断はAPPROVE権限を要求し、担当者は認証主体で上書きする。
+- テスト: 採用条件、却下、現在版、版再利用拒否、主体上書き、未認証拒否を含む対象3件成功。
+- 静的検査: ruff、JavaScript構文、Compose構成検査に成功。
 # v2.9 Phase 2V 実行検証記録
 
 Date: 2026-09-16 JST
