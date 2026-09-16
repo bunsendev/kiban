@@ -4,8 +4,9 @@ import uuid
 from dataclasses import dataclass
 
 from fastapi import FastAPI, Request, Response
-from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+
+from .error_responses import error_response
 
 
 @dataclass(frozen=True)
@@ -58,14 +59,25 @@ def install_security_boundary(app: FastAPI, settings: SecuritySettings) -> None:
         protected = request.url.path in {"/api", "/ui"} or request.url.path.startswith(
             ("/api/", "/ui/")
         )
+        hostname = request.url.hostname or ""
+        host_allowed = not settings.allowed_hosts or any(
+            hostname == pattern
+            or (pattern.startswith("*.") and hostname.endswith(pattern[1:]))
+            for pattern in settings.allowed_hosts
+        )
+        if not host_allowed:
+            return _apply_security_headers(
+                error_response(request, 400, "許可されていないHostです", code="HOST_NOT_ALLOWED"),
+                request_id,
+                api_response=protected,
+                production_https=False,
+            )
         if settings.production and protected and request.url.scheme != "https":
             return _apply_security_headers(
-                JSONResponse(
-                    status_code=426,
-                    content={
-                        "detail": "production APIと管理画面はHTTPSが必要です",
-                        "request_id": request_id,
-                    },
+                error_response(
+                    request,
+                    426,
+                    "production APIと管理画面はHTTPSが必要です",
                 ),
                 request_id,
                 api_response=protected,

@@ -28,7 +28,7 @@ export async function request(path, options = {}) {
     let message = `API error (${response.status})`;
     try {
       const payload = await response.json();
-      message = payload.detail || message;
+      message = payload.message || message;
     } catch {
       // JSONではないエラーもstatusを維持して扱う。
     }
@@ -103,7 +103,7 @@ export async function downloadExport(record) {
   if (!response.ok) {
     let message = `CSV取得に失敗しました (${response.status})`;
     try {
-      message = (await response.json()).detail || message;
+      message = (await response.json()).message || message;
     } catch {
       // JSONではないエラーも共通メッセージで扱う。
     }

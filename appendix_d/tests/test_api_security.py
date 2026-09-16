@@ -127,6 +127,7 @@ def test_production_requires_https_trusted_host_and_security_headers(tmp_path):
         assert plain.get("/health").status_code == 200
         rejected = plain.get("/ui")
         assert rejected.status_code == 426
+        assert rejected.json()["code"] == "HTTPS_REQUIRED"
         assert rejected.json()["request_id"] == rejected.headers["x-request-id"]
         assert rejected.headers["permissions-policy"] == (
             "camera=(), microphone=(), geolocation=()"
@@ -143,7 +144,10 @@ def test_production_requires_https_trusted_host_and_security_headers(tmp_path):
         assert session.headers["x-frame-options"] == "DENY"
 
     with TestClient(app, base_url="https://untrusted.example") as untrusted:
-        assert untrusted.get("/ui").status_code == 400
+        rejected = untrusted.get("/ui")
+        assert rejected.status_code == 400
+        assert rejected.json()["code"] == "HOST_NOT_ALLOWED"
+        assert rejected.json()["request_id"] == rejected.headers["x-request-id"]
 
 
 def test_environment_security_configuration_rejects_unsafe_production():

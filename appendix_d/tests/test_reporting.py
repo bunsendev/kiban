@@ -279,4 +279,4 @@ def test_anonymized_or_unapproved_acceptance_cannot_be_adopted(tmp_path):
     response = api.post("/api/adoptions", json=request)
 
     assert response.status_code == 409
-    assert "実データ" in response.json()["detail"]
+    assert "実データ" in response.json()["message"]

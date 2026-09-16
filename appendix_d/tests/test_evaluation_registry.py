@@ -290,7 +290,7 @@ def test_comparison_rejects_client_metrics_mismatched_conformance_and_tamper(tmp
     request["purpose"] = "tamper-check"
     response = api.post("/api/comparisons", json=request)
     assert response.status_code == 422
-    assert "checksum" in response.json()["detail"]
+    assert "checksum" in response.json()["message"]
 
 
 def test_comparison_rejects_nonterminal_run_and_unknown_record(tmp_path):

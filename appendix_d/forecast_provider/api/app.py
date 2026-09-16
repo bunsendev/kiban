@@ -19,7 +19,9 @@ from ..mapping_dry_run.uploads import MappingDryRunSourceUploader
 from ..ui import install_ui_routes
 from .acceptance_routes import install_acceptance_routes
 from .daily_routes import install_daily_routes
+from .error_responses import install_error_handlers
 from .evaluation_routes import install_evaluation_routes
+from .idempotency import IdempotencyStore, InMemoryIdempotencyStore, idempotent_route_class
 from .ingestion_routes import install_ingestion_routes
 from .lifecycle_routes import install_lifecycle_routes
 from .mapping_dry_run_routes import install_mapping_dry_run_routes
@@ -84,6 +86,7 @@ def create_app(
     mapping_dry_run_jobs=None,
     mapping_dry_run_input_root: Path | None = None,
     inventory_normalization=None,
+    idempotency_store: IdempotencyStore | None = None,
 ) -> FastAPI:
     if isinstance(api_token, str) and not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -102,6 +105,10 @@ def create_app(
         redoc_url=None if settings.production else "/redoc",
         openapi_url=None if settings.production else "/openapi.json",
     )
+    app.router.route_class = idempotent_route_class(
+        idempotency_store or InMemoryIdempotencyStore()
+    )
+    install_error_handlers(app)
     install_security_boundary(app, settings)
     install_ui_routes(app)
     install_oidc_login_routes(app, oidc_login_settings)

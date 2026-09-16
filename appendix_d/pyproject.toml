@@ -49,6 +49,7 @@ include = ["forecast_provider*"]
 
 [tool.setuptools.package-data]
 forecast_provider = [
+    "api/*.sql",
     "jobs/migrations/*.sql",
     "catalog/*.sql",
     "ingestion/*.sql",
