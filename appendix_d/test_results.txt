@@ -1,3 +1,21 @@
+# v2.9 Phase 2X 実行検証記録
+
+Date: 2026-09-16 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2X
+
+- 時点制約: as_of以前の最新APPROVED在庫だけを参照し、採用判断時刻をavailable_atとする。
+- 商品接続: 在庫日とJAN有効期間を使い、指定した名寄せ版のcanonical商品へ解決する。
+- fail closed: 未対応または期間競合があればBLOCKEDとし、行・数量合計・原JANを返さない。
+- 再現性: 採用判断、job、名寄せ版、UTC参照時点から内容アドレス方式のview IDを作る。
+- UI: 名寄せ版と参照時点を指定し、解決件数、未対応件数、期間競合、利用可能時刻を確認できる。
+- 非変更範囲: 現行の出荷予測datasetとモデル特徴量は変更しない。
+- テスト: 時点選択、期間名寄せ、決定的ID、未対応停止、原JAN非返却を含む対象2件成功。
+- 静的検査: ruff、JavaScript構文、Compose構成検査に成功。
 # v2.9 Phase 2W 実行検証記録
 
 Date: 2026-09-16 JST

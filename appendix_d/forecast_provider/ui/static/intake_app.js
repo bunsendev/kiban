@@ -6,6 +6,7 @@ import {
   createInventoryNormalizationPreview,
   createInventoryNormalizationJob,
   createInventoryNormalizationDecision,
+  createInventoryFeatureView,
   analyzeProductJanBridge,
   uploadProductJanMapping,
   createMapping,
@@ -29,6 +30,7 @@ import {
 import {
   renderInventoryNormalizationHistory,
   renderInventoryNormalizationResults,
+  renderInventoryFeatureView,
 } from "./intake_inventory_results.js";
 import { mappingPayload, syncAvailability } from "./intake_forms.js";
 import {
@@ -81,6 +83,8 @@ const elements = {
   inventoryHistory: byId("inventory-normalization-history"),
   inventoryHistoryList: byId("inventory-normalization-history-list"),
 };
+const localNow = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000);
+byId("inventory-feature-as-of").value = localNow.toISOString().slice(0, 16);
 
 async function openInventoryNormalizationJob(job) {
   const result = byId("inventory-preview-result");
@@ -478,6 +482,28 @@ byId("product-mapping-upload-form").addEventListener("submit", async (event) => 
     notice(
       report.status === "READY" ? "JAN対応表を検証して保存しました。" : "修正が必要な項目があります。",
       report.status === "READY" ? "success" : "error",
+    );
+  } catch (error) {
+    handleError(error);
+  } finally {
+    setBusy(false);
+  }
+});
+
+byId("inventory-feature-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (state.busy) return;
+  setBusy(true);
+  notice("採用済み在庫とJAN名寄せ版の接続を検査しています。");
+  try {
+    const view = await createInventoryFeatureView({
+      mapping_version: value("inventory-feature-mapping-version"),
+      as_of: new Date(value("inventory-feature-as-of")).toISOString(),
+    });
+    renderInventoryFeatureView(byId("inventory-feature-result"), view);
+    notice(
+      view.status === "READY" ? "在庫の後続接続準備が完了しました。" : "JAN名寄せの修正が必要です。",
+      view.status === "READY" ? "success" : "error",
     );
   } catch (error) {
     handleError(error);

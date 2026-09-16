@@ -137,3 +137,14 @@ export function renderInventoryNormalizationHistory(container, jobs, current, on
     container.append(button);
   });
 }
+
+export function renderInventoryFeatureView(container, view) {
+  container.hidden = false;
+  container.textContent = [
+    `判定: ${view.status}。`,
+    `在庫行 ${view.source_row_count.toLocaleString("ja-JP")}件、canonical商品へ解決 ${view.resolved_row_count.toLocaleString("ja-JP")}件。`,
+    `未対応 ${view.missing_mapping_count.toLocaleString("ja-JP")}件、期間競合 ${view.ambiguous_mapping_count.toLocaleString("ja-JP")}件。`,
+    `利用可能時刻: ${view.available_at}。`,
+    view.status === "READY" ? `特徴ビューID: ${view.view_id}` : "JAN名寄せ版を修正してください。",
+  ].join(" ");
+}
