@@ -4,7 +4,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Query, status
 
 from ..catalog import CatalogStore
 from ..errors import ContractViolationError
@@ -61,6 +61,8 @@ def _output(value, resource_cost=None) -> RunStatusOutput:
         cancellation_requested=value.cancellation_requested,
         origin_counts=value.origin_counts,
         failure_count=value.failure_count,
+        provider_id=value.provider_id,
+        model_name=value.model_name,
         resources=None if resource_cost is None else resource_cost.summarize(value.run_id),
     )
 
@@ -177,7 +179,13 @@ def create_app(
         install_evaluation_routes(
             app,
             authorize,
-            EvaluationRegistryService(store, catalog, evaluation_registry, snapshot_root),
+            EvaluationRegistryService(
+                store,
+                catalog,
+                evaluation_registry,
+                snapshot_root,
+                resource_cost,
+            ),
         )
 
     if reporting is not None:
@@ -262,6 +270,20 @@ def create_app(
         except NotFoundError as exc:
             raise HTTPException(status_code=404, detail="experimentが見つかりません") from exc
         return RunCreated(run_id=snapshot.run_id, status=snapshot.status)
+
+    @app.get("/api/runs", response_model=list[RunStatusOutput])
+    def list_runs(
+        _principal: Annotated[Principal, Depends(read)],
+        limit: Annotated[int, Query(ge=1, le=200)] = 100,
+        run_status: Annotated[str | None, Query(alias="status")] = None,
+    ):
+        try:
+            return [
+                _output(value)
+                for value in service.list_runs(limit=limit, status=run_status)
+            ]
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.get("/api/runs/{run_id}", response_model=RunStatusOutput)
     def get_run(

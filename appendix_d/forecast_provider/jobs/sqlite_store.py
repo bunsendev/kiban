@@ -344,7 +344,27 @@ class SqliteRunStore:
                 bool(row["cancellation_requested"]),
                 counts,
                 failures["count"],
+                row["provider_id"],
+                row["model_name"],
             )
+
+    def list_runs(
+        self, *, limit: int = 100, status: RunStatus | None = None
+    ) -> list[RunSnapshot]:
+        if not 1 <= limit <= 200:
+            raise ValueError("limitは1以上200以下です")
+        allowed = {"QUEUED", "RUNNING", "SUCCEEDED", "PARTIAL", "FAILED", "CANCELLED"}
+        if status is not None and status not in allowed:
+            raise ValueError("run statusが不正です")
+        sql, params = "SELECT run_id FROM forecast_runs", []
+        if status is not None:
+            sql += " WHERE status=?"
+            params.append(status)
+        sql += " ORDER BY run_id LIMIT ?"
+        params.append(limit)
+        with self._connect() as db:
+            run_ids = [row["run_id"] for row in db.execute(sql, params)]
+        return [snapshot for run_id in run_ids if (snapshot := self.get_run(run_id))]
 
     def list_runnable_runs(self) -> tuple[tuple[str, str], ...]:
         with self._connect() as db:

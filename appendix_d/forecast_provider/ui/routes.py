@@ -95,3 +95,12 @@ def install_ui_routes(app) -> None:
             media_type="text/html; charset=utf-8",
             headers=SECURITY_HEADERS,
         )
+
+    @app.get("/ui/resources", include_in_schema=False)
+    @app.get("/ui/resources/", include_in_schema=False)
+    def resource_cost_ui():
+        return FileResponse(
+            STATIC_ROOT / "resource_cost.html",
+            media_type="text/html; charset=utf-8",
+            headers=SECURITY_HEADERS,
+        )

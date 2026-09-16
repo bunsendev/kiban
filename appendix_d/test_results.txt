@@ -1,3 +1,23 @@
+# v2.9 Phase 3C 実行検証記録
+
+Date: 2026-09-16 JST
+OS: Windows 11
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.7
+
+## Phase 3C
+
+- 管理画面: `/ui/resources`でrun一覧、8種類の集計、origin・attempt明細、単価履歴を表示し、ADMINだけが単価を登録できる。
+- 比較: 比較詳細へ資源集計を追加し、比較画面へ推論時間と総費用を追加。attempt明細は専用APIだけで返す。
+- API: `GET /api/runs`へ上限200件、状態絞り込み、Provider ID、モデル名を追加。READ権限で保護する。
+- 費用表示: 未登録単価は「単価未登録」とし、明示的な0円と区別する。
+- module: HTML、画面状態、API、描画、固有styleを分離し、認証・PKCE・共通styleを再利用する。
+- 対象試験: run一覧、資源API、比較集計、管理画面DOM・権限を含む25件成功、任意Provider依存1件skip。
+- 回帰: 配布hash更新後、Linux専用RSS試験を除くWindows全体で488件成功、14件skip、1件deselect。
+- 静的検査・配布: `ruff check .`成功。494ファイルのSHA-256照合と日本語名UTF-8 ZIP生成を確認した。
+- 未実施: Docker Desktop engine停止中のためPostgreSQL実DB結合試験と実ブラウザー操作は未実施。人工データの成功で実データAC-21を代替しない。
+
 # v2.9 Phase 3B 実行検証記録
 
 Date: 2026-09-16 JST

@@ -11,6 +11,7 @@ from forecast_provider.jobs import SqliteRunStore
 from forecast_provider.mapping_dry_run import SqliteMappingDryRunJobStore
 from forecast_provider.master import SqliteMasterStore
 from forecast_provider.normalization import SqliteNormalizationStore
+from forecast_provider.resource_cost import SqliteResourceCostStore
 
 
 def test_management_ui_serves_modular_assets_without_persisting_token(tmp_path):
@@ -268,6 +269,53 @@ def test_matching_ui_serves_audited_modular_workflow(tmp_path):
     assert 'request("/api/jan-mappings")' in client.text
     assert 'data-permission="ANALYZE"' in page.text
     assert 'data-permission="APPROVE"' in page.text
+
+    ids = set(re.findall(r'id="([^"]+)"', page.text))
+    assert len(ids) == len(re.findall(r'id="([^"]+)"', page.text))
+    references = set(re.findall(r'(?:byId|document\.getElementById)\("([^"]+)"\)', scripts))
+    assert references <= ids
+
+
+def test_resource_cost_ui_serves_complete_admin_workflow(tmp_path):
+    database = tmp_path / "resource-ui.sqlite3"
+    api = TestClient(
+        create_app(
+            SqliteRunStore(database),
+            SqliteCatalogStore(database),
+            "token",
+            resource_cost=SqliteResourceCostStore(database),
+        )
+    )
+
+    page = api.get("/ui/resources")
+    app = api.get("/ui/assets/resource_cost_app.js")
+    client = api.get("/ui/assets/resource_cost_api.js")
+    renderer = api.get("/ui/assets/resource_cost_render.js")
+    styles = api.get("/ui/assets/resource_cost.css")
+
+    assert all(value.status_code == 200 for value in (page, app, client, renderer, styles))
+    assert "資源・費用台帳" in page.text
+    assert 'type="module" src="/ui/assets/resource_cost_app.js"' in page.text
+    assert 'href="/ui"' in page.text
+    routes = (
+        "/ui",
+        "/ui/lifecycle",
+        "/ui/readiness",
+        "/ui/selection",
+        "/ui/acceptance",
+        "/ui/intake",
+        "/ui/matching",
+    )
+    assert all('href="/ui/resources"' in api.get(path).text for path in routes)
+    assert page.headers["cache-control"] == "no-store"
+    scripts = app.text + client.text + renderer.text
+    assert "localStorage" not in scripts
+    assert "sessionStorage" not in scripts
+    assert 'request("/api/runs?limit=200")' in client.text
+    assert 'request("/api/resource-unit-prices")' in client.text
+    assert "/resources`" in client.text
+    assert 'data-permission="MANAGE_RESOURCE"' in page.text
+    assert "単価未登録" in renderer.text
 
     ids = set(re.findall(r'id="([^"]+)"', page.text))
     assert len(ids) == len(re.findall(r'id="([^"]+)"', page.text))

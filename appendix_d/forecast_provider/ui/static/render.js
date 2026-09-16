@@ -79,6 +79,23 @@ function metricCell(value, suffix = "") {
   return node("td", { className: "metric-value", text: `${metric(value)}${value == null ? "" : suffix}` });
 }
 
+function resourceValue(resources, metricName) {
+  return resources?.measurements?.find((item) => item.metric === metricName)?.quantity ?? null;
+}
+
+function resourceCost(resources) {
+  if (!resources?.measurements?.some((item) => item.quantity != null)) return "未計測";
+  if (!resources?.pricing_complete) return "単価未登録";
+  const value = Number(resources.total_cost_amount);
+  try {
+    return new Intl.NumberFormat("ja-JP", {
+      style: "currency", currency: resources.currency, maximumFractionDigits: 6,
+    }).format(value);
+  } catch {
+    return `${resources.currency} ${metric(value)}`;
+  }
+}
+
 function renderMetrics(detail) {
   const official = new Set(detail.result.official_runs);
   return detail.run_evaluations.map((item) => {
@@ -97,6 +114,8 @@ function renderMetrics(detail) {
       metricCell(common.wape_pct, "%"),
       metricCell(own.wape_pct, "%"),
       metricCell(officialMetrics.wape_pct, "%"),
+      metricCell(resourceValue(item.resources, "INFERENCE_SECONDS"), " 秒"),
+      node("td", { className: "metric-value", text: resourceCost(item.resources) }),
     ]);
   });
 }

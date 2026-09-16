@@ -16,6 +16,7 @@ from forecast_provider.evaluation import build_plan
 from forecast_provider.evaluation_registry import REQUIRED_CHECKS, SqliteEvaluationRegistryStore
 from forecast_provider.jobs import ForecastValue, OriginOutput, SqliteRunStore
 from forecast_provider.registry import registry
+from forecast_provider.resource_cost import ResourceMetric, ResourceUsage, SqliteResourceCostStore
 
 
 def _fixture(tmp_path):
@@ -34,7 +35,17 @@ def _fixture(tmp_path):
     runs = SqliteRunStore(database)
     catalog = SqliteCatalogStore(database)
     evaluations = SqliteEvaluationRegistryStore(database)
-    api = TestClient(create_app(runs, catalog, "token", tmp_path, evaluation_registry=evaluations))
+    resources = SqliteResourceCostStore(database)
+    api = TestClient(
+        create_app(
+            runs,
+            catalog,
+            "token",
+            tmp_path,
+            evaluation_registry=evaluations,
+            resource_cost=resources,
+        )
+    )
     api.headers["Authorization"] = "Bearer token"
     raw = data_path.read_bytes()
     snapshot_payload = {
@@ -196,6 +207,31 @@ def test_comparison_is_server_computed_content_addressed_and_queryable(tmp_path)
     baseline = next(item for item in providers if item["provider_id"] == "builtin-baseline")
     model = next(item for item in baseline["models"] if item["model_id"] == "moving_average_28")
     assert model["fixed_ranking_eligible"] is True
+
+
+def test_comparison_detail_includes_run_resource_summary(tmp_path):
+    api, runs, catalog, _, snapshot_id = _fixture(tmp_path)
+    experiment, definition = _experiment(api, snapshot_id, "moving_average_28")
+    run_id = _completed_run(api, runs, catalog, experiment, 9)
+    resources = SqliteResourceCostStore(tmp_path / "evaluation.sqlite3")
+    resources.record_attempt(
+        run_id,
+        pd.Timestamp("2026-01-01").date(),
+        1,
+        (ResourceUsage(ResourceMetric.INFERENCE_SECONDS, Decimal("1.25"), "test"),),
+    )
+    request = _comparison(snapshot_id, [run_id], [_conformance(api, definition)])
+    created = api.post("/api/comparisons", json=request)
+
+    detail = api.get(f"/api/comparisons/{created.json()['comparison_id']}")
+
+    assert detail.status_code == 200
+    summary = detail.json()["run_evaluations"][0]["resources"]
+    inference = next(
+        item for item in summary["measurements"] if item["metric"] == "INFERENCE_SECONDS"
+    )
+    assert inference["quantity"] == "1.25"
+    assert "attempt_measurements" not in summary
 
 
 def test_monthly_retraining_is_reference_only_in_fixed_ranking(tmp_path):

@@ -11,7 +11,7 @@ from ..catalog.domain import dataset_from_snapshot, make_experiment, make_snapsh
 from ..catalog.files import verify_snapshot_file
 from ..evaluation import build_plan
 from ..jobs import Expectation, OriginDefinition, RunDefinition, RunSnapshot
-from ..jobs.contracts import RunStore
+from ..jobs.contracts import RunStatus, RunStore
 from ..run_context import cutoff_for_origin
 from .schemas import ExperimentCreate, RunCreate, SnapshotCreate
 
@@ -97,6 +97,11 @@ class ApplicationService:
         if snapshot is None:
             raise NotFoundError(run_id)
         return snapshot
+
+    def list_runs(
+        self, *, limit: int = 100, status: RunStatus | None = None
+    ) -> list[RunSnapshot]:
+        return self.runs.list_runs(limit=limit, status=status)
 
     def get_results(self, run_id: str) -> dict:
         result = self.runs.get_run_results(run_id)
