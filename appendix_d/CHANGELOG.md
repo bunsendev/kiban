@@ -1,5 +1,12 @@
 # v2.9 修正記録
 
+## Phase 3A
+
+- 全`POST /api/*`へ任意の`Idempotency-Key`を共通適用し、成功応答の安全な再送を追加。
+- 本番PostgreSQL、テスト用SQLite、単一process用メモリ台帳を共通契約で分離。
+- HTTP例外、入力検証、内部例外、HTTPS・Host拒否を`code/message/details/request_id`へ統一。
+- 入力値、token、Idempotency-Key、要求本文、未知の例外本文をエラー・冪等性台帳へ保存しない。
+
 ## Phase 2M
 
 - Windows現場PC向けに、WSL 2とDocker Desktopの検出・導入、環境生成、Compose構築、readiness確認を行う自動セットアップを追加。

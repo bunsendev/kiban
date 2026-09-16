@@ -118,7 +118,8 @@ def test_job_api_rejects_unknown_mapping_and_requires_authentication(tmp_path):
         json={"source_path": "sample.csv", "mapping_id": "map-" + "0" * 64},
     )
     assert response.status_code == 422
-    assert response.json() == {"detail": "mappingが見つかりません"}
+    assert response.json()["message"] == "mappingが見つかりません"
+    assert response.json()["code"] == "VALIDATION_ERROR"
 
 
 def test_store_claims_oldest_job_once(tmp_path):

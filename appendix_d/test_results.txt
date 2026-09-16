@@ -1,3 +1,23 @@
+# v2.9 Phase 3A 実行検証記録
+
+Date: 2026-09-16 JST
+OS: Windows 11
+Python: 3.12
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 3A
+
+- 冪等性: 同じ認証token・route・key・要求をAPI再作成後も同じ201応答へ収束させ、replay headerを確認。
+- 競合: 同じkeyの異なる要求と処理中要求を409にし、15分後の期限切れclaimを回収。
+- 永続化: 本番factoryをPostgreSQL台帳へ接続し、SQLiteとメモリ実装を同じ契約へ分離。
+- エラー: 認証、404、入力検証、HTTPS、Host拒否を`code/message/details/request_id`へ統一。
+- データ保護: 入力値、token、key、要求本文、未知の例外本文をエラー・台帳へ保存しない。
+- 対象試験: Phase 3Aとsecurityの9件成功、PostgreSQL専用1件はローカルDSN未設定でskip。
+- 回帰: Windowsで環境依存3ファイルとLinux専用RSS試験を除き、488件成功、8件skip、1件deselect。
+- 静的検査: ruff、Python compile、JavaScript構文、Compose構成検査に成功。
+- Docker: Docker Desktop engine停止中のためLinux・PostgreSQL結合試験は未実施。
+
 # v2.9 Phase 2Z 実行検証記録
 
 Date: 2026-09-16 JST

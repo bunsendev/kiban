@@ -104,6 +104,8 @@ Phase 2Hでマッピングドライラン証跡のread-only APIと原本取込�
 
 Phase 2Iでローカルデータ検証job、独立Worker、登録APIと`/ui/intake`の実行導線を追加した。登録済みmappingと入力root内のCSV相対pathを指定し、Phase 2Gの検査とPhase 2Hの証跡確認をUIから開始できる。詳細は[ローカルデータ検証UI](docs/Phase2I_ローカルデータ検証UI.md)。
 
+Phase 3Aで全`POST /api/*`へ任意の`Idempotency-Key`を共通適用し、本番では要求fingerprintと成功応答をPostgreSQLへ永続化する。HTTP例外、入力検証、内部例外、HTTPS・Host拒否は`code/message/details/request_id`へ統一し、入力値と例外本文を公開しない。詳細は[API共通契約](docs/Phase3A_API共通契約.md)。
+
 次はプリフライトが`READY_FOR_DATA`の環境で実業務原本の検証jobを登録し、画面で`READY_FOR_NORMALIZATION`または隔離理由を確認する。その後Phase 1Xから全行の数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進み、全3年の重要品目選定とPhase 1Sの将来trialを開始する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 

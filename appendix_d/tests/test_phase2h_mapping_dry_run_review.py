@@ -172,4 +172,5 @@ def test_authenticated_api_lists_and_reads_verified_report(tmp_path):
     report_path.write_bytes(report_path.read_bytes() + b" ")
     damaged = api.get(f"/api/mapping-dry-runs/{checksum}")
     assert damaged.status_code == 409
-    assert damaged.json() == {"detail": "証跡のchecksumまたは形式が不正です"}
+    assert damaged.json()["message"] == "証跡のchecksumまたは形式が不正です"
+    assert damaged.json()["code"] == "CONFLICT"
