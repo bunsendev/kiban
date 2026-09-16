@@ -124,6 +124,13 @@ export function createInventoryNormalizationDecision(jobId, payload) {
   });
 }
 
+export function createInventoryFeatureView(payload) {
+  return request("/api/inventory-feature-views?limit=20", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function loadMappingDryRunSource(sourcePath) {
   return request(`/api/mapping-dry-run-sources?source_path=${encoded(sourcePath)}`)
     .then((catalog) => catalog.items[0] || null);

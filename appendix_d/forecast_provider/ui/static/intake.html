@@ -106,6 +106,12 @@
       <section id="inventory-normalization-history" class="ledger-card" hidden>
         <div class="subheading"><h3>在庫正規化履歴</h3><span>数量照合・採用判断</span></div>
         <div id="inventory-normalization-history-list" class="record-list"></div>
+        <form id="inventory-feature-form" class="drawer-form compact-form">
+          <label>JAN名寄せ版<input id="inventory-feature-mapping-version" required placeholder="mapping-v1"></label>
+          <label>参照時点<input id="inventory-feature-as-of" type="datetime-local" required></label>
+          <button class="button secondary" type="submit">後続接続を検査</button>
+        </form>
+        <div id="inventory-feature-result" class="validation-progress" hidden aria-live="polite"></div>
       </section>
       <section id="dry-run-batch-result" class="validation-progress" hidden aria-live="polite"></section>
       <div id="validation-progress" class="validation-progress" role="status">CSVと列の対応付けを選択してください。</div>

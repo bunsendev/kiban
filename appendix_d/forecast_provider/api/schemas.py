@@ -1,6 +1,6 @@
 """HTTP入出力schema。DB型やrouteから分離する。"""
 
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -125,6 +125,12 @@ class InventoryNormalizationDecisionCreate(BaseModel):
     decision: Literal["APPROVED", "REJECTED"]
     decided_by: str | None = Field(default=None, min_length=1)
     reason: str = Field(min_length=1, max_length=1_000)
+
+
+class InventoryFeatureViewCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    mapping_version: str = Field(min_length=1, max_length=100)
+    as_of: datetime
 
 
 class SourceSelectionCreate(BaseModel):

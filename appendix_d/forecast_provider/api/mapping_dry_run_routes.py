@@ -10,6 +10,7 @@ from ..mapping_dry_run.inventory_profiles import InventoryProfileError
 from ..mapping_dry_run.uploads import SourceUploadError
 from .schemas import (
     Created,
+    InventoryFeatureViewCreate,
     InventoryNormalizationDecisionCreate,
     InventoryNormalizationJobCreate,
     InventoryNormalizationPreviewCreate,
@@ -252,6 +253,23 @@ def install_mapping_dry_run_routes(
             _principal: Annotated[Principal, Depends(read)],
         ):
             return {"current": inventory_normalization.current_adoption()}
+
+        @app.post("/api/inventory-feature-views")
+        def create_inventory_feature_view(
+            request: InventoryFeatureViewCreate,
+            _principal: Annotated[Principal, Depends(read)],
+            limit: Annotated[int, Query(ge=1, le=500)] = 100,
+            offset: Annotated[int, Query(ge=0)] = 0,
+        ):
+            try:
+                return inventory_normalization.feature_view(
+                    request.mapping_version,
+                    request.as_of.isoformat(),
+                    limit,
+                    offset,
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
 
         @app.get("/api/inventory-normalization-jobs/{job_id}/results")
         def get_inventory_normalization_results(

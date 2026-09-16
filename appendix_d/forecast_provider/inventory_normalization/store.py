@@ -8,6 +8,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from ..jobs.postgres_store import _Connection
+from .features import InventoryFeatureViewMixin
 
 
 def _now() -> str:
@@ -21,7 +22,7 @@ def _same_quantity(left, right) -> bool:
         return False
 
 
-class SqliteInventoryNormalizationStore:
+class SqliteInventoryNormalizationStore(InventoryFeatureViewMixin):
     def __init__(self, path: Path):
         self.path = path
         self._initialize()
