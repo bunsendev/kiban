@@ -13,7 +13,7 @@
 | `APPROVER` | `READ`, `APPROVE`, `EXPORT` | 原本採用、名寄せ、選定、受入、採用判断 |
 | `ADMIN` | すべて | 管理者による全操作 |
 
-GETは原則`READ`、分析・生成jobは`ANALYZE`、人による確定判断は`APPROVE`、比較CSVの発行は`EXPORT`を要求する。不足時は`403`、credentialがないか不正な場合は`WWW-Authenticate: Bearer`を伴う`401`を返す。`GET /api/session`は現在のsubject、role、permissionを返し、管理画面はこの値から操作可否を表示する。
+GETは原則`READ`、分析・生成jobは`ANALYZE`、人による確定判断は`APPROVE`、比較CSVの発行は`EXPORT`を要求する。Phase 3Bの実行資源単価登録はADMINだけに付与する`MANAGE_RESOURCE`を要求する。不足時は`403`、credentialがないか不正な場合は`WWW-Authenticate: Bearer`を伴う`401`を返す。`GET /api/session`は現在のsubject、role、permissionを返し、管理画面はこの値から操作可否を表示する。
 
 ## development設定
 

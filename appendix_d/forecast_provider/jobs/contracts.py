@@ -8,6 +8,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal, Protocol
 
+from ..resource_cost.contracts import ResourceUsage
+
 RunStatus = Literal["QUEUED", "RUNNING", "SUCCEEDED", "PARTIAL", "FAILED", "CANCELLED"]
 OriginStatus = Literal["QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"]
 
@@ -53,6 +55,7 @@ class OriginOutput:
     values: tuple[ForecastValue, ...]
     model_artifact: str | None = None
     context_artifact: str | None = None
+    resources: tuple[ResourceUsage, ...] = ()
 
 
 @dataclass(frozen=True)

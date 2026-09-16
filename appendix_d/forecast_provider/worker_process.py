@@ -18,6 +18,9 @@ from .executors import (
 from .jobs import PostgresRunStore, SqliteRunStore, resume_run
 from .jobs.contracts import OriginExecutor, RunStore
 from .operations.worker_config import add_database_arguments, postgres_dsn
+from .resource_cost import SqliteResourceCostStore
+from .resource_cost.contracts import ResourceCostStore
+from .resource_cost.postgres_store import PostgresResourceCostStore
 
 
 def load_executor(spec: str) -> OriginExecutor:
@@ -31,7 +34,11 @@ def load_executor(spec: str) -> OriginExecutor:
 
 
 def work_once(
-    store: RunStore, execute: OriginExecutor, worker_id: str, max_origins: int | None = None
+    store: RunStore,
+    execute: OriginExecutor,
+    worker_id: str,
+    max_origins: int | None = None,
+    resource_cost: ResourceCostStore | None = None,
 ) -> int:
     processed = 0
     for run_id, fingerprint in store.list_runnable_runs():
@@ -42,6 +49,7 @@ def work_once(
             execute,
             worker_id=worker_id,
             max_origins=max_origins,
+            resource_cost=resource_cost,
         )
         processed += 1
     return processed
@@ -69,9 +77,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.sqlite:
         store = SqliteRunStore(args.sqlite)
         catalog = SqliteCatalogStore(args.sqlite)
+        resource_cost = SqliteResourceCostStore(args.sqlite)
     else:
         store = PostgresRunStore(dsn)
         catalog = PostgresCatalogStore(dsn)
+        resource_cost = PostgresResourceCostStore(dsn)
     if args.builtin_baseline:
         execute = BuiltinBaselineExecutor(store, catalog, args.artifact_root, args.work_root)
     elif args.statsforecast_ets:
@@ -83,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         execute = load_executor(args.executor)
     while True:
-        work_once(store, execute, args.worker_id, args.max_origins)
+        work_once(store, execute, args.worker_id, args.max_origins, resource_cost)
         if args.once:
             return 0
         time.sleep(args.poll_seconds)

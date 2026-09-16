@@ -28,6 +28,7 @@ class Permission(StrEnum):
     ANALYZE = "ANALYZE"
     APPROVE = "APPROVE"
     EXPORT = "EXPORT"
+    MANAGE_RESOURCE = "MANAGE_RESOURCE"
 
 
 ROLE_PERMISSIONS = {

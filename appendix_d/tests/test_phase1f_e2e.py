@@ -4,6 +4,7 @@ import hashlib
 import os
 import subprocess
 import sys
+from decimal import Decimal
 
 import pandas as pd
 from fastapi.testclient import TestClient
@@ -12,6 +13,7 @@ from test_run_api import experiment_payload, snapshot_payload
 from forecast_provider.api import create_app
 from forecast_provider.catalog import SqliteCatalogStore
 from forecast_provider.jobs import SqliteRunStore
+from forecast_provider.resource_cost import SqliteResourceCostStore
 
 
 def test_api_to_baseline_worker_artifact_restore_end_to_end(tmp_path):
@@ -72,6 +74,21 @@ def test_api_to_baseline_worker_artifact_restore_end_to_end(tmp_path):
     point = next(row for row in results.json()["values"] if row["forecast_kind"] == "POINT")
     assert point["quantile"] is None and isinstance(point["yhat"], float | int)
     assert all(row["cutoff_at"].endswith("+09:00") for row in results.json()["origins"])
+    resources = SqliteResourceCostStore(database).summarize(run_id)
+    measured = {
+        item["metric"]: item["quantity"]
+        for item in resources["measurements"]
+        if item["quantity"] is not None
+    }
+    assert {
+        "PREPROCESSING_SECONDS",
+        "TRAINING_SECONDS",
+        "INFERENCE_SECONDS",
+        "CPU_SECONDS",
+        "PEAK_MEMORY_BYTES",
+        "STORAGE_BYTES",
+    }.issubset(measured)
+    assert Decimal(measured["STORAGE_BYTES"]) > 0
 
 
 def test_tampered_snapshot_fails_without_prediction_output(tmp_path):
@@ -107,3 +124,8 @@ def test_tampered_snapshot_fails_without_prediction_output(tmp_path):
     assert runs.get_run(run_id).status == "FAILED"
     assert runs.rows("forecast_values") == []
     assert len(runs.rows("forecast_failures")) == 2
+    resources = SqliteResourceCostStore(database).summarize(run_id)
+    measured = {
+        item["metric"] for item in resources["measurements"] if item["quantity"] is not None
+    }
+    assert {"INFERENCE_SECONDS", "CPU_SECONDS"}.issubset(measured)

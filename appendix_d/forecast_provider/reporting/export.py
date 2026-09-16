@@ -59,6 +59,17 @@ HEADER = (
     *(f"official_common_{name}" for name in METRICS),
     "baseline_improvement_pct",
     "baseline_wape_absolute_difference_pct",
+    "preprocessing_seconds",
+    "training_seconds",
+    "inference_seconds",
+    "cpu_seconds",
+    "gpu_seconds",
+    "peak_memory_bytes",
+    "model_download_seconds",
+    "storage_bytes",
+    "pricing_complete",
+    "total_cost_amount",
+    "cost_currency",
     "metric_units",
     "comparison_purpose",
     "requested_by",
@@ -73,6 +84,7 @@ def render_comparison_csv(
     baseline_run_id: str,
     requested_by: str,
     snapshot: SnapshotRecord,
+    resource_summaries: dict[str, dict | None] | None = None,
 ) -> bytes:
     by_run = {item.run_id: item for item in evaluations}
     if baseline_run_id not in by_run:
@@ -88,6 +100,11 @@ def render_comparison_csv(
         score = item.score
         wape = _metric(score, "common_metrics", "wape_pct")
         improvement, absolute = _improvement(baseline_wape, wape)
+        resources = (resource_summaries or {}).get(item.run_id)
+        measurements = {
+            value["metric"]: value["quantity"]
+            for value in ((resources or {}).get("measurements") or [])
+        }
         row = [
             export_id,
             export_version,
@@ -118,6 +135,17 @@ def render_comparison_csv(
             *(_metric(score, "official_common_metrics", name) for name in METRICS),
             improvement,
             absolute,
+            measurements.get("PREPROCESSING_SECONDS"),
+            measurements.get("TRAINING_SECONDS"),
+            measurements.get("INFERENCE_SECONDS"),
+            measurements.get("CPU_SECONDS"),
+            measurements.get("GPU_SECONDS"),
+            measurements.get("PEAK_MEMORY_BYTES"),
+            measurements.get("MODEL_DOWNLOAD_SECONDS"),
+            measurements.get("STORAGE_BYTES"),
+            None if resources is None else resources["pricing_complete"],
+            None if resources is None else resources["total_cost_amount"],
+            None if resources is None else resources["currency"],
             "wape_pct/bias_rate_pct/baseline_improvement_pct=percent;"
             "baseline_wape_absolute_difference_pct=percentage_point;"
             "mae/rmse/bias/under/over=quantity",

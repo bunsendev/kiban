@@ -17,6 +17,7 @@ from ..mapping_dry_run import PostgresMappingDryRunJobStore
 from ..master import PostgresMasterStore
 from ..normalization import PostgresNormalizationStore
 from ..reporting import PostgresReportingStore
+from ..resource_cost.postgres_store import PostgresResourceCostStore
 from ..runtime_config import read_secret_file
 from ..selection import PostgresSelectionStore
 from .app import create_app
@@ -222,4 +223,5 @@ def from_environment():
         mapping_dry_run_input_root=import_root,
         inventory_normalization=PostgresInventoryNormalizationStore(dsn),
         idempotency_store=PostgresIdempotencyStore(dsn),
+        resource_cost=PostgresResourceCostStore(dsn),
     )

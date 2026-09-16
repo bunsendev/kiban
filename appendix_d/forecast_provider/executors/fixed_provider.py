@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
@@ -20,6 +21,7 @@ from ..evaluation import build_plan
 from ..features import attach_features
 from ..jobs import ForecastValue, OriginOutput
 from ..jobs.contracts import OriginLease, RunStore
+from ..resource_cost import ResourceMetric, ResourceUsage
 from ..run_context import RunContext
 from ..runner import available_history
 from ..training import calendar_month, training_cutoff, training_dataset
@@ -48,6 +50,7 @@ class FixedProviderExecutor:
         self._models: dict[tuple[str, object], tuple[object, ArtifactRef]] = {}
 
     def __call__(self, lease: OriginLease) -> OriginOutput:
+        preprocessing_started = time.perf_counter()
         run = self.runs.get_run(lease.run_id)
         if run is None:
             raise KeyError(lease.run_id)
@@ -77,7 +80,9 @@ class FixedProviderExecutor:
         policy = experiment.definition.get("training_policy", "FIXED")
         cutoff = training_cutoff(dataset, lease.origin.origin_date, policy)
         model_dataset = training_dataset(dataset, cutoff)
-        model, model_artifact = self._model(
+        preprocessing_seconds = time.perf_counter() - preprocessing_started
+        training_started = time.perf_counter()
+        model, model_artifact, trained = self._model(
             lease.run_id,
             provider,
             repository,
@@ -89,6 +94,8 @@ class FixedProviderExecutor:
             cutoff,
             policy,
         )
+        training_seconds = time.perf_counter() - training_started
+        inference_started = time.perf_counter()
         origin = pd.Timestamp(lease.origin.origin_date)
         history = available_history(
             data,
@@ -113,10 +120,44 @@ class FixedProviderExecutor:
         predicted = provider.predict(
             model, restored, future, sorted(targets.horizon.unique().tolist()), context
         )
+        inference_seconds = time.perf_counter() - inference_started
+        resources = [
+            ResourceUsage(
+                ResourceMetric.PREPROCESSING_SECONDS,
+                Decimal(str(preprocessing_seconds)),
+                "fixed_provider_preprocessing",
+            ),
+            ResourceUsage(
+                ResourceMetric.INFERENCE_SECONDS,
+                Decimal(str(inference_seconds)),
+                "fixed_provider_inference",
+            ),
+            ResourceUsage(
+                ResourceMetric.STORAGE_BYTES,
+                Decimal(model_artifact.size_bytes),
+                "model_artifact",
+                f"artifact:{model_artifact.sha256}",
+            ),
+            ResourceUsage(
+                ResourceMetric.STORAGE_BYTES,
+                Decimal(context_artifact.size_bytes),
+                "context_artifact",
+                f"artifact:{context_artifact.sha256}",
+            ),
+        ]
+        if trained:
+            resources.append(
+                ResourceUsage(
+                    ResourceMetric.TRAINING_SECONDS,
+                    Decimal(str(training_seconds)),
+                    "fixed_provider_training",
+                )
+            )
         return OriginOutput(
             tuple(_value(row) for row in predicted.itertuples(index=False)),
             _artifact_text(model_artifact),
             _artifact_text(context_artifact),
+            tuple(resources),
         )
 
     def _model(
@@ -134,7 +175,8 @@ class FixedProviderExecutor:
     ):
         cache_key = (run_id, cutoff)
         if cache_key in self._models:
-            return self._models[cache_key]
+            model, artifact = self._models[cache_key]
+            return model, artifact, False
         fit_context = context.for_origin(cutoff)
         if policy == "MONTHLY_EXPANDING":
             origin_from, origin_before = calendar_month(context.origin_date)
@@ -144,6 +186,7 @@ class FixedProviderExecutor:
         if stored:
             artifact = ArtifactRef.from_dict(json.loads(stored))
             model = repository.load_model(artifact, dataset, config, fit_context)
+            trained = False
         else:
             train = available_history(
                 data,
@@ -156,8 +199,9 @@ class FixedProviderExecutor:
             fitted = provider.fit_parameters(train, dataset, config, fit_context)
             artifact = repository.save_model(fitted, dataset, config, fit_context)
             model = repository.load_model(artifact, dataset, config, fit_context)
+            trained = True
         self._models[cache_key] = (model, artifact)
-        return model, artifact
+        return model, artifact, trained
 
 
 def _context(lease, experiment_id, definition, dataset, work_root, logger_name) -> RunContext:
