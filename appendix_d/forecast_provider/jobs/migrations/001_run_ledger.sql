@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS forecast_runs (
     ('QUEUED','RUNNING','SUCCEEDED','PARTIAL','FAILED','CANCELLED')),
   cancellation_requested INTEGER NOT NULL DEFAULT 0
 );
+CREATE INDEX IF NOT EXISTS ix_forecast_runs_runnable_provider
+  ON forecast_runs(provider_id, status, cancellation_requested, run_id);
 CREATE TABLE IF NOT EXISTS forecast_origins (
   run_id TEXT NOT NULL REFERENCES forecast_runs(run_id), origin_date DATE NOT NULL,
   cutoff_at TIMESTAMPTZ NOT NULL,

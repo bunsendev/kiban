@@ -69,6 +69,7 @@ def test_postgres_migration_has_locking_and_business_constraints():
     assert "uq_forecast_point" in sql
     assert "uq_forecast_quantile" in sql
     assert "FOREIGN KEY(run_id, origin_date)" in sql
+    assert "ix_forecast_runs_runnable_provider" in sql
     catalog_sql = path.parents[2] / "catalog" / "schema.sql"
     text = catalog_sql.read_text(encoding="utf-8")
     assert "dataset_snapshots" in text and "experiments" in text
@@ -120,6 +121,26 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
         RunDefinition(run_id, "experiment", "fingerprint", "builtin-baseline", "ma", 1),
         (origin(1),),
         (expectation(1),),
+    )
+    other_run_id = f"phase1d-other-{uuid.uuid4()}"
+    store.create_run(
+        RunDefinition(
+            other_run_id,
+            "experiment-other",
+            "fingerprint-other",
+            "other-provider",
+            "other-model",
+            1,
+        ),
+        (origin(1),),
+        (expectation(1),),
+    )
+    assert (run_id, "fingerprint") in store.list_runnable_runs("builtin-baseline")
+    assert (other_run_id, "fingerprint-other") not in store.list_runnable_runs(
+        "builtin-baseline"
+    )
+    assert (other_run_id, "fingerprint-other") in store.list_runnable_runs(
+        "other-provider"
     )
     store.start_or_resume(run_id, "fingerprint")
     lease = store.claim_next_origin(run_id, "worker", 60)

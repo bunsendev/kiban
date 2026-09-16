@@ -70,6 +70,8 @@ test_results.txtはこの版の実測記録です。依存はrequirementsファ�
 
 APIと軽量な全Provider依存は`pip install -e ".[api,postgres,statsforecast,mlforecast,timesfm,auth]"`で追加する。developmentでは`KIBAN_POSTGRES_DSN`、`KIBAN_API_TOKEN`、`KIBAN_API_SUBJECT`、`KIBAN_SNAPSHOT_ROOT`、`KIBAN_REPORT_ROOT`を設定し、`uvicorn forecast_provider.api.factory:from_environment --factory`で起動する。productionでは外部IdPのJWTまたは更新可能なcredential file、Host allowlist、HTTPSを必須とする。snapshotと実験を登録後、保存済みexperiment IDからrunを作る。組込baseline Workerは`--builtin-baseline`、AutoETS Workerは`--statsforecast-ets`、MLForecast Ridge Workerは`--mlforecast-ridge`、TimesFM専用Workerは`--timesfm-2p5`を指定する。TimesFMのCPU PyTorchと検証済み重みは専用Workerだけに置く。共通実行は[実験SnapshotとBaseline統合](docs/Phase1F_実験SnapshotとBaseline統合.md)、各追加Providerは[StatsForecast AutoETS](docs/Phase1M_StatsForecast_AutoETS.md)、[MLForecast Ridge](docs/Phase1Z_MLForecast_Ridge.md)、[TimesFM 2.5](docs/Phase2A_TimesFM_2p5.md)、月次運用は[継続学習と安全なモデル切替](docs/Phase1S_継続学習とモデル切替.md)を参照する。
 
+複数のProvider専用WorkerはProvider IDでrunキューを分離する。カスタムexecutorは`--executor module:function`と`--provider-id`を必ず同時に指定し、別Providerのrunを取得させない。詳細は[Provider別Worker実行分離](docs/Phase3D_Provider別Worker実行分離.md)を参照する。
+
 作成APIを安全に再送する場合は`POST /api/*`へ`Idempotency-Key`を付ける。同じ認証token・API・要求は保存済み成功応答へ収束し、異なる要求で同じキーを使うと409になる。APIエラーは`code`、`message`、`details`、`request_id`を返す。詳細は[API共通契約](docs/Phase3A_API共通契約.md)を参照する。
 
 予測Workerは全Provider共通で起点attemptごとの推論時間、CPU時間、取得可能なprocess peak memoryを資源台帳へ保存する。固定学習共通Executorは前処理、実fit、推論、model/context artifact容量も分離する。`GET /api/runs/{run_id}`または`GET /api/runs/{run_id}/resources`で確認できる。ADMINは`POST /api/resource-unit-prices`へmetric単位の単価、通貨、取得日、参照元を登録する。未登録単価は0円にせずNULLとなり、比較CSVにも時間・資源・費用列が追加される。詳細は[Provider共通の資源・費用台帳](docs/Phase3B_資源費用台帳.md)を参照する。

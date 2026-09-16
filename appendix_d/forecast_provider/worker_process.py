@@ -39,9 +39,11 @@ def work_once(
     worker_id: str,
     max_origins: int | None = None,
     resource_cost: ResourceCostStore | None = None,
+    *,
+    provider_id: str,
 ) -> int:
     processed = 0
-    for run_id, fingerprint in store.list_runnable_runs():
+    for run_id, fingerprint in store.list_runnable_runs(provider_id):
         resume_run(
             store,
             run_id,
@@ -64,6 +66,10 @@ def main(argv: list[str] | None = None) -> int:
     executor.add_argument("--statsforecast-ets", action="store_true")
     executor.add_argument("--mlforecast-ridge", action="store_true")
     executor.add_argument("--timesfm-2p5", action="store_true")
+    parser.add_argument(
+        "--provider-id",
+        help="--executorで実行を許可するProvider ID（組込executorでは自動設定）",
+    )
     parser.add_argument("--artifact-root", type=Path, default=Path("artifact_output/objects"))
     parser.add_argument("--work-root", type=Path, default=Path("worker_output"))
     parser.add_argument("--worker-id", default="worker-1")
@@ -74,6 +80,10 @@ def main(argv: list[str] | None = None) -> int:
     dsn = postgres_dsn(args)
     if args.max_origins is not None and args.max_origins <= 0:
         parser.error("--max-originsは正数です")
+    if args.executor and not (args.provider_id or "").strip():
+        parser.error("--executorには--provider-idが必要です")
+    if not args.executor and args.provider_id is not None:
+        parser.error("組込executorでは--provider-idを指定できません")
     if args.sqlite:
         store = SqliteRunStore(args.sqlite)
         catalog = SqliteCatalogStore(args.sqlite)
@@ -92,8 +102,19 @@ def main(argv: list[str] | None = None) -> int:
         execute = TimesFM2p5Executor(store, catalog, args.artifact_root, args.work_root)
     else:
         execute = load_executor(args.executor)
+    if args.executor:
+        provider_id = args.provider_id.strip()
+    else:
+        provider_id = execute.provider_id
     while True:
-        work_once(store, execute, args.worker_id, args.max_origins, resource_cost)
+        work_once(
+            store,
+            execute,
+            args.worker_id,
+            args.max_origins,
+            resource_cost,
+            provider_id=provider_id,
+        )
         if args.once:
             return 0
         time.sleep(args.poll_seconds)

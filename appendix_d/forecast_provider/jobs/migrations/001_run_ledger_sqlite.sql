@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS forecast_runs (
   model_name TEXT NOT NULL, seed INTEGER NOT NULL,
   status TEXT NOT NULL, cancellation_requested INTEGER NOT NULL DEFAULT 0
 );
+CREATE INDEX IF NOT EXISTS ix_forecast_runs_runnable_provider
+  ON forecast_runs(provider_id, status, cancellation_requested, run_id);
 CREATE TABLE IF NOT EXISTS forecast_origins (
   run_id TEXT NOT NULL REFERENCES forecast_runs(run_id), origin_date TEXT NOT NULL,
   cutoff_at TEXT NOT NULL, status TEXT NOT NULL, attempt INTEGER NOT NULL DEFAULT 0,

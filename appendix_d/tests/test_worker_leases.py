@@ -4,9 +4,9 @@ import time
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from test_job_resume import make_store, point
+from test_job_resume import expectation, make_store, origin, point
 
-from forecast_provider.jobs import OriginOutput, StaleLeaseError, resume_run
+from forecast_provider.jobs import OriginOutput, RunDefinition, StaleLeaseError, resume_run
 from forecast_provider.worker_process import work_once
 
 
@@ -76,6 +76,53 @@ def test_second_worker_does_not_finalize_run_owned_by_first_worker(tmp_path):
     store = make_store(tmp_path, days=(1,))
     store.start_or_resume("run-1", "fingerprint-1")
     assert store.claim_next_origin("run-1", "worker-a", 60) is not None
-    assert work_once(store, lambda lease: OriginOutput((point(1),)), "worker-b") == 1
+    assert (
+        work_once(
+            store,
+            lambda lease: OriginOutput((point(1),)),
+            "worker-b",
+            provider_id="builtin-baseline",
+        )
+        == 1
+    )
     snapshot = store.get_run("run-1")
     assert snapshot is not None and snapshot.status == "RUNNING"
+
+
+def test_provider_affinity_prevents_wrong_worker_from_claiming_run(tmp_path):
+    store = make_store(tmp_path, days=(1,))
+    store.create_run(
+        RunDefinition(
+            "run-other",
+            "experiment-other",
+            "fingerprint-other",
+            "other-provider",
+            "other-model",
+            7,
+        ),
+        (origin(1),),
+        (expectation(1),),
+    )
+    executed = []
+
+    def execute(lease):
+        executed.append(lease.run_id)
+        return OriginOutput((point(lease.origin.origin_date.day),))
+
+    processed = work_once(
+        store,
+        execute,
+        "baseline-worker",
+        provider_id="builtin-baseline",
+    )
+
+    assert processed == 1
+    assert executed == ["run-1"]
+    assert store.get_run("run-1").status == "SUCCEEDED"
+    assert store.get_run("run-other").status == "QUEUED"
+    assert store.list_runnable_runs("other-provider") == (
+        ("run-other", "fingerprint-other"),
+    )
+    assert store.list_runnable_runs("missing-provider") == ()
+    with pytest.raises(ValueError):
+        store.list_runnable_runs("")

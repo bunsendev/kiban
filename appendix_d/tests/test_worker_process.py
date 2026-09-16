@@ -41,6 +41,8 @@ def execute(lease):
             str(database),
             "--executor",
             "worker_fixture:execute",
+            "--provider-id",
+            "builtin-baseline",
             "--worker-id",
             "process-worker",
             "--once",
@@ -54,3 +56,49 @@ def execute(lease):
     assert result.returncode == 0, result.stdout + result.stderr
     snapshot = SqliteRunStore(database).get_run("run-1")
     assert snapshot is not None and snapshot.status == "SUCCEEDED"
+
+
+def test_custom_executor_requires_explicit_provider_binding(tmp_path):
+    database = tmp_path / "runs.sqlite3"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "forecast_provider.worker_process",
+            "--sqlite",
+            str(database),
+            "--executor",
+            "worker_fixture:execute",
+            "--once",
+        ],
+        cwd=Path(__file__).parents[1],
+        text=True,
+        capture_output=True,
+        timeout=20,
+    )
+
+    assert result.returncode == 2
+    assert "--executorには--provider-idが必要です" in result.stderr
+
+
+def test_builtin_executor_rejects_provider_override(tmp_path):
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "forecast_provider.worker_process",
+            "--sqlite",
+            str(tmp_path / "runs.sqlite3"),
+            "--builtin-baseline",
+            "--provider-id",
+            "other-provider",
+            "--once",
+        ],
+        cwd=Path(__file__).parents[1],
+        text=True,
+        capture_output=True,
+        timeout=20,
+    )
+
+    assert result.returncode == 2
+    assert "組込executorでは--provider-idを指定できません" in result.stderr

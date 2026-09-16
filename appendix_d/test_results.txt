@@ -1,3 +1,22 @@
+# v2.9 Phase 3D 実行検証記録
+
+Date: 2026-09-17 JST
+OS: Windows 11
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.7
+
+## Phase 3D
+
+- Provider分離: Baseline WorkerがBaseline runだけを完了し、別Provider runを待機状態のまま維持することを確認した。
+- 組込executor: Provider metadataから実行対象IDを固定し、組込CLIでの手動上書きを拒否する。
+- カスタムexecutor: `--provider-id`未指定を起動時エラーにし、暗黙に全Providerを処理しない。
+- DB: SQLite/PostgreSQL共通のProvider絞り込みと、runnable run検索用複合索引を追加した。
+- 対象試験: Worker process、lease、月次学習、再開、PostgreSQL schemaを含む27件成功、PostgreSQL実DB1件はDSN未設定でskip。
+- 回帰: 配布hash更新後、Linux専用RSS試験を除くWindows全体で491件成功、14件skip、1件deselect。
+- 静的検査・配布: `ruff check .`成功。495ファイルのSHA-256照合と日本語名UTF-8 ZIP生成を確認した。
+- 未実施: Docker Desktop engine停止中のためPostgreSQL実DB結合試験は未実施。schemaと継承するSQL契約を検査する。
+
 # v2.9 Phase 3C 実行検証記録
 
 Date: 2026-09-16 JST
