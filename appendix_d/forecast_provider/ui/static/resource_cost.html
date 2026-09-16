@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="run別の処理時間、使用資源、費用単価を確認する管理画面">
+  <title>資源・費用台帳 | Yosoku Kiban</title>
+  <link rel="stylesheet" href="/ui/assets/styles.css">
+  <link rel="stylesheet" href="/ui/assets/resource_cost.css">
+  <script type="module" src="/ui/assets/resource_cost_app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">本文へ移動</a>
+  <header class="topbar">
+    <div class="brand-block">
+      <span class="eyebrow">YOSOKU KIBAN / RESOURCE LEDGER</span>
+      <h1>資源・費用台帳</h1>
+      <a class="workspace-link" href="/ui">比較・採用へ</a>
+      <a class="workspace-link" href="/ui/lifecycle">Lifecycle運用へ</a>
+      <a class="workspace-link" href="/ui/intake">原本取込へ</a>
+    </div>
+    <form id="connection-form" class="connection" aria-label="API接続">
+      <label for="api-token">API token</label>
+      <div class="connection-row">
+        <input id="api-token" type="password" autocomplete="off" required
+          placeholder="Bearer tokenを入力">
+        <button class="button primary" type="submit">接続</button>
+      </div>
+      <p class="field-note">tokenはこの画面のメモリ内だけで使用します。</p>
+    </form>
+    <div id="session-controls" class="session-controls" hidden>
+      <span class="connection-state">接続済み</span>
+      <span id="session-identity" class="session-identity"></span>
+      <button id="refresh-button" class="button quiet" type="button">更新</button>
+      <button id="disconnect-button" class="button quiet" type="button">切断</button>
+    </div>
+  </header>
+
+  <main id="workspace" class="page-shell">
+    <div id="notice" class="notice" role="status" aria-live="polite">
+      API tokenを入力して資源・費用台帳を読み込んでください。
+    </div>
+
+    <section class="summary-grid" aria-label="資源費用サマリー">
+      <article class="summary-card accent-blue"><span>run</span><strong id="run-count">—</strong></article>
+      <article class="summary-card accent-green"><span>完了run</span><strong id="terminal-count">—</strong></article>
+      <article class="summary-card accent-cyan"><span>登録単価</span><strong id="price-count">—</strong></article>
+      <article class="summary-card accent-amber"><span>単価管理</span><strong id="manage-state">—</strong></article>
+    </section>
+
+    <details class="price-create">
+      <summary>資源単価を登録</summary>
+      <form id="price-form" class="drawer-form price-form">
+        <label>Provider ID
+          <input id="price-provider" value="*" required>
+          <span class="field-note">* は全Provider共通。個別IDを指定するとそちらを優先します。</span>
+        </label>
+        <label>計測項目<select id="price-metric" required></select></label>
+        <label>1単位あたりの価格<input id="price-amount" type="number" min="0" step="any" required></label>
+        <label>通貨<input id="price-currency" minlength="3" maxlength="3" value="JPY" required></label>
+        <label>単価の取得日<input id="price-date" type="date" required></label>
+        <label>根拠・参照先<input id="price-source" required placeholder="例: 社内単価表 2026-09"></label>
+        <button class="button primary span-all" data-permission="MANAGE_RESOURCE"
+          type="submit">単価を登録</button>
+      </form>
+      <p id="price-permission-note" class="permission-note"></p>
+    </details>
+
+    <section class="resource-layout">
+      <aside class="run-rail" aria-labelledby="run-heading">
+        <div class="section-heading">
+          <div><span class="eyebrow">RUN LEDGER</span><h2 id="run-heading">runを選択</h2></div>
+          <span id="run-filter-count" class="count-chip">0件</span>
+        </div>
+        <label class="search-field" for="run-search">
+          <span>run・モデル・Providerで絞り込み</span>
+          <input id="run-search" type="search" placeholder="検索">
+        </label>
+        <label class="status-filter" for="run-status">状態
+          <select id="run-status">
+            <option value="">すべて</option>
+            <option value="QUEUED">待機中</option>
+            <option value="RUNNING">実行中</option>
+            <option value="SUCCEEDED">成功</option>
+            <option value="PARTIAL">一部成功</option>
+            <option value="FAILED">失敗</option>
+            <option value="CANCELLED">取消</option>
+          </select>
+        </label>
+        <div id="run-list" class="comparison-list"></div>
+      </aside>
+
+      <section class="resource-detail" aria-live="polite">
+        <div id="detail-empty" class="empty-state">
+          <div class="empty-mark" aria-hidden="true">¥</div>
+          <h2>runを選ぶと計測結果を表示します</h2>
+          <p>処理時間、CPU・GPU、最大メモリ、保存容量と、登録単価から算出した費用を確認できます。</p>
+        </div>
+        <div id="detail-content" hidden>
+          <header class="detail-header">
+            <div>
+              <span class="eyebrow">SELECTED RUN</span>
+              <h2 id="run-title">—</h2>
+              <code id="run-id">—</code>
+            </div>
+            <div id="run-status-pill"></div>
+          </header>
+          <div id="run-facts" class="lineage-grid resource-facts"></div>
+          <section id="cost-summary" class="cost-summary"></section>
+          <div class="table-wrap">
+            <table>
+              <caption>run全体の計測値と費用</caption>
+              <thead><tr><th>計測項目</th><th>計測量</th><th>単価</th><th>費用</th><th>単価取得日</th></tr></thead>
+              <tbody id="measurement-rows"></tbody>
+            </table>
+          </div>
+          <details class="attempt-ledger">
+            <summary>origin・attempt別の計測明細</summary>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>origin</th><th>attempt</th><th>計測項目</th><th>計測量</th><th>取得元</th><th>計測日時</th></tr></thead>
+                <tbody id="attempt-rows"></tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+      </section>
+    </section>
+
+    <section class="price-ledger" aria-labelledby="price-heading">
+      <div class="subheading"><h2 id="price-heading">単価登録履歴</h2><span>新しい取得日を優先して費用を算出</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Provider</th><th>計測項目</th><th>単価</th><th>取得日</th><th>根拠</th><th>登録者</th></tr></thead>
+          <tbody id="price-rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

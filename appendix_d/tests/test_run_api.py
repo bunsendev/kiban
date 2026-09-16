@@ -76,6 +76,31 @@ def test_run_accepts_only_saved_experiment_and_builds_plan_server_side(tmp_path)
     assert api.post("/api/runs", json=arbitrary).status_code == 422
 
 
+def test_run_list_supports_status_filter_and_includes_provider_identity(tmp_path):
+    api = client(tmp_path)
+    _, experiment = create_catalog(api)
+    created = api.post("/api/runs", json={"experiment_id": experiment}).json()
+
+    response = api.get("/api/runs?limit=1&status=QUEUED")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "run_id": created["run_id"],
+            "experiment_id": experiment,
+            "status": "QUEUED",
+            "cancellation_requested": False,
+            "origin_counts": {"QUEUED": 2},
+            "failure_count": 0,
+            "provider_id": "builtin-baseline",
+            "model_name": "moving_average_28",
+            "resources": None,
+        }
+    ]
+    assert api.get("/api/runs?status=UNKNOWN").status_code == 422
+    assert api.get("/api/runs?limit=201").status_code == 422
+
+
 def test_unknown_references_and_authentication(tmp_path):
     api = client(tmp_path)
     assert api.post("/api/experiments", json=experiment_payload("missing")).status_code == 404

@@ -108,6 +108,8 @@ Phase 3Aで全`POST /api/*`へ任意の`Idempotency-Key`を共通適用し、本
 
 Phase 3Bで全Provider共通の資源・費用台帳を追加した。Workerは起点attemptごとのCPU、推論時間、取得可能なprocess peak memoryを記録し、固定学習共通Executorは前処理、実fit、推論、artifact容量を分離する。単価は取得日・参照元・認証subject付きでADMINだけが登録し、単価不明または通貨混在時の総費用はNULLにする。run APIと比較CSVは同じ集計を返す。詳細は[Provider共通の資源・費用台帳](docs/Phase3B_資源費用台帳.md)。
 
+Phase 3Cで`/ui/resources`の資源・費用管理画面を追加した。READ利用者はrun一覧、8種類の集計、origin・attempt明細、単価履歴を参照し、ADMINはProvider共通または個別単価を根拠・取得日付きで登録できる。比較画面は同じ集計から推論時間と総費用を表示する。詳細は[資源・費用管理画面](docs/Phase3C_資源費用管理画面.md)。
+
 次はプリフライトが`READY_FOR_DATA`の環境で実業務原本の検証jobを登録し、画面で`READY_FOR_NORMALIZATION`または隔離理由を確認する。その後Phase 1Xから全行の数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進み、全3年の重要品目選定とPhase 1Sの将来trialを開始する。FULL 20〜50品目のOSS比較前に対象環境の資源単価を登録し、Phase 3Bの時間・費用列を含む比較CSVを発行する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 

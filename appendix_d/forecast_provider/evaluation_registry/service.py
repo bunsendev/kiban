@@ -15,6 +15,7 @@ from ..errors import ProviderError
 from ..evaluation import compare_runs
 from ..jobs.contracts import RunStore
 from ..registry import registry
+from ..resource_cost.contracts import ResourceCostStore
 from .contracts import (
     ComparisonRecord,
     EvaluationRegistryStore,
@@ -41,11 +42,13 @@ class EvaluationRegistryService:
         catalog: CatalogStore,
         store: EvaluationRegistryStore,
         snapshot_root: Path | None = None,
+        resource_cost: ResourceCostStore | None = None,
     ) -> None:
         self.runs = runs
         self.catalog = catalog
         self.store = store
         self.snapshot_root = snapshot_root
+        self.resource_cost = resource_cost
 
     def create_conformance(self, definition: dict) -> ProviderConformance:
         try:
@@ -194,10 +197,19 @@ class EvaluationRegistryService:
 
     def comparison_detail(self, comparison_id: str) -> dict:
         record = self.get_comparison(comparison_id)
+        evaluations = self.store.list_run_evaluations(comparison_id)
         return {
             **asdict(record),
             "run_evaluations": [
-                asdict(value) for value in self.store.list_run_evaluations(comparison_id)
+                {
+                    **asdict(value),
+                    "resources": (
+                        None
+                        if self.resource_cost is None
+                        else self.resource_cost.summarize(value.run_id)
+                    ),
+                }
+                for value in evaluations
             ],
         }
 

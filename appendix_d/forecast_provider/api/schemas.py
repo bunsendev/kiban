@@ -218,4 +218,6 @@ class RunStatusOutput(BaseModel):
     cancellation_requested: bool
     origin_counts: dict[str, int]
     failure_count: int
+    provider_id: str | None = None
+    model_name: str | None = None
     resources: dict | None = None

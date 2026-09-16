@@ -77,6 +77,8 @@ class RunSnapshot:
     cancellation_requested: bool
     origin_counts: dict[str, int]
     failure_count: int
+    provider_id: str | None = None
+    model_name: str | None = None
 
 
 class RunStore(Protocol):
@@ -108,6 +110,10 @@ class RunStore(Protocol):
     def request_cancellation(self, run_id: str) -> None: ...
 
     def get_run(self, run_id: str) -> RunSnapshot | None: ...
+
+    def list_runs(
+        self, *, limit: int = 100, status: RunStatus | None = None
+    ) -> list[RunSnapshot]: ...
 
     def list_runnable_runs(self) -> tuple[tuple[str, str], ...]: ...
 
