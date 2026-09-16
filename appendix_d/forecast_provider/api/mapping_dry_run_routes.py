@@ -1,9 +1,11 @@
 import csv
 import io
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 
+from ..inventory_normalization.export import feature_view_csv
 from ..mapping_dry_run.catalog import MappingDryRunCatalog
 from ..mapping_dry_run.evidence_schema import InvalidReportError
 from ..mapping_dry_run.inventory_profiles import InventoryProfileError
@@ -270,6 +272,34 @@ def install_mapping_dry_run_routes(
                 )
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        @app.get("/api/inventory-feature-views.csv")
+        def download_inventory_feature_view(
+            mapping_version: Annotated[str, Query(min_length=1, max_length=100)],
+            as_of: datetime,
+            _principal: Annotated[Principal, Depends(export)],
+        ):
+            try:
+                view = inventory_normalization.feature_view(
+                    mapping_version,
+                    as_of.isoformat(),
+                    2_147_483_647,
+                    0,
+                )
+                content, checksum = feature_view_csv(view)
+            except ValueError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            return Response(
+                content,
+                media_type="text/csv; charset=utf-8",
+                headers={
+                    "Content-Disposition": (
+                        f'attachment; filename="inventory-feature-{view["view_id"]}.csv"'
+                    ),
+                    "X-Kiban-Feature-View-ID": view["view_id"],
+                    "X-Content-SHA256": checksum,
+                },
+            )
 
         @app.get("/api/inventory-normalization-jobs/{job_id}/results")
         def get_inventory_normalization_results(

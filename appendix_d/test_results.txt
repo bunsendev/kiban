@@ -1,3 +1,21 @@
+# v2.9 Phase 2Y 実行検証記録
+
+Date: 2026-09-16 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2Y
+
+- 出力形式: feature view ID、canonical商品、center、日付、単位、在庫数量、利用可能時刻を固定列で出力する。
+- 再現性: UTF-8 BOM・CRLF・決定的順序を固定し、実bytesのSHA-256とview IDをheaderへ付ける。
+- fail closed: 未対応・期間競合を含むBLOCKED viewは部分出力せず409にする。
+- 認可: CSV取得にはEXPORT権限を要求する。
+- データ保護: 原JAN、商品名、元ファイル名、絶対pathをCSVとエラーへ含めない。
+- UI: READYの場合だけ内容アドレスID付きCSVをダウンロードできる。
+- テスト: 同一bytes、BOM、checksum、view ID、固定列、原JAN非出力、BLOCKED拒否を含む対象2件成功。
+- 静的検査: ruff、JavaScript構文、Compose構成検査に成功。
 # v2.9 Phase 2X 実行検証記録
 
 Date: 2026-09-16 JST

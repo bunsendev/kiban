@@ -500,7 +500,7 @@ byId("inventory-feature-form").addEventListener("submit", async (event) => {
       mapping_version: value("inventory-feature-mapping-version"),
       as_of: new Date(value("inventory-feature-as-of")).toISOString(),
     });
-    renderInventoryFeatureView(byId("inventory-feature-result"), view);
+    renderInventoryFeatureView(byId("inventory-feature-result"), view, download);
     notice(
       view.status === "READY" ? "在庫の後続接続準備が完了しました。" : "JAN名寄せの修正が必要です。",
       view.status === "READY" ? "success" : "error",

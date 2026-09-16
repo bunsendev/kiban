@@ -138,7 +138,7 @@ export function renderInventoryNormalizationHistory(container, jobs, current, on
   });
 }
 
-export function renderInventoryFeatureView(container, view) {
+export function renderInventoryFeatureView(container, view, download) {
   container.hidden = false;
   container.textContent = [
     `判定: ${view.status}。`,
@@ -147,4 +147,18 @@ export function renderInventoryFeatureView(container, view) {
     `利用可能時刻: ${view.available_at}。`,
     view.status === "READY" ? `特徴ビューID: ${view.view_id}` : "JAN名寄せ版を修正してください。",
   ].join(" ");
+  if (view.status !== "READY") return;
+  const button = document.createElement("button");
+  button.className = "button secondary";
+  button.type = "button";
+  button.textContent = "在庫特徴CSVをダウンロード";
+  const params = new URLSearchParams({
+    mapping_version: view.mapping_version,
+    as_of: view.as_of,
+  });
+  button.addEventListener("click", () => download(
+    `/api/inventory-feature-views.csv?${params}`,
+    `inventory-feature-${view.view_id}.csv`,
+  ));
+  container.append(button);
 }
