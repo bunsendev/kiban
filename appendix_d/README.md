@@ -72,6 +72,8 @@ APIと軽量な全Provider依存は`pip install -e ".[api,postgres,statsforecast
 
 作成APIを安全に再送する場合は`POST /api/*`へ`Idempotency-Key`を付ける。同じ認証token・API・要求は保存済み成功応答へ収束し、異なる要求で同じキーを使うと409になる。APIエラーは`code`、`message`、`details`、`request_id`を返す。詳細は[API共通契約](docs/Phase3A_API共通契約.md)を参照する。
 
+予測Workerは全Provider共通で起点attemptごとの推論時間、CPU時間、取得可能なprocess peak memoryを資源台帳へ保存する。固定学習共通Executorは前処理、実fit、推論、model/context artifact容量も分離する。`GET /api/runs/{run_id}`または`GET /api/runs/{run_id}/resources`で確認できる。ADMINは`POST /api/resource-unit-prices`へmetric単位の単価、通貨、取得日、参照元を登録する。未登録単価は0円にせずNULLとなり、比較CSVにも時間・資源・費用列が追加される。詳細は[Provider共通の資源・費用台帳](docs/Phase3B_資源費用台帳.md)を参照する。
+
 TimesFM専用Workerを実業務runへ使う前に、`docker compose --profile timesfm-benchmark run --rm timesfm-benchmark`で固定checkpoint、cgroup隔離、モデル初期化、warm-up後の推論時間、CPU時間、peak RSSを確認する。既定はCPU 2、memory 4 GiB、人工3系列、context 512日、horizon 15である。JSONレポートは`timesfm_benchmark_output`へ内容アドレス方式で保存される。詳細は[TimesFM運用計測](docs/Phase2B_TimesFM運用計測.md)を参照する。
 
 実業務原本を配置する前に、`docker compose --profile preflight run --rm --build real-data-preflight`を実行する。inputの実効read-only、archive・snapshot・受入・証跡rootのwrite、領域分離、PostgreSQL 17の必須23 relationとWorker権限を10項目で確認する。`READY_FOR_DATA`は投入準備完了だけを示し、実データ受入や業務判断ではない。詳細は[実データ受入プリフライト](docs/Phase2C_実データ受入プリフライト.md)を参照する。

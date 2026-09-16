@@ -36,6 +36,8 @@ from forecast_provider.reporting import (
     make_adoption,
     make_export_record,
 )
+from forecast_provider.resource_cost import ResourceMetric, ResourceUsage, make_unit_price
+from forecast_provider.resource_cost.postgres_store import PostgresResourceCostStore
 
 
 def test_postgres_row_uses_sqlite_compatible_temporal_and_uuid_values():
@@ -103,6 +105,10 @@ def test_postgres_migration_has_locking_and_business_constraints():
     assert "report_exports" in text and "adoption_records" in text
     assert "UNIQUE(comparison_id,export_version)" in text
     assert text.count("REFERENCES forecast_runs(run_id)") == 3
+    resource_sql = path.parents[2] / "resource_cost" / "schema_postgres.sql"
+    text = resource_sql.read_text(encoding="utf-8")
+    assert "resource_measurements" in text and "resource_unit_prices" in text
+    assert "quantity NUMERIC" in text and "unit_price NUMERIC" in text
 
 
 @pytest.mark.skipif(not os.getenv("KIBAN_TEST_POSTGRES_DSN"), reason="PostgreSQL DSN未設定")
@@ -120,6 +126,25 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
     assert lease is not None
     store.complete_origin(lease, OriginOutput((point(1),)))
     assert store.finish_run(run_id) == "SUCCEEDED"
+    resource_cost = PostgresResourceCostStore(dsn)
+    resource_cost.record_attempt(
+        run_id,
+        date(2026, 1, 1),
+        1,
+        (ResourceUsage(ResourceMetric.CPU_SECONDS, Decimal("2"), "postgres-test"),),
+    )
+    resource_cost.put_unit_price(
+        make_unit_price(
+            provider_id="builtin-baseline",
+            metric=ResourceMetric.CPU_SECONDS,
+            unit_price=Decimal("3"),
+            currency="JPY",
+            retrieved_on=date(2026, 9, 16),
+            source_ref="postgres contract test",
+            created_by="test@example.test",
+        )
+    )
+    assert resource_cost.summarize(run_id)["total_cost_amount"] == "6"
     catalog = PostgresCatalogStore(dsn)
     snapshot = make_snapshot(snapshot_payload())
     catalog.put_snapshot(snapshot)

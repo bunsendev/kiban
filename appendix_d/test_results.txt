@@ -1,3 +1,23 @@
+# v2.9 Phase 3B 実行検証記録
+
+Date: 2026-09-16 JST
+OS: Windows 11
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.7
+
+## Phase 3B
+
+- 共通計測: 全ProviderのWorker境界で起点attempt別の推論wall time、process CPU time、取得可能なpeak working set/RSSを保存する。
+- 詳細内訳: 固定学習共通Executorで前処理、実fit、推論、model/context artifact容量を分離し、同一artifact容量をrun内で重複計上しない。
+- 再開・失敗: 決定的な計測IDで同じattemptの再登録を冪等化し、部分成功runで成功・失敗両起点の消費資源を追跡できることを確認した。
+- 費用: Provider固有単価を共通単価より優先し、取得日・参照元・認証登録者を保存する。未登録単価と通貨混在は総費用NULLとし、明示的な0円と区別する。
+- API・出力: run状態と専用資源APIへ集計・attempt明細を追加し、比較CSVへ8計測量、単価充足、総費用、通貨を追加した。単価登録はADMIN専用permissionで保護する。
+- 対象試験: 資源・費用、固定学習Worker、比較出力、API認可、PostgreSQL schemaを含む18件成功、PostgreSQL実DB1件はDSN未設定でskip。
+- 回帰: 配布hash更新後、Linux専用RSS試験を除くWindows全体で485件成功、14件skip、1件deselect。
+- 静的検査: `ruff check .`成功。
+- 未実施: Docker Desktop engine停止中のためPostgreSQL実DB結合試験、Linux RSS試験、FULL 20〜50品目の実データAC-21比較は未実施。人工データの成功で代替しない。
+
 # v2.9 Phase 3A 実行検証記録
 
 Date: 2026-09-16 JST

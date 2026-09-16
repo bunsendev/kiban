@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import csv
 import io
+from datetime import date
+from decimal import Decimal
 
 from fastapi.testclient import TestClient
 from test_evaluation_registry import (
@@ -24,6 +26,12 @@ from forecast_provider.catalog.domain import make_snapshot
 from forecast_provider.catalog.files import snapshot_path
 from forecast_provider.evaluation_registry import SqliteEvaluationRegistryStore
 from forecast_provider.reporting import SqliteReportingStore
+from forecast_provider.resource_cost import (
+    ResourceMetric,
+    ResourceUsage,
+    SqliteResourceCostStore,
+    make_unit_price,
+)
 
 
 def _reporting_fixture(tmp_path):
@@ -31,6 +39,7 @@ def _reporting_fixture(tmp_path):
     acceptance = SqliteAcceptanceStore(runs.path)
     evaluation = SqliteEvaluationRegistryStore(runs.path)
     reporting = SqliteReportingStore(runs.path)
+    resource_cost = SqliteResourceCostStore(runs.path)
     report_root = tmp_path / "report-output"
     api = TestClient(
         create_app(
@@ -42,6 +51,7 @@ def _reporting_fixture(tmp_path):
             evaluation_registry=evaluation,
             reporting=reporting,
             report_root=report_root,
+            resource_cost=resource_cost,
         )
     )
     api.headers["Authorization"] = "Bearer token"
@@ -179,6 +189,60 @@ def test_comparison_export_is_deterministic_safe_and_checksum_verified(tmp_path)
     path = snapshot_path(first.json()["output_uri"], report_root)
     path.write_bytes(b"tampered")
     assert api.get(f"/api/exports/{first.json()['export_id']}").status_code == 409
+
+
+def test_comparison_export_contains_measured_time_and_calculated_cost(tmp_path):
+    api, runs, catalog, _, _, _, snapshot_id = _reporting_fixture(tmp_path)
+    comparison_id, baseline_run, selected_run = _saved_comparison(
+        api, runs, catalog, snapshot_id
+    )
+    costs = SqliteResourceCostStore(runs.path)
+    for run_id, seconds in ((baseline_run, "2"), (selected_run, "3")):
+        costs.record_attempt(
+            run_id,
+            date(2026, 1, 9),
+            1,
+            (
+                ResourceUsage(
+                    ResourceMetric.INFERENCE_SECONDS,
+                    Decimal(seconds),
+                    "comparison-test",
+                ),
+            ),
+        )
+    costs.put_unit_price(
+        make_unit_price(
+            provider_id="*",
+            metric=ResourceMetric.INFERENCE_SECONDS,
+            unit_price=Decimal("4"),
+            currency="JPY",
+            retrieved_on=date(2026, 9, 16),
+            source_ref="社内単価表",
+            created_by="admin@example.test",
+        )
+    )
+
+    response = api.post(
+        f"/api/comparisons/{comparison_id}/exports",
+        json={
+            "export_version": "resource-cost-v1",
+            "baseline_run_id": baseline_run,
+            "requested_by": "test@example.test",
+        },
+    )
+    rows = list(
+        csv.DictReader(
+            io.StringIO(
+                api.get(f"/api/exports/{response.json()['export_id']}")
+                .content.decode("utf-8-sig")
+            )
+        )
+    )
+    selected = next(row for row in rows if row["run_id"] == selected_run)
+    assert selected["inference_seconds"] == "3"
+    assert selected["pricing_complete"] == "TRUE"
+    assert selected["total_cost_amount"] == "12"
+    assert selected["cost_currency"] == "JPY"
 
 
 def test_export_rejects_unknown_baseline_client_path_and_unauthorized_access(tmp_path):

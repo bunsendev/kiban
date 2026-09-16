@@ -32,6 +32,7 @@ class ReportingService:
         store: ReportingStore,
         output_root: Path,
         snapshot_root: Path | None = None,
+        resource_cost=None,
     ) -> None:
         self.evaluation = evaluation
         self.catalog = catalog
@@ -39,6 +40,7 @@ class ReportingService:
         self.store = store
         self.output_root = output_root
         self.snapshot_root = snapshot_root
+        self.resource_cost = resource_cost
 
     def create_export(self, comparison_id: str, request: dict) -> ExportRecord:
         comparison = self._comparison(comparison_id)
@@ -69,6 +71,12 @@ class ReportingService:
             request["baseline_run_id"],
             request["requested_by"],
             snapshot,
+            {
+                item.run_id: self.resource_cost.summarize(item.run_id)
+                for item in evaluations
+            }
+            if self.resource_cost is not None
+            else None,
         )
         uri, checksum = publish_csv(payload, self.output_root)
         record = make_export_record(definition, uri, checksum, len(evaluations))

@@ -30,6 +30,7 @@ from .normalization_routes import install_normalization_routes
 from .observability import install_observability
 from .oidc_login import OidcLoginSettings, install_oidc_login_routes
 from .reporting_routes import install_reporting_routes
+from .resource_cost_routes import install_resource_cost_routes
 from .schemas import (
     Created,
     ExperimentCreate,
@@ -52,7 +53,7 @@ from .selection_routes import install_selection_routes
 from .service import ApplicationService, NotFoundError, record_dict
 
 
-def _output(value) -> RunStatusOutput:
+def _output(value, resource_cost=None) -> RunStatusOutput:
     return RunStatusOutput(
         run_id=value.run_id,
         experiment_id=value.experiment_id,
@@ -60,6 +61,7 @@ def _output(value) -> RunStatusOutput:
         cancellation_requested=value.cancellation_requested,
         origin_counts=value.origin_counts,
         failure_count=value.failure_count,
+        resources=None if resource_cost is None else resource_cost.summarize(value.run_id),
     )
 
 
@@ -87,6 +89,7 @@ def create_app(
     mapping_dry_run_input_root: Path | None = None,
     inventory_normalization=None,
     idempotency_store: IdempotencyStore | None = None,
+    resource_cost=None,
 ) -> FastAPI:
     if isinstance(api_token, str) and not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -119,6 +122,8 @@ def create_app(
         raise ValueError("authentication readiness check名は予約済みです")
     checks["authentication"] = authenticator.readiness
     install_observability(app, authorize, checks)
+    if resource_cost is not None:
+        install_resource_cost_routes(app, authorize, resource_cost)
     install_mapping_dry_run_routes(
         app,
         authorize,
@@ -190,6 +195,7 @@ def create_app(
                 reporting,
                 report_root,
                 snapshot_root,
+                resource_cost,
             ),
         )
 
@@ -263,7 +269,7 @@ def create_app(
         _principal: Annotated[Principal, Depends(read)],
     ):
         try:
-            return _output(service.get_run(run_id))
+            return _output(service.get_run(run_id), resource_cost)
         except NotFoundError as exc:
             raise HTTPException(status_code=404, detail="runが見つかりません") from exc
 
@@ -283,7 +289,7 @@ def create_app(
         _principal: Annotated[Principal, Depends(analyze)],
     ):
         try:
-            return _output(service.cancel(run_id))
+            return _output(service.cancel(run_id), resource_cost)
         except NotFoundError as exc:
             raise HTTPException(status_code=404, detail="runが見つかりません") from exc
 
@@ -294,7 +300,9 @@ def create_app(
         _principal: Annotated[Principal, Depends(analyze)],
     ):
         try:
-            return _output(service.resume(run_id, request.condition_fingerprint))
+            return _output(
+                service.resume(run_id, request.condition_fingerprint), resource_cost
+            )
         except NotFoundError as exc:
             raise HTTPException(status_code=404, detail="runが見つかりません") from exc
         except ContractViolationError as exc:
