@@ -82,12 +82,16 @@ class SqliteInventoryNormalizationStore:
                 ),
             )
 
-    def complete(self, job_id, values):
+    def complete(self, job_id, values, source_quantity, normalized_quantity):
         with self._connect() as db:
             db.execute("BEGIN")
             db.executemany(
                 "INSERT INTO inventory_daily_quantities VALUES (?,?,?,?,?,?)",
                 [(job_id, *value) for value in values],
+            )
+            db.execute(
+                "INSERT INTO inventory_normalization_summaries VALUES (?,?,?)",
+                (job_id, source_quantity, normalized_quantity),
             )
             db.execute(
                 "UPDATE inventory_normalization_jobs SET status='SUCCEEDED',finished_at=? "
@@ -115,6 +119,36 @@ class SqliteInventoryNormalizationStore:
                     (job_id,),
                 )
             ]
+
+    def results(self, job_id, limit, offset):
+        with self._connect() as db:
+            summary = db.execute(
+                "SELECT source_quantity,normalized_quantity "
+                "FROM inventory_normalization_summaries WHERE job_id=?",
+                (job_id,),
+            ).fetchone()
+            count = db.execute(
+                "SELECT COUNT(*) FROM inventory_daily_quantities WHERE job_id=?",
+                (job_id,),
+            ).fetchone()[0]
+            rows = db.execute(
+                "SELECT inventory_date,jan,center_id,unit,quantity "
+                "FROM inventory_daily_quantities WHERE job_id=? "
+                "ORDER BY inventory_date,jan,center_id,unit LIMIT ? OFFSET ?",
+                (job_id, limit, offset),
+            )
+            items = [dict(row) for row in rows]
+        if summary is None:
+            return None
+        summary = dict(summary)
+        return {
+            **summary,
+            "reconciled": summary["source_quantity"] == summary["normalized_quantity"],
+            "total": count,
+            "limit": limit,
+            "offset": offset,
+            "items": items,
+        }
 
 
 class PostgresInventoryNormalizationStore(SqliteInventoryNormalizationStore):

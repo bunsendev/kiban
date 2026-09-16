@@ -16,6 +16,7 @@ import {
   loadMappingDryRun,
   loadMappingDryRunJob,
   loadInventoryNormalizationJob,
+  loadInventoryNormalizationResults,
   loadMappingDryRunBatch,
   loadMappingDryRunSource,
   loadNormalization,
@@ -23,6 +24,7 @@ import {
   uploadMappingDryRunSource,
   uploadMappingDryRunBatch,
 } from "./intake_api.js";
+import { renderInventoryNormalizationResults } from "./intake_inventory_results.js";
 import { mappingPayload, syncAvailability } from "./intake_forms.js";
 import {
   renderImportDetail,
@@ -481,6 +483,9 @@ byId("inventory-preview-form").addEventListener("submit", async (event) => {
             result.textContent = `${job.processed_file_count} / ${job.file_count || "—"}ファイル処理済み。採用 ${job.accepted_row_count}行、隔離 ${job.quarantined_row_count}行。状態: ${job.status}`;
             if (["QUEUED", "RUNNING"].includes(job.status)) {
               window.setTimeout(() => poll().catch(handleError), 2000);
+            } else if (job.status === "SUCCEEDED") {
+              const results = await loadInventoryNormalizationResults(created.id);
+              renderInventoryNormalizationResults(result, created.id, job, results, download);
             }
           };
           await poll();

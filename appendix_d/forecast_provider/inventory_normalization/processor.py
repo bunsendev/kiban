@@ -34,6 +34,7 @@ class InventoryNormalizationProcessor:
             if not paths:
                 raise ValueError("在庫CSVがありません")
             totals = defaultdict(Decimal)
+            source_quantity = Decimal(0)
             reasons = Counter()
             accepted = quarantined = 0
             for index, source_path in enumerate(paths, 1):
@@ -60,6 +61,7 @@ class InventoryNormalizationProcessor:
                         reasons.update(row_reasons)
                     else:
                         accepted += 1
+                        source_quantity += quantity
                         totals[(date, mapping[code], center, job["unit_value"])] += quantity
                 self.store.progress(
                     job["job_id"], len(paths), index, accepted, quarantined, reasons
@@ -68,7 +70,12 @@ class InventoryNormalizationProcessor:
                 (str(date), jan, center, unit, str(quantity))
                 for (date, jan, center, unit), quantity in sorted(totals.items())
             ]
-            self.store.complete(job["job_id"], values)
+            self.store.complete(
+                job["job_id"],
+                values,
+                str(source_quantity),
+                str(sum(totals.values(), Decimal(0))),
+            )
         except Exception:
             self.store.fail(job["job_id"], "INVENTORY_NORMALIZATION_FAILED")
         return True
