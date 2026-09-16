@@ -131,6 +131,13 @@ export function createInventoryFeatureView(payload) {
   });
 }
 
+export function createInventoryFeatureExport(payload) {
+  return request("/api/inventory-feature-exports", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function loadMappingDryRunSource(sourcePath) {
   return request(`/api/mapping-dry-run-sources?source_path=${encoded(sourcePath)}`)
     .then((catalog) => catalog.items[0] || null);

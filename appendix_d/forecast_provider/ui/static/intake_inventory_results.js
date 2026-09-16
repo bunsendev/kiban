@@ -138,7 +138,7 @@ export function renderInventoryNormalizationHistory(container, jobs, current, on
   });
 }
 
-export function renderInventoryFeatureView(container, view, download) {
+export function renderInventoryFeatureView(container, view, download, publish, onError) {
   container.hidden = false;
   container.textContent = [
     `判定: ${view.status}。`,
@@ -151,14 +151,26 @@ export function renderInventoryFeatureView(container, view, download) {
   const button = document.createElement("button");
   button.className = "button secondary";
   button.type = "button";
-  button.textContent = "在庫特徴CSVをダウンロード";
-  const params = new URLSearchParams({
-    mapping_version: view.mapping_version,
-    as_of: view.as_of,
+  button.textContent = "在庫特徴CSVを発行・ダウンロード";
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try {
+      const record = await publish({
+        mapping_version: view.mapping_version,
+        as_of: view.as_of,
+      });
+      await download(
+        `/api/inventory-feature-exports/${encodeURIComponent(record.export_id)}`,
+        `${record.export_id}.csv`,
+      );
+      const published = document.createElement("p");
+      published.textContent = `発行ID: ${record.export_id} / SHA-256: ${record.content_sha256}`;
+      container.append(published);
+    } catch (error) {
+      onError(error);
+    } finally {
+      button.disabled = false;
+    }
   });
-  button.addEventListener("click", () => download(
-    `/api/inventory-feature-views.csv?${params}`,
-    `inventory-feature-${view.view_id}.csv`,
-  ));
   container.append(button);
 }

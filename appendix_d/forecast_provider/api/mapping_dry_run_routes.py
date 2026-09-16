@@ -301,6 +301,48 @@ def install_mapping_dry_run_routes(
                 },
             )
 
+        @app.post("/api/inventory-feature-exports", status_code=status.HTTP_201_CREATED)
+        def publish_inventory_feature_export(
+            request: InventoryFeatureViewCreate,
+            principal: Annotated[Principal, Depends(analyze)],
+        ):
+            try:
+                return inventory_normalization.publish_feature_export(
+                    request.mapping_version,
+                    request.as_of.isoformat(),
+                    principal.subject,
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+        @app.get("/api/inventory-feature-exports")
+        def list_inventory_feature_exports(
+            _principal: Annotated[Principal, Depends(read)],
+        ):
+            return inventory_normalization.list_feature_exports()
+
+        @app.get("/api/inventory-feature-exports/{export_id}")
+        def download_published_inventory_feature_export(
+            export_id: str,
+            _principal: Annotated[Principal, Depends(export)],
+        ):
+            try:
+                result = inventory_normalization.feature_export_content(export_id)
+            except ValueError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            if result is None:
+                raise HTTPException(status_code=404, detail="在庫特徴CSV発行記録が見つかりません")
+            record, content = result
+            return Response(
+                content,
+                media_type="text/csv; charset=utf-8",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{export_id}.csv"',
+                    "X-Kiban-Feature-View-ID": record["view_id"],
+                    "X-Content-SHA256": record["content_sha256"],
+                },
+            )
+
         @app.get("/api/inventory-normalization-jobs/{job_id}/results")
         def get_inventory_normalization_results(
             job_id: str,
