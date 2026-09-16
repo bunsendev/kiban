@@ -1,3 +1,21 @@
+# v2.9 Phase 2Z 実行検証記録
+
+Date: 2026-09-16 JST
+OS: Windows 11 / Linux Docker
+Python: 3.12
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 2Z
+
+- 発行台帳: export ID、view ID、名寄せ版、参照時点、checksum、行数、認証発行者、発行時刻を保存する。
+- 内容アドレス: export IDをCSV bytesのSHA-256から作り、同一内容の再発行を同じ記録へ収束させる。
+- 再取得検証: 台帳条件からCSVを再生成し、view IDとchecksumの不一致時は409で停止する。
+- 認可: 発行はANALYZE、履歴はREAD、CSV再取得はEXPORT権限を要求する。
+- UI: READY viewを発行後、固定export IDとchecksumを表示して台帳endpointから取得する。
+- データ保護: CSV本文、原JAN、商品名、元ファイル名、絶対pathを発行台帳へ保存しない。
+- テスト: 冪等発行、認証主体、履歴、再取得、checksum header、台帳改変検知を含む対象2件成功。
+- 静的検査: ruff、JavaScript構文、Compose構成検査に成功。
 # v2.9 Phase 2Y 実行検証記録
 
 Date: 2026-09-16 JST

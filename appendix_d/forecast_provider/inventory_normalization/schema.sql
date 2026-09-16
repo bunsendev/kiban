@@ -42,3 +42,13 @@ CREATE TABLE IF NOT EXISTS inventory_normalization_decisions (
 );
 CREATE INDEX IF NOT EXISTS inventory_normalization_decisions_job_idx
   ON inventory_normalization_decisions(job_id, decided_at, decision_id);
+CREATE TABLE IF NOT EXISTS inventory_feature_exports (
+  export_id TEXT PRIMARY KEY,
+  view_id TEXT NOT NULL UNIQUE,
+  mapping_version TEXT NOT NULL,
+  as_of TIMESTAMPTZ NOT NULL,
+  content_sha256 TEXT NOT NULL UNIQUE,
+  row_count INTEGER NOT NULL,
+  published_by TEXT NOT NULL,
+  published_at TIMESTAMPTZ NOT NULL
+);
