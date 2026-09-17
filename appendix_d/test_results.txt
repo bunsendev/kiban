@@ -1,3 +1,25 @@
+# v2.9 Phase 3F 実行検証記録
+
+Date: 2026-09-17 JST
+OS: Windows 11
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.7
+
+## Phase 3F
+
+- heartbeat: 全Provider WorkerがIDLE・WORKING・current run・開始・最終応答時刻を共通台帳へ保存する。
+- fencing: 同じWorker IDで再起動した旧processのheartbeatをinstance ID不一致で拒否する。
+- 長時間処理: origin lease更新と同じ周期でprocess heartbeatも更新し、推論中の誤STALE判定を防ぐ。
+- キュー診断: 一覧上限に依存せずProvider別の待機・実行中run数をDB集計し、201件の待機runを確認した。
+- API・UI: READ APIと分析実行画面へWORKING・ONLINE・STALE・NOT_STARTED、最終応答、状態別案内を追加した。
+- データ保護: ホスト、PID、command line、環境変数、接続情報、instance IDをAPIへ公開しない。
+- module: heartbeat契約、Store、process reporter、参照service、API、画面判定を分離し、画面状態moduleを218行に維持した。
+- 対象試験: heartbeat、再起動fencing、長時間処理、201件キュー集計、API認証、PostgreSQL schema、画面を含む24件成功、PostgreSQL実DB1件skip。
+- 回帰: 配布hash更新後、Linux専用RSS試験を除くWindows全体で497件成功、14件skip、1件deselect。
+- 静的検査・配布: `ruff check .`と全JavaScript構文検査に成功。512ファイルのSHA-256照合と日本語名UTF-8 ZIP生成を確認した。
+- 未実施: Docker Desktop engine停止中のためPostgreSQL実DB結合試験と実Worker serviceの画面受入は未実施。
+
 # v2.9 Phase 3E 実行検証記録
 
 Date: 2026-09-17 JST

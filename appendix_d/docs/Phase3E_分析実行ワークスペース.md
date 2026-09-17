@@ -15,9 +15,10 @@
 5. 完了したrunを一つ以上選び、評価方法と目的を入力して比較結果を作る。
 6. 「比較結果・採用画面を開く」から指標、系譜、資源・費用、採用条件を確認する。
 
-画面は`QUEUED`または`RUNNING`のrunがある間、5秒間隔で再読込する。`QUEUED`が続く場合は
-runに表示されたProvider IDと、同じProvider専用Workerの起動状態を照合する。別Providerの
-Workerが代行することはない。
+画面は`QUEUED`または`RUNNING`のrunがある間、5秒間隔で再読込する。Provider Workerの
+heartbeatとキュー診断から処理中、待機中、応答遅延、未起動を表示する。`QUEUED`が続く場合は
+画面に表示された対処を確認する。別ProviderのWorkerが代行することはない。詳細は
+[Worker稼働状態とキュー診断](Phase3F_Worker稼働状態とキュー診断.md)を参照する。
 
 ## メタデータ駆動の実験作成
 

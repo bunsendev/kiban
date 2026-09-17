@@ -80,6 +80,8 @@ APIと軽量な全Provider依存は`pip install -e ".[api,postgres,statsforecast
 
 `/ui/analysis`では保存済みdataset snapshotとProvider・モデルを選び、メタデータ既定値による実験作成、run登録、進捗確認、比較作成までを順番に操作できる。`QUEUED`が続く場合は表示されたProviderの専用Workerを確認する。比較後は`/ui`で指標、系譜、CSV、採用条件を確認する。操作と安全条件は[分析実行ワークスペース](docs/Phase3E_分析実行ワークスペース.md)を参照する。
 
+分析実行画面はProvider Workerの処理中、待機中、応答遅延、未起動、待機・実行中run数を表示する。Workerは起動中と長時間推論中にheartbeatを更新し、再起動時は旧processの更新を拒否する。運用判断とAPI契約は[Worker稼働状態とキュー診断](docs/Phase3F_Worker稼働状態とキュー診断.md)を参照する。
+
 TimesFM専用Workerを実業務runへ使う前に、`docker compose --profile timesfm-benchmark run --rm timesfm-benchmark`で固定checkpoint、cgroup隔離、モデル初期化、warm-up後の推論時間、CPU時間、peak RSSを確認する。既定はCPU 2、memory 4 GiB、人工3系列、context 512日、horizon 15である。JSONレポートは`timesfm_benchmark_output`へ内容アドレス方式で保存される。詳細は[TimesFM運用計測](docs/Phase2B_TimesFM運用計測.md)を参照する。
 
 実業務原本を配置する前に、`docker compose --profile preflight run --rm --build real-data-preflight`を実行する。inputの実効read-only、archive・snapshot・受入・証跡rootのwrite、領域分離、PostgreSQL 17の必須23 relationとWorker権限を10項目で確認する。`READY_FOR_DATA`は投入準備完了だけを示し、実データ受入や業務判断ではない。詳細は[実データ受入プリフライト](docs/Phase2C_実データ受入プリフライト.md)を参照する。

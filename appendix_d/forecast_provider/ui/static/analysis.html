@@ -51,8 +51,9 @@
         <p>データセットと予測方式を選び、runを登録します。完了したrunを選ぶと、保存済みの適合記録を使って比較結果を作成できます。</p>
       </article>
       <article class="worker-card">
-        <h2>runが「待機中」の場合</h2>
-        <p>選択したProvider専用Workerの起動を確認してください。画面は処理中のrunを5秒ごとに更新します。</p>
+        <h2>Provider Workerの状態</h2>
+        <p>未起動・応答遅延の場合は対象ProviderのWorker serviceを確認してください。</p>
+        <div id="worker-status-list" class="worker-status-list"></div>
       </article>
     </section>
 

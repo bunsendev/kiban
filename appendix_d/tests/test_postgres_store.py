@@ -38,6 +38,7 @@ from forecast_provider.reporting import (
 )
 from forecast_provider.resource_cost import ResourceMetric, ResourceUsage, make_unit_price
 from forecast_provider.resource_cost.postgres_store import PostgresResourceCostStore
+from forecast_provider.worker_status import PostgresWorkerStatusStore, WorkerState
 
 
 def test_postgres_row_uses_sqlite_compatible_temporal_and_uuid_values():
@@ -110,6 +111,10 @@ def test_postgres_migration_has_locking_and_business_constraints():
     text = resource_sql.read_text(encoding="utf-8")
     assert "resource_measurements" in text and "resource_unit_prices" in text
     assert "quantity NUMERIC" in text and "unit_price NUMERIC" in text
+    worker_status_sql = path.parents[2] / "worker_status" / "schema_postgres.sql"
+    text = worker_status_sql.read_text(encoding="utf-8")
+    assert "worker_heartbeats" in text and "TIMESTAMPTZ" in text
+    assert "ix_worker_heartbeats_provider" in text
 
 
 @pytest.mark.skipif(not os.getenv("KIBAN_TEST_POSTGRES_DSN"), reason="PostgreSQL DSN未設定")
@@ -148,6 +153,13 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
     store.complete_origin(lease, OriginOutput((point(1),)))
     assert store.finish_run(run_id) == "SUCCEEDED"
     resource_cost = PostgresResourceCostStore(dsn)
+    worker_status = PostgresWorkerStatusStore(dsn)
+    worker_id = f"postgres-worker-{uuid.uuid4()}"
+    worker_status.register(worker_id, str(uuid.uuid4()), "builtin-baseline")
+    heartbeat = next(
+        item for item in worker_status.list_workers() if item.worker_id == worker_id
+    )
+    assert heartbeat.state == WorkerState.IDLE
     resource_cost.record_attempt(
         run_id,
         date(2026, 1, 1),

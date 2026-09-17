@@ -13,6 +13,7 @@ from forecast_provider.mapping_dry_run import SqliteMappingDryRunJobStore
 from forecast_provider.master import SqliteMasterStore
 from forecast_provider.normalization import SqliteNormalizationStore
 from forecast_provider.resource_cost import SqliteResourceCostStore
+from forecast_provider.worker_status import SqliteWorkerStatusStore
 
 
 def test_management_ui_serves_modular_assets_without_persisting_token(tmp_path):
@@ -332,6 +333,7 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
             SqliteCatalogStore(database),
             "token",
             evaluation_registry=SqliteEvaluationRegistryStore(database),
+            worker_status=SqliteWorkerStatusStore(database),
         )
     )
 
@@ -339,9 +341,12 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
     app = api.get("/ui/assets/analysis_app.js")
     client = api.get("/ui/assets/analysis_api.js")
     renderer = api.get("/ui/assets/analysis_render.js")
+    rules = api.get("/ui/assets/analysis_rules.js")
     styles = api.get("/ui/assets/analysis.css")
 
-    assert all(value.status_code == 200 for value in (page, app, client, renderer, styles))
+    assert all(
+        value.status_code == 200 for value in (page, app, client, renderer, rules, styles)
+    )
     assert "分析実行ワークスペース" in page.text
     assert 'type="module" src="/ui/assets/analysis_app.js"' in page.text
     routes = (
@@ -355,13 +360,15 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
         "/ui/resources",
     )
     assert all('href="/ui/analysis"' in api.get(path).text for path in routes)
-    scripts = app.text + client.text + renderer.text
+    scripts = app.text + client.text + renderer.text + rules.text
     assert "localStorage" not in scripts
     assert "sessionStorage" not in scripts
     assert 'request("/api/snapshots?limit=200")' in client.text
     assert 'request("/api/experiments?limit=200")' in client.text
     assert 'request("/api/providers")' in client.text
     assert 'request("/api/provider-conformance-tests")' in client.text
+    assert 'request("/api/worker-status")' in client.text
+    assert "worker-status-list" in page.text
     assert "experiment_defaults" in renderer.text
     assert 'data-permission="ANALYZE"' in page.text
 
