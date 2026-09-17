@@ -48,6 +48,7 @@ def test_case_rejects_ambiguous_acceptance_scope(field, value, message):
 
 def test_release_excludes_all_runtime_data_and_acceptance_reports():
     protected = {
+        ".kiban",
         "snapshot_input",
         "import_input",
         "raw_archive",

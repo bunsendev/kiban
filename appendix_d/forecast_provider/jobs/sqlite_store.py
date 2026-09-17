@@ -277,7 +277,7 @@ class SqliteRunStore:
                     lease.origin.origin_date.isoformat(),
                     lease.attempt,
                     error,
-                    int(retryable),
+                    retryable,
                 ),
             )
 
@@ -375,7 +375,7 @@ class SqliteRunStore:
                 for row in db.execute(
                     "SELECT run_id,condition_fingerprint FROM forecast_runs "
                     "WHERE status IN ('QUEUED','RUNNING') "
-                    "AND NOT cancellation_requested AND provider_id=? ORDER BY run_id",
+                    "AND cancellation_requested=0 AND provider_id=? ORDER BY run_id",
                     (provider_id,),
                 )
             )

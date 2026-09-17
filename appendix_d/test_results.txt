@@ -1,3 +1,26 @@
+# v2.9 Phase 3K 実行検証記録
+
+Date: 2026-09-17 JST
+OS: Windows 11 / Docker Desktop 4.90.0
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.7
+
+## Phase 3K
+
+- ワンクリック起動: Docker Desktop、PostgreSQL、API、データ準備Worker、Baseline・StatsForecast AutoETS・MLForecast Ridgeの予測・適合試験Worker、比較自動完了Workerを一括起動する。
+- 安全な復旧: Docker Engine停止時だけruntime socketを日時付きで退避し、Docker以外のWSL実行中は自動復旧を中止する。volume、image、VHDXには触れない。
+- Windows port: 58000が予約・使用中の場合は48100〜48120から選び、`.env`、Compose、接続情報、readiness、画面URLを同じ値へ固定する。本PCでは48100を選択した。
+- 資源管理: 標準構成はCPU 4 thread、RAM 8 GB、空きRAM 3 GB、disk 15 GBを要求する。TimesFMはRAM 15 GB、空きRAM 6 GBを要求し、本PCでは空き不足を理由付きで安全に中止した。
+- 再起動: 標準構成が稼働済みなら使用中RAMによる誤判定と再構築を省略し、状態確認後に分析画面を開く。
+- DB・storage互換: PostgreSQLの整数・boolean差異を解消し、非root予測Workerが共有volumeへartifactと作業ファイルを書ける初期化serviceを追加した。
+- 実機起動: 17常駐serviceと短時間のstorage初期化serviceをDocker Desktopで起動し、API readinessとBaseline・AutoETS・RidgeのONLINE heartbeatを確認した。
+- 実予測: 97日の日次系列をsnapshot登録し、3 Providerの適合試験、予測run、比較結果の自動生成がすべてSUCCEEDEDになることを確認した。
+- PostgreSQL実DB: `test_postgres_store.py`の3件に成功し、SQLite互換契約、各台帳、比較キャンペーンを実PostgreSQLで確認した。
+- 回帰: 配布hash更新後、Linux専用RSS試験を除くWindows全体で566件成功、1件skip、1件deselect。
+- 静的検査: `ruff check .`、全33 JavaScriptのNode.js構文検査、PowerShell構文解析、開発・本番Compose展開に成功した。
+- 制約: TimesFMはcheckpointと追加RAMを用意したPCで明示的に起動する。人工データの成功は実データ精度、業務効果、採用判断を保証しない。
+
 # v2.9 Phase 3J 実行検証記録
 
 Date: 2026-09-17 JST

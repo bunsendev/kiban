@@ -68,6 +68,7 @@ forecast_provider = [
     "worker_status/*.sql",
     "lifecycle/*.sql",
     "mapping_dry_run/*.sql",
+    "inventory_normalization/*.sql",
     "ui/static/*",
 ]
 

@@ -1,6 +1,7 @@
 ﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = "Continue"
 Import-Module (Join-Path $PSScriptRoot "Kiban.Local.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "Kiban.Analysis.psm1") -Force
 
 $root = Get-KibanRoot
 $output = Join-Path ([Environment]::GetFolderPath("Desktop")) ("予測基盤_診断_{0}.txt" -f (Get-Date -Format "yyyyMMdd_HHmmss"))
@@ -8,6 +9,12 @@ $lines = New-Object System.Collections.Generic.List[string]
 $lines.Add("取得日時: $(Get-Date -Format o)")
 $lines.Add("Windows: $([Environment]::OSVersion.VersionString)")
 $lines.Add("64bit: $([Environment]::Is64BitOperatingSystem)")
+try {
+    $capacity = Get-KibanComputerCapacity
+    $lines.Add("CPU threads: $($capacity.LogicalProcessors)")
+    $lines.Add("RAM total/free GB: $($capacity.TotalMemoryGB) / $($capacity.FreeMemoryGB)")
+    $lines.Add("Disk free GB: $($capacity.FreeDiskGB)")
+} catch { $lines.Add("PC資源: 取得不可") }
 $lines.Add("WSL:")
 $lines.Add((& wsl.exe --status 2>&1 | Out-String))
 Add-DockerPath
@@ -18,7 +25,8 @@ try {
     $lines.Add("Compose services:")
     $lines.Add((& docker compose ps --format json 2>&1 | Out-String))
 } finally { Pop-Location }
-foreach ($uri in @("http://127.0.0.1:58000/health", "http://127.0.0.1:58000/ready")) {
+$baseUri = Get-KibanBaseUri
+foreach ($uri in @("$baseUri/health", "$baseUri/ready")) {
     try { $lines.Add("$uri`n$((Invoke-RestMethod $uri -TimeoutSec 5 | ConvertTo-Json -Depth 5 -Compress))") }
     catch { $lines.Add("$uri`n接続不可") }
 }

@@ -61,6 +61,7 @@ function Initialize-KibanEnvironment {
             "KIBAN_API_SUBJECT=local-operator"
         ) | Set-Content -LiteralPath $environmentPath -Encoding ascii
     }
+    $httpPort = Initialize-KibanHttpPort
     $tokenLine = Get-Content -LiteralPath $environmentPath |
         Where-Object { $_ -like "KIBAN_API_TOKEN=*" } |
         Select-Object -First 1
@@ -68,8 +69,11 @@ function Initialize-KibanEnvironment {
     $token = $tokenLine.Substring("KIBAN_API_TOKEN=".Length)
     $connectionPath = Join-Path $root ".kiban\接続情報.txt"
     @(
-        "予測基盤 操作画面"
-        "http://127.0.0.1:58000/ui/intake"
+        "データ準備・検証画面"
+        "http://127.0.0.1:$httpPort/ui/intake"
+        ""
+        "予測OSS分析画面"
+        "http://127.0.0.1:$httpPort/ui/analysis"
         ""
         "接続コード"
         $token
@@ -79,31 +83,127 @@ function Initialize-KibanEnvironment {
     return $connectionPath
 }
 
+function Test-KibanTcpPort([int]$Port) {
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
+    try {
+        $listener.Start()
+        return $true
+    } catch {
+        return $false
+    } finally {
+        $listener.Stop()
+    }
+}
+
+function Initialize-KibanHttpPort {
+    $environmentPath = Join-Path (Get-KibanRoot) ".env"
+    $existing = Get-Content -LiteralPath $environmentPath -ErrorAction SilentlyContinue |
+        Where-Object { $_ -match "^KIBAN_HTTP_PORT=([0-9]+)$" } |
+        Select-Object -First 1
+    if ($existing) { return [int]$existing.Substring("KIBAN_HTTP_PORT=".Length) }
+    $candidates = @(58000) + @(48100..48120)
+    $port = $candidates | Where-Object { Test-KibanTcpPort $_ } | Select-Object -First 1
+    if (-not $port) { throw "予測基盤で使用できるローカルportがありません。" }
+    Add-Content -LiteralPath $environmentPath -Value "KIBAN_HTTP_PORT=$port" -Encoding ascii
+    return [int]$port
+}
+
+function Get-KibanHttpPort {
+    $environmentPath = Join-Path (Get-KibanRoot) ".env"
+    $line = Get-Content -LiteralPath $environmentPath -ErrorAction SilentlyContinue |
+        Where-Object { $_ -match "^KIBAN_HTTP_PORT=([0-9]+)$" } |
+        Select-Object -First 1
+    if (-not $line) { return 58000 }
+    return [int]$line.Substring("KIBAN_HTTP_PORT=".Length)
+}
+
+function Get-KibanBaseUri {
+    return "http://127.0.0.1:$(Get-KibanHttpPort)"
+}
+
 function Add-DockerPath {
     $dockerBin = Join-Path $env:ProgramFiles "Docker\Docker\resources\bin"
     if (Test-Path -LiteralPath $dockerBin) { $env:Path = "$dockerBin;$env:Path" }
 }
 
+function Test-DockerEngine {
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "SilentlyContinue"
+        & docker info *> $null
+        return $LASTEXITCODE -eq 0
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+}
+
+function Wait-DockerEngine([int]$Seconds) {
+    for ($attempt = 1; $attempt -le $Seconds; $attempt++) {
+        if (Test-DockerEngine) { return $true }
+        Start-Sleep -Seconds 1
+        Write-Progress -Activity "Docker Desktopを起動しています" -Status "$attempt / ${Seconds}秒"
+    }
+    return $false
+}
+
+function Repair-DockerRuntimeSockets {
+    if (Test-DockerEngine) { return }
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "SilentlyContinue"
+        $runningDistributions = @(@(& wsl.exe --list --running --quiet 2>$null) |
+            ForEach-Object { ([string]$_).Trim() } |
+            Where-Object { $_ -and $_ -ne "docker-desktop" })
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+    if ($runningDistributions.Count -gt 0) {
+        throw "Docker以外のWSLが実行中のため自動復旧を中止しました。WSL作業を終了して再実行してください。"
+    }
+    Get-Process -Name "Docker Desktop", "com.docker.backend", "com.docker.build" `
+        -ErrorAction SilentlyContinue | Stop-Process -Force
+    try {
+        $ErrorActionPreference = "SilentlyContinue"
+        & wsl.exe --terminate docker-desktop *> $null
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+    Start-Sleep -Seconds 2
+    $localRoot = [System.IO.Path]::GetFullPath($env:LOCALAPPDATA).TrimEnd("\") + "\"
+    $stamp = Get-Date -Format "yyyyMMddHHmmss"
+    $sources = @(
+        (Join-Path $env:LOCALAPPDATA "Docker\run"),
+        (Join-Path $env:LOCALAPPDATA "docker-secrets-engine")
+    )
+    foreach ($source in $sources) {
+        if (-not (Test-Path -LiteralPath $source)) { continue }
+        $sourcePath = [System.IO.Path]::GetFullPath($source)
+        $targetPath = [System.IO.Path]::GetFullPath("$source.stale-$stamp")
+        if (-not $sourcePath.StartsWith($localRoot, [StringComparison]::OrdinalIgnoreCase) -or
+            -not $targetPath.StartsWith($localRoot, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Docker runtime socketの退避先を安全に確認できませんでした。"
+        }
+        Move-Item -LiteralPath $sourcePath -Destination $targetPath
+    }
+    New-Item -ItemType Directory -Force -Path (Join-Path $env:LOCALAPPDATA "Docker\run") |
+        Out-Null
+}
+
 function Start-DockerDesktop {
     Add-DockerPath
-    if (Test-Command "docker") {
-        & docker info *> $null
-        if ($LASTEXITCODE -eq 0) { return }
-    }
+    if ((Test-Command "docker") -and (Test-DockerEngine)) { return }
     $candidates = @(
         (Join-Path $env:LOCALAPPDATA "Programs\Docker\Docker\Docker Desktop.exe"),
         (Join-Path $env:ProgramFiles "Docker\Docker\Docker Desktop.exe")
     )
     $desktop = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
     if (-not $desktop) { throw "Docker Desktopが見つかりません。" }
-    Start-Process -FilePath $desktop | Out-Null
-    for ($attempt = 1; $attempt -le 120; $attempt++) {
-        Start-Sleep -Seconds 1
-        Add-DockerPath
-        & docker info *> $null
-        if ($LASTEXITCODE -eq 0) { return }
-        Write-Progress -Activity "Docker Desktopを起動しています" -Status "$attempt / 120秒"
-    }
+    Start-Process -FilePath $desktop -WindowStyle Hidden | Out-Null
+    if (Wait-DockerEngine 90) { return }
+    Write-Host "Docker runtimeを安全な退避フォルダーへ移して再起動します。" -ForegroundColor Yellow
+    Repair-DockerRuntimeSockets
+    Start-Process -FilePath $desktop -WindowStyle Hidden | Out-Null
+    if (Wait-DockerEngine 120) { return }
     throw "Docker Desktopを起動できませんでした。状態確認を実行してください。"
 }
 
@@ -117,19 +217,20 @@ function Invoke-KibanCompose([string[]]$Arguments) {
 }
 
 function Wait-KibanReady([int]$Seconds = 120) {
+    $baseUri = Get-KibanBaseUri
     for ($attempt = 1; $attempt -le $Seconds; $attempt++) {
         try {
-            $ready = Invoke-RestMethod -Uri "http://127.0.0.1:58000/ready" -TimeoutSec 3
+            $ready = Invoke-RestMethod -Uri "$baseUri/ready" -TimeoutSec 3
             if ($ready.status -eq "ready") { return }
         } catch { }
         Start-Sleep -Seconds 1
-        Write-Progress -Activity "予測基盤を準備しています" -Status "$attempt / $Seconds秒"
+        Write-Progress -Activity "予測基盤を準備しています" -Status "$attempt / ${Seconds}秒"
     }
     throw "予測基盤の準備が時間内に完了しませんでした。状態確認を実行してください。"
 }
 
 function Open-KibanUi {
-    Start-Process "http://127.0.0.1:58000/ui/intake"
+    Start-Process "$(Get-KibanBaseUri)/ui/intake"
 }
 
 function Install-KibanShortcuts {
@@ -138,6 +239,8 @@ function Install-KibanShortcuts {
     $shell = New-Object -ComObject WScript.Shell
     $items = @(
         @{ Name = "予測基盤を起動"; Target = "予測基盤を起動.cmd" },
+        @{ Name = "予測OSS分析を起動"; Target = "予測OSS分析を起動.cmd" },
+        @{ Name = "TimesFM分析を追加起動"; Target = "TimesFM分析を追加起動.cmd" },
         @{ Name = "予測基盤を停止"; Target = "予測基盤を停止.cmd" },
         @{ Name = "予測基盤の状態確認"; Target = "状態確認.cmd" }
     )

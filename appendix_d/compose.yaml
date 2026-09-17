@@ -28,7 +28,7 @@ services:
       KIBAN_MAPPING_DRY_RUN_DIR: /var/lib/kiban/mapping-dry-run
       KIBAN_IMPORT_ROOT: /var/lib/kiban/import-input
     ports:
-      - "127.0.0.1:58000:8000"
+      - "127.0.0.1:${KIBAN_HTTP_PORT:-58000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -37,6 +37,14 @@ services:
       - ${KIBAN_REPORT_DIR:-./report_output}:/var/lib/kiban/reports
       - ${KIBAN_MAPPING_DRY_RUN_DIR:-./mapping_dry_run_output}:/var/lib/kiban/mapping-dry-run:ro
       - ${KIBAN_IMPORT_DIR:-./import_input}:/var/lib/kiban/import-input
+  worker-storage-init:
+    image: postgres:17-alpine
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - mkdir -p /var/lib/kiban/artifacts /var/lib/kiban/work && chown -R 65532:65532 /var/lib/kiban
+    volumes:
+      - kiban-worker:/var/lib/kiban
   worker:
     profiles: ["worker"]
     build: .
@@ -54,6 +62,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      worker-storage-init:
+        condition: service_completed_successfully
     volumes:
       - kiban-worker:/var/lib/kiban
       - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots:ro
@@ -107,6 +117,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      worker-storage-init:
+        condition: service_completed_successfully
     volumes:
       - kiban-worker:/var/lib/kiban
       - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots:ro
@@ -143,6 +155,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      worker-storage-init:
+        condition: service_completed_successfully
     volumes:
       - kiban-worker:/var/lib/kiban
       - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots:ro
@@ -184,6 +198,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      worker-storage-init:
+        condition: service_completed_successfully
     volumes:
       - kiban-worker:/var/lib/kiban
       - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots:ro
