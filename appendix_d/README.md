@@ -114,7 +114,7 @@ Windows現場PCへ導入する場合は、配布ZIPを展開して`現場PCセ�
 
 `deploy/compose.production.yaml`はCaddy、API、PostgreSQL、全Workerとlifecycle schedulerを分離し、外部へは80/443だけを公開する。APIは`/health`、`/ready`、認証付き`/metrics`を提供し、変更操作をsubject付きJSON logへ出力する。DB操作は`kiban-db backup|verify|restore|drill`またはproduction Composeの`db-operations`を使用する。導入・rotation・復元停止手順は[本番運用基盤](docs/Phase1R_本番運用基盤.md)、訓練は[PostgreSQL隔離リカバリ訓練](docs/Phase2D_PostgreSQL隔離リカバリ訓練.md)を参照する。
 
-Provider適合試験は`POST /api/provider-conformance-tests`へ記録し、`GET /api/providers`でモデル別の固定ランキング掲載可否を確認する。比較は`POST /api/comparisons`へ保存済みrun ID、各runの適合記録ID、truth snapshot IDを指定する。予測値と指標はrun台帳とchecksum検証済みsnapshotからサーバーが再計算する。詳細は[Provider適合試験と比較結果の永続化](docs/Phase1N_評価レジストリ.md)を参照する。
+Provider適合試験は`/ui/analysis`の保存済み実験から開始できる。APIは`POST /api/provider-conformance-jobs`でjobだけを登録し、Provider別Workerが人工データで固定7項目を実行して`POST /api/provider-conformance-tests`と同じ評価台帳へ自動保存する。画面は待機・実行中・失敗理由・正式比較可否を表示する。比較は保存済みrun、実験条件に一致する適合記録、truth snapshotからサーバーが再計算する。詳細は[Provider適合試験の自動実行](docs/Phase3H_Provider適合試験自動化.md)と[Provider適合試験と比較結果の永続化](docs/Phase1N_評価レジストリ.md)を参照する。
 
 比較CSVは`POST /api/comparisons/{comparison_id}/exports`で発行する。baseline改善率、own/common/official指標、件数、集合・snapshot・Providerの識別子を含み、取得時にもchecksumを検証する。採用判断は`POST /api/adoptions`へ比較、実データ受入case、採用run、fallback、対象、担当者、理由を指定する。正式比較、PASSED、最新APPROVED、日次build一致をサーバーが照合する。詳細は[比較レポートCSVと採用判断](docs/Phase1O_比較レポートと採用判断.md)を参照する。
 

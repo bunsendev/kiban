@@ -18,6 +18,7 @@ from ..mapping_dry_run.sources import MappingDryRunSourceCatalog
 from ..mapping_dry_run.uploads import MappingDryRunSourceUploader
 from ..ui import install_ui_routes
 from .acceptance_routes import install_acceptance_routes
+from .conformance_job_routes import install_conformance_job_routes
 from .daily_routes import install_daily_routes
 from .error_responses import install_error_handlers
 from .evaluation_routes import install_evaluation_routes
@@ -95,6 +96,7 @@ def create_app(
     resource_cost=None,
     worker_status=None,
     worker_stale_seconds: float = 45,
+    conformance_jobs=None,
 ) -> FastAPI:
     if isinstance(api_token, str) and not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -197,6 +199,14 @@ def create_app(
                 resource_cost,
             ),
         )
+        if conformance_jobs is not None:
+            from ..provider_conformance.service import ConformanceJobService
+
+            install_conformance_job_routes(
+                app,
+                authorize,
+                ConformanceJobService(catalog, conformance_jobs),
+            )
 
     if reporting is not None:
         if evaluation_registry is None or acceptance is None or report_root is None:

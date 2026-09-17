@@ -1,7 +1,7 @@
 import { ApiError, clearToken, setToken } from "./api.js";
 import { installPkceLogin } from "./pkce.js";
 import {
-  createComparison, createExperiment, createRun, loadAnalysisDashboard,
+  createComparison, createConformanceJob, createExperiment, createRun, loadAnalysisDashboard,
 } from "./analysis_api.js";
 import {
   renderComparisonCreated, renderDefaults, renderExperiments, renderFormOptions,
@@ -24,7 +24,8 @@ function setBusy(busy) {
   document.body.setAttribute("aria-busy", String(busy));
   for (const button of document.querySelectorAll("button")) {
     const permission = button.dataset.permission;
-    button.disabled = busy || (permission && !state.permissions.has(permission));
+    button.disabled = busy || button.dataset.locked === "true"
+      || (permission && !state.permissions.has(permission));
   }
   if (!busy && byId("comparison-submit")) {
     byId("comparison-submit").disabled = (
@@ -67,7 +68,10 @@ function drawDashboard() {
     providerId: byId("provider-select").value,
   });
   drawDefaults();
-  renderExperiments(bundle.experiments, bundle.snapshots, registerRun);
+  renderExperiments(
+    bundle.experiments, bundle.snapshots, bundle.providers, bundle.conformances,
+    bundle.conformanceJobs, registerRun, registerConformance,
+  );
   renderRuns(bundle.runs, bundle.experiments, state.selectedRuns, runContext, toggleRun);
   renderRecentComparisons(bundle.comparisons);
   byId("comparison-submit").disabled = !state.selectedRuns.size;
@@ -75,9 +79,24 @@ function drawDashboard() {
 
 function schedulePoll() {
   window.clearTimeout(pollTimer);
-  if (state.dashboard?.runs.some((item) => ["QUEUED", "RUNNING"].includes(item.status))) {
+  if (
+    state.dashboard?.runs.some((item) => ["QUEUED", "RUNNING"].includes(item.status))
+    || state.dashboard?.conformanceJobs.some((item) => ["QUEUED", "RUNNING"].includes(item.status))
+  ) {
     pollTimer = window.setTimeout(() => refreshDashboard(true), 5000);
   }
+}
+
+async function registerConformance(experimentId) {
+  if (state.busy) return;
+  setBusy(true);
+  notice("Provider適合試験を登録しています。");
+  try {
+    const created = await createConformanceJob(experimentId);
+    setBusy(false);
+    await refreshDashboard(true);
+    notice(`適合試験を登録しました（${created.status}）。Provider別Workerが人工データで検証します。`, "success");
+  } catch (error) { handleError(error); } finally { setBusy(false); }
 }
 
 async function refreshDashboard(silent = false) {

@@ -36,6 +36,8 @@ EXCLUDE_DIRS = {
     "preflight_output",
     "oidc_preflight_output",
     "mapping_dry_run_output",
+    "conformance_output",
+    "tmp-conformance",
     "recovery_output",
     "build",
     "dist",

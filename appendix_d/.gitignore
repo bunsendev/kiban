@@ -29,6 +29,8 @@ oidc_preflight_output/*
 !oidc_preflight_output/.gitkeep
 mapping_dry_run_output/*
 !mapping_dry_run_output/.gitkeep
+conformance_output/*
+!conformance_output/.gitkeep
 recovery_output/*
 deploy/secrets/*
 !deploy/secrets/.gitkeep

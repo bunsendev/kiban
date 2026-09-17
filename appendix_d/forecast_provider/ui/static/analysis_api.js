@@ -8,12 +8,15 @@ export function loadAnalysisDashboard() {
     request("/api/providers"),
     request("/api/runs?limit=200"),
     request("/api/provider-conformance-tests"),
+    request("/api/provider-conformance-jobs"),
     request("/api/comparisons"),
     request("/api/worker-status"),
   ]).then(([
-    session, snapshots, experiments, providers, runs, conformances, comparisons, workerStatus,
+    session, snapshots, experiments, providers, runs, conformances, conformanceJobs,
+    comparisons, workerStatus,
   ]) => ({
-    session, snapshots, experiments, providers, runs, conformances, comparisons, workerStatus,
+    session, snapshots, experiments, providers, runs, conformances, conformanceJobs,
+    comparisons, workerStatus,
   }));
 }
 
@@ -26,6 +29,13 @@ export function createExperiment(payload) {
 
 export function createRun(experimentId) {
   return request("/api/runs", {
+    method: "POST",
+    body: JSON.stringify({ experiment_id: experimentId }),
+  });
+}
+
+export function createConformanceJob(experimentId) {
+  return request("/api/provider-conformance-jobs", {
     method: "POST",
     body: JSON.stringify({ experiment_id: experimentId }),
   });

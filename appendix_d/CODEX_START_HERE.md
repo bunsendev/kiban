@@ -121,6 +121,8 @@ Phase 3Gでbuiltin baselineのOBSERVED区間予測を追加した。各historica
 ではOBSERVED snapshotでも区間水準を選択できる。詳細は
 [OBSERVED時点再現区間予測](docs/Phase3G_OBSERVED時点再現区間予測.md)。
 
+Phase 3Hで保存済み実験に一致するProvider適合試験jobを追加した。分析実行画面から登録し、Provider別の独立Workerが人工データで固定7項目を実行する。進捗、失敗理由、正式比較可否を画面に表示し、証跡はSHA-256の内容アドレスで保存する。詳細は[Provider適合試験の自動実行](docs/Phase3H_Provider適合試験自動化.md)。
+
 次はプリフライトが`READY_FOR_DATA`の環境で実業務原本の検証jobを登録し、画面で`READY_FOR_NORMALIZATION`または隔離理由を確認する。その後Phase 1Xから全行の数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進み、全3年の重要品目選定とPhase 1Sの将来trialを開始する。FULL 20〜50品目のOSS比較前に対象環境の資源単価を登録し、Phase 3Bの時間・費用列を含む比較CSVを発行する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 

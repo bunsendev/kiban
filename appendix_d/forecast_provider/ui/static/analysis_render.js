@@ -1,4 +1,5 @@
 import { dateTime, decisionLabel, shortId, statusTone } from "./format.js";
+import { matchingConformance } from "./analysis_rules.js";
 
 const node = (tag, options = {}, children = []) => {
   const element = document.createElement(tag);
@@ -97,17 +98,55 @@ export function renderDefaults(provider, snapshot, modelId) {
   document.getElementById("experiment-submit").disabled = !defaults;
 }
 
-export function renderExperiments(experiments, snapshots, onRun) {
+export function renderExperiments(
+  experiments, snapshots, providers, conformances, conformanceJobs, onRun, onConformance,
+) {
   const snapshotMap = new Map(snapshots.map((item) => [item.snapshot_id, item]));
   document.getElementById("experiment-filter-count").textContent = `${experiments.length}件`;
   const cards = experiments.map((item) => {
     const definition = item.definition;
     const snapshot = snapshotMap.get(item.snapshot_id);
+    const provider = providers.find((value) => value.provider_id === definition.provider_id);
+    const conformance = matchingConformance(conformances, definition, provider);
+    const conformancePassed = conformance?.status === "PASSED";
+    const jobs = conformanceJobs.filter((job) => job.experiment_id === item.experiment_id);
+    const latestJob = jobs[0];
     const button = node("button", {
       type: "button", className: "button secondary", text: "この条件で実行登録",
       "data-permission": "ANALYZE",
     });
     button.addEventListener("click", () => onRun(item.experiment_id));
+    const testButton = node("button", {
+      type: "button", className: "button quiet",
+      text: latestJob?.status === "FAILED" || (conformance && !conformancePassed)
+        ? "適合試験を再実行" : "適合試験を実行",
+      "data-permission": "ANALYZE",
+      "data-locked": String(Boolean(
+        conformancePassed || ["QUEUED", "RUNNING"].includes(latestJob?.status)
+      )),
+      disabled: Boolean(
+        conformancePassed || ["QUEUED", "RUNNING"].includes(latestJob?.status)
+      ),
+    });
+    testButton.addEventListener("click", () => onConformance(item.experiment_id));
+    let testState = "正式比較にはProvider適合試験が必要です。";
+    let testTone = "run-warning";
+    if (conformancePassed) {
+      testState = conformance.fixed_ranking_eligible
+        ? "固定7項目に合格し、正式比較に使用できます。"
+        : "固定7項目に合格しましたが、このモデルは参考比較用です。";
+      testTone = conformance.fixed_ranking_eligible ? "run-ready" : "run-warning";
+    } else if (conformance) {
+      const failed = conformance.checks.filter((item) => item.status === "FAILED")
+        .map((item) => item.code).join(", ");
+      testState = `適合試験の未合格項目: ${failed || "詳細を確認してください"}`;
+    } else if (["QUEUED", "RUNNING"].includes(latestJob?.status)) {
+      testState = latestJob.status === "QUEUED"
+        ? "適合試験を待機しています。長時間変わらない場合は適合試験Workerを確認してください。"
+        : "適合試験を実行中です。";
+    } else if (latestJob?.status === "FAILED") {
+      testState = `適合試験を開始できませんでした: ${latestJob.error_message || latestJob.error_code}`;
+    }
     return node("article", { className: "experiment-card" }, [
       node("div", { className: "card-heading" }, [
         node("strong", { text: `${definition.provider_id} / ${definition.model_name}` }),
@@ -115,7 +154,8 @@ export function renderExperiments(experiments, snapshots, onRun) {
       ]),
       node("p", { text: snapshot ? snapshotLabel(snapshot) : item.snapshot_id }),
       node("code", { text: item.experiment_id, title: item.experiment_id }),
-      button,
+      node("small", { className: testTone, text: testState }),
+      node("div", { className: "experiment-actions" }, [button, testButton]),
     ]);
   });
   replace("experiment-list", cards.length ? cards : [node("div", {
