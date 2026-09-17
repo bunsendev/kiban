@@ -61,6 +61,7 @@ forecast_provider = [
     "selection/*.sql",
     "evaluation_registry/*.sql",
     "provider_conformance/*.sql",
+    "comparison_campaign/*.sql",
     "reporting/*.sql",
     "resource_cost/*.sql",
     "worker_status/*.sql",

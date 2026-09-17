@@ -1,11 +1,12 @@
 import { ApiError, clearToken, setToken } from "./api.js";
 import { installPkceLogin } from "./pkce.js";
 import {
-  createComparison, createConformanceJob, createExperiment, createRun, loadAnalysisDashboard,
+  createCampaign, createComparison, createConformanceJob, createExperiment, createRun,
+  loadAnalysisDashboard,
 } from "./analysis_api.js";
 import {
-  renderComparisonCreated, renderDefaults, renderExperiments, renderFormOptions,
-  renderModels, renderRecentComparisons, renderRuns, renderSummary,
+  renderCampaignOptions, renderCampaigns, renderComparisonCreated, renderDefaults,
+  renderExperiments, renderFormOptions, renderModels, renderRecentComparisons, renderRuns, renderSummary,
   renderWorkerStatus,
 } from "./analysis_render.js";
 import { runContext as resolveRunContext } from "./analysis_rules.js";
@@ -61,12 +62,17 @@ function runContext(run) {
 
 function drawDashboard() {
   const bundle = state.dashboard;
+  const campaignSnapshot = byId("campaign-snapshot-select").value;
+  const campaignModels = new Set([...document.querySelectorAll("#campaign-model-options input:checked")]
+    .map((item) => `${item.dataset.providerId}\u0000${item.dataset.modelId}`));
   renderSummary(bundle);
   renderWorkerStatus(bundle.workerStatus);
   renderFormOptions(bundle, {
     snapshotId: byId("snapshot-select").value,
     providerId: byId("provider-select").value,
   });
+  renderCampaignOptions(bundle, campaignSnapshot, campaignModels);
+  renderCampaigns(bundle.campaigns, selectCampaignRuns);
   drawDefaults();
   renderExperiments(
     bundle.experiments, bundle.snapshots, bundle.providers, bundle.conformances,
@@ -77,15 +83,55 @@ function drawDashboard() {
   byId("comparison-submit").disabled = !state.selectedRuns.size;
 }
 
+function selectCampaignRuns(campaign) {
+  const eligible = campaign.entries.filter((entry) => {
+    const run = state.dashboard.runs.find((item) => item.run_id === entry.run_id);
+    return run && runContext(run).eligible;
+  });
+  state.selectedRuns = new Set(eligible.map((item) => item.run_id));
+  renderRuns(
+    state.dashboard.runs, state.dashboard.experiments, state.selectedRuns,
+    runContext, toggleRun,
+  );
+  byId("comparison-submit").disabled = !state.selectedRuns.size || state.busy;
+  if (eligible.length) notice(`${eligible.length}件の完了runを比較対象に設定しました。`, "success");
+  else notice("比較できる完了runはまだありません。処理完了後にもう一度選択してください。", "error");
+}
+
 function schedulePoll() {
   window.clearTimeout(pollTimer);
   if (
     state.dashboard?.runs.some((item) => ["QUEUED", "RUNNING"].includes(item.status))
     || state.dashboard?.conformanceJobs.some((item) => ["QUEUED", "RUNNING"].includes(item.status))
+    || state.dashboard?.campaigns.some((item) => item.status === "RUNNING")
   ) {
     pollTimer = window.setTimeout(() => refreshDashboard(true), 5000);
   }
 }
+
+byId("campaign-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const models = [...document.querySelectorAll("#campaign-model-options input:checked")].map((item) => ({
+    provider_id: item.dataset.providerId, model_id: item.dataset.modelId,
+  }));
+  if (models.length < 2) {
+    notice("比較するモデルを2件以上選択してください。", "error");
+    return;
+  }
+  setBusy(true);
+  notice("実験条件・適合試験・予測runをまとめて登録しています。");
+  try {
+    const campaign = await createCampaign({
+      request_key: crypto.randomUUID(),
+      snapshot_id: byId("campaign-snapshot-select").value,
+      models,
+      purpose: byId("campaign-purpose").value.trim(),
+    });
+    setBusy(false);
+    await refreshDashboard(true);
+    notice(`比較キャンペーンを開始しました（${campaign.entries.length}モデル）。Workerが順次処理します。`, "success");
+  } catch (error) { handleError(error); } finally { setBusy(false); }
+});
 
 async function registerConformance(experimentId) {
   if (state.busy) return;

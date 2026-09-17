@@ -58,6 +58,26 @@
     </section>
 
     <div class="workflow-grid">
+      <section class="workflow-step campaign-step" aria-labelledby="campaign-heading">
+        <div class="step-heading"><span class="step-number">一括</span><div><h2 id="campaign-heading">比較セットをまとめて開始する</h2><p>同じデータセットで比べるOSSモデルを選ぶと、実験条件・適合試験・予測runを一度に登録します。</p></div></div>
+        <div class="campaign-layout">
+          <form id="campaign-form" class="analysis-form" data-permission="ANALYZE">
+            <label>データセット<select id="campaign-snapshot-select" required></select></label>
+            <fieldset class="campaign-model-fieldset">
+              <legend>比較するモデル（2件以上）</legend>
+              <div id="campaign-model-options" class="campaign-model-options"></div>
+            </fieldset>
+            <label>比較の目的<textarea id="campaign-purpose" rows="3" required>OSSモデル選定のための一括比較</textarea></label>
+            <p class="field-note">各Providerの登録済み既定値を使います。同じ操作の再送は重複runを作りません。</p>
+            <div class="form-actions"><button id="campaign-submit" class="button primary" type="submit" data-permission="ANALYZE">選択したモデルをまとめて開始</button></div>
+          </form>
+          <div>
+            <div class="subheading"><h3>比較キャンペーン</h3><span id="campaign-count">0件</span></div>
+            <div id="campaign-list" class="campaign-list"></div>
+          </div>
+        </div>
+      </section>
+
       <section class="workflow-step" aria-labelledby="experiment-heading">
         <div class="step-heading"><span class="step-number">1</span><div><h2 id="experiment-heading">実験条件を作り、適合試験を行う</h2><p>保存済みデータセットとProviderを選択し、固定7項目を人工データで確認します。</p></div></div>
         <div class="experiment-layout">

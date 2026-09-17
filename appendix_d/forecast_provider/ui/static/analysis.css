@@ -31,11 +31,25 @@
   border-radius: 50%; color: #fff; background: var(--blue); font-weight: 900;
 }
 
-.experiment-layout, .run-layout, .comparison-layout {
+.experiment-layout, .run-layout, .comparison-layout, .campaign-layout {
   display: grid;
   grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
   gap: 1.2rem;
 }
+
+.campaign-step { border-top: 5px solid var(--blue); }
+.campaign-step .step-number { width: 52px; flex-basis: 52px; border-radius: 18px; font-size: 0.8rem; }
+.campaign-model-fieldset { margin-top: 0.8rem; padding: 0.8rem; border: 1px solid var(--line); }
+.campaign-model-options { display: grid; gap: 0.45rem; margin-top: 0.45rem; }
+.campaign-model-option { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: start; gap: 0.45rem; }
+.campaign-model-option input { width: 18px; min-height: 18px; margin: 0.15rem 0 0; }
+.campaign-model-option span { display: block; color: var(--muted); font-size: 0.76rem; }
+.campaign-list { display: grid; gap: 0.7rem; max-height: 540px; overflow: auto; }
+.campaign-card { padding: 0.9rem; border: 1px solid var(--line); background: #fff; }
+.campaign-card > p { margin: 0.4rem 0; color: var(--muted); }
+.campaign-card > code { display: block; font-size: 0.72rem; overflow-wrap: anywhere; }
+.campaign-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; padding: 0.5rem 0; border-top: 1px solid var(--soft-line); }
+.campaign-entry small { grid-column: 1 / -1; color: var(--muted); }
 
 .analysis-form { padding: 1rem; background: #f7f9fb; border: 1px solid var(--soft-line); }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
@@ -70,7 +84,7 @@
 .comparison-output code { overflow-wrap: anywhere; }
 
 @media (max-width: 900px) {
-  .analysis-intro, .experiment-layout, .run-layout, .comparison-layout { grid-template-columns: 1fr; }
+  .analysis-intro, .experiment-layout, .run-layout, .comparison-layout, .campaign-layout { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 620px) {

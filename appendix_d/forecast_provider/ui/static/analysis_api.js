@@ -11,13 +11,21 @@ export function loadAnalysisDashboard() {
     request("/api/provider-conformance-jobs"),
     request("/api/comparisons"),
     request("/api/worker-status"),
+    request("/api/comparison-campaigns"),
   ]).then(([
     session, snapshots, experiments, providers, runs, conformances, conformanceJobs,
-    comparisons, workerStatus,
+    comparisons, workerStatus, campaigns,
   ]) => ({
     session, snapshots, experiments, providers, runs, conformances, conformanceJobs,
-    comparisons, workerStatus,
+    comparisons, workerStatus, campaigns,
   }));
+}
+
+export function createCampaign(payload) {
+  return request("/api/comparison-campaigns", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function createExperiment(payload) {
