@@ -6,6 +6,7 @@ import queue
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from decimal import Decimal
 
 from ..errors import ProviderError
@@ -24,6 +25,7 @@ def resume_run(
     origin_timeout_seconds: float = 600,
     max_origins: int | None = None,
     resource_cost: ResourceCostStore | None = None,
+    heartbeat: Callable[[], None] | None = None,
 ) -> RunStatus:
     """未完了起点だけを実行する。成功済み起点はstoreがclaimしない。"""
     if store.cancellation_requested(run_id):
@@ -38,6 +40,8 @@ def resume_run(
         lease = store.claim_next_origin(run_id, worker_id, lease_seconds)
         if lease is None:
             break
+        if heartbeat is not None:
+            heartbeat()
         try:
             output = _measured_execute(
                 store,
@@ -46,6 +50,7 @@ def resume_run(
                 origin_timeout_seconds,
                 lease_seconds,
                 resource_cost,
+                heartbeat,
             )
         except ProviderError as exc:
             store.fail_origin(lease, type(exc).__name__, retryable=exc.retryable)
@@ -64,12 +69,15 @@ def _measured_execute(
     timeout_seconds: float,
     lease_seconds: int,
     resource_cost: ResourceCostStore | None,
+    heartbeat: Callable[[], None] | None,
 ) -> OriginOutput:
     started = time.perf_counter()
     cpu_started = time.process_time()
     output = None
     try:
-        output = _bounded_execute(store, execute, lease, timeout_seconds, lease_seconds)
+        output = _bounded_execute(
+            store, execute, lease, timeout_seconds, lease_seconds, heartbeat
+        )
         return output
     finally:
         if resource_cost is not None:
@@ -152,6 +160,7 @@ def _bounded_execute(
     lease,
     timeout_seconds: float,
     lease_seconds: int,
+    heartbeat: Callable[[], None] | None = None,
 ) -> OriginOutput:
     """daemon threadで待機時間を制限する。遅延結果はstoreへ渡さない。"""
     if timeout_seconds <= 0:
@@ -177,6 +186,8 @@ def _bounded_execute(
             break
         except queue.Empty:
             lease = store.heartbeat(lease, lease_seconds)
+            if heartbeat is not None:
+                heartbeat()
     if ok:
         return value
     raise value

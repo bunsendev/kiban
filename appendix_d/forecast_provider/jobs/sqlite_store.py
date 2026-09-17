@@ -380,6 +380,18 @@ class SqliteRunStore:
                 )
             )
 
+    def count_active_runs_by_provider(self) -> dict[str, dict[str, int]]:
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT provider_id,status,COUNT(*) AS count FROM forecast_runs "
+                "WHERE status IN ('QUEUED','RUNNING') GROUP BY provider_id,status "
+                "ORDER BY provider_id,status"
+            )
+            result: dict[str, dict[str, int]] = {}
+            for row in rows:
+                result.setdefault(row["provider_id"], {})[row["status"]] = row["count"]
+            return result
+
     def get_model_artifact(
         self,
         run_id: str,

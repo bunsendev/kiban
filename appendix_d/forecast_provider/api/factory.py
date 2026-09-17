@@ -20,6 +20,7 @@ from ..reporting import PostgresReportingStore
 from ..resource_cost.postgres_store import PostgresResourceCostStore
 from ..runtime_config import read_secret_file
 from ..selection import PostgresSelectionStore
+from ..worker_status import PostgresWorkerStatusStore
 from .app import create_app
 from .authentication import Authenticator, ReloadingTokenAuthenticator, Role, TokenAuthenticator
 from .http_security import SecuritySettings
@@ -224,4 +225,6 @@ def from_environment():
         inventory_normalization=PostgresInventoryNormalizationStore(dsn),
         idempotency_store=PostgresIdempotencyStore(dsn),
         resource_cost=PostgresResourceCostStore(dsn),
+        worker_status=PostgresWorkerStatusStore(dsn),
+        worker_stale_seconds=float(os.environ.get("KIBAN_WORKER_STALE_SECONDS", "45")),
     )

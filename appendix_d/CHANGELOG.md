@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 3F
+
+- Provider WorkerのIDLE・WORKING・current run・開始時刻・heartbeatをSQLite/PostgreSQLへ追加。
+- Worker再起動時にinstance IDで旧processの遅延heartbeatを拒否するfencingを追加。
+- 長時間の起点処理中もorigin leaseと同じ周期でWorker heartbeatを更新。
+- READ APIへProviderごとのWORKING・ONLINE・STALE・NOT_STARTEDと全件キュー集計を追加。
+- 分析実行画面へWorker状態、待機・実行中run数、最終応答、状態別の対処案内を追加。
+
 ## Phase 3E
 
 - `/ui/analysis`へsnapshot選択、実験作成、run登録・進捗確認、比較作成の案内式画面を追加。

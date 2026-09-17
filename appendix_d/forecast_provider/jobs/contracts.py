@@ -117,6 +117,8 @@ class RunStore(Protocol):
 
     def list_runnable_runs(self, provider_id: str) -> tuple[tuple[str, str], ...]: ...
 
+    def count_active_runs_by_provider(self) -> dict[str, dict[str, int]]: ...
+
     def get_model_artifact(
         self,
         run_id: str,

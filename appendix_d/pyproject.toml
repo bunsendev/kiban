@@ -61,6 +61,7 @@ forecast_provider = [
     "evaluation_registry/*.sql",
     "reporting/*.sql",
     "resource_cost/*.sql",
+    "worker_status/*.sql",
     "lifecycle/*.sql",
     "mapping_dry_run/*.sql",
     "ui/static/*",

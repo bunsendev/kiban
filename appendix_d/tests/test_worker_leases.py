@@ -72,6 +72,28 @@ def test_timeout_returns_without_waiting_for_late_executor(tmp_path):
     assert store.rows("forecast_values") == []
 
 
+def test_long_origin_execution_refreshes_process_heartbeat(tmp_path):
+    store = make_store(tmp_path, days=(1,))
+    pulses = []
+
+    def slow(_lease):
+        time.sleep(0.08)
+        return OriginOutput((point(1),))
+
+    status = resume_run(
+        store,
+        "run-1",
+        "fingerprint-1",
+        slow,
+        origin_timeout_seconds=1,
+        lease_seconds=0.03,
+        heartbeat=lambda: pulses.append(time.monotonic()),
+    )
+
+    assert status == "SUCCEEDED"
+    assert len(pulses) >= 3
+
+
 def test_second_worker_does_not_finalize_run_owned_by_first_worker(tmp_path):
     store = make_store(tmp_path, days=(1,))
     store.start_or_resume("run-1", "fingerprint-1")

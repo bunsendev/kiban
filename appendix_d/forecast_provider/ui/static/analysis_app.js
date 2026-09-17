@@ -6,7 +6,9 @@ import {
 import {
   renderComparisonCreated, renderDefaults, renderExperiments, renderFormOptions,
   renderModels, renderRecentComparisons, renderRuns, renderSummary,
+  renderWorkerStatus,
 } from "./analysis_render.js";
+import { runContext as resolveRunContext } from "./analysis_rules.js";
 
 const state = { dashboard: null, permissions: new Set(), selectedRuns: new Set(), busy: false };
 const byId = (id) => document.getElementById(id);
@@ -52,38 +54,14 @@ function drawDefaults() {
   setBusy(state.busy);
 }
 
-function canonical(value) {
-  if (Array.isArray(value)) return value.map(canonical);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
-  }
-  return value;
-}
-
-function sameConfig(record, definition) {
-  const expected = {
-    params: definition.params || {}, interval_levels: definition.interval_levels || [],
-    preprocessing_version: definition.preprocessing_version,
-  };
-  return JSON.stringify(canonical(record.adapter_config)) === JSON.stringify(canonical(expected));
-}
-
 function runContext(run) {
-  const terminal = ["SUCCEEDED", "PARTIAL", "FAILED"].includes(run.status);
-  if (!terminal) return { eligible: false, reason: "実行完了後に比較対象へ選択できます。" };
-  const experiment = state.dashboard.experiments.find((item) => item.experiment_id === run.experiment_id);
-  if (!experiment) return { eligible: false, reason: "実験定義を確認できません。" };
-  const conformance = state.dashboard.conformances.find((item) => (
-    item.provider_id === run.provider_id && item.model_id === run.model_name
-    && sameConfig(item, experiment.definition)
-  ));
-  if (!conformance) return { eligible: false, reason: "実験条件と一致するProvider適合記録がありません。" };
-  return { eligible: true, experiment, conformance };
+  return resolveRunContext(state.dashboard, run);
 }
 
 function drawDashboard() {
   const bundle = state.dashboard;
   renderSummary(bundle);
+  renderWorkerStatus(bundle.workerStatus);
   renderFormOptions(bundle, {
     snapshotId: byId("snapshot-select").value,
     providerId: byId("provider-select").value,

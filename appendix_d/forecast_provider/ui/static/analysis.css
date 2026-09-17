@@ -15,6 +15,12 @@
 .guide-card h2, .worker-card h2, .workflow-step h2 { margin-bottom: 0.4rem; }
 .guide-card p, .worker-card p { margin-bottom: 0; color: var(--muted); }
 .worker-card { border-left: 5px solid var(--amber); }
+.worker-status-list { display: grid; gap: 0.55rem; margin-top: 0.8rem; }
+.worker-status-item { padding: 0.65rem; background: #fff; border: 1px solid var(--line); }
+.worker-status-item > span, .worker-status-item > code { display: block; font-size: 0.75rem; }
+.worker-status-item > span { color: var(--muted); }
+.worker-status-item > code { color: #52677d; }
+.worker-status-item.stale, .worker-status-item.not-started { border-left: 4px solid var(--amber); }
 
 .workflow-grid { display: grid; gap: 1rem; }
 .step-heading { display: flex; align-items: flex-start; gap: 0.8rem; margin-bottom: 1rem; }

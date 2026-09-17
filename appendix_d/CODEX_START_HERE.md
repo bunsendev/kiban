@@ -114,6 +114,8 @@ Phase 3DでProvider専用Workerのrun取得をProvider IDで分離した。組�
 
 Phase 3Eで`/ui/analysis`の分析実行ワークスペースを追加した。READ利用者はsnapshot、実験、Provider、run、適合記録、比較履歴を参照し、ANALYZE利用者はメタデータ既定値から実験を作成してrun登録、進捗確認、適合条件が一致するrunの比較作成まで行う。詳細は[分析実行ワークスペース](docs/Phase3E_分析実行ワークスペース.md)。
 
+Phase 3FでProvider専用Workerのheartbeatとキュー診断を追加した。分析実行画面はProviderごとの処理中、待機中、応答遅延、未起動と、全件集計した待機・実行中run数を表示する。同じWorker IDで再起動した旧processはinstance IDでフェンスする。詳細は[Worker稼働状態とキュー診断](docs/Phase3F_Worker稼働状態とキュー診断.md)。
+
 次はプリフライトが`READY_FOR_DATA`の環境で実業務原本の検証jobを登録し、画面で`READY_FOR_NORMALIZATION`または隔離理由を確認する。その後Phase 1Xから全行の数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進み、全3年の重要品目選定とPhase 1Sの将来trialを開始する。FULL 20〜50品目のOSS比較前に対象環境の資源単価を登録し、Phase 3Bの時間・費用列を含む比較CSVを発行する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 

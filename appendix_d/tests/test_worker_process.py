@@ -8,6 +8,7 @@ from pathlib import Path
 from test_job_resume import make_store
 
 from forecast_provider.jobs import SqliteRunStore
+from forecast_provider.worker_status import SqliteWorkerStatusStore, WorkerState
 
 
 def test_independent_worker_process_executes_queued_run(tmp_path):
@@ -56,6 +57,10 @@ def execute(lease):
     assert result.returncode == 0, result.stdout + result.stderr
     snapshot = SqliteRunStore(database).get_run("run-1")
     assert snapshot is not None and snapshot.status == "SUCCEEDED"
+    heartbeat = SqliteWorkerStatusStore(database).list_workers()[0]
+    assert heartbeat.worker_id == "process-worker"
+    assert heartbeat.provider_id == "builtin-baseline"
+    assert heartbeat.state == WorkerState.IDLE
 
 
 def test_custom_executor_requires_explicit_provider_binding(tmp_path):

@@ -1,4 +1,4 @@
-import { decisionLabel, shortId, statusTone } from "./format.js";
+import { dateTime, decisionLabel, shortId, statusTone } from "./format.js";
 
 const node = (tag, options = {}, children = []) => {
   const element = document.createElement(tag);
@@ -28,6 +28,30 @@ export function renderSummary(bundle) {
     bundle.runs.filter((item) => ["QUEUED", "RUNNING"].includes(item.status)).length,
   );
   document.getElementById("comparison-count").textContent = String(bundle.comparisons.length);
+}
+
+const WORKER_LABELS = {
+  WORKING: "処理中", ONLINE: "待機中", STALE: "応答遅延", NOT_STARTED: "未起動",
+};
+
+export function renderWorkerStatus(values) {
+  const cards = values.map((item) => node("article", {
+    className: `worker-status-item ${item.status.toLowerCase().replace("_", "-")}`,
+  }, [
+    node("div", { className: "card-heading" }, [
+      node("strong", { text: item.display_name }),
+      node("span", {
+        className: `pill ${["WORKING", "ONLINE"].includes(item.status) ? "positive" : "warning"}`,
+        text: WORKER_LABELS[item.status] || item.status,
+      }),
+    ]),
+    node("span", { text: `待機run ${item.queued_runs} / 実行中run ${item.running_runs}` }),
+    node("span", { text: item.last_heartbeat ? `最終応答 ${dateTime(item.last_heartbeat)}` : "heartbeat未登録" }),
+    node("code", { text: item.provider_id }),
+  ]));
+  replace("worker-status-list", cards.length ? cards : [node("div", {
+    className: "empty-inline", text: "ProviderまたはWorker情報がありません。",
+  })]);
 }
 
 export function renderFormOptions(bundle, selected = {}) {

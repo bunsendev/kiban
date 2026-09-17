@@ -9,8 +9,11 @@ export function loadAnalysisDashboard() {
     request("/api/runs?limit=200"),
     request("/api/provider-conformance-tests"),
     request("/api/comparisons"),
-  ]).then(([session, snapshots, experiments, providers, runs, conformances, comparisons]) => ({
-    session, snapshots, experiments, providers, runs, conformances, comparisons,
+    request("/api/worker-status"),
+  ]).then(([
+    session, snapshots, experiments, providers, runs, conformances, comparisons, workerStatus,
+  ]) => ({
+    session, snapshots, experiments, providers, runs, conformances, comparisons, workerStatus,
   }));
 }
 

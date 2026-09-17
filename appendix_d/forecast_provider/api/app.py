@@ -51,6 +51,7 @@ from .security import (
 )
 from .selection_routes import install_selection_routes
 from .service import ApplicationService, NotFoundError, record_dict
+from .worker_status_routes import install_worker_status_routes
 
 
 def _output(value, resource_cost=None) -> RunStatusOutput:
@@ -92,6 +93,8 @@ def create_app(
     inventory_normalization=None,
     idempotency_store: IdempotencyStore | None = None,
     resource_cost=None,
+    worker_status=None,
+    worker_stale_seconds: float = 45,
 ) -> FastAPI:
     if isinstance(api_token, str) and not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -126,6 +129,13 @@ def create_app(
     install_observability(app, authorize, checks)
     if resource_cost is not None:
         install_resource_cost_routes(app, authorize, resource_cost)
+    from ..worker_status import WorkerStatusService
+
+    install_worker_status_routes(
+        app,
+        authorize,
+        WorkerStatusService(store, worker_status, stale_seconds=worker_stale_seconds),
+    )
     install_mapping_dry_run_routes(
         app,
         authorize,

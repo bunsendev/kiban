@@ -21,6 +21,11 @@ from .operations.worker_config import add_database_arguments, postgres_dsn
 from .resource_cost import SqliteResourceCostStore
 from .resource_cost.contracts import ResourceCostStore
 from .resource_cost.postgres_store import PostgresResourceCostStore
+from .worker_status import (
+    PostgresWorkerStatusStore,
+    SqliteWorkerStatusStore,
+    WorkerStatusReporter,
+)
 
 
 def load_executor(spec: str) -> OriginExecutor:
@@ -41,18 +46,26 @@ def work_once(
     resource_cost: ResourceCostStore | None = None,
     *,
     provider_id: str,
+    status_reporter: WorkerStatusReporter | None = None,
 ) -> int:
     processed = 0
     for run_id, fingerprint in store.list_runnable_runs(provider_id):
-        resume_run(
-            store,
-            run_id,
-            fingerprint,
-            execute,
-            worker_id=worker_id,
-            max_origins=max_origins,
-            resource_cost=resource_cost,
-        )
+        if status_reporter is not None:
+            status_reporter.working(run_id)
+        try:
+            resume_run(
+                store,
+                run_id,
+                fingerprint,
+                execute,
+                worker_id=worker_id,
+                max_origins=max_origins,
+                resource_cost=resource_cost,
+                heartbeat=None if status_reporter is None else status_reporter.pulse,
+            )
+        finally:
+            if status_reporter is not None:
+                status_reporter.idle()
         processed += 1
     return processed
 
@@ -80,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
     dsn = postgres_dsn(args)
     if args.max_origins is not None and args.max_origins <= 0:
         parser.error("--max-originsは正数です")
+    if args.poll_seconds <= 0:
+        parser.error("--poll-secondsは正数です")
     if args.executor and not (args.provider_id or "").strip():
         parser.error("--executorには--provider-idが必要です")
     if not args.executor and args.provider_id is not None:
@@ -88,10 +103,12 @@ def main(argv: list[str] | None = None) -> int:
         store = SqliteRunStore(args.sqlite)
         catalog = SqliteCatalogStore(args.sqlite)
         resource_cost = SqliteResourceCostStore(args.sqlite)
+        worker_status = SqliteWorkerStatusStore(args.sqlite)
     else:
         store = PostgresRunStore(dsn)
         catalog = PostgresCatalogStore(dsn)
         resource_cost = PostgresResourceCostStore(dsn)
+        worker_status = PostgresWorkerStatusStore(dsn)
     if args.builtin_baseline:
         execute = BuiltinBaselineExecutor(store, catalog, args.artifact_root, args.work_root)
     elif args.statsforecast_ets:
@@ -106,7 +123,12 @@ def main(argv: list[str] | None = None) -> int:
         provider_id = args.provider_id.strip()
     else:
         provider_id = execute.provider_id
+    status_reporter = WorkerStatusReporter(
+        worker_status, args.worker_id, provider_id
+    )
+    status_reporter.start()
     while True:
+        status_reporter.idle()
         work_once(
             store,
             execute,
@@ -114,10 +136,21 @@ def main(argv: list[str] | None = None) -> int:
             args.max_origins,
             resource_cost,
             provider_id=provider_id,
+            status_reporter=status_reporter,
         )
         if args.once:
             return 0
-        time.sleep(args.poll_seconds)
+        _wait_with_heartbeat(args.poll_seconds, status_reporter)
+
+
+def _wait_with_heartbeat(seconds: float, reporter: WorkerStatusReporter) -> None:
+    deadline = time.monotonic() + seconds
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        time.sleep(min(remaining, 10))
+        reporter.pulse()
 
 
 if __name__ == "__main__":
