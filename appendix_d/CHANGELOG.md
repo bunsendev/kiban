@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 3G
+
+- builtin baselineでOBSERVEDのhistorical originごとに`available_at`締切を再現する残差計算を追加。
+- 最終TRAIN締切後の正解値と過去起点で未到着だった履歴を経験残差から除外。
+- 4方式のPOINT・区間予測アルゴリズムを専用moduleへ分離し、Provider本体を縮小。
+- 分析実行画面でOBSERVED snapshotの区間水準選択を有効化。
+- 遅延到着の非遡及、ASSUMEDとの一致、run完走、artifact復元の回帰試験を追加。
+
 ## Phase 3F
 
 - Provider WorkerのIDLE・WORKING・current run・開始時刻・heartbeatをSQLite/PostgreSQLへ追加。

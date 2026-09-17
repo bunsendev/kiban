@@ -29,7 +29,7 @@ def artifact_case(phase1a_case, tmp_path):
 def test_model_and_context_roundtrip_preserve_predictions(artifact_case, model_name, mode):
     data, ds, config, parent, provider, repo = artifact_case
     ds = replace(ds, availability_mode=mode)
-    config = replace(config, model=model_name, interval_levels=(0.8,) if mode == "ASSUMED" else ())
+    config = replace(config, model=model_name, interval_levels=(0.8,))
     parent = replace(parent, availability_mode=mode)
     data = data.copy()
     data.loc[data.ds.eq(pd.Timestamp("2025-12-30")), "y"] = np.nan

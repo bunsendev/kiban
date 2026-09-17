@@ -37,11 +37,17 @@ def available_history(
     if availability_mode not in ("ASSUMED", "OBSERVED"):
         raise ContractViolationError("availability_modeを明示します")
     mask = data.ds.le(origin)
-    out = data.loc[mask, ["unique_id", "ds", "y"]].copy()
+    columns = ["unique_id", "ds", "y"]
     if availability_mode == "OBSERVED":
-        if "available_at" not in data:
+        columns.append("available_at")
+    missing = sorted(set(columns) - set(data.columns))
+    if missing:
+        if missing == ["available_at"]:
             raise ContractViolationError("OBSERVEDにはavailable_atが必要です")
-        times = data.loc[mask, "available_at"]
+        raise ContractViolationError(f"学習・履歴の必須列がありません: {missing}")
+    out = data.loc[mask, columns].copy()
+    if availability_mode == "OBSERVED":
+        times = out["available_at"]
         if (
             not pd.api.types.is_datetime64_any_dtype(times)
             or getattr(times.dtype, "tz", None) is None

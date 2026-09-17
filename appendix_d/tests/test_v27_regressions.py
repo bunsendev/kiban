@@ -103,7 +103,7 @@ def test_future_frame_is_allow_listed_by_dataset_known_future_columns() -> None:
         provider.predict(model, state, forbidden, [1], context.for_origin(state.origin_date))
 
 
-def test_observed_keeps_late_date_as_nan_and_blocks_intervals() -> None:
+def test_observed_keeps_late_date_as_nan_and_requires_arrival_evidence() -> None:
     data = pd.DataFrame(
         {
             "unique_id": ["A", "A"],
@@ -116,6 +116,7 @@ def test_observed_keeps_late_date_as_nan_and_blocks_intervals() -> None:
     assert history.ds.tolist() == [pd.Timestamp("2025-12-30"), pd.Timestamp("2025-12-31")]
     assert history.y.iloc[0] == 1.0
     assert pd.isna(history.y.iloc[1])
+    assert "available_at" in history
 
     provider = BuiltinBaselineProvider()
     dataset = replace(make_dataset(("A",)), availability_mode="OBSERVED")
@@ -126,9 +127,8 @@ def test_observed_keeps_late_date_as_nan_and_blocks_intervals() -> None:
         interval_levels=(0.8,),
     )
     check = provider.validate(dataset, config)
-    assert not check.ok
-    assert any(issue.code == "OBSERVED_INTERVALS_UNSUPPORTED" for issue in check.issues)
-    with pytest.raises(ContractViolationError, match="OBSERVED"):
+    assert check.ok
+    with pytest.raises(ContractViolationError, match="available_at"):
         provider.fit_parameters(
             _training_data(),
             dataset,

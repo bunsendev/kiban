@@ -35,8 +35,9 @@ heartbeatとキュー診断から処理中、待機中、応答遅延、未起�
 Provider IDごとの条件分岐を画面へ置かない。新しいProviderは実装、Registry登録、メタデータ、
 専用Worker、適合試験を追加すれば同じ画面へ現れる。
 
-区間予測に未対応のProviderではPOINTだけを使う。`OBSERVED` snapshotでbuiltin baselineを使う
-場合も、時点再現済み区間残差が未実装のためPOINTだけを使う。
+区間予測に未対応のProviderではPOINTだけを使う。区間対応Providerでは`OBSERVED` snapshotでも
+選択できる。builtin baselineは各historical originの`available_at`締切を再現して残差を作る。
+詳細は[OBSERVED時点再現区間予測](Phase3G_OBSERVED時点再現区間予測.md)を参照する。
 
 ## 一覧API
 
