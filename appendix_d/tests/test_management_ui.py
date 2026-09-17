@@ -370,6 +370,8 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
     assert 'request("/api/worker-status")' in client.text
     assert "worker-status-list" in page.text
     assert "experiment_defaults" in renderer.text
+    assert "時点再現して選択可能" in renderer.text
+    assert "intervals.disabled = !supportsIntervals" in renderer.text
     assert 'data-permission="ANALYZE"' in page.text
 
     ids = set(re.findall(r'id="([^"]+)"', page.text))

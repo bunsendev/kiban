@@ -75,19 +75,19 @@ export function renderDefaults(provider, snapshot, modelId) {
   const intervals = document.getElementById("interval-preset");
   const supportsIntervals = Boolean(provider?.capabilities?.supports_intervals);
   const observed = snapshot?.manifest?.availability_mode === "OBSERVED";
-  intervals.disabled = !supportsIntervals || observed;
+  intervals.disabled = !supportsIntervals;
   const defaultIntervals = (defaults?.interval_levels || []).join(",");
   if (defaultIntervals && ![...intervals.options].some((item) => item.value === defaultIntervals)) {
     intervals.append(option(defaultIntervals, `既定値（${defaultIntervals}）`));
   }
-  intervals.value = supportsIntervals && !observed ? defaultIntervals : "";
+  intervals.value = supportsIntervals ? defaultIntervals : "";
   document.getElementById("seed").value = defaults?.seed ?? 7;
   document.getElementById("resource-profile").value = defaults?.resource_profile || "cpu-small";
   document.getElementById("training-policy").value = defaults?.training_policy || "FIXED";
   const facts = defaults ? [
     ["前処理版", defaults.preprocessing_version],
     ["Provider設定", JSON.stringify(defaults.params)],
-    ["区間予測", !supportsIntervals ? "非対応" : observed ? "OBSERVEDではPOINTのみ" : "選択可能"],
+    ["区間予測", !supportsIntervals ? "非対応" : observed ? "時点再現して選択可能" : "選択可能"],
     ["実行方式", provider.capabilities.requires_gpu ? "GPU Worker" : "CPU Worker"],
     ["適合記録", model?.latest_conformance ? "登録済み" : "未登録（比較前に必要）"],
   ] : [["状態", "このProviderには実験既定値がありません"]];

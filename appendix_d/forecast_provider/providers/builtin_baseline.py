@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import math
 import uuid
 from datetime import UTC, date, datetime
 from typing import Any
@@ -37,6 +36,12 @@ from ..frames import (
     validate_history_frame,
 )
 from ..run_context import validate_context_ref
+from . import baseline_algorithms
+
+_historical_forecast = baseline_algorithms.historical_forecast
+_observed_residual_quantiles = baseline_algorithms.observed_residual_quantiles
+_point_forecast = baseline_algorithms.point_forecast
+_residual_quantiles = baseline_algorithms.residual_quantiles
 
 PROVIDER_ID = "builtin-baseline"
 PROVIDER_VERSION = "2.9.0"
@@ -152,18 +157,6 @@ class BuiltinBaselineProvider(ForecastProvider):
                 )
             )
 
-        if dataset.availability_mode == "OBSERVED" and config.interval_levels:
-            issues.append(
-                ValidationIssue(
-                    code="OBSERVED_INTERVALS_UNSUPPORTED",
-                    message=(
-                        "v2.9のbuiltin-baselineはOBSERVED時点再現での区間残差を未実装のため、"
-                        "interval_levelsは指定できません"
-                    ),
-                    blocking=True,
-                )
-            )
-
         try:
             quantiles_from_interval_levels(config.interval_levels)
         except ContractViolationError as exc:
@@ -208,11 +201,6 @@ class BuiltinBaselineProvider(ForecastProvider):
         """TRAIN期間の記録と残差分布算出用系列の固定のみを行う。"""
         self._validate_config(config)
         context.validate_for_origin(dataset.train_end, dataset.availability_mode)
-        if dataset.availability_mode == "OBSERVED" and config.interval_levels:
-            raise ContractViolationError(
-                "OBSERVEDでは各historical originのavailable_at再現が必要なため、"
-                "v2.9のbuiltin-baselineは区間予測を提供しません"
-            )
         frame = validate_fit_frame(train_df, dataset)
         if frame.empty:
             raise ContractViolationError("学習データが空です")
@@ -227,13 +215,23 @@ class BuiltinBaselineProvider(ForecastProvider):
         train_end = dataset.train_end
 
         train_series: dict[str, pd.Series] = {}
+        residual_cache: dict[str, dict[tuple[int, float], float]] = {}
         short: list[str] = []
+        quantiles = quantiles_from_interval_levels(config.interval_levels)
+        horizons = list(range(1, dataset.max_horizon + 1))
         for uid, group in frame.groupby("unique_id", sort=True):
             s = _to_daily_series(group)
             if int(s.notna().sum()) < model_meta.min_history_days:
                 short.append(uid)
                 continue
             train_series[uid] = s
+            residual_cache[uid] = (
+                _observed_residual_quantiles(
+                    group, config.model, horizons, quantiles, dataset.train_end
+                )
+                if dataset.availability_mode == "OBSERVED" and quantiles
+                else _residual_quantiles(s, config.model, horizons, quantiles)
+            )
 
         if short:
             context.logger.warning(
@@ -247,13 +245,6 @@ class BuiltinBaselineProvider(ForecastProvider):
                 f"全系列が最小履歴日数を満たしません (model={config.model})"
             )
 
-        quantiles = quantiles_from_interval_levels(config.interval_levels)
-        residual_cache = {
-            uid: _residual_quantiles(
-                series, config.model, list(range(1, dataset.max_horizon + 1)), quantiles
-            )
-            for uid, series in train_series.items()
-        }
         missing_ids = set(dataset.unique_ids) - set(train_series) - set(short)
         short.extend(sorted(missing_ids))
         return ModelRef(
@@ -434,7 +425,7 @@ class BuiltinBaselineProvider(ForecastProvider):
                 target_d = pd.Timestamp(row["target_date"])
                 h = int(row["horizon"])
                 point = _point_forecast(history, target_d, h, model_name)
-                if point is None or math.isnan(point):
+                if point is None or np.isnan(point):
                     continue
                 base = {
                     "unique_id": uid,
@@ -536,98 +527,6 @@ def _to_daily_series(group: pd.DataFrame) -> pd.Series:
     s = group.set_index("ds")["y"].astype("float64")
     full = pd.date_range(s.index.min(), s.index.max(), freq="D")
     return s.reindex(full)
-
-
-def _same_weekday_lags(horizon: int) -> list[int]:
-    """対象日と同一曜日で、起点以前となる直近4回分のラグ日数。"""
-    steps = math.ceil(horizon / 7)
-    return [7 * k for k in range(steps, steps + 4)]
-
-
-def _point_forecast(
-    history: pd.Series,
-    target_date: pd.Timestamp,
-    horizon: int,
-    model_name: str,
-) -> float | None:
-    """history（起点以前のみ）から target_date の点予測を返す。"""
-    if model_name == "moving_average_28":
-        origin = target_date - pd.Timedelta(days=horizon)
-        window = history.reindex(pd.date_range(origin - pd.Timedelta(days=27), origin)).dropna()
-        return float(window.mean()) if len(window) else None
-
-    if model_name == "seasonal_naive_364":
-        lags = [364 * math.ceil(horizon / 364)]
-    else:
-        lags = _same_weekday_lags(horizon)
-
-    values = []
-    for lag in lags:
-        d = target_date - pd.Timedelta(days=lag)
-        if d in history.index and not pd.isna(history.get(d)):
-            values.append(float(history.get(d)))
-    if not values:
-        return None
-    if model_name in ("seasonal_naive_7", "seasonal_naive_364"):
-        return values[0]
-    if model_name == "same_weekday_mean_4":
-        return float(np.mean(values))
-    raise ContractViolationError(f"未知のモデル指定です: {model_name}")
-
-
-def _residual_quantiles(
-    s: pd.Series,
-    model_name: str,
-    horizons: list[int],
-    quantiles: list[float],
-) -> dict[tuple[int, float], float]:
-    """TRAINだけで経験残差分位を推定。点予測と中央値を混同しない。"""
-    out: dict[tuple[int, float], float] = {}
-    values = s.to_numpy(dtype="float64")
-    for h in horizons:
-        preds = _historical_forecast(values, h, model_name)
-        resid = values - preds
-        resid = resid[~np.isnan(resid)]
-        if resid.size < 10:
-            continue
-        for q in quantiles:
-            out[(h, q)] = float(np.quantile(resid, q))
-    return out
-
-
-def _historical_forecast(values: np.ndarray, horizon: int, model_name: str) -> np.ndarray:
-    """対象日-horizon以前だけを使って各日のhistorical forecastを返す。"""
-    n = values.size
-
-    if model_name == "moving_average_28":
-        rolled = pd.Series(values).rolling(28, min_periods=1).mean().shift(horizon)
-        return rolled.to_numpy(dtype="float64")
-
-    if model_name == "seasonal_naive_364":
-        lags = [364 * math.ceil(horizon / 364)]
-    else:
-        lags = _same_weekday_lags(horizon)
-
-    stacked = []
-    for lag in lags:
-        shifted = np.full(n, np.nan, dtype="float64")
-        if lag < n:
-            shifted[lag:] = values[: n - lag]
-        stacked.append(shifted)
-    matrix = np.vstack(stacked)
-
-    if model_name in ("seasonal_naive_7", "seasonal_naive_364"):
-        out = np.full(n, np.nan, dtype="float64")
-        for candidate in matrix:
-            take = np.isnan(out) & ~np.isnan(candidate)
-            out[take] = candidate[take]
-        return out
-    if model_name == "same_weekday_mean_4":
-        valid = ~np.isnan(matrix)
-        counts = valid.sum(axis=0)
-        sums = np.where(valid, matrix, 0.0).sum(axis=0)
-        return np.divide(sums, counts, out=np.full(n, np.nan, dtype="float64"), where=counts > 0)
-    raise ContractViolationError(f"未知のモデル指定です: {model_name}")
 
 
 def build() -> BuiltinBaselineProvider:

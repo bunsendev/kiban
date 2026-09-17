@@ -1,3 +1,26 @@
+# v2.9 Phase 3G 実行検証記録
+
+Date: 2026-09-17 JST
+OS: Windows 11
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.7
+
+## Phase 3G
+
+- 時点再現: historical targetごとに起点翌日00:00 JSTの締切を再現し、当時未到着だった履歴を残差予測から除外する。
+- 正解値: 最終TRAIN締切後に到着した値を残差の正解から除外し、行削除や0補完を行わない。
+- 4方式: 前週同曜日、28日移動平均、同曜日直近4回平均、前年同曜日でOBSERVED区間予測に対応する。
+- 非遡及: 過去起点では未到着だった最初の7日分を10万増やしても残差分位が変わらないことを確認した。
+- 等価性: 通常到着時は4方式のOBSERVED残差分位がASSUMEDと浮動小数点許容差内で一致する。
+- artifact: OBSERVEDでも4方式のmodel/context保存・復元後にPOINT・QUANTILEが完全一致する。
+- UI: 分析実行画面でProvider metadataが区間対応ならOBSERVED snapshotでも区間水準を選択できる。
+- module: 点予測、ASSUMED残差、OBSERVED残差を`baseline_algorithms.py`へ分離し、Provider本体を533行へ縮小した。
+- 対象試験: OBSERVED残差、artifact、4方式、管理画面、他Providerを含む124件成功、任意依存3件skip。
+- 回帰: 配布hash更新後、Linux専用RSS試験を除くWindows全体で505件成功、14件skip、1件deselect。
+- 静的検査・配布: `ruff check .`と全JavaScript構文検査に成功。515ファイルのSHA-256照合と日本語名UTF-8 ZIP生成を確認した。
+- 未実施: 実データでの区間被覆率と業務効果、Docker/PostgreSQL実DB結合は未実施。人工データ試験で代替しない。
+
 # v2.9 Phase 3F 実行検証記録
 
 Date: 2026-09-17 JST
