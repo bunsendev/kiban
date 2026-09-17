@@ -42,3 +42,15 @@ def install_campaign_routes(app, authorize, service) -> None:
             return service.detail(campaign_id)
         except CampaignNotFound as exc:
             raise HTTPException(status_code=404, detail="比較キャンペーンが見つかりません") from exc
+
+    @app.post("/api/comparison-campaigns/{campaign_id}/retry-finalization")
+    def retry_campaign_finalization(
+        campaign_id: str,
+        _principal: Annotated[Principal, Depends(analyze)],
+    ):
+        try:
+            return service.retry_finalization(campaign_id)
+        except CampaignNotFound as exc:
+            raise HTTPException(status_code=404, detail="比較キャンペーンが見つかりません") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc

@@ -156,6 +156,17 @@ services:
     volumes:
       - ${KIBAN_CONFORMANCE_DIR:?KIBAN_CONFORMANCE_DIR is required}:/var/lib/kiban/conformance
 
+  comparison-campaign-worker:
+    <<: *worker-base
+    command:
+      - kiban-comparison-campaign-worker
+      - --postgres-dsn-file
+      - /run/secrets/postgres_dsn
+      - --snapshot-root
+      - /var/lib/kiban/snapshots
+    volumes:
+      - ${KIBAN_SNAPSHOT_DIR:-../snapshot_input}:/var/lib/kiban/snapshots:ro
+
   statsforecast-worker:
     <<: *worker-base
     command:

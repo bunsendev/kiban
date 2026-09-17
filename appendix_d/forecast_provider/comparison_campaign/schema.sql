@@ -20,3 +20,27 @@ CREATE TABLE IF NOT EXISTS comparison_campaign_entries (
   PRIMARY KEY(campaign_id,provider_id,model_id),
   UNIQUE(run_id)
 );
+CREATE TABLE IF NOT EXISTS comparison_campaign_finalizations (
+  campaign_id TEXT PRIMARY KEY REFERENCES comparison_campaigns(campaign_id),
+  mode TEXT NOT NULL CHECK(mode IN ('horizon','primary')),
+  horizon INTEGER,
+  policy_version TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('WAITING','RUNNING','SUCCEEDED','FAILED')),
+  requested_at TIMESTAMPTZ NOT NULL,
+  started_at TIMESTAMPTZ,
+  finished_at TIMESTAMPTZ,
+  comparison_id TEXT REFERENCES comparison_reports(comparison_id),
+  error_code TEXT,
+  error_message TEXT,
+  CHECK((mode='primary' AND horizon IS NULL) OR (mode='horizon' AND horizon BETWEEN 1 AND 400)),
+  CHECK((status='SUCCEEDED') = (comparison_id IS NOT NULL))
+);
+CREATE INDEX IF NOT EXISTS comparison_campaign_finalizations_queue_idx
+  ON comparison_campaign_finalizations(status,requested_at,campaign_id);
+INSERT INTO comparison_campaign_finalizations(
+  campaign_id,mode,horizon,policy_version,status,requested_at
+)
+SELECT campaign_id,'primary',NULL,'evaluation-v2.9','WAITING',created_at
+FROM comparison_campaigns
+WHERE 1=1
+ON CONFLICT(campaign_id) DO NOTHING;

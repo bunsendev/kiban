@@ -2,6 +2,7 @@ import { ApiError, clearToken, setToken } from "./api.js";
 import { installPkceLogin } from "./pkce.js";
 import {
   createCampaign, createComparison, createConformanceJob, createExperiment, createRun,
+  retryCampaignFinalization,
   loadAnalysisDashboard,
 } from "./analysis_api.js";
 import {
@@ -72,7 +73,7 @@ function drawDashboard() {
     providerId: byId("provider-select").value,
   });
   renderCampaignOptions(bundle, campaignSnapshot, campaignModels);
-  renderCampaigns(bundle.campaigns, selectCampaignRuns);
+  renderCampaigns(bundle.campaigns, selectCampaignRuns, retryCampaign);
   drawDefaults();
   renderExperiments(
     bundle.experiments, bundle.snapshots, bundle.providers, bundle.conformances,
@@ -103,7 +104,9 @@ function schedulePoll() {
   if (
     state.dashboard?.runs.some((item) => ["QUEUED", "RUNNING"].includes(item.status))
     || state.dashboard?.conformanceJobs.some((item) => ["QUEUED", "RUNNING"].includes(item.status))
-    || state.dashboard?.campaigns.some((item) => item.status === "RUNNING")
+    || state.dashboard?.campaigns.some((item) => (
+      item.status === "RUNNING" || ["WAITING", "RUNNING"].includes(item.finalization?.status)
+    ))
   ) {
     pollTimer = window.setTimeout(() => refreshDashboard(true), 5000);
   }
@@ -126,12 +129,28 @@ byId("campaign-form").addEventListener("submit", async (event) => {
       snapshot_id: byId("campaign-snapshot-select").value,
       models,
       purpose: byId("campaign-purpose").value.trim(),
+      mode: byId("campaign-mode").value,
+      horizon: byId("campaign-mode").value === "horizon"
+        ? Number(byId("campaign-horizon").value) : null,
+      policy_version: "evaluation-v2.9",
     });
     setBusy(false);
     await refreshDashboard(true);
     notice(`比較キャンペーンを開始しました（${campaign.entries.length}モデル）。Workerが順次処理します。`, "success");
   } catch (error) { handleError(error); } finally { setBusy(false); }
 });
+
+async function retryCampaign(campaignId) {
+  if (state.busy) return;
+  setBusy(true);
+  notice("自動比較を再登録しています。");
+  try {
+    await retryCampaignFinalization(campaignId);
+    setBusy(false);
+    await refreshDashboard(true);
+    notice("自動比較を再登録しました。Workerが順次処理します。", "success");
+  } catch (error) { handleError(error); } finally { setBusy(false); }
+}
 
 async function registerConformance(experimentId) {
   if (state.busy) return;
@@ -278,6 +297,9 @@ byId("model-select").addEventListener("change", () => (
 ));
 byId("comparison-mode").addEventListener("change", () => {
   byId("comparison-horizon-field").hidden = byId("comparison-mode").value === "primary";
+});
+byId("campaign-mode").addEventListener("change", () => {
+  byId("campaign-horizon-field").hidden = byId("campaign-mode").value === "primary";
 });
 setBusy(false);
 installPkceLogin();

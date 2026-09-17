@@ -37,7 +37,7 @@ class ComparisonCampaignService:
         request_key_hash = hashlib.sha256(request.request_key.encode("utf-8")).hexdigest()
         campaign, _created = self.campaigns.reserve(
             request_key_hash, request.snapshot_id, requested_by, request.purpose,
-            model_keys,
+            model_keys, request.mode, request.horizon, request.policy_version,
         )
         existing = {
             (entry.provider_id, entry.model_id): entry
@@ -114,7 +114,18 @@ class ComparisonCampaignService:
         value = asdict(campaign)
         value.pop("request_key_hash")
         value.pop("model_keys")
-        return {**value, "status": status, "entries": entries}
+        finalization = self.campaigns.get_finalization(campaign_id)
+        return {
+            **value,
+            "status": status,
+            "entries": entries,
+            "finalization": None if finalization is None else asdict(finalization),
+        }
+
+    def retry_finalization(self, campaign_id: str) -> dict:
+        self.get(campaign_id)
+        self.campaigns.retry_finalization(campaign_id)
+        return self.detail(campaign_id)
 
     def _entry_detail(self, entry: CampaignEntry) -> dict:
         run = self.application.get_run(entry.run_id)

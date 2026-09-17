@@ -44,6 +44,7 @@ kiban-mapping-dry-run-worker = "forecast_provider.mapping_dry_run_worker:main"
 kiban-inventory-normalization-worker = "forecast_provider.inventory_normalization_worker:main"
 kiban-local-validation-acceptance = "forecast_provider.local_validation_acceptance.cli:main"
 kiban-provider-conformance-worker = "forecast_provider.provider_conformance_worker:main"
+kiban-comparison-campaign-worker = "forecast_provider.comparison_campaign_worker:main"
 
 [tool.setuptools.packages.find]
 include = ["forecast_provider*"]
