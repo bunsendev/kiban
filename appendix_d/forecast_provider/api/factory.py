@@ -16,6 +16,7 @@ from ..lifecycle import PostgresLifecycleStore
 from ..mapping_dry_run import PostgresMappingDryRunJobStore
 from ..master import PostgresMasterStore
 from ..normalization import PostgresNormalizationStore
+from ..provider_conformance import PostgresConformanceJobStore
 from ..reporting import PostgresReportingStore
 from ..resource_cost.postgres_store import PostgresResourceCostStore
 from ..runtime_config import read_secret_file
@@ -227,4 +228,5 @@ def from_environment():
         resource_cost=PostgresResourceCostStore(dsn),
         worker_status=PostgresWorkerStatusStore(dsn),
         worker_stale_seconds=float(os.environ.get("KIBAN_WORKER_STALE_SECONDS", "45")),
+        conformance_jobs=PostgresConformanceJobStore(dsn),
     )

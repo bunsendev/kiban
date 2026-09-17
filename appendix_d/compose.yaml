@@ -57,6 +57,22 @@ services:
     volumes:
       - kiban-worker:/var/lib/kiban
       - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots:ro
+  provider-conformance-worker:
+    profiles: ["worker"]
+    build: .
+    command:
+      - kiban-provider-conformance-worker
+      - --postgres-dsn
+      - postgresql://kiban:local-development-only@postgres:5432/kiban
+      - --provider-id
+      - builtin-baseline
+      - --evidence-root
+      - /var/lib/kiban/conformance
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${KIBAN_CONFORMANCE_DIR:-./conformance_output}:/var/lib/kiban/conformance
   statsforecast-worker:
     profiles: ["statsforecast-worker"]
     build: .
@@ -77,6 +93,22 @@ services:
     volumes:
       - kiban-worker:/var/lib/kiban
       - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots:ro
+  statsforecast-conformance-worker:
+    profiles: ["statsforecast-worker"]
+    build: .
+    command:
+      - kiban-provider-conformance-worker
+      - --postgres-dsn
+      - postgresql://kiban:local-development-only@postgres:5432/kiban
+      - --provider-id
+      - statsforecast-ets
+      - --evidence-root
+      - /var/lib/kiban/conformance
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${KIBAN_CONFORMANCE_DIR:-./conformance_output}:/var/lib/kiban/conformance
   mlforecast-worker:
     profiles: ["mlforecast-worker"]
     build: .
@@ -97,6 +129,22 @@ services:
     volumes:
       - kiban-worker:/var/lib/kiban
       - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots:ro
+  mlforecast-conformance-worker:
+    profiles: ["mlforecast-worker"]
+    build: .
+    command:
+      - kiban-provider-conformance-worker
+      - --postgres-dsn
+      - postgresql://kiban:local-development-only@postgres:5432/kiban
+      - --provider-id
+      - mlforecast-ridge
+      - --evidence-root
+      - /var/lib/kiban/conformance
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${KIBAN_CONFORMANCE_DIR:-./conformance_output}:/var/lib/kiban/conformance
   timesfm-worker:
     profiles: ["timesfm-worker"]
     build:
@@ -123,6 +171,33 @@ services:
       - kiban-worker:/var/lib/kiban
       - ${KIBAN_SNAPSHOT_DIR:-./snapshot_input}:/var/lib/kiban/snapshots:ro
       - ${KIBAN_TIMESFM_DIR:-./timesfm_checkpoint}:/var/lib/kiban/timesfm:ro
+    deploy:
+      resources:
+        limits:
+          cpus: ${KIBAN_TIMESFM_CPUS:-2.0}
+          memory: ${KIBAN_TIMESFM_MEMORY:-4G}
+  timesfm-conformance-worker:
+    profiles: ["timesfm-worker"]
+    build:
+      context: .
+      args:
+        KIBAN_INSTALL_TIMESFM_TORCH: "1"
+    environment:
+      KIBAN_TIMESFM_CHECKPOINT: /var/lib/kiban/timesfm/model.safetensors
+    command:
+      - kiban-provider-conformance-worker
+      - --postgres-dsn
+      - postgresql://kiban:local-development-only@postgres:5432/kiban
+      - --provider-id
+      - timesfm-2p5
+      - --evidence-root
+      - /var/lib/kiban/conformance
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${KIBAN_TIMESFM_DIR:-./timesfm_checkpoint}:/var/lib/kiban/timesfm:ro
+      - ${KIBAN_CONFORMANCE_DIR:-./conformance_output}:/var/lib/kiban/conformance
     deploy:
       resources:
         limits:

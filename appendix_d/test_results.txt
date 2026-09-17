@@ -1,3 +1,26 @@
+# v2.9 Phase 3H 実行検証記録
+
+Date: 2026-09-17 JST
+OS: Windows 11
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.7
+
+## Phase 3H
+
+- 非同期実行: HTTPは保存済み実験からjobを登録するだけで、Provider別独立Workerが人工データ試験を実行する。
+- 固定7項目: TRAIN境界、パラメータ不変、context更新、未来実績非参照、出力完全性、再現性、失敗通知を自動確認する。
+- 条件一致: model、params、interval levels、前処理版、seed、resource profileとsnapshotのavailability modeを試験へ固定する。
+- 台帳: SQLite/PostgreSQLでQUEUED/RUNNING/SUCCEEDED/FAILED、認証subject、時刻、適合記録ID、失敗理由を保存する。
+- 並行制御: SQLiteの排他transactionとPostgreSQLの`FOR UPDATE SKIP LOCKED`で二重取得を防ぎ、処理中の同一実験jobを重複登録しない。
+- 証跡: 実行環境、依存版、人工データ条件、7項目結果をSHA-256内容アドレスJSONへ保存し、評価台帳からURIとchecksumを参照する。
+- UI: `/ui/analysis`で実行・再実行、待機、実行中、失敗理由、未合格項目、正式比較可否を表示する。
+- Compose: 開発と本番にCPU Provider用とTimesFM専用の適合試験Workerを追加し、TimesFM checkpointをread-onlyで分離する。
+- 対象試験: API認可、active job重複防止、Provider分離、7項目合格、証跡checksum、失敗・再実行、画面導線、PostgreSQL schemaを含む6件成功、PostgreSQL実DB1件skip。
+- 回帰: 配布hash更新後、Linux専用RSS試験を除くWindows全体で510件成功、14件skip、1件deselect。更新前Provider版の適合記録を比較APIが拒否することを含む。
+- 静的検査・配布: `ruff check .`、全JavaScript構文検査、開発・本番Compose展開に成功。526ファイルのSHA-256照合と日本語名UTF-8 ZIP生成を確認した。
+- 未実施: Docker Desktop engine停止中のためPostgreSQL実DB結合と実containerでのStatsForecast、MLForecast、TimesFM試験は未実施。人工データ試験で実データ精度・業務効果を保証しない。
+
 # v2.9 Phase 3G 実行検証記録
 
 Date: 2026-09-17 JST

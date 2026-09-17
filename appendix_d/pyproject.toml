@@ -43,6 +43,7 @@ kiban-mapping-dry-run = "forecast_provider.mapping_dry_run.cli:main"
 kiban-mapping-dry-run-worker = "forecast_provider.mapping_dry_run_worker:main"
 kiban-inventory-normalization-worker = "forecast_provider.inventory_normalization_worker:main"
 kiban-local-validation-acceptance = "forecast_provider.local_validation_acceptance.cli:main"
+kiban-provider-conformance-worker = "forecast_provider.provider_conformance_worker:main"
 
 [tool.setuptools.packages.find]
 include = ["forecast_provider*"]
@@ -59,6 +60,7 @@ forecast_provider = [
     "acceptance/*.sql",
     "selection/*.sql",
     "evaluation_registry/*.sql",
+    "provider_conformance/*.sql",
     "reporting/*.sql",
     "resource_cost/*.sql",
     "worker_status/*.sql",

@@ -56,6 +56,11 @@ class ConformanceCreate(BaseModel):
         return self
 
 
+class ConformanceJobCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    experiment_id: str = Field(min_length=1)
+
+
 class ComparisonCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     run_ids: list[str] = Field(min_length=1)

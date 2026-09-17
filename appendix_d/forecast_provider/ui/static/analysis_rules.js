@@ -6,12 +6,24 @@ function canonical(value) {
   return value;
 }
 
-function sameConfig(record, definition) {
+export function sameConfig(record, definition) {
   const expected = {
     params: definition.params || {}, interval_levels: definition.interval_levels || [],
     preprocessing_version: definition.preprocessing_version,
   };
   return JSON.stringify(canonical(record.adapter_config)) === JSON.stringify(canonical(expected));
+}
+
+export function matchingConformance(conformances, definition, provider = null) {
+  return conformances.find((item) => (
+    item.provider_id === definition.provider_id && item.model_id === definition.model_name
+    && (!provider || (
+      item.provider_version === provider.provider_version
+      && item.library_name === provider.library_name
+      && item.library_version === provider.library_version
+    ))
+    && sameConfig(item, definition)
+  ));
 }
 
 export function runContext(dashboard, run) {
@@ -30,10 +42,12 @@ export function runContext(dashboard, run) {
     (item) => item.experiment_id === run.experiment_id,
   );
   if (!experiment) return { eligible: false, reason: "実験定義を確認できません。" };
-  const conformance = dashboard.conformances.find((item) => (
-    item.provider_id === run.provider_id && item.model_id === run.model_name
-    && sameConfig(item, experiment.definition)
-  ));
+  const provider = dashboard.providers.find(
+    (item) => item.provider_id === experiment.definition.provider_id,
+  );
+  const conformance = matchingConformance(
+    dashboard.conformances, experiment.definition, provider,
+  );
   if (!conformance) {
     return { eligible: false, reason: "実験条件と一致するProvider適合記録がありません。" };
   }

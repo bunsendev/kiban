@@ -124,6 +124,10 @@ class EvaluationRegistryService:
             truth_snapshot = snapshot
             definition = experiment.definition
             conformance = self.get_conformance(conformance_ids[run_id])
+            try:
+                current_metadata = registry.create(definition["provider_id"]).metadata()
+            except ProviderError as exc:
+                raise EvaluationConflict("runのProviderを現在の環境で確認できません") from exc
             expected_config = {
                 "params": definition.get("params", {}),
                 "interval_levels": definition.get("interval_levels", []),
@@ -132,9 +136,12 @@ class EvaluationRegistryService:
             if (
                 conformance.provider_id != definition["provider_id"]
                 or conformance.model_id != definition["model_name"]
+                or conformance.provider_version != current_metadata.provider_version
+                or conformance.library_name != current_metadata.library_name
+                or conformance.library_version != current_metadata.library_version
                 or conformance.adapter_config != expected_config
             ):
-                raise EvaluationConflict("runとProvider適合記録の条件が一致しません")
+                raise EvaluationConflict("runと現在のProvider適合記録の条件が一致しません")
             result = self.runs.get_run_results(run_id)
             if result is None:
                 raise EvaluationNotFound(run_id)

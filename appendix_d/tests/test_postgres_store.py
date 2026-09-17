@@ -12,7 +12,7 @@ from test_run_api import snapshot_payload
 
 from forecast_provider.acceptance import PostgresAcceptanceStore
 from forecast_provider.catalog import PostgresCatalogStore
-from forecast_provider.catalog.domain import make_snapshot
+from forecast_provider.catalog.domain import make_experiment, make_snapshot
 from forecast_provider.evaluation_registry import (
     REQUIRED_CHECKS,
     PostgresEvaluationRegistryStore,
@@ -30,6 +30,7 @@ from forecast_provider.normalization import (
     ShipmentRow,
     make_mapping,
 )
+from forecast_provider.provider_conformance import PostgresConformanceJobStore
 from forecast_provider.registry import registry
 from forecast_provider.reporting import (
     PostgresReportingStore,
@@ -115,6 +116,15 @@ def test_postgres_migration_has_locking_and_business_constraints():
     text = worker_status_sql.read_text(encoding="utf-8")
     assert "worker_heartbeats" in text and "TIMESTAMPTZ" in text
     assert "ix_worker_heartbeats_provider" in text
+    conformance_job_sql = path.parents[2] / "provider_conformance" / "schema.sql"
+    text = conformance_job_sql.read_text(encoding="utf-8")
+    assert "provider_conformance_jobs" in text and "TIMESTAMPTZ" in text
+    assert "REFERENCES provider_conformance_tests" in text
+    assert "provider_conformance_jobs_one_active_idx" in text
+    conformance_job_store = (
+        path.parents[2] / "provider_conformance" / "store.py"
+    ).read_text(encoding="utf-8")
+    assert "FOR UPDATE SKIP LOCKED" in conformance_job_store
 
 
 @pytest.mark.skipif(not os.getenv("KIBAN_TEST_POSTGRES_DSN"), reason="PostgreSQL DSN未設定")
@@ -182,6 +192,21 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
     snapshot = make_snapshot(snapshot_payload())
     catalog.put_snapshot(snapshot)
     assert catalog.get_snapshot(snapshot.snapshot_id) == snapshot
+    experiment = make_experiment(
+        snapshot,
+        {
+            "snapshot_id": snapshot.snapshot_id,
+            "provider_id": "builtin-baseline",
+            "model_name": "moving_average_28",
+            "params": {},
+            "interval_levels": [],
+            "preprocessing_version": "daily-v1",
+            "seed": 7,
+            "resource_profile": f"postgres-{uuid.uuid4()}",
+            "training_policy": "FIXED",
+        },
+    )
+    catalog.put_experiment(experiment)
     ingestion = PostgresIngestionStore(dsn)
     job = ingestion.enqueue(f"phase1g-{uuid.uuid4()}.csv")
     assert ingestion.claim().import_id == job.import_id
@@ -303,6 +328,18 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
         metadata,
     )
     evaluation.put_conformance(conformance)
+    conformance_jobs = PostgresConformanceJobStore(dsn)
+    conformance_provider = f"postgres-conformance-{uuid.uuid4()}"
+    conformance_job = conformance_jobs.enqueue(
+        experiment.experiment_id,
+        conformance_provider,
+        "moving_average_28",
+        "test@example.test",
+    )
+    claimed = conformance_jobs.claim(conformance_provider)
+    assert claimed is not None and claimed.job_id == conformance_job.job_id
+    conformance_jobs.fail(claimed.job_id, "POSTGRES_TEST", "expected test failure")
+    assert conformance_jobs.get_job(claimed.job_id).status == "FAILED"
     comparison = make_comparison_record(
         {
             "truth_version": "postgres-truth-v1",

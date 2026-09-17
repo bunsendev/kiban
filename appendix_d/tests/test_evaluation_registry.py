@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import sqlite3
 from decimal import Decimal
 
 import pandas as pd
@@ -342,3 +343,24 @@ def test_comparison_rejects_nonterminal_run_and_unknown_record(tmp_path):
     assert response.status_code == 409
     assert api.get("/api/comparisons/missing").status_code == 404
     assert runs.get_run(run_id).status == "QUEUED"
+
+
+def test_comparison_rejects_conformance_from_old_provider_version(tmp_path):
+    api, runs, catalog, _, snapshot_id = _fixture(tmp_path)
+    experiment, definition = _experiment(api, snapshot_id, "moving_average_28")
+    run_id = _completed_run(api, runs, catalog, experiment, 9)
+    conformance_id = _conformance(api, definition)
+    with sqlite3.connect(tmp_path / "evaluation.sqlite3") as database:
+        database.execute(
+            "UPDATE provider_conformance_tests SET provider_version=? "
+            "WHERE conformance_id=?",
+            ("old-version", conformance_id),
+        )
+
+    response = api.post(
+        "/api/comparisons",
+        json=_comparison(snapshot_id, [run_id], [conformance_id]),
+    )
+
+    assert response.status_code == 409
+    assert "現在のProvider適合記録" in response.json()["message"]
