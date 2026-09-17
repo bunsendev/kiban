@@ -238,6 +238,13 @@ def create_app(
         except NotFoundError as exc:
             raise HTTPException(status_code=404, detail="snapshotが見つかりません") from exc
 
+    @app.get("/api/snapshots")
+    def list_snapshots(
+        _principal: Annotated[Principal, Depends(read)],
+        limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    ):
+        return [record_dict(value) for value in service.list_snapshots(limit=limit)]
+
     @app.post("/api/experiments", response_model=Created, status_code=201)
     def create_experiment(
         request: ExperimentCreate,
@@ -259,6 +266,17 @@ def create_app(
             return record_dict(service.get_experiment(experiment_id))
         except NotFoundError as exc:
             raise HTTPException(status_code=404, detail="experimentが見つかりません") from exc
+
+    @app.get("/api/experiments")
+    def list_experiments(
+        _principal: Annotated[Principal, Depends(read)],
+        snapshot_id: str | None = None,
+        limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    ):
+        return [
+            record_dict(value)
+            for value in service.list_experiments(snapshot_id=snapshot_id, limit=limit)
+        ]
 
     @app.post("/api/runs", response_model=RunCreated, status_code=status.HTTP_202_ACCEPTED)
     def create_run(

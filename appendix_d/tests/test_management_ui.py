@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from forecast_provider.api import create_app
 from forecast_provider.catalog import SqliteCatalogStore
+from forecast_provider.evaluation_registry import SqliteEvaluationRegistryStore
 from forecast_provider.ingestion import SqliteIngestionStore
 from forecast_provider.jobs import SqliteRunStore
 from forecast_provider.mapping_dry_run import SqliteMappingDryRunJobStore
@@ -321,3 +322,63 @@ def test_resource_cost_ui_serves_complete_admin_workflow(tmp_path):
     assert len(ids) == len(re.findall(r'id="([^"]+)"', page.text))
     references = set(re.findall(r'(?:byId|document\.getElementById)\("([^"]+)"\)', scripts))
     assert references <= ids
+
+
+def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
+    database = tmp_path / "analysis-ui.sqlite3"
+    api = TestClient(
+        create_app(
+            SqliteRunStore(database),
+            SqliteCatalogStore(database),
+            "token",
+            evaluation_registry=SqliteEvaluationRegistryStore(database),
+        )
+    )
+
+    page = api.get("/ui/analysis")
+    app = api.get("/ui/assets/analysis_app.js")
+    client = api.get("/ui/assets/analysis_api.js")
+    renderer = api.get("/ui/assets/analysis_render.js")
+    styles = api.get("/ui/assets/analysis.css")
+
+    assert all(value.status_code == 200 for value in (page, app, client, renderer, styles))
+    assert "分析実行ワークスペース" in page.text
+    assert 'type="module" src="/ui/assets/analysis_app.js"' in page.text
+    routes = (
+        "/ui",
+        "/ui/lifecycle",
+        "/ui/readiness",
+        "/ui/selection",
+        "/ui/acceptance",
+        "/ui/intake",
+        "/ui/matching",
+        "/ui/resources",
+    )
+    assert all('href="/ui/analysis"' in api.get(path).text for path in routes)
+    scripts = app.text + client.text + renderer.text
+    assert "localStorage" not in scripts
+    assert "sessionStorage" not in scripts
+    assert 'request("/api/snapshots?limit=200")' in client.text
+    assert 'request("/api/experiments?limit=200")' in client.text
+    assert 'request("/api/providers")' in client.text
+    assert 'request("/api/provider-conformance-tests")' in client.text
+    assert "experiment_defaults" in renderer.text
+    assert 'data-permission="ANALYZE"' in page.text
+
+    ids = set(re.findall(r'id="([^"]+)"', page.text))
+    assert len(ids) == len(re.findall(r'id="([^"]+)"', page.text))
+    references = set(re.findall(r'(?:byId|document\.getElementById)\("([^"]+)"\)', scripts))
+    assert references <= ids
+
+    api.headers["Authorization"] = "Bearer token"
+    providers = api.get("/api/providers")
+    assert providers.status_code == 200
+    baseline = next(item for item in providers.json() if item["provider_id"] == "builtin-baseline")
+    assert baseline["experiment_defaults"] == {
+        "preprocessing_version": "daily-v1",
+        "params": {},
+        "interval_levels": [],
+        "seed": 7,
+        "resource_profile": "cpu-small",
+        "training_policy": "FIXED",
+    }

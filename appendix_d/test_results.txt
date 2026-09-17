@@ -1,3 +1,23 @@
+# v2.9 Phase 3E 実行検証記録
+
+Date: 2026-09-17 JST
+OS: Windows 11
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.7
+
+## Phase 3E
+
+- 管理画面: `/ui/analysis`でsnapshot選択、実験作成、run登録・自動進捗確認、比較作成を順番に操作できる。
+- Provider拡張: Provider metadataの実験既定値とモデル一覧から画面を生成し、Provider ID固有の分岐を置かない。
+- 比較保護: 同一snapshot、終端run、実験設定と完全一致するProvider適合記録を比較前に照合する。
+- Catalog: SQLite/PostgreSQL共通契約へsnapshot・実験の上限付き一覧を追加し、READ権限で公開する。
+- module: 画面をHTML、API通信、状態管理、DOM描画、固有styleへ分割し、最大240行に抑えた。
+- 対象試験: Catalog一覧、Provider既定値、管理画面DOM・権限・token非永続化を含む19件成功。
+- 回帰: 配布hash更新後、Linux専用RSS試験を除くWindows全体で493件成功、14件skip、1件deselect。
+- 静的検査・配布: `ruff check .`と全JavaScript構文検査に成功。501ファイルのSHA-256照合と日本語名UTF-8 ZIP生成を確認した。
+- 未実施: Docker Desktop engine停止中のためPostgreSQL実DB結合試験と実ブラウザー操作は未実施。人工データ試験で実データ受入や精度を保証しない。
+
 # v2.9 Phase 3D 実行検証記録
 
 Date: 2026-09-17 JST

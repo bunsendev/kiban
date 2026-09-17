@@ -48,6 +48,14 @@ class SqliteCatalogStore:
             ).fetchone()
             return None if row is None else _snapshot(row)
 
+    def list_snapshots(self, *, limit: int = 100) -> list[SnapshotRecord]:
+        _validate_limit(limit)
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT * FROM dataset_snapshots ORDER BY snapshot_id DESC LIMIT ?", (limit,)
+            )
+            return [_snapshot(row) for row in rows]
+
     def put_experiment(self, record: ExperimentRecord) -> None:
         with self._connect() as db:
             db.execute(
@@ -73,6 +81,21 @@ class SqliteCatalogStore:
                 "SELECT * FROM experiments WHERE experiment_id=?", (experiment_id,)
             ).fetchone()
             return None if row is None else _experiment(row)
+
+    def list_experiments(
+        self, *, snapshot_id: str | None = None, limit: int = 100
+    ) -> list[ExperimentRecord]:
+        _validate_limit(limit)
+        query = "SELECT * FROM experiments"
+        params: tuple[object, ...]
+        if snapshot_id is None:
+            params = (limit,)
+        else:
+            query += " WHERE snapshot_id=?"
+            params = (snapshot_id, limit)
+        query += " ORDER BY experiment_id DESC LIMIT ?"
+        with self._connect() as db:
+            return [_experiment(row) for row in db.execute(query, params)]
 
 
 class PostgresCatalogStore(SqliteCatalogStore):
@@ -104,6 +127,11 @@ def _schema_path() -> Path:
 
 def _json(value: dict) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _validate_limit(limit: int) -> None:
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 200:
+        raise ValueError("limitは1以上200以下です")
 
 
 def _snapshot(row) -> SnapshotRecord:

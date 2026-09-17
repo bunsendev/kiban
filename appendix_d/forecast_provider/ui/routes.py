@@ -104,3 +104,12 @@ def install_ui_routes(app) -> None:
             media_type="text/html; charset=utf-8",
             headers=SECURITY_HEADERS,
         )
+
+    @app.get("/ui/analysis", include_in_schema=False)
+    @app.get("/ui/analysis/", include_in_schema=False)
+    def analysis_ui():
+        return FileResponse(
+            STATIC_ROOT / "analysis.html",
+            media_type="text/html; charset=utf-8",
+            headers=SECURITY_HEADERS,
+        )

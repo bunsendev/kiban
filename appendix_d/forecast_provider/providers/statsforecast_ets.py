@@ -13,6 +13,7 @@ import pandas as pd
 from ..contracts import (
     PREDICT_REQUIRED_COLUMNS,
     ContextRef,
+    ExperimentDefaults,
     ForecastDataset,
     ForecastProvider,
     ModelMetadata,
@@ -62,6 +63,10 @@ class StatsForecastETSProvider(ForecastProvider):
             category="統計",
             library_name="statsforecast",
             library_version=importlib.metadata.version("statsforecast"),
+            experiment_defaults=ExperimentDefaults(
+                preprocessing_version=PREPROCESSING_VERSION,
+                params=MODEL_PARAMS,
+            ),
             capabilities=ProviderCapabilities(
                 supports_panel=True,
                 supports_exogenous="none",

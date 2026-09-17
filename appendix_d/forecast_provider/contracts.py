@@ -126,6 +126,39 @@ class ModelMetadata:
 
 
 @dataclass(frozen=True)
+class ExperimentDefaults:
+    """管理画面・API利用者が実験定義を組み立てるための既定値。"""
+
+    preprocessing_version: str
+    params: dict[str, Any] = field(default_factory=dict)
+    interval_levels: tuple[float, ...] = ()
+    seed: int = 7
+    resource_profile: str = "cpu-small"
+    training_policy: Literal["FIXED", "MONTHLY_EXPANDING"] = "FIXED"
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.preprocessing_version, str)
+            or not self.preprocessing_version.strip()
+        ):
+            raise ValueError("preprocessing_versionは空でない文字列で指定します")
+        if not isinstance(self.params, Mapping):
+            raise ValueError("paramsはmappingで指定します")
+        object.__setattr__(self, "params", dict(self.params))
+        if not isinstance(self.interval_levels, (tuple, list)):
+            raise ValueError("interval_levelsは配列で指定します")
+        levels = tuple(float(value) for value in self.interval_levels)
+        if any(value <= 0 or value >= 1 for value in levels) or len(levels) != len(set(levels)):
+            raise ValueError("interval_levelsは重複しない0より大きく1未満の値です")
+        object.__setattr__(self, "interval_levels", levels)
+        object.__setattr__(self, "seed", _coerce_int(self.seed, "seed"))
+        if not isinstance(self.resource_profile, str) or not self.resource_profile.strip():
+            raise ValueError("resource_profileは空でない文字列で指定します")
+        if self.training_policy not in ("FIXED", "MONTHLY_EXPANDING"):
+            raise ValueError("training_policyが不正です")
+
+
+@dataclass(frozen=True)
 class ProviderMetadata:
     """レジストリ登録および再現性記録に用いる識別情報。"""
 
@@ -137,6 +170,7 @@ class ProviderMetadata:
     category: str
     library_name: str
     library_version: str
+    experiment_defaults: ExperimentDefaults
     container_digest: str | None = None
     external_endpoints: tuple[str, ...] = ()
     runtime_dependencies: tuple[tuple[str, str], ...] = ()
@@ -161,6 +195,8 @@ class ProviderMetadata:
         model_ids = [m.model_id for m in self.models]
         if len(model_ids) != len(set(model_ids)):
             raise ValueError("ModelMetadata.model_id が重複しています")
+        if not isinstance(self.experiment_defaults, ExperimentDefaults):
+            raise ValueError("experiment_defaultsはExperimentDefaultsで指定します")
         if not isinstance(self.external_endpoints, (tuple, list)):
             raise ValueError("external_endpoints は文字列の配列で指定します")
         endpoints = tuple(self.external_endpoints)

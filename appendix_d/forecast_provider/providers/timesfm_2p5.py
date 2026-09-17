@@ -13,6 +13,7 @@ import pandas as pd
 from ..contracts import (
     PREDICT_REQUIRED_COLUMNS,
     ContextRef,
+    ExperimentDefaults,
     ForecastDataset,
     ForecastProvider,
     ModelMetadata,
@@ -57,6 +58,11 @@ class TimesFM2p5Provider(ForecastProvider):
             category="時系列基盤モデル",
             library_name="timesfm",
             library_version=importlib.metadata.version("timesfm"),
+            experiment_defaults=ExperimentDefaults(
+                preprocessing_version=PREPROCESSING_VERSION,
+                params=MODEL_PARAMS,
+                resource_profile="cpu-large",
+            ),
             capabilities=ProviderCapabilities(
                 supports_panel=True,
                 supports_exogenous="none",

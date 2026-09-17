@@ -112,6 +112,8 @@ Phase 3Cで`/ui/resources`の資源・費用管理画面を追加した。READ�
 
 Phase 3DでProvider専用Workerのrun取得をProvider IDで分離した。組込executorはmetadataから対象Providerを固定し、カスタムexecutorは`--provider-id`を必須とする。Baseline、AutoETS、MLForecast、TimesFMを同時起動しても別Providerのrunを取得しない。詳細は[Provider別Worker実行分離](docs/Phase3D_Provider別Worker実行分離.md)。
 
+Phase 3Eで`/ui/analysis`の分析実行ワークスペースを追加した。READ利用者はsnapshot、実験、Provider、run、適合記録、比較履歴を参照し、ANALYZE利用者はメタデータ既定値から実験を作成してrun登録、進捗確認、適合条件が一致するrunの比較作成まで行う。詳細は[分析実行ワークスペース](docs/Phase3E_分析実行ワークスペース.md)。
+
 次はプリフライトが`READY_FOR_DATA`の環境で実業務原本の検証jobを登録し、画面で`READY_FOR_NORMALIZATION`または隔離理由を確認する。その後Phase 1Xから全行の数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進み、全3年の重要品目選定とPhase 1Sの将来trialを開始する。FULL 20〜50品目のOSS比較前に対象環境の資源単価を登録し、Phase 3Bの時間・費用列を含む比較CSVを発行する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
