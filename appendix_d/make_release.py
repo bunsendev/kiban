@@ -24,6 +24,7 @@ EXCLUDE_DIRS = {
     "__pycache__",
     ".pytest_cache",
     ".ruff_cache",
+    ".kiban",
     "demo_output",
     "artifact_output",
     "snapshot_input",

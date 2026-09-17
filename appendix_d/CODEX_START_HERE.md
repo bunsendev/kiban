@@ -127,6 +127,8 @@ Phase 3Iで同じsnapshotを使う2〜12個のOSSモデルを比較キャンペ�
 
 Phase 3Jでキャンペーン登録時に主評価期間またはhorizonを固定し、全モデル完了後に独立Workerが保存済みrun・Provider適合記録・truth snapshotから比較結果を自動生成する。待機・実行・成功・失敗、比較ID、再実行をSQLite/PostgreSQLへ保存し、分析実行画面から結果へ移動できる。詳細は[比較キャンペーン自動完了](docs/Phase3J_比較キャンペーン自動完了.md)。
 
+Phase 3KでWindows現場PC向けの「予測OSS分析を起動」を追加した。PC資源を検査してDocker Desktop、データ準備、Baseline、AutoETS、Ridge、適合試験、自動比較Workerを一括起動し、全serviceとProvider heartbeatの確認後に分析画面を開く。TimesFMは高負荷のため空きメモリ検査付きの別ランチャーから追加する。詳細は[Windows予測OSS分析ランチャー](docs/Phase3K_Windows予測OSS分析ランチャー.md)。
+
 次はプリフライトが`READY_FOR_DATA`の環境で実業務原本の検証jobを登録し、画面で`READY_FOR_NORMALIZATION`または隔離理由を確認する。その後Phase 1Xから全行の数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進み、全3年の重要品目選定とPhase 1Sの将来trialを開始する。FULL 20〜50品目のOSS比較前に対象環境の資源単価を登録し、Phase 3Bの時間・費用列を含む比較CSVを発行する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 

@@ -12,5 +12,7 @@ RUN pip install --no-cache-dir \
     && if [ "$KIBAN_INSTALL_TIMESFM_TORCH" = "1" ]; then \
          pip install --no-cache-dir -r requirements-timesfm-torch.txt; \
        fi
+RUN mkdir -p /var/lib/kiban/artifacts /var/lib/kiban/work \
+    && chown -R 65532:65532 /var/lib/kiban
 USER 65532:65532
 CMD ["uvicorn", "forecast_provider.api.factory:from_environment", "--factory", "--host", "0.0.0.0", "--port", "8000"]

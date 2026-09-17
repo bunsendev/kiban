@@ -82,6 +82,8 @@ APIと軽量な全Provider依存は`pip install -e ".[api,postgres,statsforecast
 
 同じsnapshotで複数OSSモデルを検証するときは、`/ui/analysis`の「比較セットをまとめて開始する」で2〜12モデルと評価方式を選択する。実験、Provider適合試験、予測runが一括登録され、全モデル完了後は独立Workerが比較結果を自動生成する。モデル別進捗、失敗理由、自動比較の状態と結果導線をキャンペーンカードで追跡できる。同じ操作の再送は同一キャンペーン・runへ収束する。詳細は[OSS比較キャンペーン](docs/Phase3I_OSS比較キャンペーン.md)と[比較キャンペーン自動完了](docs/Phase3J_比較キャンペーン自動完了.md)を参照する。
 
+Windows現場PCでは「予測OSS分析を起動」をダブルクリックすると、Docker Desktop、データ準備Worker、Baseline、StatsForecast AutoETS、MLForecast Ridge、Provider適合試験、自動比較Workerをまとめて起動し、全serviceとProvider heartbeatを確認してから`/ui/analysis`を開く。TimesFMは空きメモリを確認する「TimesFM分析を追加起動」から明示的に追加する。詳細は[Windows予測OSS分析ランチャー](docs/Phase3K_Windows予測OSS分析ランチャー.md)を参照する。
+
 分析実行画面はProvider Workerの処理中、待機中、応答遅延、未起動、待機・実行中run数を表示する。Workerは起動中と長時間推論中にheartbeatを更新し、再起動時は旧processの更新を拒否する。運用判断とAPI契約は[Worker稼働状態とキュー診断](docs/Phase3F_Worker稼働状態とキュー診断.md)を参照する。
 
 builtin baselineは実測`available_at`を持つOBSERVED snapshotでも区間予測を実行できる。TRAIN内の

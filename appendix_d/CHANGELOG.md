@@ -1,5 +1,16 @@
 # v2.9 修正記録
 
+## Phase 3K
+
+- Windows現場PC向けにBaseline・AutoETS・Ridgeの予測OSS分析環境をワンクリック起動するランチャーを追加。
+- CPU、RAM、diskの事前検査と、API readiness・必要service・Provider heartbeatの起動後検査を追加。
+- データ準備、適合試験、Provider予測、自動比較Workerを標準構成として一括起動。
+- TimesFMを標準構成から分離し、RAM総量と現在の空きを確認する明示的な追加ランチャーを追加。
+- 停止対象を全管理serviceへ拡張し、状態確認へ不足service、Provider状態、キュー件数を追加。
+- 分析専用PowerShell moduleへ処理を分離し、接続codeを状態表示・診断へ出さない契約を維持。
+- Docker runtime socketの安全な自動復旧、Windows予約port回避、起動済み構成の再利用を追加。
+- PostgreSQLの真偽値型差異と予測Worker volumeの所有者を修正し、非root Workerで実予測を実行可能にした。
+
 ## Phase 3J
 
 - 比較キャンペーン登録時に主評価期間または指定horizonと評価policyを固定。

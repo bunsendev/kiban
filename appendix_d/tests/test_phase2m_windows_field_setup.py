@@ -14,6 +14,8 @@ def test_field_operator_entrypoints_are_small_wrappers():
     expected = {
         "現場PCセットアップ.cmd": "setup.ps1",
         "予測基盤を起動.cmd": "start.ps1",
+        "予測OSS分析を起動.cmd": "analysis-start.ps1",
+        "TimesFM分析を追加起動.cmd": "analysis-start.ps1",
         "予測基盤を停止.cmd": "stop.ps1",
         "状態確認.cmd": "status.ps1",
         "障害情報取得.cmd": "diagnostics.ps1",
@@ -59,7 +61,7 @@ def test_daily_scripts_preserve_database_volume():
     start = _text("start.ps1")
     stop = _text("stop.ps1")
     assert '"up", "-d", "postgres", "api", "mapping-dry-run-worker"' in start
-    assert '"stop", "api", "mapping-dry-run-worker", "postgres"' in stop
+    assert 'Get-KibanManagedServices' in stop
     assert "down" not in stop
     assert "--volumes" not in stop
     assert 'ArgumentList "`"$connectionPath`""' in start
