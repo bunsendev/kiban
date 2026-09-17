@@ -82,6 +82,8 @@ def test_campaign_registers_experiments_conformance_jobs_and_runs_once(tmp_path)
     assert second.status_code == 202, second.text
     assert first.json()["campaign_id"] == second.json()["campaign_id"]
     assert first.json()["status"] == "RUNNING"
+    assert first.json()["finalization"]["status"] == "WAITING"
+    assert first.json()["finalization"]["mode"] == "primary"
     assert len(first.json()["entries"]) == 2
     assert {item["run_status"] for item in first.json()["entries"]} == {"QUEUED"}
     assert {item["conformance_status"] for item in first.json()["entries"]} == {"QUEUED"}

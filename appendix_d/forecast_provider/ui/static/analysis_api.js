@@ -28,6 +28,12 @@ export function createCampaign(payload) {
   });
 }
 
+export function retryCampaignFinalization(campaignId) {
+  return request(`/api/comparison-campaigns/${encodeURIComponent(campaignId)}/retry-finalization`, {
+    method: "POST",
+  });
+}
+
 export function createExperiment(payload) {
   return request("/api/experiments", {
     method: "POST",

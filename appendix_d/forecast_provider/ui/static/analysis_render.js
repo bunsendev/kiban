@@ -87,7 +87,12 @@ export function renderCampaignOptions(bundle, selectedSnapshot, selectedModels =
   })]);
 }
 
-export function renderCampaigns(campaigns, onSelectRuns) {
+const FINALIZATION_LABELS = {
+  WAITING: "自動比較待機", RUNNING: "自動比較作成中",
+  SUCCEEDED: "比較結果作成済み", FAILED: "自動比較失敗",
+};
+
+export function renderCampaigns(campaigns, onSelectRuns, onRetry) {
   document.getElementById("campaign-count").textContent = `${campaigns.length}件`;
   const cards = campaigns.map((campaign) => {
     const done = campaign.entries.filter((item) => item.status === "COMPLETED").length;
@@ -105,6 +110,34 @@ export function renderCampaigns(campaigns, onSelectRuns) {
       disabled: done === 0, "data-locked": String(done === 0),
     });
     selectButton.addEventListener("click", () => onSelectRuns(campaign));
+    const finalization = campaign.finalization;
+    const finalizationState = node("div", { className: "campaign-finalization" }, [
+      node("span", {
+        className: `pill ${statusTone(finalization?.status || "WAITING")}`,
+        text: FINALIZATION_LABELS[finalization?.status] || "自動比較未登録",
+      }),
+      node("small", {
+        text: finalization?.mode === "horizon"
+          ? `評価条件: horizon ${finalization.horizon}` : "評価条件: 主評価期間",
+      }),
+    ]);
+    if (finalization?.status === "SUCCEEDED") {
+      finalizationState.append(node("a", {
+        href: `/ui?comparison_id=${encodeURIComponent(finalization.comparison_id)}`,
+        className: "button primary", text: "比較結果を開く",
+        title: finalization.comparison_id,
+      }));
+    } else if (finalization?.status === "FAILED") {
+      finalizationState.append(
+        node("small", { className: "run-warning", text: finalization.error_message || "自動比較に失敗しました。" }),
+      );
+      const retry = node("button", {
+        type: "button", className: "button quiet", text: "自動比較を再実行",
+        "data-permission": "ANALYZE",
+      });
+      retry.addEventListener("click", () => onRetry(campaign.campaign_id));
+      finalizationState.append(retry);
+    }
     return node("article", { className: "campaign-card" }, [
       node("div", { className: "card-heading" }, [
         node("strong", { text: campaign.purpose }),
@@ -113,6 +146,7 @@ export function renderCampaigns(campaigns, onSelectRuns) {
       node("p", { text: `${done} / ${campaign.entries.length} モデル完了・${dateTime(campaign.created_at)}` }),
       node("code", { text: campaign.campaign_id, title: campaign.campaign_id }),
       ...entries,
+      finalizationState,
       selectButton,
     ]);
   });

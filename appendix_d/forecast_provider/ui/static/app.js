@@ -26,6 +26,7 @@ const state = {
   busy: false,
   permissions: new Set(),
 };
+const requestedComparisonId = new URLSearchParams(window.location.search).get("comparison_id");
 
 const elements = {
   connectionForm: document.getElementById("connection-form"),
@@ -253,7 +254,7 @@ function updateDecisionFields() {
 elements.connectionForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   setToken(elements.token.value);
-  await refreshDashboard();
+  await refreshDashboard(requestedComparisonId || state.selectedId);
   if (state.dashboard) {
     elements.connectionForm.hidden = true;
     elements.sessionControls.hidden = false;

@@ -1,3 +1,24 @@
+# v2.9 Phase 3J 実行検証記録
+
+Date: 2026-09-17 JST
+OS: Windows 11
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.7
+
+## Phase 3J
+
+- 評価条件: キャンペーン登録時に主評価期間または指定horizonと`evaluation-v2.9`を固定する。
+- 自動完了: 全モデルの適合試験と予測run完了後、独立Workerが保存済み証跡から比較結果を作成する。
+- 台帳: WAITING/RUNNING/SUCCEEDED/FAILED、開始・完了時刻、比較ID、安全な失敗理由をSQLite/PostgreSQLへ保存する。
+- 並行制御: SQLite排他transactionとPostgreSQL `FOR UPDATE SKIP LOCKED`で二重取得を防ぐ。
+- 復旧: FAILEDだけをANALYZE権限でWAITINGへ戻し、Workerから再実行できる。
+- UI: 評価方式、進捗、失敗理由、再実行、`comparison_id`を指定した結果画面への直接導線を追加した。
+- 対象試験: 状態遷移、二重claim防止、Worker待機・成功要求・失敗、API入力制約・再実行・成功永続化、旧台帳補完を含む9件成功。
+- 回帰: 配布hash更新後、Linux専用RSS試験を除くWindows全体で546件成功、8件skip、1件deselect。
+- 静的検査: `ruff check .`、全JavaScript構文検査、開発・本番Compose展開に成功。
+- 未実施: PostgreSQL test DSN未設定のため実DB結合はskip。実データ精度・業務効果と採用判断は自動化対象外。
+
 # v2.9 Phase 3I 実行検証記録
 
 Date: 2026-09-17 JST

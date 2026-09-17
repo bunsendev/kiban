@@ -48,6 +48,7 @@
 .campaign-card { padding: 0.9rem; border: 1px solid var(--line); background: #fff; }
 .campaign-card > p { margin: 0.4rem 0; color: var(--muted); }
 .campaign-card > code { display: block; font-size: 0.72rem; overflow-wrap: anywhere; }
+.campaign-finalization { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; margin: 0.7rem 0; padding: 0.65rem; background: #f5f8fb; }
 .campaign-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; padding: 0.5rem 0; border-top: 1px solid var(--soft-line); }
 .campaign-entry small { grid-column: 1 / -1; color: var(--muted); }
 

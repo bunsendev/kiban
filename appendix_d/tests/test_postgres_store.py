@@ -132,8 +132,15 @@ def test_postgres_migration_has_locking_and_business_constraints():
     campaign_sql = path.parents[2] / "comparison_campaign" / "schema.sql"
     text = campaign_sql.read_text(encoding="utf-8")
     assert "comparison_campaigns" in text and "comparison_campaign_entries" in text
+    assert "comparison_campaign_finalizations" in text
+    assert "WAITING','RUNNING','SUCCEEDED','FAILED" in text
+    assert "REFERENCES comparison_reports(comparison_id)" in text
     assert "UNIQUE(requested_by, request_key_hash)" in text
     assert "REFERENCES forecast_runs(run_id)" in text
+    campaign_store = (
+        path.parents[2] / "comparison_campaign" / "store.py"
+    ).read_text(encoding="utf-8")
+    assert "FOR UPDATE SKIP LOCKED" in campaign_store
 
 
 @pytest.mark.skipif(not os.getenv("KIBAN_TEST_POSTGRES_DSN"), reason="PostgreSQL DSN未設定")

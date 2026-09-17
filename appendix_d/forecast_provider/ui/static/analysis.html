@@ -67,8 +67,10 @@
               <legend>比較するモデル（2件以上）</legend>
               <div id="campaign-model-options" class="campaign-model-options"></div>
             </fieldset>
+            <label>評価方式<select id="campaign-mode"><option value="primary">主評価期間</option><option value="horizon">指定horizon</option></select></label>
+            <label id="campaign-horizon-field" hidden>horizon<input id="campaign-horizon" type="number" min="1" max="400" value="7"></label>
             <label>比較の目的<textarea id="campaign-purpose" rows="3" required>OSSモデル選定のための一括比較</textarea></label>
-            <p class="field-note">各Providerの登録済み既定値を使います。同じ操作の再送は重複runを作りません。</p>
+            <p class="field-note">各Providerの登録済み既定値を使います。全モデル完了後に比較結果を自動生成します。同じ操作の再送は重複runを作りません。</p>
             <div class="form-actions"><button id="campaign-submit" class="button primary" type="submit" data-permission="ANALYZE">選択したモデルをまとめて開始</button></div>
           </form>
           <div>

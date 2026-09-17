@@ -1,5 +1,14 @@
 # v2.9 修正記録
 
+## Phase 3J
+
+- 比較キャンペーン登録時に主評価期間または指定horizonと評価policyを固定。
+- 全モデル完了後に保存済みrun・適合記録・truth snapshotから比較結果を自動生成する独立Workerを追加。
+- 自動比較の待機・実行・成功・失敗、比較ID、失敗理由をSQLite/PostgreSQLへ永続化。
+- SQLite排他transactionとPostgreSQL `FOR UPDATE SKIP LOCKED`で並行Workerの二重作成を防止。
+- 分析実行画面へ自動比較状態、結果画面への導線、失敗時の再実行を追加。
+- 開発・本番Composeへ自動比較Workerを追加し、API・状態遷移・Worker要求の統合試験を追加。
+
 ## Phase 3I
 
 - 同一snapshotの2〜12モデルについて、実験・適合試験・予測runを一括登録する比較キャンペーンAPIを追加。

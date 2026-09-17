@@ -125,6 +125,8 @@ Phase 3Hで保存済み実験に一致するProvider適合試験jobを追加し�
 
 Phase 3Iで同じsnapshotを使う2〜12個のOSSモデルを比較キャンペーンとして一括登録できるようにした。実験、Provider適合試験、予測runを既存の独立Workerキューへまとめて登録し、モデル別進捗と失敗理由を一画面で追跡する。同じrequest keyの再送は同一キャンペーンと決定的run IDへ収束する。詳細は[OSS比較キャンペーン](docs/Phase3I_OSS比較キャンペーン.md)。
 
+Phase 3Jでキャンペーン登録時に主評価期間またはhorizonを固定し、全モデル完了後に独立Workerが保存済みrun・Provider適合記録・truth snapshotから比較結果を自動生成する。待機・実行・成功・失敗、比較ID、再実行をSQLite/PostgreSQLへ保存し、分析実行画面から結果へ移動できる。詳細は[比較キャンペーン自動完了](docs/Phase3J_比較キャンペーン自動完了.md)。
+
 次はプリフライトが`READY_FOR_DATA`の環境で実業務原本の検証jobを登録し、画面で`READY_FOR_NORMALIZATION`または隔離理由を確認する。その後Phase 1Xから全行の数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進み、全3年の重要品目選定とPhase 1Sの将来trialを開始する。FULL 20〜50品目のOSS比較前に対象環境の資源単価を登録し、Phase 3Bの時間・費用列を含む比較CSVを発行する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
