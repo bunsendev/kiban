@@ -65,6 +65,30 @@ def test_catalog_is_content_addressed_immutable_and_queryable(tmp_path):
     assert api.get(f"/api/experiments/{experiment}").json()["snapshot_id"] == first
 
 
+def test_catalog_lists_snapshots_and_filters_experiments(tmp_path):
+    api = client(tmp_path)
+    first_snapshot, first_experiment = create_catalog(api)
+    other_payload = snapshot_payload()
+    other_payload["selection_version"] = "selection-v2"
+    other_snapshot = api.post("/api/snapshots", json=other_payload).json()["id"]
+    other_experiment = api.post(
+        "/api/experiments", json=experiment_payload(other_snapshot)
+    ).json()["id"]
+
+    snapshots = api.get("/api/snapshots?limit=2")
+    experiments = api.get(f"/api/experiments?snapshot_id={other_snapshot}&limit=2")
+
+    assert snapshots.status_code == 200
+    assert {value["snapshot_id"] for value in snapshots.json()} == {
+        first_snapshot,
+        other_snapshot,
+    }
+    assert [value["experiment_id"] for value in experiments.json()] == [other_experiment]
+    assert first_experiment != other_experiment
+    assert api.get("/api/snapshots?limit=201").status_code == 422
+    assert api.get("/api/experiments?limit=0").status_code == 422
+
+
 def test_run_accepts_only_saved_experiment_and_builds_plan_server_side(tmp_path):
     api = client(tmp_path)
     _, experiment = create_catalog(api)

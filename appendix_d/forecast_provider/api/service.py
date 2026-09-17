@@ -47,6 +47,9 @@ class ApplicationService:
             raise NotFoundError(snapshot_id)
         return record
 
+    def list_snapshots(self, *, limit: int = 100) -> list[SnapshotRecord]:
+        return self.catalog.list_snapshots(limit=limit)
+
     def create_experiment(self, request: ExperimentCreate) -> ExperimentRecord:
         snapshot = self.get_snapshot(request.snapshot_id)
         record = make_experiment(snapshot, request.model_dump(mode="json"))
@@ -58,6 +61,11 @@ class ApplicationService:
         if record is None:
             raise NotFoundError(experiment_id)
         return record
+
+    def list_experiments(
+        self, *, snapshot_id: str | None = None, limit: int = 100
+    ) -> list[ExperimentRecord]:
+        return self.catalog.list_experiments(snapshot_id=snapshot_id, limit=limit)
 
     def create_run(self, request: RunCreate) -> RunSnapshot:
         experiment = self.get_experiment(request.experiment_id)

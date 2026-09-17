@@ -16,6 +16,7 @@ import pandas as pd
 
 from ..contracts import (
     ContextRef,
+    ExperimentDefaults,
     ForecastDataset,
     ForecastProvider,
     ModelMetadata,
@@ -89,6 +90,7 @@ class BuiltinBaselineProvider(ForecastProvider):
             category="基準",
             library_name="builtin",
             library_version=PROVIDER_VERSION,
+            experiment_defaults=ExperimentDefaults(preprocessing_version="daily-v1"),
             capabilities=ProviderCapabilities(
                 supports_panel=True,
                 supports_exogenous="none",

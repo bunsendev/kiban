@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 3E
+
+- `/ui/analysis`へsnapshot選択、実験作成、run登録・進捗確認、比較作成の案内式画面を追加。
+- Provider metadataへ実験既定値を追加し、Provider IDごとの画面分岐を排除。
+- snapshotと実験のREAD一覧APIをSQLite/PostgreSQL共通Catalog契約へ追加。
+- 同一snapshotと実験条件に完全一致するProvider適合記録だけで比較要求を作成。
+- 全管理画面から分析実行画面へ移動できる導線と、Provider Worker待機時の案内を追加。
+
 ## Phase 3D
 
 - Provider専用Workerが対象Providerの`QUEUED`・`RUNNING` runだけを取得するよう修正。

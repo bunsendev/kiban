@@ -1,0 +1,36 @@
+import { request } from "./api.js";
+
+export function loadAnalysisDashboard() {
+  return Promise.all([
+    request("/api/session"),
+    request("/api/snapshots?limit=200"),
+    request("/api/experiments?limit=200"),
+    request("/api/providers"),
+    request("/api/runs?limit=200"),
+    request("/api/provider-conformance-tests"),
+    request("/api/comparisons"),
+  ]).then(([session, snapshots, experiments, providers, runs, conformances, comparisons]) => ({
+    session, snapshots, experiments, providers, runs, conformances, comparisons,
+  }));
+}
+
+export function createExperiment(payload) {
+  return request("/api/experiments", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function createRun(experimentId) {
+  return request("/api/runs", {
+    method: "POST",
+    body: JSON.stringify({ experiment_id: experimentId }),
+  });
+}
+
+export function createComparison(payload) {
+  return request("/api/comparisons", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
