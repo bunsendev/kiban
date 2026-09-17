@@ -13,6 +13,10 @@ from test_run_api import snapshot_payload
 from forecast_provider.acceptance import PostgresAcceptanceStore
 from forecast_provider.catalog import PostgresCatalogStore
 from forecast_provider.catalog.domain import make_experiment, make_snapshot
+from forecast_provider.comparison_campaign import (
+    CampaignEntry,
+    PostgresComparisonCampaignStore,
+)
 from forecast_provider.evaluation_registry import (
     REQUIRED_CHECKS,
     PostgresEvaluationRegistryStore,
@@ -125,6 +129,11 @@ def test_postgres_migration_has_locking_and_business_constraints():
         path.parents[2] / "provider_conformance" / "store.py"
     ).read_text(encoding="utf-8")
     assert "FOR UPDATE SKIP LOCKED" in conformance_job_store
+    campaign_sql = path.parents[2] / "comparison_campaign" / "schema.sql"
+    text = campaign_sql.read_text(encoding="utf-8")
+    assert "comparison_campaigns" in text and "comparison_campaign_entries" in text
+    assert "UNIQUE(requested_by, request_key_hash)" in text
+    assert "REFERENCES forecast_runs(run_id)" in text
 
 
 @pytest.mark.skipif(not os.getenv("KIBAN_TEST_POSTGRES_DSN"), reason="PostgreSQL DSN未設定")
@@ -340,6 +349,34 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
     assert claimed is not None and claimed.job_id == conformance_job.job_id
     conformance_jobs.fail(claimed.job_id, "POSTGRES_TEST", "expected test failure")
     assert conformance_jobs.get_job(claimed.job_id).status == "FAILED"
+    campaigns = PostgresComparisonCampaignStore(dsn)
+    request_key = f"postgres-campaign-{uuid.uuid4()}"
+    campaign, created = campaigns.reserve(
+        request_key,
+        snapshot.snapshot_id,
+        "test@example.test",
+        "PostgreSQL比較キャンペーン確認",
+        '["builtin-baseline/moving_average_28"]',
+    )
+    assert created is True
+    same, created = campaigns.reserve(
+        request_key,
+        snapshot.snapshot_id,
+        "test@example.test",
+        "PostgreSQL比較キャンペーン確認",
+        '["builtin-baseline/moving_average_28"]',
+    )
+    assert created is False and same == campaign
+    campaign_entry = CampaignEntry(
+        campaign.campaign_id,
+        "builtin-baseline",
+        "moving_average_28",
+        experiment.experiment_id,
+        conformance_job.job_id,
+        run_id,
+    )
+    assert campaigns.put_entry(campaign_entry) == campaign_entry
+    assert campaigns.list_entries(campaign.campaign_id) == [campaign_entry]
     comparison = make_comparison_record(
         {
             "truth_version": "postgres-truth-v1",

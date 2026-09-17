@@ -64,6 +64,63 @@ export function renderFormOptions(bundle, selected = {}) {
   if (selected.providerId) document.getElementById("provider-select").value = selected.providerId;
 }
 
+export function renderCampaignOptions(bundle, selectedSnapshot, selectedModels = new Set()) {
+  const snapshots = bundle.snapshots.map((item) => option(item.snapshot_id, snapshotLabel(item)));
+  replace("campaign-snapshot-select", snapshots.length ? snapshots : [option("", "snapshotがありません")]);
+  if (selectedSnapshot) document.getElementById("campaign-snapshot-select").value = selectedSnapshot;
+  const choices = bundle.providers.flatMap((provider) => provider.models.map((model) => {
+    const key = `${provider.provider_id}\u0000${model.model_id}`;
+    const input = node("input", {
+      type: "checkbox", checked: selectedModels.has(key),
+      "data-provider-id": provider.provider_id, "data-model-id": model.model_id,
+    });
+    return node("label", { className: "campaign-model-option" }, [
+      input,
+      node("span", {}, [
+        node("strong", { text: `${provider.display_name} / ${model.display_name}` }),
+        node("span", { text: `${provider.provider_id} / ${model.model_id}` }),
+      ]),
+    ]);
+  }));
+  replace("campaign-model-options", choices.length ? choices : [node("div", {
+    className: "empty-inline", text: "利用できるProviderモデルがありません。",
+  })]);
+}
+
+export function renderCampaigns(campaigns, onSelectRuns) {
+  document.getElementById("campaign-count").textContent = `${campaigns.length}件`;
+  const cards = campaigns.map((campaign) => {
+    const done = campaign.entries.filter((item) => item.status === "COMPLETED").length;
+    const entries = campaign.entries.map((item) => node("div", { className: "campaign-entry" }, [
+      node("strong", { text: `${item.provider_id} / ${item.model_id}` }),
+      node("span", { className: `pill ${statusTone(item.status)}`, text: decisionLabel(item.status) }),
+      node("small", {
+        text: item.error_message
+          ? `要確認: ${item.error_message}`
+          : `適合試験 ${decisionLabel(item.conformance_status)} / 予測run ${decisionLabel(item.run_status)}`,
+      }),
+    ]));
+    const selectButton = node("button", {
+      type: "button", className: "button secondary", text: "完了runを比較対象に入れる",
+      disabled: done === 0, "data-locked": String(done === 0),
+    });
+    selectButton.addEventListener("click", () => onSelectRuns(campaign));
+    return node("article", { className: "campaign-card" }, [
+      node("div", { className: "card-heading" }, [
+        node("strong", { text: campaign.purpose }),
+        node("span", { className: `pill ${statusTone(campaign.status)}`, text: decisionLabel(campaign.status) }),
+      ]),
+      node("p", { text: `${done} / ${campaign.entries.length} モデル完了・${dateTime(campaign.created_at)}` }),
+      node("code", { text: campaign.campaign_id, title: campaign.campaign_id }),
+      ...entries,
+      selectButton,
+    ]);
+  });
+  replace("campaign-list", cards.length ? cards : [node("div", {
+    className: "empty-inline", text: "一括比較はまだありません。左のフォームから開始できます。",
+  })]);
+}
+
 export function renderModels(provider, selectedModel) {
   const models = (provider?.models || []).map((item) => option(item.model_id, item.display_name));
   replace("model-select", models.length ? models : [option("", "モデルがありません")]);

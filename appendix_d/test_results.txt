@@ -1,3 +1,24 @@
+# v2.9 Phase 3I 実行検証記録
+
+Date: 2026-09-17 JST
+OS: Windows 11
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.7
+
+## Phase 3I
+
+- 一括開始: 同一snapshotで選択した2〜12モデルの実験、Provider適合試験job、予測runを1 API requestで登録する。
+- 非同期境界: HTTP内で学習・予測を実行せず、既存のProvider別Workerキューへ登録する。
+- 台帳: キャンペーンとモデル別experiment/job/run IDをSQLite/PostgreSQLへ保存し、進捗は既存台帳から合成する。
+- 再送保護: request keyはSHA-256だけを保存し、認証subject、snapshot、目的、モデル構成を照合する。run IDは決定的に生成し、同じ操作で二重runを作らない。
+- UI: `/ui/analysis`で複数モデル選択、進捗、失敗理由を表示し、完了runを比較対象へ一括設定する。
+- 状態: 全モデル完了を`COMPLETED`、適合試験またはrun失敗を`NEEDS_ATTENTION`、処理中を`RUNNING`とする。
+- 対象試験: API認可、2モデル一括登録、入力制約、未登録snapshot、再送、一覧・詳細、管理画面、PostgreSQL schemaを含む4件成功、PostgreSQL実DB1件skip。
+- 回帰: 配布hash更新後、Linux専用RSS試験を除くWindows全体で540件成功、8件skip、1件deselect。
+- 静的検査・配布: `ruff check .`、全JavaScript構文検査、開発・本番Compose展開に成功。配布ファイルのSHA-256照合と日本語名UTF-8 ZIP生成を確認した。
+- 未実施: Docker Desktop engine停止かつPostgreSQL test DSN未設定のためPostgreSQL実DB結合と実Workerの画面受入は未実施。人工データで実データ精度・業務効果を保証しない。
+
 # v2.9 Phase 3H 実行検証記録
 
 Date: 2026-09-17 JST

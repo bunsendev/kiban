@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ..acceptance import PostgresAcceptanceStore
 from ..catalog import PostgresCatalogStore
+from ..comparison_campaign import PostgresComparisonCampaignStore
 from ..daily import PostgresDailyStore
 from ..evaluation_registry import PostgresEvaluationRegistryStore
 from ..ingestion import PostgresIngestionStore
@@ -229,4 +230,5 @@ def from_environment():
         worker_status=PostgresWorkerStatusStore(dsn),
         worker_stale_seconds=float(os.environ.get("KIBAN_WORKER_STALE_SECONDS", "45")),
         conformance_jobs=PostgresConformanceJobStore(dsn),
+        comparison_campaigns=PostgresComparisonCampaignStore(dsn),
     )

@@ -123,6 +123,8 @@ Phase 3Gでbuiltin baselineのOBSERVED区間予測を追加した。各historica
 
 Phase 3Hで保存済み実験に一致するProvider適合試験jobを追加した。分析実行画面から登録し、Provider別の独立Workerが人工データで固定7項目を実行する。進捗、失敗理由、正式比較可否を画面に表示し、証跡はSHA-256の内容アドレスで保存する。詳細は[Provider適合試験の自動実行](docs/Phase3H_Provider適合試験自動化.md)。
 
+Phase 3Iで同じsnapshotを使う2〜12個のOSSモデルを比較キャンペーンとして一括登録できるようにした。実験、Provider適合試験、予測runを既存の独立Workerキューへまとめて登録し、モデル別進捗と失敗理由を一画面で追跡する。同じrequest keyの再送は同一キャンペーンと決定的run IDへ収束する。詳細は[OSS比較キャンペーン](docs/Phase3I_OSS比較キャンペーン.md)。
+
 次はプリフライトが`READY_FOR_DATA`の環境で実業務原本の検証jobを登録し、画面で`READY_FOR_NORMALIZATION`または隔離理由を確認する。その後Phase 1Xから全行の数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進み、全3年の重要品目選定とPhase 1Sの将来trialを開始する。FULL 20〜50品目のOSS比較前に対象環境の資源単価を登録し、Phase 3Bの時間・費用列を含む比較CSVを発行する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 

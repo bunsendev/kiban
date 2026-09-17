@@ -51,8 +51,14 @@ class ApplicationService:
         return self.catalog.list_snapshots(limit=limit)
 
     def create_experiment(self, request: ExperimentCreate) -> ExperimentRecord:
+        return self.save_experiment(self.prepare_experiment(request))
+
+    def prepare_experiment(self, request: ExperimentCreate) -> ExperimentRecord:
+        """永続化前にProviderとsnapshotの組合せを検証する。"""
         snapshot = self.get_snapshot(request.snapshot_id)
-        record = make_experiment(snapshot, request.model_dump(mode="json"))
+        return make_experiment(snapshot, request.model_dump(mode="json"))
+
+    def save_experiment(self, record: ExperimentRecord) -> ExperimentRecord:
         self.catalog.put_experiment(record)
         return record
 
@@ -68,7 +74,16 @@ class ApplicationService:
         return self.catalog.list_experiments(snapshot_id=snapshot_id, limit=limit)
 
     def create_run(self, request: RunCreate) -> RunSnapshot:
-        experiment = self.get_experiment(request.experiment_id)
+        return self.ensure_run(request.experiment_id, str(uuid.uuid4()))
+
+    def ensure_run(self, experiment_id: str, run_id: str) -> RunSnapshot:
+        """既知のIDでrunを一度だけ作る。キャンペーン再送時の重複を防ぐ。"""
+        current = self.runs.get_run(run_id)
+        if current is not None:
+            if current.experiment_id != experiment_id:
+                raise ValueError("run_idを異なる実験へ再利用できません")
+            return current
+        experiment = self.get_experiment(experiment_id)
         snapshot = self.get_snapshot(experiment.snapshot_id)
         dataset = dataset_from_snapshot(snapshot)
         plan = build_plan(dataset)
@@ -85,19 +100,25 @@ class ApplicationService:
             for row in plan.itertuples(index=False)
         )
         definition = experiment.definition
-        run_id = str(uuid.uuid4())
-        self.runs.create_run(
-            RunDefinition(
-                run_id,
-                experiment.experiment_id,
-                experiment.condition_fingerprint,
-                definition["provider_id"],
-                definition["model_name"],
-                int(definition["seed"]),
-            ),
-            origins,
-            expectations,
-        )
+        try:
+            self.runs.create_run(
+                RunDefinition(
+                    run_id,
+                    experiment.experiment_id,
+                    experiment.condition_fingerprint,
+                    definition["provider_id"],
+                    definition["model_name"],
+                    int(definition["seed"]),
+                ),
+                origins,
+                expectations,
+            )
+        except Exception:
+            # 同時に同じ決定的IDを登録した要求は、先に確定したrunへ収束させる。
+            current = self.runs.get_run(run_id)
+            if current is not None and current.experiment_id == experiment_id:
+                return current
+            raise
         return self.get_run(run_id)
 
     def get_run(self, run_id: str) -> RunSnapshot:

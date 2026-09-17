@@ -80,6 +80,8 @@ APIと軽量な全Provider依存は`pip install -e ".[api,postgres,statsforecast
 
 `/ui/analysis`では保存済みdataset snapshotとProvider・モデルを選び、メタデータ既定値による実験作成、run登録、進捗確認、比較作成までを順番に操作できる。`QUEUED`が続く場合は表示されたProviderの専用Workerを確認する。比較後は`/ui`で指標、系譜、CSV、採用条件を確認する。操作と安全条件は[分析実行ワークスペース](docs/Phase3E_分析実行ワークスペース.md)を参照する。
 
+同じsnapshotで複数OSSモデルを検証するときは、`/ui/analysis`の「比較セットをまとめて開始する」で2〜12モデルを選択する。実験、Provider適合試験、予測runが一括登録され、モデル別進捗と失敗理由をキャンペーンカードで追跡できる。完了runは一括で比較対象へ設定する。同じ操作の再送は同一キャンペーン・runへ収束する。詳細は[OSS比較キャンペーン](docs/Phase3I_OSS比較キャンペーン.md)を参照する。
+
 分析実行画面はProvider Workerの処理中、待機中、応答遅延、未起動、待機・実行中run数を表示する。Workerは起動中と長時間推論中にheartbeatを更新し、再起動時は旧processの更新を拒否する。運用判断とAPI契約は[Worker稼働状態とキュー診断](docs/Phase3F_Worker稼働状態とキュー診断.md)を参照する。
 
 builtin baselineは実測`available_at`を持つOBSERVED snapshotでも区間予測を実行できる。TRAIN内の

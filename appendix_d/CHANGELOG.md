@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 3I
+
+- 同一snapshotの2〜12モデルについて、実験・適合試験・予測runを一括登録する比較キャンペーンAPIを追加。
+- キャンペーンとモデル別識別子をSQLite/PostgreSQLへ保存し、既存job/run台帳から現在状態を合成。
+- 認証subjectとrequest key、snapshot、目的、モデル構成を照合し、再送時の二重runを防止。
+- `/ui/analysis`へモデル複数選択、進捗・失敗理由、完了runの比較対象一括設定を追加。
+- API認可、入力制約、再送、PostgreSQL schema、管理画面の統合試験を追加。
+
 ## Phase 3G
 
 - builtin baselineでOBSERVEDのhistorical originごとに`available_at`締切を再現する残差計算を追加。
