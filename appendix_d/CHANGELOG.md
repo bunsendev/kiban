@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 3D
+
+- Provider専用Workerが対象Providerの`QUEUED`・`RUNNING` runだけを取得するよう修正。
+- 組込executorのProvider IDをmetadataから固定し、運用引数による上書きを禁止。
+- カスタムexecutorへ`--provider-id`を必須化し、全Provider runの誤取得を防止。
+- SQLite/PostgreSQLへProvider別runnable run検索の複合索引を追加。
+- 別Provider runが待機状態を維持する分離試験とCLI起動拒否試験を追加。
+
 ## Phase 3C
 
 - `/ui/resources`へrun別の処理時間、資源、費用、origin・attempt明細を追加。

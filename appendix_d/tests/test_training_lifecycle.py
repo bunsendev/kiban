@@ -123,7 +123,16 @@ def test_worker_persists_one_model_artifact_per_scheduled_month(tmp_path):
     ).json()["run_id"]
     executor = BuiltinBaselineExecutor(runs, catalog, tmp_path / "objects", tmp_path / "work")
 
-    assert work_once(runs, executor, "monthly-worker") == 1
+    assert executor.provider_id == "builtin-baseline"
+    assert (
+        work_once(
+            runs,
+            executor,
+            "monthly-worker",
+            provider_id=executor.provider_id,
+        )
+        == 1
+    )
     assert runs.get_run(run_id).status == "SUCCEEDED"
 
     origins = runs.rows("forecast_origins")

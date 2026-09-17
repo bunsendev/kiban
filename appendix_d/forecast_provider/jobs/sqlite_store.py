@@ -366,14 +366,17 @@ class SqliteRunStore:
             run_ids = [row["run_id"] for row in db.execute(sql, params)]
         return [snapshot for run_id in run_ids if (snapshot := self.get_run(run_id))]
 
-    def list_runnable_runs(self) -> tuple[tuple[str, str], ...]:
+    def list_runnable_runs(self, provider_id: str) -> tuple[tuple[str, str], ...]:
+        if not provider_id or not provider_id.strip():
+            raise ValueError("provider_idは空にできません")
         with self._connect() as db:
             return tuple(
                 (row["run_id"], row["condition_fingerprint"])
                 for row in db.execute(
                     "SELECT run_id,condition_fingerprint FROM forecast_runs "
                     "WHERE status IN ('QUEUED','RUNNING') "
-                    "AND cancellation_requested=0 ORDER BY run_id"
+                    "AND NOT cancellation_requested AND provider_id=? ORDER BY run_id",
+                    (provider_id,),
                 )
             )
 

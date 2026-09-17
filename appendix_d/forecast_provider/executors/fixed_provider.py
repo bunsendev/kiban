@@ -47,6 +47,7 @@ class FixedProviderExecutor:
         self.provider_factory = provider_factory
         self.codec_factory = codec_factory
         self.logger_name = logger_name
+        self.provider_id = provider_factory().metadata().provider_id
         self._models: dict[tuple[str, object], tuple[object, ArtifactRef]] = {}
 
     def __call__(self, lease: OriginLease) -> OriginOutput:
