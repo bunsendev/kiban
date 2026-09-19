@@ -2,11 +2,17 @@
 
 from statistics import fmean, pstdev
 
+from .campaign_drift import dataset_profile, model_profile, summarize_model_drift
+
 
 def build_campaign_results(campaigns, application, evaluation, *, limit: int) -> dict:
     """保存済み公式指標をsnapshot条件と結合して返す。"""
     if evaluation is None:
-        return {"tests": [], "model_stability": _stability([])}
+        return {
+            "tests": [],
+            "model_stability": _stability([]),
+            "model_drift": summarize_model_drift([]),
+        }
     tests = []
     for campaign in campaigns.list(limit=limit):
         finalization = campaigns.get_finalization(campaign.campaign_id)
@@ -15,8 +21,9 @@ def build_campaign_results(campaigns, application, evaluation, *, limit: int) ->
         snapshot = application.get_snapshot(campaign.snapshot_id)
         comparison = evaluation.comparison_detail(finalization.comparison_id)
         scores = comparison["result"].get("scores", {})
-        models = _models(campaigns.list_entries(campaign.campaign_id), scores)
+        models = _models(campaigns.list_entries(campaign.campaign_id), scores, application)
         manifest = snapshot.manifest
+        profile = dataset_profile(manifest)
         tests.append(
             {
                 "campaign_id": campaign.campaign_id,
@@ -34,10 +41,15 @@ def build_campaign_results(campaigns, application, evaluation, *, limit: int) ->
                 "mode": finalization.mode,
                 "horizon": finalization.horizon,
                 "created_at": campaign.created_at,
+                **profile,
                 "models": models,
             }
         )
-    return {"tests": tests, "model_stability": _stability(tests)}
+    return {
+        "tests": tests,
+        "model_stability": _stability(tests),
+        "model_drift": summarize_model_drift(tests),
+    }
 
 
 def summarize_model_stability(tests: list[dict]) -> dict:
@@ -45,16 +57,18 @@ def summarize_model_stability(tests: list[dict]) -> dict:
     return _stability(tests)
 
 
-def _models(entries, scores: dict) -> list[dict]:
+def _models(entries, scores: dict, application) -> list[dict]:
     models = []
     for entry in entries:
         score = scores.get(entry.run_id, {})
         metrics = score.get("official_common_metrics")
+        experiment = application.get_experiment(entry.experiment_id)
         models.append(
             {
                 "provider_id": entry.provider_id,
                 "model_id": entry.model_id,
                 "run_id": entry.run_id,
+                "model_profile_hash": model_profile(experiment.definition),
                 "official_eligible": bool(score.get("official_eligible")),
                 "wape_pct": None if metrics is None else metrics.get("wape_pct"),
                 "mae": None if metrics is None else metrics.get("mae"),

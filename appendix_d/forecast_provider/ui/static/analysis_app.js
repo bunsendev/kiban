@@ -6,7 +6,7 @@ import {
   loadAnalysisDashboard,
 } from "./analysis_api.js";
 import {
-  renderCampaignResultMatrix, renderCampaignStability,
+  renderCampaignDrift, renderCampaignResultMatrix, renderCampaignStability,
 } from "./analysis_campaign_results.js";
 import {
   renderCampaignOptions, renderCampaigns, renderComparisonCreated, renderDefaults,
@@ -80,6 +80,7 @@ function drawDashboard() {
   renderCampaignOptions(bundle, campaignSnapshots, campaignModels);
   renderCampaigns(bundle.campaigns, selectCampaignRuns, retryCampaign);
   renderCampaignStability(bundle.campaignResults.model_stability);
+  renderCampaignDrift(bundle.campaignResults.model_drift);
   renderCampaignResultMatrix(bundle.campaignResults);
   drawDefaults();
   renderExperiments(
