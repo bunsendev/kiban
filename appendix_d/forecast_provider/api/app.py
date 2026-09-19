@@ -190,16 +190,17 @@ def create_app(
     if evaluation_registry is not None:
         from ..evaluation_registry.service import EvaluationRegistryService
 
+        evaluation_service = EvaluationRegistryService(
+            store,
+            catalog,
+            evaluation_registry,
+            snapshot_root,
+            resource_cost,
+        )
         install_evaluation_routes(
             app,
             authorize,
-            EvaluationRegistryService(
-                store,
-                catalog,
-                evaluation_registry,
-                snapshot_root,
-                resource_cost,
-            ),
+            evaluation_service,
         )
         if conformance_jobs is not None:
             from ..provider_conformance.service import ConformanceJobService
@@ -216,7 +217,10 @@ def create_app(
                     app,
                     authorize,
                     ComparisonCampaignService(
-                        comparison_campaigns, service, conformance_service
+                        comparison_campaigns,
+                        service,
+                        conformance_service,
+                        evaluation_service,
                     ),
                 )
 

@@ -129,6 +129,8 @@ Phase 3Jでキャンペーン登録時に主評価期間またはhorizonを固�
 
 Phase 3KでWindows現場PC向けの「予測OSS分析を起動」を追加した。PC資源を検査してDocker Desktop、データ準備、Baseline、AutoETS、Ridge、適合試験、自動比較Workerを一括起動し、全serviceとProvider heartbeatの確認後に分析画面を開く。TimesFMは高負荷のため空きメモリ検査付きの別ランチャーから追加する。詳細は[Windows予測OSS分析ランチャー](docs/Phase3K_Windows予測OSS分析ランチャー.md)。
 
+Phase 3Lで2〜12件の保存済みdataset snapshotへ同じOSSモデル集合を一括登録し、完了した公式比較指標を期間・評価幅ごとに横断表示する機能を追加した。同じ要求の再送は既存キャンペーンへ収束し、snapshotや比較結果を上書きしない。詳細は[複数条件再テスト](docs/Phase3L_複数条件再テスト.md)。
+
 次はプリフライトが`READY_FOR_DATA`の環境で実業務原本の検証jobを登録し、画面で`READY_FOR_NORMALIZATION`または隔離理由を確認する。その後Phase 1Xから全行の数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進み、全3年の重要品目選定とPhase 1Sの将来trialを開始する。FULL 20〜50品目のOSS比較前に対象環境の資源単価を登録し、Phase 3Bの時間・費用列を含む比較CSVを発行する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 

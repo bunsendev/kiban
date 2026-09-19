@@ -59,10 +59,13 @@
 
     <div class="workflow-grid">
       <section class="workflow-step campaign-step" aria-labelledby="campaign-heading">
-        <div class="step-heading"><span class="step-number">一括</span><div><h2 id="campaign-heading">比較セットをまとめて開始する</h2><p>同じデータセットで比べるOSSモデルを選ぶと、実験条件・適合試験・予測runを一度に登録します。</p></div></div>
+        <div class="step-heading"><span class="step-number">一括</span><div><h2 id="campaign-heading">比較セットをまとめて開始する</h2><p>1つ以上のデータセットとOSSモデルを選ぶと、実験条件・適合試験・予測runをまとめて登録します。</p></div></div>
         <div class="campaign-layout">
           <form id="campaign-form" class="analysis-form" data-permission="ANALYZE">
-            <label>データセット<select id="campaign-snapshot-select" required></select></label>
+            <fieldset class="campaign-snapshot-fieldset">
+              <legend>データセット（複数選択可）</legend>
+              <div id="campaign-snapshot-options" class="campaign-snapshot-options"></div>
+            </fieldset>
             <fieldset class="campaign-model-fieldset">
               <legend>比較するモデル（2件以上）</legend>
               <div id="campaign-model-options" class="campaign-model-options"></div>
@@ -70,13 +73,18 @@
             <label>評価方式<select id="campaign-mode"><option value="primary">主評価期間</option><option value="horizon">指定horizon</option></select></label>
             <label id="campaign-horizon-field" hidden>horizon<input id="campaign-horizon" type="number" min="1" max="400" value="7"></label>
             <label>比較の目的<textarea id="campaign-purpose" rows="3" required>OSSモデル選定のための一括比較</textarea></label>
-            <p class="field-note">各Providerの登録済み既定値を使います。全モデル完了後に比較結果を自動生成します。同じ操作の再送は重複runを作りません。</p>
+            <p class="field-note">複数データセットを選ぶと同じモデル条件を一括登録します。各データセットの全モデル完了後に比較結果を自動生成します。</p>
             <div class="form-actions"><button id="campaign-submit" class="button primary" type="submit" data-permission="ANALYZE">選択したモデルをまとめて開始</button></div>
           </form>
           <div>
             <div class="subheading"><h3>比較キャンペーン</h3><span id="campaign-count">0件</span></div>
             <div id="campaign-list" class="campaign-list"></div>
           </div>
+        </div>
+        <div class="campaign-results-section">
+          <div class="subheading"><h3>複数条件の比較結果</h3><span>完了済みの公式指標</span></div>
+          <p class="field-note">データ期間や予測幅ごとに順位が変わるかを確認します。WAPEが小さい順に順位を付けます。</p>
+          <div id="campaign-result-matrix" class="campaign-result-matrix"></div>
         </div>
       </section>
 

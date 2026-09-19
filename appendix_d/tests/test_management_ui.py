@@ -368,7 +368,12 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
     assert 'request("/api/providers")' in client.text
     assert 'request("/api/provider-conformance-tests")' in client.text
     assert 'request("/api/worker-status")' in client.text
+    assert 'request("/api/comparison-campaign-results?limit=50")' in client.text
+    assert 'request("/api/comparison-campaign-batches"' in client.text
     assert "worker-status-list" in page.text
+    assert "campaign-snapshot-options" in page.text
+    assert "campaign-result-matrix" in page.text
+    assert "renderCampaignResultMatrix" in app.text
     assert "experiment_defaults" in renderer.text
     assert "時点再現して選択可能" in renderer.text
     assert "intervals.disabled = !supportsIntervals" in renderer.text
