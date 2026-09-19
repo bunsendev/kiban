@@ -55,6 +55,8 @@ def _review_fixture(tmp_path, *, action_type="RETEST"):
         "追加テストする",
         {
             "comparison_profile_id": PROFILE_ID,
+            "provider_id": "builtin-baseline",
+            "model_id": "seasonal_naive_7",
             "latest": {
                 "campaign_id": source["campaign_id"],
                 "comparison_id": source_comparison_id,

@@ -94,7 +94,9 @@ function drawDashboard() {
   renderModelReviews(bundle.modelReviews);
   renderReviewActionOptions(bundle.modelReviews, bundle.reviewActions);
   renderReviewRetestOptions(bundle.reviewActions, bundle.snapshots);
-  renderReviewActions(bundle.reviewActions, bundle.reviewActionEvents, bundle.reviewRetests);
+  renderReviewActions(
+    bundle.reviewActions, bundle.reviewActionEvents, bundle.reviewRetests, handoffRetestReview,
+  );
   renderCampaignResultMatrix(bundle.campaignResults);
   drawDefaults();
   renderExperiments(
@@ -119,6 +121,41 @@ function selectCampaignRuns(campaign) {
   byId("comparison-submit").disabled = !state.selectedRuns.size || state.busy;
   if (eligible.length) notice(`${eligible.length}件の完了runを比較対象に設定しました。`, "success");
   else notice("比較できる完了runはまだありません。処理完了後にもう一度選択してください。", "error");
+}
+
+function handoffRetestReview(retest) {
+  const summary = retest.comparison_summary;
+  const handoff = summary?.review_handoff;
+  const focus = summary?.focus_model;
+  const option = [...byId("model-review-profile").options].find(
+    (item) => item.value === handoff?.comparison_profile_id,
+  );
+  if (!option || !focus) {
+    notice("この追加テストは現在の精度変化系列へ引き継げません。比較条件を確認してください。", "error");
+    return;
+  }
+  byId("model-review-profile").value = handoff.comparison_profile_id;
+  setSuggestedReviewVersion(state.dashboard?.modelReviews || []);
+  byId("model-review-conclusion").value = "INVESTIGATING";
+  byId("model-review-reason").value = [
+    `追加テスト結果（${focus.provider_id} / ${focus.model_id}）`,
+    `WAPE ${metricTransition(focus, "wape_pct", focus.wape_change_pct_points, "pt")}`,
+    `順位 ${metricTransition(focus, "rank", focus.rank_change, "")}`,
+    `成功率 ${metricTransition(focus, "success_rate_pct", focus.success_rate_change_pct_points, "pt")}`,
+    `事実判定 ${focus.direction}`,
+  ].join("、");
+  byId("model-review-action").value = "追加テスト差分を踏まえ、データ要因・業務要因・モデル要因を確認する。";
+  byId("model-review-form").scrollIntoView({ behavior: "smooth", block: "start" });
+  byId("model-review-reason").focus({ preventScroll: true });
+  notice("追加テストの事実差分を再レビュー入力へ引き継ぎました。内容を確認して記録してください。", "success");
+}
+
+function metricTransition(model, key, delta, suffix) {
+  const before = model.source?.[key];
+  const after = model.retest?.[key];
+  if (before === null || before === undefined || after === null || after === undefined) return "—";
+  const signed = delta > 0 ? `+${Number(delta).toFixed(2)}` : Number(delta).toFixed(2);
+  return `${Number(before).toFixed(2)} → ${Number(after).toFixed(2)}（${signed}${suffix}）`;
 }
 
 function schedulePoll() {

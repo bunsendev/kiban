@@ -1,3 +1,5 @@
+import { renderRetestComparison } from "./analysis_retest_results.js";
+
 const node = (tag, options = {}, children = []) => {
   const element = document.createElement(tag);
   for (const [name, value] of Object.entries(options)) {
@@ -86,7 +88,7 @@ export function toggleCompletionEvidence() {
   if (!completed) input.value = "";
 }
 
-export function renderReviewActions(actions, events, retests) {
+export function renderReviewActions(actions, events, retests, onRetestHandoff) {
   const values = actions || [];
   document.getElementById("review-action-count").textContent = `${values.length}件`;
   if (!values.length) {
@@ -101,9 +103,14 @@ export function renderReviewActions(actions, events, retests) {
       node("li", { text: `v${item.revision} ${statusLabels[item.status]}｜${item.recorded_by}｜${item.note}` })
     )));
     const actionRetests = (retests || []).filter((item) => item.action_id === action.action_id);
-    const retestList = node("ul", { className: "review-action-retests" }, actionRetests.map((item) => (
-      node("li", { text: `追加テスト ${item.status}｜campaign ${item.campaign_id}${item.comparison_id ? `｜comparison ${item.comparison_id}` : ""}` })
-    )));
+    const retestList = node("div", { className: "review-action-retests" }, actionRetests.map((item) => {
+      const comparison = renderRetestComparison(item, onRetestHandoff);
+      return node("article", { className: "review-action-retest" }, [
+        node("strong", { text: `追加テスト ${item.status}` }),
+        node("code", { text: `campaign ${item.campaign_id}${item.comparison_id ? `｜comparison ${item.comparison_id}` : ""}` }),
+        ...(comparison ? [comparison] : []),
+      ]);
+    }));
     return node("article", { className: `review-action-card${action.overdue ? " overdue" : ""}` }, [
       node("div", { className: "model-review-card-heading" }, [
         node("strong", { text: action.title }),

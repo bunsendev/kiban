@@ -13,6 +13,10 @@ from .actions import (
 )
 from .contracts import ModelDriftReview, ModelReviewStore, ReviewConclusion
 from .domain import make_model_drift_review
+from .retest_comparison import (
+    summarize_retest_comparison,
+    unavailable_retest_comparison,
+)
 from .retest_service import ReviewRetestService, ReviewRetestSynchronizer
 from .retest_store import PostgresReviewRetestStore, SqliteReviewRetestStore
 from .retests import ReviewRetest, make_review_retest
@@ -47,4 +51,6 @@ __all__ = [
     "make_review_action",
     "make_review_action_event",
     "make_review_retest",
+    "summarize_retest_comparison",
+    "unavailable_retest_comparison",
 ]

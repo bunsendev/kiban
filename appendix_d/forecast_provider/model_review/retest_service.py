@@ -6,6 +6,10 @@ from types import SimpleNamespace
 
 from .action_service import ReviewActionNotFound
 from .actions import ActionConflict
+from .retest_comparison import (
+    summarize_retest_comparison,
+    unavailable_retest_comparison,
+)
 from .retests import make_review_retest
 
 
@@ -82,12 +86,26 @@ class ReviewRetestService:
         return self._output(saved)
 
     def list(self, *, action_id: str | None = None, limit: int = 200) -> list[dict]:
-        return [self._output(item) for item in self.retests.list(action_id=action_id, limit=limit)]
+        items = self.retests.list(action_id=action_id, limit=limit)
+        drift = None
+        if any(item.outcome_status == "SUCCEEDED" for item in items):
+            drift = self.campaigns.result_matrix(limit=200)["model_drift"]
+        return [self._output(item, drift=drift) for item in items]
 
-    def _output(self, item) -> dict:
+    def _output(self, item, *, drift: dict | None = None) -> dict:
         value = asdict(item)
+        action = self.actions.get(item.action_id)
+        review = None if action is None else self.reviews.get(action.task.review_id)
+        if review is not None:
+            value["source_review_id"] = review.review_id
+            value["review_provider_id"] = review.evidence.get("provider_id")
+            value["review_model_id"] = review.evidence.get("model_id")
         if item.outcome_status is not None:
             value["status"] = item.outcome_status
+            if item.outcome_status == "SUCCEEDED":
+                value["comparison_summary"] = self._comparison_summary(
+                    item, review, drift=drift
+                )
             return value
         detail = self.campaigns.detail(item.campaign_id)
         finalization = detail.get("finalization") or {}
@@ -97,6 +115,55 @@ class ReviewRetestService:
             else "RUNNING"
         )
         return value
+
+    def _comparison_summary(self, item, review, *, drift: dict | None) -> dict:
+        source = self.campaigns.result(item.source_campaign_id)
+        retest = self.campaigns.result(item.campaign_id)
+        if source is None or retest is None:
+            return unavailable_retest_comparison(
+                "元結果または追加テスト結果の公式指標を取得できません"
+            )
+        provider_id = None if review is None else review.evidence.get("provider_id")
+        model_id = None if review is None else review.evidence.get("model_id")
+        summary = summarize_retest_comparison(
+            source,
+            retest,
+            focus_provider_id=provider_id,
+            focus_model_id=model_id,
+        )
+        summary["review_handoff"] = self._review_handoff(
+            item.campaign_id, provider_id, model_id, drift=drift
+        )
+        return summary
+
+    def _review_handoff(
+        self,
+        campaign_id: str,
+        provider_id: str | None,
+        model_id: str | None,
+        *,
+        drift: dict | None,
+    ) -> dict | None:
+        if provider_id is None or model_id is None:
+            return None
+        drift = drift or self.campaigns.result_matrix(limit=200)["model_drift"]
+        series = next(
+            (
+                item
+                for item in drift["series"]
+                if item["provider_id"] == provider_id
+                and item["model_id"] == model_id
+                and item["history_count"] >= 2
+                and item["latest"]["campaign_id"] == campaign_id
+            ),
+            None,
+        )
+        if series is None:
+            return None
+        return {
+            "comparison_profile_id": series["comparison_profile_id"],
+            "direction": series["direction"],
+        }
 
 
 class ReviewRetestSynchronizer:
