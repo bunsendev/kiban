@@ -12,17 +12,25 @@ export function loadAnalysisDashboard() {
     request("/api/comparisons"),
     request("/api/worker-status"),
     request("/api/comparison-campaigns"),
+    request("/api/comparison-campaign-results?limit=50"),
   ]).then(([
     session, snapshots, experiments, providers, runs, conformances, conformanceJobs,
-    comparisons, workerStatus, campaigns,
+    comparisons, workerStatus, campaigns, campaignResults,
   ]) => ({
     session, snapshots, experiments, providers, runs, conformances, conformanceJobs,
-    comparisons, workerStatus, campaigns,
+    comparisons, workerStatus, campaigns, campaignResults,
   }));
 }
 
 export function createCampaign(payload) {
   return request("/api/comparison-campaigns", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function createCampaignBatch(payload) {
+  return request("/api/comparison-campaign-batches", {
     method: "POST",
     body: JSON.stringify(payload),
   });
