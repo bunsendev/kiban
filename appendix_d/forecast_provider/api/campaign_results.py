@@ -15,40 +15,51 @@ def build_campaign_results(campaigns, application, evaluation, *, limit: int) ->
         }
     tests = []
     for campaign in campaigns.list(limit=limit):
-        finalization = campaigns.get_finalization(campaign.campaign_id)
-        if finalization is None or finalization.status != "SUCCEEDED":
-            continue
-        snapshot = application.get_snapshot(campaign.snapshot_id)
-        comparison = evaluation.comparison_detail(finalization.comparison_id)
-        scores = comparison["result"].get("scores", {})
-        models = _models(campaigns.list_entries(campaign.campaign_id), scores, application)
-        manifest = snapshot.manifest
-        profile = dataset_profile(manifest)
-        tests.append(
-            {
-                "campaign_id": campaign.campaign_id,
-                "comparison_id": finalization.comparison_id,
-                "purpose": campaign.purpose,
-                "snapshot_id": campaign.snapshot_id,
-                "selection_version": manifest["selection_version"],
-                "train_start": manifest["train_start"],
-                "train_end": manifest["train_end"],
-                "test_start": manifest["test_start"],
-                "test_end": manifest["test_end"],
-                "origin_interval_days": manifest["origin_interval_days"],
-                "max_horizon": manifest["max_horizon"],
-                "primary_horizon_max": manifest["primary_horizon_max"],
-                "mode": finalization.mode,
-                "horizon": finalization.horizon,
-                "created_at": campaign.created_at,
-                **profile,
-                "models": models,
-            }
+        result = build_campaign_result(
+            campaigns, application, evaluation, campaign.campaign_id
         )
+        if result is not None:
+            tests.append(result)
     return {
         "tests": tests,
         "model_stability": _stability(tests),
         "model_drift": summarize_model_drift(tests),
+    }
+
+
+def build_campaign_result(campaigns, application, evaluation, campaign_id: str) -> dict | None:
+    """指定キャンペーンの保存済み公式結果を1件だけ整形する。"""
+    if evaluation is None:
+        return None
+    campaign = campaigns.get(campaign_id)
+    if campaign is None:
+        return None
+    finalization = campaigns.get_finalization(campaign_id)
+    if finalization is None or finalization.status != "SUCCEEDED":
+        return None
+    snapshot = application.get_snapshot(campaign.snapshot_id)
+    comparison = evaluation.comparison_detail(finalization.comparison_id)
+    scores = comparison["result"].get("scores", {})
+    models = _models(campaigns.list_entries(campaign_id), scores, application)
+    manifest = snapshot.manifest
+    return {
+        "campaign_id": campaign.campaign_id,
+        "comparison_id": finalization.comparison_id,
+        "purpose": campaign.purpose,
+        "snapshot_id": campaign.snapshot_id,
+        "selection_version": manifest["selection_version"],
+        "train_start": manifest["train_start"],
+        "train_end": manifest["train_end"],
+        "test_start": manifest["test_start"],
+        "test_end": manifest["test_end"],
+        "origin_interval_days": manifest["origin_interval_days"],
+        "max_horizon": manifest["max_horizon"],
+        "primary_horizon_max": manifest["primary_horizon_max"],
+        "mode": finalization.mode,
+        "horizon": finalization.horizon,
+        "created_at": campaign.created_at,
+        **dataset_profile(manifest),
+        "models": models,
     }
 
 

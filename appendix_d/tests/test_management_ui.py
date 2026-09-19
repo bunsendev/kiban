@@ -343,6 +343,7 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
     campaign_results = api.get("/ui/assets/analysis_campaign_results.js")
     model_reviews = api.get("/ui/assets/analysis_model_reviews.js")
     review_actions = api.get("/ui/assets/analysis_review_actions.js")
+    retest_results = api.get("/ui/assets/analysis_retest_results.js")
     renderer = api.get("/ui/assets/analysis_render.js")
     rules = api.get("/ui/assets/analysis_rules.js")
     styles = api.get("/ui/assets/analysis.css")
@@ -350,7 +351,7 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
     assert all(
         value.status_code == 200
         for value in (
-            page, app, client, campaign_results, model_reviews, review_actions,
+            page, app, client, campaign_results, model_reviews, review_actions, retest_results,
             renderer, rules, styles
         )
     )
@@ -370,11 +371,14 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
     scripts = (
         app.text + client.text + campaign_results.text + model_reviews.text
         + review_actions.text
+        + retest_results.text
         + renderer.text + rules.text
     )
     assert "localStorage" not in scripts
     assert "sessionStorage" not in scripts
     assert 'request("/api/snapshots?limit=200")' in client.text
+    assert "この結果を再レビューへ引き継ぐ" in retest_results.text
+    assert "採否は自動決定しません" in retest_results.text
     assert 'request("/api/experiments?limit=200")' in client.text
     assert 'request("/api/providers")' in client.text
     assert 'request("/api/provider-conformance-tests")' in client.text

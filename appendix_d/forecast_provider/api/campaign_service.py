@@ -8,7 +8,7 @@ from dataclasses import asdict
 from ..comparison_campaign import CampaignEntry
 from ..errors import ProviderError
 from ..registry import registry
-from .campaign_results import build_campaign_results
+from .campaign_results import build_campaign_result, build_campaign_results
 from .campaign_schemas import ComparisonCampaignCreate
 from .schemas import ExperimentCreate
 
@@ -136,6 +136,16 @@ class ComparisonCampaignService:
             self.application,
             self.evaluation,
             limit=limit,
+        )
+
+    def result(self, campaign_id: str) -> dict | None:
+        """指定した完了済みキャンペーンの公式結果を返す。"""
+        self.get(campaign_id)
+        return build_campaign_result(
+            self.campaigns,
+            self.application,
+            self.evaluation,
+            campaign_id,
         )
 
     def detail(self, campaign_id: str) -> dict:
