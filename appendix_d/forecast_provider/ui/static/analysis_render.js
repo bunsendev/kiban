@@ -102,40 +102,6 @@ export function renderCampaignOptions(bundle, selectedSnapshots = new Set(), sel
   })]);
 }
 
-function metric(value, suffix = "") {
-  return value === null || value === undefined ? "—" : `${Number(value).toFixed(2)}${suffix}`;
-}
-
-export function renderCampaignResultMatrix(matrix) {
-  const rows = (matrix?.tests || []).flatMap((test) => test.models
-    .filter((model) => model.official_eligible)
-    .map((model) => node("tr", {}, [
-      node("td", { text: test.selection_version }),
-      node("td", { text: `${test.test_start}〜${test.test_end}` }),
-      node("td", {
-        text: test.mode === "horizon"
-          ? `h=${test.horizon}`
-          : `主評価（最大${test.primary_horizon_max}日）`,
-      }),
-      node("td", { text: `${model.provider_id} / ${model.model_id}` }),
-      node("td", { text: model.rank === null ? "—" : String(model.rank) }),
-      node("td", { text: metric(model.wape_pct, "%") }),
-      node("td", { text: metric(model.bias_rate_pct, "%") }),
-      node("td", { text: metric(model.success_rate_pct, "%") }),
-    ])));
-  if (!rows.length) {
-    replace("campaign-result-matrix", [node("div", {
-      className: "empty-inline", text: "完了済みの公式比較結果はまだありません。",
-    })]);
-    return;
-  }
-  const headings = ["データ条件", "テスト期間", "評価幅", "モデル", "順位", "WAPE", "Bias率", "成功率"];
-  replace("campaign-result-matrix", [node("table", {}, [
-    node("thead", {}, [node("tr", {}, headings.map((value) => node("th", { text: value })))]),
-    node("tbody", {}, rows),
-  ])]);
-}
-
 const FINALIZATION_LABELS = {
   WAITING: "自動比較待機", RUNNING: "自動比較作成中",
   SUCCEEDED: "比較結果作成済み", FAILED: "自動比較失敗",

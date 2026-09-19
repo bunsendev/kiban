@@ -54,11 +54,13 @@
 .campaign-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; padding: 0.5rem 0; border-top: 1px solid var(--soft-line); }
 .campaign-entry small { grid-column: 1 / -1; color: var(--muted); }
 .campaign-results-section { margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid var(--line); }
-.campaign-result-matrix { margin-top: 0.7rem; overflow-x: auto; }
-.campaign-result-matrix table { width: 100%; min-width: 880px; border-collapse: collapse; font-size: 0.78rem; }
+.campaign-detail-heading { margin-top: 1.4rem; }
+.campaign-stability-summary, .campaign-result-matrix { margin-top: 0.7rem; overflow-x: auto; }
+.campaign-stability-summary table, .campaign-result-matrix table { width: 100%; min-width: 880px; border-collapse: collapse; font-size: 0.78rem; }
+.campaign-stability-summary th, .campaign-stability-summary td,
 .campaign-result-matrix th, .campaign-result-matrix td { padding: 0.55rem; border-bottom: 1px solid var(--soft-line); text-align: left; }
-.campaign-result-matrix th { position: sticky; top: 0; color: var(--muted); background: #f7f9fb; }
-.campaign-result-matrix td:nth-child(n+5) { font-variant-numeric: tabular-nums; }
+.campaign-stability-summary th, .campaign-result-matrix th { position: sticky; top: 0; color: var(--muted); background: #f7f9fb; }
+.campaign-stability-summary td:nth-child(n+2), .campaign-result-matrix td:nth-child(n+5) { font-variant-numeric: tabular-nums; }
 
 .analysis-form { padding: 1rem; background: #f7f9fb; border: 1px solid var(--soft-line); }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }

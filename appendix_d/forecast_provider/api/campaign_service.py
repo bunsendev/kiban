@@ -8,6 +8,7 @@ from dataclasses import asdict
 from ..comparison_campaign import CampaignEntry
 from ..errors import ProviderError
 from ..registry import registry
+from .campaign_results import build_campaign_results
 from .campaign_schemas import ComparisonCampaignCreate
 from .schemas import ExperimentCreate
 
@@ -130,72 +131,12 @@ class ComparisonCampaignService:
 
     def result_matrix(self, *, limit: int = 50) -> dict:
         """完了済みキャンペーンを同じ列で比較できる公式指標行へ整形する。"""
-        if self.evaluation is None:
-            return {"tests": []}
-        tests = []
-        for campaign in self.campaigns.list(limit=limit):
-            finalization = self.campaigns.get_finalization(campaign.campaign_id)
-            if finalization is None or finalization.status != "SUCCEEDED":
-                continue
-            snapshot = self.application.get_snapshot(campaign.snapshot_id)
-            comparison = self.evaluation.comparison_detail(finalization.comparison_id)
-            scores = comparison["result"].get("scores", {})
-            entries = self.campaigns.list_entries(campaign.campaign_id)
-            models = []
-            for entry in entries:
-                score = scores.get(entry.run_id, {})
-                metrics = score.get("official_common_metrics")
-                models.append(
-                    {
-                        "provider_id": entry.provider_id,
-                        "model_id": entry.model_id,
-                        "run_id": entry.run_id,
-                        "official_eligible": bool(score.get("official_eligible")),
-                        "wape_pct": None if metrics is None else metrics.get("wape_pct"),
-                        "mae": None if metrics is None else metrics.get("mae"),
-                        "rmse": None if metrics is None else metrics.get("rmse"),
-                        "bias_rate_pct": (
-                            None if metrics is None else metrics.get("bias_rate_pct")
-                        ),
-                        "success_rate_pct": (
-                            None
-                            if score.get("run_success_rate") is None
-                            else score["run_success_rate"] * 100
-                        ),
-                        "rank": None,
-                    }
-                )
-            ranked = sorted(
-                (
-                    item for item in models
-                    if item["official_eligible"] and item["wape_pct"] is not None
-                ),
-                key=lambda item: (item["wape_pct"], item["provider_id"], item["model_id"]),
-            )
-            for rank, item in enumerate(ranked, 1):
-                item["rank"] = rank
-            manifest = snapshot.manifest
-            tests.append(
-                {
-                    "campaign_id": campaign.campaign_id,
-                    "comparison_id": finalization.comparison_id,
-                    "purpose": campaign.purpose,
-                    "snapshot_id": campaign.snapshot_id,
-                    "selection_version": manifest["selection_version"],
-                    "train_start": manifest["train_start"],
-                    "train_end": manifest["train_end"],
-                    "test_start": manifest["test_start"],
-                    "test_end": manifest["test_end"],
-                    "origin_interval_days": manifest["origin_interval_days"],
-                    "max_horizon": manifest["max_horizon"],
-                    "primary_horizon_max": manifest["primary_horizon_max"],
-                    "mode": finalization.mode,
-                    "horizon": finalization.horizon,
-                    "created_at": campaign.created_at,
-                    "models": models,
-                }
-            )
-        return {"tests": tests}
+        return build_campaign_results(
+            self.campaigns,
+            self.application,
+            self.evaluation,
+            limit=limit,
+        )
 
     def detail(self, campaign_id: str) -> dict:
         campaign = self.get(campaign_id)
