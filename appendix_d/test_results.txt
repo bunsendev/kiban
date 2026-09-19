@@ -1,3 +1,27 @@
+# v2.9 Phase 3Q 実行検証記録
+
+Date: 2026-09-19 JST
+OS: Windows 11 / Docker Desktop 4.90.0
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.7
+
+## Phase 3Q
+
+- 再テスト: `RETEST`対応から元レビューと同じモデル集合・評価方法の比較キャンペーンを登録する。
+- 対象変更: 分析画面で保存済みsnapshotを選び、異なるテスト期間へ同じ比較条件を適用できる。
+- 冪等性: 認証subject、request key、期待revisionを検証し、再送による二重キャンペーンと重複履歴を防ぐ。
+- 追記状態: 開始時は対応中、成功時は比較ID付き完了根拠、失敗時は安全化した理由付き保留を記録する。
+- 自動同期: 比較キャンペーンWorkerが未同期結果を再pollし、link結果と対応イベントを同一transactionで保存する。
+- 認可: 実行はANALYZE、リンク参照はREAD権限とし、要求者を認証subjectから固定する。
+- UI: 追加テスト対応とデータセットの選択、実行、キャンペーン・比較IDを含む状態表示を追加した。
+- module分割: link domain、SQLite/PostgreSQL store、service、schema、認可route、画面描画を独立moduleへ分割した。
+- PostgreSQL実DB: PostgreSQL 17でlink schemaを作成し、対応・snapshot・campaign外部キーと対応中イベントを含む3件に成功した。
+- 対象試験: 再送、元モデル継承、成功、失敗、再実行、種別制約、Worker同期、API、UIを含む25件成功。
+- 回帰: 配布hash更新後、Linux専用RSS試験を除くWindows全体で554件成功、14件skip、1件deselect。
+- 静的検査: `ruff check .`、変更したJavaScript 3ファイルのNode.js構文検査に成功した。
+- 制約: 追加テスト結果はレビュー対応を更新するが、レビュー判断、採用、昇格、rollbackは自動変更しない。
+
 # v2.9 Phase 3P 実行検証記録
 
 Date: 2026-09-19 JST

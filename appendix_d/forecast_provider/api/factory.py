@@ -16,7 +16,11 @@ from ..jobs import PostgresRunStore
 from ..lifecycle import PostgresLifecycleStore
 from ..mapping_dry_run import PostgresMappingDryRunJobStore
 from ..master import PostgresMasterStore
-from ..model_review import PostgresModelReviewStore, PostgresReviewActionStore
+from ..model_review import (
+    PostgresModelReviewStore,
+    PostgresReviewActionStore,
+    PostgresReviewRetestStore,
+)
 from ..normalization import PostgresNormalizationStore
 from ..provider_conformance import PostgresConformanceJobStore
 from ..reporting import PostgresReportingStore
@@ -204,10 +208,17 @@ def from_environment():
         )
     if import_root is not None:
         readiness_checks["import_root"] = lambda: _readable_directory(import_root)
+    runs = PostgresRunStore(dsn)
+    catalog = PostgresCatalogStore(dsn)
+    evaluation_registry = PostgresEvaluationRegistryStore(dsn)
+    conformance_jobs = PostgresConformanceJobStore(dsn)
+    comparison_campaigns = PostgresComparisonCampaignStore(dsn)
     model_reviews = PostgresModelReviewStore(dsn)
+    review_actions = PostgresReviewActionStore(dsn)
+    review_retests = PostgresReviewRetestStore(dsn)
     return create_app(
-        PostgresRunStore(dsn),
-        PostgresCatalogStore(dsn),
+        runs,
+        catalog,
         authenticator,
         snapshot_root,
         PostgresIngestionStore(dsn),
@@ -216,7 +227,7 @@ def from_environment():
         PostgresDailyStore(dsn),
         PostgresAcceptanceStore(dsn),
         PostgresSelectionStore(dsn),
-        PostgresEvaluationRegistryStore(dsn),
+        evaluation_registry,
         PostgresReportingStore(dsn),
         reporting_root,
         security_settings=security_settings,
@@ -231,8 +242,9 @@ def from_environment():
         resource_cost=PostgresResourceCostStore(dsn),
         worker_status=PostgresWorkerStatusStore(dsn),
         worker_stale_seconds=float(os.environ.get("KIBAN_WORKER_STALE_SECONDS", "45")),
-        conformance_jobs=PostgresConformanceJobStore(dsn),
-        comparison_campaigns=PostgresComparisonCampaignStore(dsn),
+        conformance_jobs=conformance_jobs,
+        comparison_campaigns=comparison_campaigns,
         model_reviews=model_reviews,
-        review_actions=PostgresReviewActionStore(dsn),
+        review_actions=review_actions,
+        review_retests=review_retests,
     )

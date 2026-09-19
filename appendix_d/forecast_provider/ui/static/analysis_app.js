@@ -2,7 +2,8 @@ import { ApiError, clearToken, setToken } from "./api.js";
 import { installPkceLogin } from "./pkce.js";
 import {
   createCampaign, createCampaignBatch, createComparison, createConformanceJob, createExperiment,
-  createModelDriftReview, createReviewAction, createRun, updateReviewAction,
+  createModelDriftReview, createReviewAction, createReviewRetest, createRun,
+  updateReviewAction,
   retryCampaignFinalization,
   loadAnalysisDashboard,
 } from "./analysis_api.js";
@@ -14,7 +15,7 @@ import {
 } from "./analysis_model_reviews.js";
 import {
   fillReviewActionUpdate, renderReviewActionOptions, renderReviewActions,
-  toggleCompletionEvidence,
+  renderReviewRetestOptions, toggleCompletionEvidence,
 } from "./analysis_review_actions.js";
 import {
   renderCampaignOptions, renderCampaigns, renderComparisonCreated, renderDefaults,
@@ -92,7 +93,8 @@ function drawDashboard() {
   renderModelReviewOptions(bundle.campaignResults.model_drift, bundle.modelReviews);
   renderModelReviews(bundle.modelReviews);
   renderReviewActionOptions(bundle.modelReviews, bundle.reviewActions);
-  renderReviewActions(bundle.reviewActions, bundle.reviewActionEvents);
+  renderReviewRetestOptions(bundle.reviewActions, bundle.snapshots);
+  renderReviewActions(bundle.reviewActions, bundle.reviewActionEvents, bundle.reviewRetests);
   renderCampaignResultMatrix(bundle.campaignResults);
   drawDefaults();
   renderExperiments(
@@ -228,6 +230,24 @@ byId("review-action-update-form").addEventListener("submit", async (event) => {
     setBusy(false);
     await refreshDashboard(true);
     notice("対応タスクへ変更履歴を追加しました。", "success");
+  } catch (error) { handleError(error); } finally { setBusy(false); }
+});
+
+byId("review-retest-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const option = byId("review-retest-action").selectedOptions[0];
+  if (!option) return;
+  setBusy(true);
+  notice("レビュー対応の追加テストを登録しています。");
+  try {
+    await createReviewRetest(option.value, {
+      request_key: crypto.randomUUID(),
+      expected_revision: Number(option.dataset.revision),
+      target_snapshot_id: byId("review-retest-snapshot").value,
+    });
+    setBusy(false);
+    await refreshDashboard(true);
+    notice("追加テストを開始しました。完了結果は対応履歴へ自動記録されます。", "success");
   } catch (error) { handleError(error); } finally { setBusy(false); }
 });
 

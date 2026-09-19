@@ -48,6 +48,35 @@ export function fillReviewActionUpdate(actions) {
   toggleCompletionEvidence();
 }
 
+export function renderReviewRetestOptions(actions, snapshots) {
+  const actionSelect = document.getElementById("review-retest-action");
+  const previousAction = actionSelect.value;
+  const eligible = (actions || []).filter((item) => (
+    item.action_type === "RETEST" && ["OPEN", "BLOCKED"].includes(item.status)
+  ));
+  const actionOptions = eligible.map((action) => node("option", {
+    value: action.action_id,
+    text: `${statusLabels[action.status]}｜${action.title}`,
+    "data-revision": action.revision,
+  }));
+  actionSelect.replaceChildren(...actionOptions);
+  if (actionOptions.some((item) => item.value === previousAction)) actionSelect.value = previousAction;
+
+  const snapshotSelect = document.getElementById("review-retest-snapshot");
+  const previousSnapshot = snapshotSelect.value;
+  const snapshotOptions = (snapshots || []).map((snapshot) => node("option", {
+    value: snapshot.snapshot_id,
+    text: `${snapshot.manifest.test_start}〜${snapshot.manifest.test_end}｜${snapshot.manifest.selection_version}`,
+  }));
+  snapshotSelect.replaceChildren(...snapshotOptions);
+  if (snapshotOptions.some((item) => item.value === previousSnapshot)) {
+    snapshotSelect.value = previousSnapshot;
+  }
+  document.getElementById("review-retest-submit").dataset.locked = String(
+    !actionOptions.length || !snapshotOptions.length,
+  );
+}
+
 export function toggleCompletionEvidence() {
   const completed = document.getElementById("review-action-update-status").value === "COMPLETED";
   const field = document.getElementById("review-action-evidence-field");
@@ -57,7 +86,7 @@ export function toggleCompletionEvidence() {
   if (!completed) input.value = "";
 }
 
-export function renderReviewActions(actions, events) {
+export function renderReviewActions(actions, events, retests) {
   const values = actions || [];
   document.getElementById("review-action-count").textContent = `${values.length}件`;
   if (!values.length) {
@@ -71,6 +100,10 @@ export function renderReviewActions(actions, events) {
     const eventList = node("ol", { className: "review-action-events" }, history.map((item) => (
       node("li", { text: `v${item.revision} ${statusLabels[item.status]}｜${item.recorded_by}｜${item.note}` })
     )));
+    const actionRetests = (retests || []).filter((item) => item.action_id === action.action_id);
+    const retestList = node("ul", { className: "review-action-retests" }, actionRetests.map((item) => (
+      node("li", { text: `追加テスト ${item.status}｜campaign ${item.campaign_id}${item.comparison_id ? `｜comparison ${item.comparison_id}` : ""}` })
+    )));
     return node("article", { className: `review-action-card${action.overdue ? " overdue" : ""}` }, [
       node("div", { className: "model-review-card-heading" }, [
         node("strong", { text: action.title }),
@@ -80,6 +113,7 @@ export function renderReviewActions(actions, events) {
       node("p", { text: `最新: ${action.note}｜更新者 ${action.recorded_by}` }),
       ...(action.completion_evidence ? [node("p", { text: `完了根拠: ${action.completion_evidence}` })] : []),
       eventList,
+      ...(actionRetests.length ? [retestList] : []),
     ]);
   });
   document.getElementById("review-action-list").replaceChildren(...cards);
