@@ -375,8 +375,10 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
     assert "worker-status-list" in page.text
     assert "campaign-snapshot-options" in page.text
     assert "campaign-stability-summary" in page.text
+    assert "campaign-drift-summary" in page.text
     assert "campaign-result-matrix" in page.text
     assert "renderCampaignStability" in app.text
+    assert "renderCampaignDrift" in app.text
     assert "renderCampaignResultMatrix" in app.text
     assert "experiment_defaults" in renderer.text
     assert "時点再現して選択可能" in renderer.text
