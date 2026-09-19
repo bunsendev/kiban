@@ -14,12 +14,16 @@ export function loadAnalysisDashboard() {
     request("/api/comparison-campaigns"),
     request("/api/comparison-campaign-results?limit=50"),
     request("/api/model-drift-reviews?limit=200"),
+    request("/api/model-drift-review-actions?limit=200"),
+    request("/api/model-drift-review-action-events?limit=500"),
   ]).then(([
     session, snapshots, experiments, providers, runs, conformances, conformanceJobs,
     comparisons, workerStatus, campaigns, campaignResults, modelReviews,
+    reviewActions, reviewActionEvents,
   ]) => ({
     session, snapshots, experiments, providers, runs, conformances, conformanceJobs,
     comparisons, workerStatus, campaigns, campaignResults, modelReviews,
+    reviewActions, reviewActionEvents,
   }));
 }
 
@@ -27,6 +31,18 @@ export function createModelDriftReview(payload) {
   return request("/api/model-drift-reviews", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export function createReviewAction(payload) {
+  return request("/api/model-drift-review-actions", {
+    method: "POST", body: JSON.stringify(payload),
+  });
+}
+
+export function updateReviewAction(actionId, payload) {
+  return request(`/api/model-drift-review-actions/${encodeURIComponent(actionId)}/events`, {
+    method: "POST", body: JSON.stringify(payload),
   });
 }
 

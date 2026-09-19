@@ -342,6 +342,7 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
     client = api.get("/ui/assets/analysis_api.js")
     campaign_results = api.get("/ui/assets/analysis_campaign_results.js")
     model_reviews = api.get("/ui/assets/analysis_model_reviews.js")
+    review_actions = api.get("/ui/assets/analysis_review_actions.js")
     renderer = api.get("/ui/assets/analysis_render.js")
     rules = api.get("/ui/assets/analysis_rules.js")
     styles = api.get("/ui/assets/analysis.css")
@@ -349,7 +350,8 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
     assert all(
         value.status_code == 200
         for value in (
-            page, app, client, campaign_results, model_reviews, renderer, rules, styles
+            page, app, client, campaign_results, model_reviews, review_actions,
+            renderer, rules, styles
         )
     )
     assert "分析実行ワークスペース" in page.text
@@ -367,6 +369,7 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
     assert all('href="/ui/analysis"' in api.get(path).text for path in routes)
     scripts = (
         app.text + client.text + campaign_results.text + model_reviews.text
+        + review_actions.text
         + renderer.text + rules.text
     )
     assert "localStorage" not in scripts
@@ -378,6 +381,8 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
     assert 'request("/api/worker-status")' in client.text
     assert 'request("/api/comparison-campaign-results?limit=50")' in client.text
     assert 'request("/api/model-drift-reviews?limit=200")' in client.text
+    assert 'request("/api/model-drift-review-actions?limit=200")' in client.text
+    assert 'request("/api/model-drift-review-action-events?limit=500")' in client.text
     assert 'request("/api/comparison-campaign-batches"' in client.text
     assert "worker-status-list" in page.text
     assert "campaign-snapshot-options" in page.text
@@ -385,10 +390,14 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
     assert "campaign-drift-summary" in page.text
     assert "model-review-form" in page.text
     assert "model-review-list" in page.text
+    assert "review-action-create-form" in page.text
+    assert "review-action-update-form" in page.text
+    assert "review-action-list" in page.text
     assert "campaign-result-matrix" in page.text
     assert "renderCampaignStability" in app.text
     assert "renderCampaignDrift" in app.text
     assert "renderModelReviews" in app.text
+    assert "renderReviewActions" in app.text
     assert "renderCampaignResultMatrix" in app.text
     assert "experiment_defaults" in renderer.text
     assert "時点再現して選択可能" in renderer.text

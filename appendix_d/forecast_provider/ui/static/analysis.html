@@ -104,6 +104,34 @@
               <div id="model-review-list" class="model-review-list"></div>
             </div>
           </div>
+          <div class="review-action-section">
+            <div class="subheading"><h3>レビュー後の対応を管理する</h3><span id="review-action-count">0件</span></div>
+            <p class="field-note">担当者・期限・状態を更新履歴として残します。完了時は確認できる根拠を記録してください。</p>
+            <div class="review-action-layout">
+              <form id="review-action-create-form" class="analysis-form" data-permission="APPROVE">
+                <h4>対応タスクを追加</h4>
+                <label>レビュー<select id="review-action-review" required></select></label>
+                <label>種類<select id="review-action-type"><option value="RETEST">追加テスト</option><option value="DATA_FIX">データ修正</option><option value="BUSINESS_CONFIRMATION">業務確認</option><option value="MODEL_REVIEW">モデル確認</option><option value="LIFECYCLE_TRIAL">ライフサイクル試行</option><option value="OTHER">その他</option></select></label>
+                <label>件名<input id="review-action-title" required maxlength="200"></label>
+                <label>担当者<input id="review-action-assignee" required maxlength="200"></label>
+                <label>期限<input id="review-action-due" type="date" required></label>
+                <label>対応内容<textarea id="review-action-note" rows="3" required maxlength="1000"></textarea></label>
+                <div class="form-actions"><button id="review-action-create" class="button primary" type="submit" data-permission="APPROVE">対応を追加</button></div>
+              </form>
+              <form id="review-action-update-form" class="analysis-form" data-permission="APPROVE">
+                <h4>状態・担当・期限を更新</h4>
+                <label>対応タスク<select id="review-action-update-id" required></select></label>
+                <label>状態<select id="review-action-update-status"><option value="OPEN">未着手</option><option value="IN_PROGRESS">対応中</option><option value="BLOCKED">保留</option><option value="COMPLETED">完了</option><option value="CANCELLED">中止</option></select></label>
+                <label>担当者<input id="review-action-update-assignee" required maxlength="200"></label>
+                <label>期限<input id="review-action-update-due" type="date" required></label>
+                <label>変更内容<textarea id="review-action-update-note" rows="3" required maxlength="1000"></textarea></label>
+                <label id="review-action-evidence-field" hidden>完了根拠<textarea id="review-action-update-evidence" rows="3" maxlength="2000" placeholder="結果URL、出力ファイル、確認内容など"></textarea></label>
+                <input id="review-action-update-revision" type="hidden">
+                <div class="form-actions"><button id="review-action-update" class="button primary" type="submit" data-permission="APPROVE">履歴を追加</button></div>
+              </form>
+            </div>
+            <div id="review-action-list" class="review-action-list"></div>
+          </div>
           <div class="subheading campaign-detail-heading"><h3>複数条件の比較結果</h3><span>完了済みの公式指標</span></div>
           <p class="field-note">データ期間や予測幅ごとに順位が変わるかを確認します。WAPEが小さい順に順位を付けます。</p>
           <div id="campaign-result-matrix" class="campaign-result-matrix"></div>

@@ -2,7 +2,7 @@ import { ApiError, clearToken, setToken } from "./api.js";
 import { installPkceLogin } from "./pkce.js";
 import {
   createCampaign, createCampaignBatch, createComparison, createConformanceJob, createExperiment,
-  createModelDriftReview, createRun,
+  createModelDriftReview, createReviewAction, createRun, updateReviewAction,
   retryCampaignFinalization,
   loadAnalysisDashboard,
 } from "./analysis_api.js";
@@ -12,6 +12,10 @@ import {
 import {
   renderModelReviewOptions, renderModelReviews, setSuggestedReviewVersion,
 } from "./analysis_model_reviews.js";
+import {
+  fillReviewActionUpdate, renderReviewActionOptions, renderReviewActions,
+  toggleCompletionEvidence,
+} from "./analysis_review_actions.js";
 import {
   renderCampaignOptions, renderCampaigns, renderComparisonCreated, renderDefaults,
   renderExperiments, renderFormOptions, renderModels, renderRecentComparisons, renderRuns, renderSummary,
@@ -87,6 +91,8 @@ function drawDashboard() {
   renderCampaignDrift(bundle.campaignResults.model_drift);
   renderModelReviewOptions(bundle.campaignResults.model_drift, bundle.modelReviews);
   renderModelReviews(bundle.modelReviews);
+  renderReviewActionOptions(bundle.modelReviews, bundle.reviewActions);
+  renderReviewActions(bundle.reviewActions, bundle.reviewActionEvents);
   renderCampaignResultMatrix(bundle.campaignResults);
   drawDefaults();
   renderExperiments(
@@ -183,6 +189,45 @@ byId("model-review-form").addEventListener("submit", async (event) => {
     setBusy(false);
     await refreshDashboard(true);
     notice("精度変化の調査・判断を版付き履歴へ記録しました。", "success");
+  } catch (error) { handleError(error); } finally { setBusy(false); }
+});
+
+byId("review-action-create-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  setBusy(true);
+  notice("レビュー対応タスクを登録しています。");
+  try {
+    await createReviewAction({
+      review_id: byId("review-action-review").value,
+      action_type: byId("review-action-type").value,
+      title: byId("review-action-title").value.trim(),
+      assignee: byId("review-action-assignee").value.trim(),
+      due_date: byId("review-action-due").value,
+      note: byId("review-action-note").value.trim(),
+    });
+    setBusy(false);
+    await refreshDashboard(true);
+    notice("対応タスクを登録しました。", "success");
+  } catch (error) { handleError(error); } finally { setBusy(false); }
+});
+
+byId("review-action-update-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  setBusy(true);
+  notice("対応タスクの履歴を追加しています。");
+  try {
+    await updateReviewAction(byId("review-action-update-id").value, {
+      expected_revision: Number(byId("review-action-update-revision").value),
+      status: byId("review-action-update-status").value,
+      assignee: byId("review-action-update-assignee").value.trim(),
+      due_date: byId("review-action-update-due").value,
+      note: byId("review-action-update-note").value.trim(),
+      completion_evidence: byId("review-action-update-status").value === "COMPLETED"
+        ? byId("review-action-update-evidence").value.trim() : null,
+    });
+    setBusy(false);
+    await refreshDashboard(true);
+    notice("対応タスクへ変更履歴を追加しました。", "success");
   } catch (error) { handleError(error); } finally { setBusy(false); }
 });
 
@@ -350,5 +395,9 @@ byId("campaign-mode").addEventListener("change", () => {
 byId("model-review-profile").addEventListener("change", () => {
   setSuggestedReviewVersion(state.dashboard?.modelReviews || []);
 });
+byId("review-action-update-id").addEventListener("change", () => {
+  fillReviewActionUpdate(state.dashboard?.reviewActions || []);
+});
+byId("review-action-update-status").addEventListener("change", toggleCompletionEvidence);
 setBusy(false);
 installPkceLogin();

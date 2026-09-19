@@ -1,3 +1,26 @@
+# v2.9 Phase 3P 実行検証記録
+
+Date: 2026-09-19 JST
+OS: Windows 11 / Docker Desktop 4.90.0
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.7
+
+## Phase 3P
+
+- 対応タスク: 精度変化レビューへ種類、件名、担当者、期限、対応内容を登録する。
+- 追記履歴: 状態、担当者、期限、記録内容、完了根拠をrevision付きイベントとして保存する。
+- 状態制約: 完了根拠なしの完了、完了・中止後の更新、古いrevisionによる更新を拒否する。
+- 期限管理: 未完了かつ期限超過のタスクを、保存履歴を変えずに現在日から算出する。
+- 認可: 登録・更新はAPPROVE、現在状態・履歴参照はREADとし、作成者・記録者を認証subjectから固定する。
+- UI: 分析実行画面へ対応登録、状態・担当・期限更新、完了根拠、期限超過、全変更履歴を追加した。
+- module分割: domain、SQLite/PostgreSQL store、service、schema、認可route、画面描画を独立moduleへ分割した。
+- PostgreSQL実DB: PostgreSQL 17で対応タスクschemaを作成し、レビューとの外部キー、登録・取得を含む3件に成功した。
+- 対象試験: 追記履歴、担当・期限変更、版競合、終端状態、完了根拠、期限超過、認証主体、API、UIを含む18件成功。
+- 回帰: 配布hash更新後、Linux専用RSS試験を除くWindows全体で549件成功、14件skip、1件deselect。
+- 静的検査: `ruff check .`、変更したJavaScript 3ファイルのNode.js構文検査に成功した。
+- 制約: 対応履歴を管理する機能であり、再テスト、データ修正、採用、昇格、rollbackを自動実行しない。
+
 # v2.9 Phase 3O 実行検証記録
 
 Date: 2026-09-19 JST

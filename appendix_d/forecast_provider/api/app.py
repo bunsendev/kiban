@@ -28,6 +28,7 @@ from .ingestion_routes import install_ingestion_routes
 from .lifecycle_routes import install_lifecycle_routes
 from .mapping_dry_run_routes import install_mapping_dry_run_routes
 from .master_routes import install_master_routes
+from .model_review_action_routes import install_model_review_action_routes
 from .model_review_routes import install_model_review_routes
 from .normalization_routes import install_normalization_routes
 from .observability import install_observability
@@ -101,6 +102,7 @@ def create_app(
     conformance_jobs=None,
     comparison_campaigns=None,
     model_reviews=None,
+    review_actions=None,
 ) -> FastAPI:
     if isinstance(api_token, str) and not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -234,6 +236,14 @@ def create_app(
                         authorize,
                         ModelDriftReviewService(model_reviews, campaign_service),
                     )
+                    if review_actions is not None:
+                        from ..model_review import ReviewActionService
+
+                        install_model_review_action_routes(
+                            app,
+                            authorize,
+                            ReviewActionService(model_reviews, review_actions),
+                        )
 
     if reporting is not None:
         if evaluation_registry is None or acceptance is None or report_root is None:
