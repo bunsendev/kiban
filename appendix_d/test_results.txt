@@ -1,3 +1,27 @@
+# v2.9 Phase 3O 実行検証記録
+
+Date: 2026-09-19 JST
+OS: Windows 11 / Docker Desktop 4.90.0
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.7
+
+## Phase 3O
+
+- レビュー台帳: 同一条件の精度変化へ、確認中・データ要因・業務要因・モデル要因・問題なし、根拠、次の対応を追記保存する。
+- 不変性: 同じ比較プロフィールと判断版の再登録を拒否し、判断変更は新しい版として追加する。
+- 証跡: 判断時点の直前・最新指標と差分をcanonical JSONで固定し、SHA-256を保存する。
+- 照合: 現在の公式結果に存在し、異なるテスト期間が2件以上ある比較プロフィールだけを登録できる。
+- 認可: 登録はAPPROVE、参照はREAD権限とし、記録者を認証subjectから固定する。
+- UI: 分析実行画面へ比較対象、判断版、判断区分、根拠、次の対応のフォームと版付き履歴を追加した。
+- module分割: domain、SQLite/PostgreSQL store、照合service、認可route、画面描画を独立moduleへ分割した。
+- PostgreSQL実DB: PostgreSQL 17でレビューschemaを作成し、既存台帳との結合試験3件に成功した。
+- Docker実動: API imageを再構築し、readiness、分析画面、新しい画面asset、レビュー参照API、PostgreSQL上のレビュー表を確認した。
+- 対象試験: 証跡固定、版の上書き拒否、比較条件照合、履歴不足、認証主体、API認可、UIを含む15件成功。
+- 回帰: 配布hash更新後、Linux専用RSS試験を除くWindows全体で544件成功、14件skip、1件deselect。
+- 静的検査: `ruff check .`、変更したJavaScript 3ファイルのNode.js構文検査に成功した。
+- 制約: レビューは調査・判断履歴であり、採用、精度合格、昇格、rollbackを自動実行しない。
+
 # v2.9 Phase 3N 実行検証記録
 
 Date: 2026-09-19 JST

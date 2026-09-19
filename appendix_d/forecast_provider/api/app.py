@@ -28,6 +28,7 @@ from .ingestion_routes import install_ingestion_routes
 from .lifecycle_routes import install_lifecycle_routes
 from .mapping_dry_run_routes import install_mapping_dry_run_routes
 from .master_routes import install_master_routes
+from .model_review_routes import install_model_review_routes
 from .normalization_routes import install_normalization_routes
 from .observability import install_observability
 from .oidc_login import OidcLoginSettings, install_oidc_login_routes
@@ -99,6 +100,7 @@ def create_app(
     worker_stale_seconds: float = 45,
     conformance_jobs=None,
     comparison_campaigns=None,
+    model_reviews=None,
 ) -> FastAPI:
     if isinstance(api_token, str) and not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -213,16 +215,25 @@ def create_app(
                 conformance_service,
             )
             if comparison_campaigns is not None:
+                campaign_service = ComparisonCampaignService(
+                    comparison_campaigns,
+                    service,
+                    conformance_service,
+                    evaluation_service,
+                )
                 install_campaign_routes(
                     app,
                     authorize,
-                    ComparisonCampaignService(
-                        comparison_campaigns,
-                        service,
-                        conformance_service,
-                        evaluation_service,
-                    ),
+                    campaign_service,
                 )
+                if model_reviews is not None:
+                    from ..model_review import ModelDriftReviewService
+
+                    install_model_review_routes(
+                        app,
+                        authorize,
+                        ModelDriftReviewService(model_reviews, campaign_service),
+                    )
 
     if reporting is not None:
         if evaluation_registry is None or acceptance is None or report_root is None:
