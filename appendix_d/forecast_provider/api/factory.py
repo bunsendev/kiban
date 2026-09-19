@@ -16,7 +16,7 @@ from ..jobs import PostgresRunStore
 from ..lifecycle import PostgresLifecycleStore
 from ..mapping_dry_run import PostgresMappingDryRunJobStore
 from ..master import PostgresMasterStore
-from ..model_review import PostgresModelReviewStore
+from ..model_review import PostgresModelReviewStore, PostgresReviewActionStore
 from ..normalization import PostgresNormalizationStore
 from ..provider_conformance import PostgresConformanceJobStore
 from ..reporting import PostgresReportingStore
@@ -204,6 +204,7 @@ def from_environment():
         )
     if import_root is not None:
         readiness_checks["import_root"] = lambda: _readable_directory(import_root)
+    model_reviews = PostgresModelReviewStore(dsn)
     return create_app(
         PostgresRunStore(dsn),
         PostgresCatalogStore(dsn),
@@ -232,5 +233,6 @@ def from_environment():
         worker_stale_seconds=float(os.environ.get("KIBAN_WORKER_STALE_SECONDS", "45")),
         conformance_jobs=PostgresConformanceJobStore(dsn),
         comparison_campaigns=PostgresComparisonCampaignStore(dsn),
-        model_reviews=PostgresModelReviewStore(dsn),
+        model_reviews=model_reviews,
+        review_actions=PostgresReviewActionStore(dsn),
     )

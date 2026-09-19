@@ -54,6 +54,14 @@ class SqliteModelReviewStore:
             raise
         return value
 
+    def get(self, review_id: str) -> ModelDriftReview | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT * FROM model_drift_reviews WHERE review_id=?",
+                (review_id,),
+            ).fetchone()
+            return None if row is None else _record(row)
+
     def list(
         self, *, comparison_profile_id: str | None = None, limit: int = 200
     ) -> list[ModelDriftReview]:

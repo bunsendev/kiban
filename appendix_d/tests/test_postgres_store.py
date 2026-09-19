@@ -28,7 +28,12 @@ from forecast_provider.ingestion import PostgresIngestionStore, SourceFile
 from forecast_provider.jobs import OriginOutput, PostgresRunStore, RunDefinition
 from forecast_provider.jobs.postgres_store import _HybridRow
 from forecast_provider.master import PostgresMasterStore, make_matching_job, make_product
-from forecast_provider.model_review import PostgresModelReviewStore
+from forecast_provider.model_review import (
+    PostgresModelReviewStore,
+    PostgresReviewActionStore,
+    make_model_drift_review,
+    make_review_action,
+)
 from forecast_provider.normalization import (
     PostgresNormalizationStore,
     Reconciliation,
@@ -412,7 +417,30 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
     assert evaluation.get_comparison(saved.comparison_id) == saved
     assert evaluation.list_run_evaluations(saved.comparison_id) == [score]
     PostgresAcceptanceStore(dsn)
-    PostgresModelReviewStore(dsn)
+    review_store = PostgresModelReviewStore(dsn)
+    action_store = PostgresReviewActionStore(dsn)
+    profile_id = uuid.uuid4().hex * 2
+    review = make_model_drift_review(
+        profile_id,
+        f"postgres-{uuid.uuid4()}",
+        "INVESTIGATING",
+        "test@example.test",
+        "PostgreSQLで精度変化を確認",
+        "対応タスクを登録",
+        {"comparison_profile_id": profile_id},
+    )
+    review_store.put(review)
+    task, initial_event = make_review_action(
+        review.review_id,
+        "RETEST",
+        "PostgreSQL再テスト",
+        "test@example.test",
+        date(2026, 12, 31),
+        "期間を変えて確認",
+        "test@example.test",
+    )
+    assert action_store.create(task, initial_event).latest.status == "OPEN"
+    assert action_store.get(task.action_id).task == task
     reporting = PostgresReportingStore(dsn)
     export = make_export_record(
         {
