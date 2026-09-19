@@ -20,19 +20,28 @@ from .evaluation_registry import (
 )
 from .evaluation_registry.service import EvaluationRegistryService
 from .jobs import PostgresRunStore, SqliteRunStore
+from .model_review import (
+    PostgresReviewRetestStore,
+    ReviewRetestSynchronizer,
+    SqliteReviewRetestStore,
+)
 from .operations.worker_config import add_database_arguments, postgres_dsn
 from .provider_conformance import PostgresConformanceJobStore, SqliteConformanceJobStore
 from .provider_conformance.service import ConformanceJobService
 
 
-def work_once(campaigns, campaign_service, evaluation_service) -> int:
+def work_once(campaigns, campaign_service, evaluation_service, synchronizer=None) -> int:
     finalization = campaigns.claim_finalization()
     if finalization is None:
+        if synchronizer is not None:
+            synchronizer.sync_pending()
         return 0
     try:
         detail = campaign_service.detail(finalization.campaign_id)
         if detail["status"] == "RUNNING":
             campaigns.defer_finalization(finalization.campaign_id)
+            if synchronizer is not None:
+                synchronizer.sync_pending()
             return 1
         if detail["status"] == "NEEDS_ATTENTION":
             raise ValueError("適合試験または予測runに失敗があります")
@@ -58,6 +67,8 @@ def work_once(campaigns, campaign_service, evaluation_service) -> int:
         campaigns.fail_finalization(
             finalization.campaign_id, type(exc).__name__, _safe_message(exc)
         )
+    if synchronizer is not None:
+        synchronizer.sync_pending()
     return 1
 
 
@@ -87,6 +98,7 @@ def main(argv: list[str] | None = None) -> int:
         evaluations = SqliteEvaluationRegistryStore(args.sqlite)
         jobs = SqliteConformanceJobStore(args.sqlite)
         campaigns = SqliteComparisonCampaignStore(args.sqlite)
+        retests = SqliteReviewRetestStore(args.sqlite)
     else:
         dsn = postgres_dsn(args)
         runs = PostgresRunStore(dsn)
@@ -94,14 +106,16 @@ def main(argv: list[str] | None = None) -> int:
         evaluations = PostgresEvaluationRegistryStore(dsn)
         jobs = PostgresConformanceJobStore(dsn)
         campaigns = PostgresComparisonCampaignStore(dsn)
+        retests = PostgresReviewRetestStore(dsn)
     application = ApplicationService(runs, catalog, args.snapshot_root)
     conformance = ConformanceJobService(catalog, jobs)
     campaign_service = ComparisonCampaignService(campaigns, application, conformance)
     evaluation_service = EvaluationRegistryService(
         runs, catalog, evaluations, args.snapshot_root
     )
+    synchronizer = ReviewRetestSynchronizer(retests, campaigns)
     while True:
-        work_once(campaigns, campaign_service, evaluation_service)
+        work_once(campaigns, campaign_service, evaluation_service, synchronizer)
         if args.once:
             return 0
         time.sleep(args.poll_seconds)

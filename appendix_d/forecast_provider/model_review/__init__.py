@@ -13,6 +13,9 @@ from .actions import (
 )
 from .contracts import ModelDriftReview, ModelReviewStore, ReviewConclusion
 from .domain import make_model_drift_review
+from .retest_service import ReviewRetestService, ReviewRetestSynchronizer
+from .retest_store import PostgresReviewRetestStore, SqliteReviewRetestStore
+from .retests import ReviewRetest, make_review_retest
 from .service import ModelDriftReviewService, ReviewHistoryRequired, ReviewProfileNotFound
 from .store import PostgresModelReviewStore, SqliteModelReviewStore
 
@@ -23,6 +26,7 @@ __all__ = [
     "ModelReviewStore",
     "PostgresModelReviewStore",
     "PostgresReviewActionStore",
+    "PostgresReviewRetestStore",
     "ReviewActionEvent",
     "ReviewActionNotFound",
     "ReviewActionService",
@@ -32,10 +36,15 @@ __all__ = [
     "ReviewHistoryRequired",
     "ReviewNotFound",
     "ReviewProfileNotFound",
+    "ReviewRetest",
+    "ReviewRetestService",
+    "ReviewRetestSynchronizer",
     "SqliteModelReviewStore",
     "SqliteReviewActionStore",
+    "SqliteReviewRetestStore",
     "is_overdue",
     "make_model_drift_review",
     "make_review_action",
     "make_review_action_event",
+    "make_review_retest",
 ]

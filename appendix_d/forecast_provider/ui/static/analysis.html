@@ -129,6 +129,13 @@
                 <input id="review-action-update-revision" type="hidden">
                 <div class="form-actions"><button id="review-action-update" class="button primary" type="submit" data-permission="APPROVE">履歴を追加</button></div>
               </form>
+              <form id="review-retest-form" class="analysis-form" data-permission="ANALYZE">
+                <h4>追加テストを実行</h4>
+                <label>追加テスト対応<select id="review-retest-action" required></select></label>
+                <label>検証データセット<select id="review-retest-snapshot" required></select></label>
+                <p class="field-note">元の比較と同じモデル・評価方法を使い、選択したデータ期間で再実行します。成功時は比較ID、失敗時は安全な理由が履歴へ自動記録されます。</p>
+                <div class="form-actions"><button id="review-retest-submit" class="button primary" type="submit" data-permission="ANALYZE">追加テストを開始</button></div>
+              </form>
             </div>
             <div id="review-action-list" class="review-action-list"></div>
           </div>

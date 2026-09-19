@@ -54,6 +54,16 @@ def test_worker_defers_until_all_campaign_entries_finish():
     assert campaigns.action == ("defer", "campaign-001")
 
 
+def test_worker_runs_retest_synchronizer_after_campaign_work():
+    campaigns = _Campaigns(_finalization())
+    service = SimpleNamespace(detail=lambda _campaign_id: {"status": "RUNNING"})
+    synchronizer = SimpleNamespace(sync_pending=lambda: setattr(synchronizer, "called", True))
+    synchronizer.called = False
+
+    assert work_once(campaigns, service, _Evaluation(), synchronizer) == 1
+    assert synchronizer.called is True
+
+
 def test_worker_builds_fixed_comparison_definition_and_completes():
     campaigns = _Campaigns(_finalization())
     detail = {

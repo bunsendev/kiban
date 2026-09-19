@@ -31,8 +31,10 @@ from forecast_provider.master import PostgresMasterStore, make_matching_job, mak
 from forecast_provider.model_review import (
     PostgresModelReviewStore,
     PostgresReviewActionStore,
+    PostgresReviewRetestStore,
     make_model_drift_review,
     make_review_action,
+    make_review_retest,
 )
 from forecast_provider.normalization import (
     PostgresNormalizationStore,
@@ -441,6 +443,17 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
     )
     assert action_store.create(task, initial_event).latest.status == "OPEN"
     assert action_store.get(task.action_id).task == task
+    retest_store = PostgresReviewRetestStore(dsn)
+    retest = make_review_retest(
+        task.action_id,
+        f"postgres-retest-{uuid.uuid4()}",
+        campaign.campaign_id,
+        snapshot.snapshot_id,
+        campaign.campaign_id,
+        "test@example.test",
+    )
+    assert retest_store.reserve_and_start(retest, 1) == retest
+    assert retest_store.get_by_campaign(campaign.campaign_id) == retest
     reporting = PostgresReportingStore(dsn)
     export = make_export_record(
         {
