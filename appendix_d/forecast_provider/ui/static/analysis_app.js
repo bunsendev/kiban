@@ -1,13 +1,17 @@
 import { ApiError, clearToken, setToken } from "./api.js";
 import { installPkceLogin } from "./pkce.js";
 import {
-  createCampaign, createCampaignBatch, createComparison, createConformanceJob, createExperiment, createRun,
+  createCampaign, createCampaignBatch, createComparison, createConformanceJob, createExperiment,
+  createModelDriftReview, createRun,
   retryCampaignFinalization,
   loadAnalysisDashboard,
 } from "./analysis_api.js";
 import {
   renderCampaignDrift, renderCampaignResultMatrix, renderCampaignStability,
 } from "./analysis_campaign_results.js";
+import {
+  renderModelReviewOptions, renderModelReviews, setSuggestedReviewVersion,
+} from "./analysis_model_reviews.js";
 import {
   renderCampaignOptions, renderCampaigns, renderComparisonCreated, renderDefaults,
   renderExperiments, renderFormOptions, renderModels, renderRecentComparisons, renderRuns, renderSummary,
@@ -41,7 +45,7 @@ function setBusy(busy) {
 
 function handleError(error) {
   if (error instanceof ApiError && error.status === 401) notice("認証できません。API tokenを確認してください。", "error");
-  else if (error instanceof ApiError && error.status === 403) notice("この操作にはANALYZE権限が必要です。", "error");
+  else if (error instanceof ApiError && error.status === 403) notice("この操作に必要な権限がありません。", "error");
   else notice(error.message || "処理に失敗しました。", "error");
 }
 
@@ -81,6 +85,8 @@ function drawDashboard() {
   renderCampaigns(bundle.campaigns, selectCampaignRuns, retryCampaign);
   renderCampaignStability(bundle.campaignResults.model_stability);
   renderCampaignDrift(bundle.campaignResults.model_drift);
+  renderModelReviewOptions(bundle.campaignResults.model_drift, bundle.modelReviews);
+  renderModelReviews(bundle.modelReviews);
   renderCampaignResultMatrix(bundle.campaignResults);
   drawDefaults();
   renderExperiments(
@@ -155,6 +161,28 @@ byId("campaign-form").addEventListener("submit", async (event) => {
     await refreshDashboard(true);
     const campaignCount = result.campaign_count || 1;
     notice(`${campaignCount}件の比較キャンペーンを開始しました。Workerが順次処理します。`, "success");
+  } catch (error) { handleError(error); } finally { setBusy(false); }
+});
+
+byId("model-review-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (state.busy) return;
+  setBusy(true);
+  notice("精度変化の調査・判断を記録しています。");
+  try {
+    await createModelDriftReview({
+      comparison_profile_id: byId("model-review-profile").value,
+      decision_version: byId("model-review-version").value.trim(),
+      conclusion: byId("model-review-conclusion").value,
+      reason: byId("model-review-reason").value.trim(),
+      action: byId("model-review-action").value.trim(),
+    });
+    byId("model-review-version").value = "";
+    byId("model-review-reason").value = "";
+    byId("model-review-action").value = "";
+    setBusy(false);
+    await refreshDashboard(true);
+    notice("精度変化の調査・判断を版付き履歴へ記録しました。", "success");
   } catch (error) { handleError(error); } finally { setBusy(false); }
 });
 
@@ -318,6 +346,9 @@ byId("comparison-mode").addEventListener("change", () => {
 });
 byId("campaign-mode").addEventListener("change", () => {
   byId("campaign-horizon-field").hidden = byId("campaign-mode").value === "primary";
+});
+byId("model-review-profile").addEventListener("change", () => {
+  setSuggestedReviewVersion(state.dashboard?.modelReviews || []);
 });
 setBusy(false);
 installPkceLogin();

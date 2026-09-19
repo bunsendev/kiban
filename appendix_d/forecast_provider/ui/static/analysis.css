@@ -62,6 +62,15 @@
 .campaign-result-matrix th, .campaign-result-matrix td { padding: 0.55rem; border-bottom: 1px solid var(--soft-line); text-align: left; }
 .campaign-stability-summary th, .campaign-drift-summary th, .campaign-result-matrix th { position: sticky; top: 0; color: var(--muted); background: #f7f9fb; }
 .campaign-stability-summary td:nth-child(n+2), .campaign-drift-summary td:nth-child(n+3), .campaign-result-matrix td:nth-child(n+5) { font-variant-numeric: tabular-nums; }
+.model-review-layout { display: grid; grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.2fr); gap: 1rem; margin-top: 1rem; }
+.model-review-layout label { display: grid; gap: 0.35rem; margin-top: 0.7rem; }
+.model-review-list { display: grid; gap: 0.65rem; max-height: 520px; overflow: auto; margin-top: 0.7rem; }
+.model-review-card { padding: 0.8rem; border: 1px solid var(--line); background: #fff; }
+.model-review-card-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+.model-review-card p { color: var(--muted); font-size: 0.78rem; }
+.model-review-card dl { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 0.3rem 0.6rem; margin: 0; font-size: 0.78rem; }
+.model-review-card dt { color: var(--muted); }
+.model-review-card dd { margin: 0; overflow-wrap: anywhere; }
 
 .analysis-form { padding: 1rem; background: #f7f9fb; border: 1px solid var(--soft-line); }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
@@ -96,7 +105,8 @@
 .comparison-output code { overflow-wrap: anywhere; }
 
 @media (max-width: 900px) {
-  .analysis-intro, .experiment-layout, .run-layout, .comparison-layout, .campaign-layout { grid-template-columns: 1fr; }
+  .analysis-intro, .experiment-layout, .run-layout, .comparison-layout, .campaign-layout,
+  .model-review-layout { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 620px) {

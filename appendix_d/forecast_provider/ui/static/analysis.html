@@ -88,6 +88,22 @@
           <div class="subheading campaign-detail-heading"><h3>同一条件の時系列変化</h3><span id="drift-series-count">比較可能0/0系列</span></div>
           <p class="field-note">品目集合、モデル設定、評価方式、期間幅が一致する結果だけを比較します。WAPE上昇は精度変化の確認対象であり、自動的な不採用判定ではありません。</p>
           <div id="campaign-drift-summary" class="campaign-drift-summary"></div>
+          <div class="model-review-layout">
+            <form id="model-review-form" class="analysis-form" data-permission="APPROVE">
+              <div class="subheading"><h3>精度変化を調査・判断する</h3><span>APPROVE権限</span></div>
+              <label>比較対象<select id="model-review-profile" required></select></label>
+              <label>判断版<input id="model-review-version" required maxlength="100" pattern="[A-Za-z0-9._:-]+"></label>
+              <label>判断<select id="model-review-conclusion"><option value="INVESTIGATING">確認中</option><option value="DATA_ISSUE">データ要因</option><option value="BUSINESS_EVENT">業務要因</option><option value="MODEL_ISSUE">モデル要因</option><option value="NO_ACTION">問題なし</option></select></label>
+              <label>判断根拠<textarea id="model-review-reason" rows="3" required maxlength="1000" placeholder="確認したデータや業務イベントを記載"></textarea></label>
+              <label>次の対応<textarea id="model-review-action" rows="3" required maxlength="1000" placeholder="追加テスト、データ修正、対応不要などを記載"></textarea></label>
+              <p class="field-note">表示中の直前・最新指標を証跡として固定します。後から判断を変える場合は新しい判断版を追加します。</p>
+              <div class="form-actions"><button id="model-review-submit" class="button primary" type="submit" data-permission="APPROVE">調査・判断を記録</button></div>
+            </form>
+            <div>
+              <div class="subheading"><h3>調査・判断履歴</h3><span id="model-review-count">0件</span></div>
+              <div id="model-review-list" class="model-review-list"></div>
+            </div>
+          </div>
           <div class="subheading campaign-detail-heading"><h3>複数条件の比較結果</h3><span>完了済みの公式指標</span></div>
           <p class="field-note">データ期間や予測幅ごとに順位が変わるかを確認します。WAPEが小さい順に順位を付けます。</p>
           <div id="campaign-result-matrix" class="campaign-result-matrix"></div>

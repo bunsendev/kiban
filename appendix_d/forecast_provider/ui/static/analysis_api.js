@@ -13,13 +13,21 @@ export function loadAnalysisDashboard() {
     request("/api/worker-status"),
     request("/api/comparison-campaigns"),
     request("/api/comparison-campaign-results?limit=50"),
+    request("/api/model-drift-reviews?limit=200"),
   ]).then(([
     session, snapshots, experiments, providers, runs, conformances, conformanceJobs,
-    comparisons, workerStatus, campaigns, campaignResults,
+    comparisons, workerStatus, campaigns, campaignResults, modelReviews,
   ]) => ({
     session, snapshots, experiments, providers, runs, conformances, conformanceJobs,
-    comparisons, workerStatus, campaigns, campaignResults,
+    comparisons, workerStatus, campaigns, campaignResults, modelReviews,
   }));
+}
+
+export function createModelDriftReview(payload) {
+  return request("/api/model-drift-reviews", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function createCampaign(payload) {

@@ -341,13 +341,16 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
     app = api.get("/ui/assets/analysis_app.js")
     client = api.get("/ui/assets/analysis_api.js")
     campaign_results = api.get("/ui/assets/analysis_campaign_results.js")
+    model_reviews = api.get("/ui/assets/analysis_model_reviews.js")
     renderer = api.get("/ui/assets/analysis_render.js")
     rules = api.get("/ui/assets/analysis_rules.js")
     styles = api.get("/ui/assets/analysis.css")
 
     assert all(
         value.status_code == 200
-        for value in (page, app, client, campaign_results, renderer, rules, styles)
+        for value in (
+            page, app, client, campaign_results, model_reviews, renderer, rules, styles
+        )
     )
     assert "分析実行ワークスペース" in page.text
     assert 'type="module" src="/ui/assets/analysis_app.js"' in page.text
@@ -362,7 +365,10 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
         "/ui/resources",
     )
     assert all('href="/ui/analysis"' in api.get(path).text for path in routes)
-    scripts = app.text + client.text + campaign_results.text + renderer.text + rules.text
+    scripts = (
+        app.text + client.text + campaign_results.text + model_reviews.text
+        + renderer.text + rules.text
+    )
     assert "localStorage" not in scripts
     assert "sessionStorage" not in scripts
     assert 'request("/api/snapshots?limit=200")' in client.text
@@ -371,19 +377,24 @@ def test_analysis_ui_serves_metadata_driven_guided_workflow(tmp_path):
     assert 'request("/api/provider-conformance-tests")' in client.text
     assert 'request("/api/worker-status")' in client.text
     assert 'request("/api/comparison-campaign-results?limit=50")' in client.text
+    assert 'request("/api/model-drift-reviews?limit=200")' in client.text
     assert 'request("/api/comparison-campaign-batches"' in client.text
     assert "worker-status-list" in page.text
     assert "campaign-snapshot-options" in page.text
     assert "campaign-stability-summary" in page.text
     assert "campaign-drift-summary" in page.text
+    assert "model-review-form" in page.text
+    assert "model-review-list" in page.text
     assert "campaign-result-matrix" in page.text
     assert "renderCampaignStability" in app.text
     assert "renderCampaignDrift" in app.text
+    assert "renderModelReviews" in app.text
     assert "renderCampaignResultMatrix" in app.text
     assert "experiment_defaults" in renderer.text
     assert "時点再現して選択可能" in renderer.text
     assert "intervals.disabled = !supportsIntervals" in renderer.text
     assert 'data-permission="ANALYZE"' in page.text
+    assert 'data-permission="APPROVE"' in page.text
 
     ids = set(re.findall(r'id="([^"]+)"', page.text))
     assert len(ids) == len(re.findall(r'id="([^"]+)"', page.text))

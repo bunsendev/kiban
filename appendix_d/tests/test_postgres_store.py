@@ -28,6 +28,7 @@ from forecast_provider.ingestion import PostgresIngestionStore, SourceFile
 from forecast_provider.jobs import OriginOutput, PostgresRunStore, RunDefinition
 from forecast_provider.jobs.postgres_store import _HybridRow
 from forecast_provider.master import PostgresMasterStore, make_matching_job, make_product
+from forecast_provider.model_review import PostgresModelReviewStore
 from forecast_provider.normalization import (
     PostgresNormalizationStore,
     Reconciliation,
@@ -411,6 +412,7 @@ def test_postgres_store_conforms_to_origin_transaction_contract():
     assert evaluation.get_comparison(saved.comparison_id) == saved
     assert evaluation.list_run_evaluations(saved.comparison_id) == [score]
     PostgresAcceptanceStore(dsn)
+    PostgresModelReviewStore(dsn)
     reporting = PostgresReportingStore(dsn)
     export = make_export_record(
         {

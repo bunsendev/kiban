@@ -12,6 +12,7 @@ from forecast_provider.catalog import SqliteCatalogStore
 from forecast_provider.comparison_campaign import SqliteComparisonCampaignStore
 from forecast_provider.evaluation_registry import SqliteEvaluationRegistryStore
 from forecast_provider.jobs import SqliteRunStore
+from forecast_provider.model_review import SqliteModelReviewStore
 from forecast_provider.provider_conformance import SqliteConformanceJobStore
 
 
@@ -26,6 +27,7 @@ def _fixture(tmp_path):
             evaluation_registry=SqliteEvaluationRegistryStore(database),
             conformance_jobs=SqliteConformanceJobStore(database),
             comparison_campaigns=SqliteComparisonCampaignStore(database),
+            model_reviews=SqliteModelReviewStore(database),
         )
     )
     api.headers["Authorization"] = "Bearer token"
@@ -120,6 +122,7 @@ def test_batch_registers_each_snapshot_once_and_validates_scope(tmp_path):
     try:
         assert api.post("/api/comparison-campaign-batches", json=payload).status_code == 401
         assert api.get("/api/comparison-campaign-results").status_code == 401
+        assert api.get("/api/model-drift-reviews").status_code == 401
     finally:
         api.headers["Authorization"] = authorization
 
