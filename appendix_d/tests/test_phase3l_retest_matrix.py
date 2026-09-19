@@ -175,7 +175,11 @@ def test_result_matrix_uses_only_completed_official_metrics(tmp_path):
 
     assert response.status_code == 200, response.text
     tests = response.json()["tests"]
+    stability = response.json()["model_stability"]
     assert len(tests) == 2
+    assert stability["completed_test_count"] == 2
+    assert len(stability["models"]) == 2
+    assert all(item["official_coverage_pct"] == 100 for item in stability["models"])
     assert {item["selection_version"] for item in tests} == {"selection-v1", "selection-v2"}
     assert {item["primary_horizon_max"] for item in tests} == {7, 15}
     for test in tests:

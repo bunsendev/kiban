@@ -1,3 +1,25 @@
+# v2.9 Phase 3M 実行検証記録
+
+Date: 2026-09-19 JST
+OS: Windows 11 / Docker Desktop 4.90.0
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.7
+
+## Phase 3M
+
+- 公式結果再利用: 新しい評価値を作らず、完了済み比較の`official_common_metrics`とrun成功率だけを集計する。
+- 掲載率: 全完了条件に対する掲載率と、モデルを設定した条件に対する掲載率を分離した。
+- 順位安定性: 1位回数・割合、平均・最良・最悪・幅・母標準偏差、条件による順位変動を算出した。
+- 精度分布: WAPEの平均・最小・最大・幅・母標準偏差、絶対Bias率平均、最低run成功率を算出した。
+- UI: 分析実行画面に公式掲載数、1位回数、平均順位、順位幅、WAPE平均・幅、絶対Bias平均、最低成功率、条件不足・順位変動表示を追加した。
+- module分割: 集計を`api/campaign_results.py`、画面描画を`analysis_campaign_results.js`へ分離し、既存serviceと共通rendererを縮小した。
+- 実機検証: Docker APIを再構築し、保存済み6条件・3モデルの安定性集計と画面assetを確認した。全3モデルが6条件で正式比較対象となり、全run成功率100%を維持した。
+- 対象試験: 掲載不足、順位変動、1条件、空集合、WAPE・Bias・成功率分布、API結合、管理画面を含む13件成功。
+- 回帰: 配布hash更新後、Linux専用RSS試験を除くWindows全体で536件成功、14件skip、1件deselect。
+- 静的検査: `ruff check .`と変更したJavaScript 3ファイルのNode.js構文検査に成功した。
+- 制約: 条件間集計は技術比較の記述統計であり、採用可否、精度合格、実データ受入を自動判定しない。
+
 # v2.9 Phase 3L 実行検証記録
 
 Date: 2026-09-19 JST
