@@ -82,7 +82,7 @@ APIと軽量な全Provider依存は`pip install -e ".[api,postgres,statsforecast
 
 同じsnapshotで複数OSSモデルを検証するときは、`/ui/analysis`の「比較セットをまとめて開始する」で2〜12モデルと評価方式を選択する。実験、Provider適合試験、予測runが一括登録され、全モデル完了後は独立Workerが比較結果を自動生成する。モデル別進捗、失敗理由、自動比較の状態と結果導線をキャンペーンカードで追跡できる。同じ操作の再送は同一キャンペーン・runへ収束する。詳細は[OSS比較キャンペーン](docs/Phase3I_OSS比較キャンペーン.md)と[比較キャンペーン自動完了](docs/Phase3J_比較キャンペーン自動完了.md)を参照する。
 
-指定実データZIPの全ファイル照合、在庫mapping診断、出荷snapshotの再集計照合、Baseline・MLForecast Ridge・StatsForecast AutoETS・TimesFM 2.5の比較は[実データによる予測OSS比較結果](docs/実データOSS比較結果_2026-09-19.md)を参照する。精度、資源負荷、費用情報の充足状況を踏まえた段階採用案は[予測OSSモデル採用提案](docs/OSSモデル採用提案_2026-09-20.md)にまとめた。
+指定実データZIPの全ファイル照合、在庫mapping診断、出荷snapshotの再集計照合、Baseline・MLForecast Ridge・StatsForecast AutoETS・TimesFM 2.5の比較は[実データによる予測OSS比較結果](docs/実データOSS比較結果_2026-09-19.md)を参照する。精度、資源負荷、費用情報の充足状況を踏まえた段階採用案は[予測OSSモデル採用提案](docs/OSSモデル採用提案_2026-09-20.md)、業務担当者向けの説明とクラウド月額試算は[非エンジニア向け予測OSSとクラウド導入提案](docs/非エンジニア向け_予測OSSとクラウド導入提案_2026-09-20.md)にまとめた。
 
 Windows現場PCでは「予測OSS分析を起動」をダブルクリックすると、Docker Desktop、データ準備Worker、Baseline、StatsForecast AutoETS、MLForecast Ridge、Provider適合試験、自動比較Workerをまとめて起動し、全serviceとProvider heartbeatを確認してから`/ui/analysis`を開く。TimesFMは空きメモリを確認する「TimesFM分析を追加起動」から明示的に追加する。詳細は[Windows予測OSS分析ランチャー](docs/Phase3K_Windows予測OSS分析ランチャー.md)を参照する。
 
