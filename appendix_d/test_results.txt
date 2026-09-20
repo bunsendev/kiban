@@ -1338,3 +1338,11 @@ ruff: 0.16.6
 ## 実DB検証環境
 
 Docker Desktop 4.90.0、Docker Engine 29.7.2、PostgreSQL 17 Alpineを使用。PostgreSQLは`127.0.0.1:55432`、APIは`127.0.0.1:58000`で起動して検証した。
+
+## 予測OSSモデル採用提案（2026-09-20）
+
+- ruff 0.16.7: All checks passed。
+- pytest 9.1.1: WindowsでLinux専用peak RSS試験1件を除外し、556 passed、14 skipped、1 deselected。
+- 全件初回実行は555 passed、14 skipped、2 failed。失敗はWindowsに`resource` moduleがない既知のLinux専用試験1件と、文書追加直後でSHA一覧更新前だった配布整合性試験1件。
+- 公式比較値からTimesFM対RidgeのWAPE差、CPU・推論時間・peak memory比を再計算して一致。
+- 金額比較は正式単価不足のため未算出とし、テスト用単価を採用判断へ使用しない。
