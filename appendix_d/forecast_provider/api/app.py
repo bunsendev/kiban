@@ -2,12 +2,10 @@
 
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import FastAPI
 
 from ..catalog import CatalogStore
-from ..errors import ContractViolationError
 from ..jobs.contracts import RunStore
 from ..mapping_dry_run.bulk_uploads import MappingDryRunBulkUploader
 from ..mapping_dry_run.catalog import MappingDryRunCatalog
@@ -20,6 +18,7 @@ from ..ui import install_ui_routes
 from .acceptance_routes import install_acceptance_routes
 from .campaign_routes import install_campaign_routes
 from .conformance_job_routes import install_conformance_job_routes
+from .core_routes import install_core_routes
 from .daily_routes import install_daily_routes
 from .error_responses import install_error_handlers
 from .evaluation_routes import install_evaluation_routes
@@ -36,41 +35,16 @@ from .observability import install_observability
 from .oidc_login import OidcLoginSettings, install_oidc_login_routes
 from .reporting_routes import install_reporting_routes
 from .resource_cost_routes import install_resource_cost_routes
-from .schemas import (
-    Created,
-    ExperimentCreate,
-    ResumeInput,
-    RunCreate,
-    RunCreated,
-    RunStatusOutput,
-    SnapshotCreate,
-)
 from .security import (
     Authenticator,
     Authorizer,
-    Permission,
-    Principal,
     SecuritySettings,
     TokenAuthenticator,
     install_security_boundary,
 )
 from .selection_routes import install_selection_routes
-from .service import ApplicationService, NotFoundError, record_dict
+from .service import ApplicationService
 from .worker_status_routes import install_worker_status_routes
-
-
-def _output(value, resource_cost=None) -> RunStatusOutput:
-    return RunStatusOutput(
-        run_id=value.run_id,
-        experiment_id=value.experiment_id,
-        status=value.status,
-        cancellation_requested=value.cancellation_requested,
-        origin_counts=value.origin_counts,
-        failure_count=value.failure_count,
-        provider_id=value.provider_id,
-        model_name=value.model_name,
-        resources=None if resource_cost is None else resource_cost.summarize(value.run_id),
-    )
 
 
 def create_app(
@@ -160,20 +134,7 @@ def create_app(
         InventoryNormalizationPreview(mapping_dry_run_input_root),
         inventory_normalization,
     )
-    read = authorize.require(Permission.READ)
-    analyze = authorize.require(Permission.ANALYZE)
-
-    @app.get("/health")
-    def health():
-        return {"status": "ok"}
-
-    @app.get("/api/session")
-    def get_session(principal: Annotated[Principal, Depends(authorize)]):
-        return {
-            "subject": principal.subject,
-            "roles": [role.value for role in principal.roles],
-            "permissions": sorted(permission.value for permission in principal.permissions),
-        }
+    install_core_routes(app, authorize, service, resource_cost)
 
     if ingestion is not None:
         install_ingestion_routes(app, authorize, ingestion)
@@ -289,135 +250,5 @@ def create_app(
         )
         trial_service = TrialLifecycleService(store, catalog, evaluation_registry, lifecycle)
         install_lifecycle_routes(app, authorize, lifecycle_service, trial_service)
-
-    @app.post("/api/snapshots", response_model=Created, status_code=201)
-    def create_snapshot(
-        request: SnapshotCreate,
-        _principal: Annotated[Principal, Depends(analyze)],
-    ):
-        try:
-            return Created(id=service.create_snapshot(request).snapshot_id)
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-    @app.get("/api/snapshots/{snapshot_id}")
-    def get_snapshot(
-        snapshot_id: str,
-        _principal: Annotated[Principal, Depends(read)],
-    ):
-        try:
-            return record_dict(service.get_snapshot(snapshot_id))
-        except NotFoundError as exc:
-            raise HTTPException(status_code=404, detail="snapshotが見つかりません") from exc
-
-    @app.get("/api/snapshots")
-    def list_snapshots(
-        _principal: Annotated[Principal, Depends(read)],
-        limit: Annotated[int, Query(ge=1, le=200)] = 100,
-    ):
-        return [record_dict(value) for value in service.list_snapshots(limit=limit)]
-
-    @app.post("/api/experiments", response_model=Created, status_code=201)
-    def create_experiment(
-        request: ExperimentCreate,
-        _principal: Annotated[Principal, Depends(analyze)],
-    ):
-        try:
-            return Created(id=service.create_experiment(request).experiment_id)
-        except NotFoundError as exc:
-            raise HTTPException(status_code=404, detail="snapshotが見つかりません") from exc
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-    @app.get("/api/experiments/{experiment_id}")
-    def get_experiment(
-        experiment_id: str,
-        _principal: Annotated[Principal, Depends(read)],
-    ):
-        try:
-            return record_dict(service.get_experiment(experiment_id))
-        except NotFoundError as exc:
-            raise HTTPException(status_code=404, detail="experimentが見つかりません") from exc
-
-    @app.get("/api/experiments")
-    def list_experiments(
-        _principal: Annotated[Principal, Depends(read)],
-        snapshot_id: str | None = None,
-        limit: Annotated[int, Query(ge=1, le=200)] = 100,
-    ):
-        return [
-            record_dict(value)
-            for value in service.list_experiments(snapshot_id=snapshot_id, limit=limit)
-        ]
-
-    @app.post("/api/runs", response_model=RunCreated, status_code=status.HTTP_202_ACCEPTED)
-    def create_run(
-        request: RunCreate,
-        _principal: Annotated[Principal, Depends(analyze)],
-    ):
-        try:
-            snapshot = service.create_run(request)
-        except NotFoundError as exc:
-            raise HTTPException(status_code=404, detail="experimentが見つかりません") from exc
-        return RunCreated(run_id=snapshot.run_id, status=snapshot.status)
-
-    @app.get("/api/runs", response_model=list[RunStatusOutput])
-    def list_runs(
-        _principal: Annotated[Principal, Depends(read)],
-        limit: Annotated[int, Query(ge=1, le=200)] = 100,
-        run_status: Annotated[str | None, Query(alias="status")] = None,
-    ):
-        try:
-            return [
-                _output(value)
-                for value in service.list_runs(limit=limit, status=run_status)
-            ]
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-    @app.get("/api/runs/{run_id}", response_model=RunStatusOutput)
-    def get_run(
-        run_id: str,
-        _principal: Annotated[Principal, Depends(read)],
-    ):
-        try:
-            return _output(service.get_run(run_id), resource_cost)
-        except NotFoundError as exc:
-            raise HTTPException(status_code=404, detail="runが見つかりません") from exc
-
-    @app.get("/api/runs/{run_id}/results")
-    def get_results(
-        run_id: str,
-        _principal: Annotated[Principal, Depends(read)],
-    ):
-        try:
-            return service.get_results(run_id)
-        except NotFoundError as exc:
-            raise HTTPException(status_code=404, detail="runが見つかりません") from exc
-
-    @app.post("/api/runs/{run_id}/cancel", response_model=RunStatusOutput)
-    def cancel_run(
-        run_id: str,
-        _principal: Annotated[Principal, Depends(analyze)],
-    ):
-        try:
-            return _output(service.cancel(run_id), resource_cost)
-        except NotFoundError as exc:
-            raise HTTPException(status_code=404, detail="runが見つかりません") from exc
-
-    @app.post("/api/runs/{run_id}/resume", response_model=RunStatusOutput)
-    def resume_run(
-        run_id: str,
-        request: ResumeInput,
-        _principal: Annotated[Principal, Depends(analyze)],
-    ):
-        try:
-            return _output(
-                service.resume(run_id, request.condition_fingerprint), resource_cost
-            )
-        except NotFoundError as exc:
-            raise HTTPException(status_code=404, detail="runが見つかりません") from exc
-        except ContractViolationError as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     return app
