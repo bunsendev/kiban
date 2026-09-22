@@ -48,6 +48,71 @@ def test_management_ui_serves_modular_assets_without_persisting_token(tmp_path):
     assert api.get("/api/runs/missing").status_code == 401
 
 
+def test_easy_ui_serves_single_action_data_entry_screen(tmp_path):
+    database = tmp_path / "easy-ui.sqlite3"
+    api = TestClient(create_app(SqliteRunStore(database), SqliteCatalogStore(database), "token"))
+
+    page = api.get("/ui/easy")
+    trailing = api.get("/ui/easy/")
+    app = api.get("/ui/assets/easy_app.js")
+    client = api.get("/ui/assets/easy_api.js")
+    telemetry = api.get("/ui/assets/easy_telemetry.js")
+    styles = api.get("/ui/assets/easy.css")
+
+    assert all(
+        value.status_code == 200 for value in (page, trailing, app, client, telemetry, styles)
+    )
+    assert "かんたん予測" in page.text
+    assert "ファイルを選ぶ" in page.text
+    assert "指定フォルダから選ぶ" in page.text
+    assert "データを分析する" in page.text
+    assert 'type="module" src="/ui/assets/easy_app.js"' in page.text
+    assert page.headers["cache-control"] == "no-store"
+    assert "frame-ancestors 'none'" in page.headers["content-security-policy"]
+    scripts = app.text + client.text + telemetry.text
+    assert "localStorage" not in scripts
+    assert "sessionStorage" not in scripts
+    assert 'request("/api/mapping-dry-run-sources")' in client.text
+    assert '"/api/mapping-dry-run-jobs"' in client.text
+    assert '"/api/mapping-dry-run-batches"' in client.text
+    assert 'request("/api/operation-events"' in client.text
+    assert "filename" not in telemetry.text
+    assert "file_content" not in telemetry.text
+    assert "操作記録について" in page.text
+
+    ids = set(re.findall(r'id="([^"]+)"', page.text))
+    assert len(ids) == len(re.findall(r'id="([^"]+)"', page.text))
+    references = set(re.findall(r'(?:byId|document\.getElementById)\("([^"]+)"\)', scripts))
+    assert references <= ids
+
+
+def test_feedback_ui_serves_restricted_operation_report(tmp_path):
+    database = tmp_path / "feedback-ui.sqlite3"
+    api = TestClient(create_app(SqliteRunStore(database), SqliteCatalogStore(database), "token"))
+
+    page = api.get("/ui/feedback")
+    app = api.get("/ui/assets/feedback_app.js")
+    client = api.get("/ui/assets/feedback_api.js")
+    renderer = api.get("/ui/assets/feedback_render.js")
+    styles = api.get("/ui/assets/feedback.css")
+
+    assert all(value.status_code == 200 for value in (page, app, client, renderer, styles))
+    assert "操作改善レポート" in page.text
+    assert "収集範囲と運用ルール" in page.text
+    assert 'type="module" src="/ui/assets/feedback_app.js"' in page.text
+    assert 'request(`/api/operation-events/summary?days=${days}`)' in client.text
+    assert 'download(`/api/operation-events/export.csv?days=${days}`' in client.text
+    assert "ファイル名、パス、ファイル内容、接続コード" in page.text
+
+    scripts = app.text + client.text + renderer.text
+    assert "localStorage" not in scripts
+    assert "sessionStorage" not in scripts
+    ids = set(re.findall(r'id="([^"]+)"', page.text))
+    assert len(ids) == len(re.findall(r'id="([^"]+)"', page.text))
+    references = set(re.findall(r'(?:byId|document\.getElementById)\("([^"]+)"\)', scripts))
+    assert references <= ids
+
+
 def test_lifecycle_ui_serves_separate_modules_with_complete_dom_contract(tmp_path):
     database = tmp_path / "lifecycle-ui.sqlite3"
     api = TestClient(create_app(SqliteRunStore(database), SqliteCatalogStore(database), "token"))

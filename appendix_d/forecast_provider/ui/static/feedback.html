@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="担当者画面の操作状況と改善材料を確認する管理者画面">
+  <title>操作改善レポート | Yosoku Kiban</title>
+  <link rel="stylesheet" href="/ui/assets/styles.css">
+  <link rel="stylesheet" href="/ui/assets/feedback.css">
+  <script type="module" src="/ui/assets/feedback_app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">本文へ移動</a>
+  <header class="topbar feedback-topbar">
+    <div class="brand-block">
+      <span class="eyebrow">YOSOKU KIBAN / PRODUCT FEEDBACK</span>
+      <h1>操作改善レポート</h1>
+      <a class="workspace-link" href="/ui/easy">担当者画面へ</a>
+      <a class="workspace-link" href="/ui/intake">設定・管理画面へ</a>
+    </div>
+    <form id="connection-form" class="connection" aria-label="API接続">
+      <label for="api-token">管理者用の接続コード</label>
+      <div class="connection-row"><input id="api-token" type="password" autocomplete="off" required><button class="button primary" type="submit">接続</button></div>
+    </form>
+    <div id="session-controls" class="session-controls" hidden>
+      <span id="session-identity" class="session-identity"></span>
+      <button id="disconnect-button" class="button quiet" type="button">切断</button>
+    </div>
+  </header>
+
+  <main id="workspace" class="page-shell feedback-shell">
+    <div id="notice" class="notice" role="status" aria-live="polite">管理者用の接続コードを入力してください。</div>
+    <section id="feedback-content" hidden>
+      <div class="feedback-toolbar">
+        <label for="period-days">集計期間<select id="period-days"><option value="7">過去7日</option><option value="30" selected>過去30日</option><option value="90">過去90日</option><option value="180">過去180日</option></select></label>
+        <button id="refresh-button" class="button secondary" type="button">更新</button>
+        <button id="export-button" class="button primary" type="button">操作ログCSVを出力</button>
+      </div>
+
+      <section class="summary-grid feedback-summary" aria-label="利用状況サマリー">
+        <article class="summary-card accent-blue"><span>利用セッション</span><strong id="session-count">0</strong></article>
+        <article class="summary-card accent-cyan"><span>データ選択</span><strong id="selection-count">0</strong></article>
+        <article class="summary-card accent-amber"><span>分析開始</span><strong id="request-count">0</strong></article>
+        <article class="summary-card accent-green"><span>分析受付完了</span><strong id="accepted-count">0</strong></article>
+      </section>
+
+      <section class="feedback-grid">
+        <article class="feedback-card">
+          <div class="section-heading"><div><span class="eyebrow">CONVERSION</span><h2>操作の完了状況</h2></div></div>
+          <div id="funnel-list" class="funnel-list"></div>
+        </article>
+        <article class="feedback-card">
+          <div class="section-heading"><div><span class="eyebrow">FRICTION</span><h2>失敗・つまずき</h2></div></div>
+          <div id="error-list" class="feedback-list"></div>
+        </article>
+      </section>
+
+      <section class="feedback-card">
+        <div class="section-heading"><div><span class="eyebrow">RECENT EVENTS</span><h2>最近の操作</h2></div><span id="event-count" class="count-chip">0件</span></div>
+        <div class="table-wrap"><table><thead><tr><th>日時</th><th>担当者</th><th>操作</th><th>結果</th><th>方法</th><th>所要時間</th></tr></thead><tbody id="event-list"></tbody></table></div>
+      </section>
+
+      <details class="feedback-policy">
+        <summary>収集範囲と運用ルール</summary>
+        <p>操作手順、所要時間、成功・失敗種別、入力方法、ファイル種別・容量区分、画面サイズ区分を収集します。ファイル名、パス、ファイル内容、接続コード、入力値は収集しません。管理者だけが参照でき、初期設定では180日を超えた記録を自動削除します。</p>
+      </details>
+    </section>
+  </main>
+</body>
+</html>

@@ -22,6 +22,7 @@ from ..model_review import (
     PostgresReviewRetestStore,
 )
 from ..normalization import PostgresNormalizationStore
+from ..operation_events import PostgresOperationEventStore
 from ..provider_conformance import PostgresConformanceJobStore
 from ..reporting import PostgresReportingStore
 from ..resource_cost.postgres_store import PostgresResourceCostStore
@@ -247,4 +248,8 @@ def from_environment():
         model_reviews=model_reviews,
         review_actions=review_actions,
         review_retests=review_retests,
+        operation_events=PostgresOperationEventStore(dsn),
+        operation_event_retention_days=int(
+            os.environ.get("KIBAN_OPERATION_EVENT_RETENTION_DAYS", "180")
+        ),
     )
