@@ -11,7 +11,7 @@ from forecast_provider.jobs import SqliteRunStore
 from forecast_provider.operation_events import SqliteOperationEventStore
 
 
-def _payload(event_name="CONNECTED", sequence=1, **metadata):
+def _payload(event_name="CONNECTED", sequence=1, elapsed_ms=1_250, **metadata):
     return {
         "event_id": str(uuid4()),
         "flow_session_id": str(uuid4()),
@@ -20,7 +20,7 @@ def _payload(event_name="CONNECTED", sequence=1, **metadata):
         "step": 1,
         "sequence": sequence,
         "outcome": "FAILURE" if event_name == "ANALYSIS_FAILED" else "SUCCESS",
-        "elapsed_ms": 1_250,
+        "elapsed_ms": elapsed_ms,
         "metadata": {"flow_version": "easy-v1", **metadata},
         "occurred_at": datetime.now(UTC).isoformat(),
     }
@@ -46,7 +46,13 @@ def test_operation_events_are_idempotent_and_summarized(tmp_path):
         _payload("CONNECTED", 1),
         _payload("SOURCE_SELECTED", 2, source_mode="upload", file_kind="zip"),
         _payload("ANALYSIS_REQUESTED", 3, source_mode="upload"),
-        _payload("ANALYSIS_ACCEPTED", 4, source_mode="upload", mapping_match=True),
+        _payload(
+            "ANALYSIS_ACCEPTED",
+            4,
+            source_mode="upload",
+            mapping_match=True,
+            work_item_id="job-123",
+        ),
     ]
     for event in events:
         event["flow_session_id"] = session_id
@@ -65,6 +71,65 @@ def test_operation_events_are_idempotent_and_summarized(tmp_path):
         "ANALYSIS_ACCEPTED": 1,
     }
     assert summary["source_modes"] == {"upload": 3}
+    assert summary["drop_offs"] == {
+        "connected_without_selection": 0,
+        "selected_without_request": 0,
+        "requested_without_acceptance": 0,
+        "sessions_with_reselection": 0,
+        "sessions_with_failure": 0,
+    }
+
+
+def test_operation_event_summary_identifies_dropoffs_and_stage_times(tmp_path):
+    client, _store = _client(tmp_path)
+    headers = {"Authorization": "Bearer token"}
+    first_session = str(uuid4())
+    second_session = str(uuid4())
+    events = [
+        (first_session, _payload("CONNECTED", 1)),
+        (first_session, _payload("SOURCE_SELECTED", 2, source_mode="upload")),
+        (first_session, _payload("SOURCE_SELECTED", 3, source_mode="upload")),
+        (
+            first_session,
+            _payload(
+                "STAGE_COMPLETED",
+                4,
+                elapsed_ms=1_200,
+                stage_name="source_prepare",
+                column_count_bucket="two_to_ten",
+            ),
+        ),
+        (
+            first_session,
+            _payload(
+                "STAGE_COMPLETED",
+                5,
+                elapsed_ms=2_800,
+                stage_name="source_prepare",
+            ),
+        ),
+        (first_session, _payload("ANALYSIS_REQUESTED", 6)),
+        (first_session, _payload("ANALYSIS_FAILED", 7, error_kind="api_500")),
+        (second_session, _payload("CONNECTED", 1)),
+    ]
+    for session_id, event in events:
+        event["flow_session_id"] = session_id
+        assert client.post("/api/operation-events", json=event, headers=headers).status_code == 201
+
+    summary = client.get("/api/operation-events/summary?days=7", headers=headers).json()
+    assert summary["drop_offs"] == {
+        "connected_without_selection": 1,
+        "selected_without_request": 0,
+        "requested_without_acceptance": 1,
+        "sessions_with_reselection": 1,
+        "sessions_with_failure": 1,
+    }
+    assert summary["stage_durations"]["source_prepare"] == {
+        "count": 2,
+        "failure_count": 0,
+        "median_ms": 2_000,
+        "p90_ms": 2_800,
+    }
 
 
 def test_operation_events_reject_raw_or_identifying_metadata(tmp_path):
@@ -97,6 +162,8 @@ def test_operation_event_access_export_and_retention(tmp_path):
     exported = client.get("/api/operation-events/export.csv?days=7", headers=headers)
     assert exported.status_code == 200
     assert "mapping_not_found" in exported.text
+    assert "stage_name" in exported.text
+    assert "column_count_bucket" in exported.text
     assert "secret.csv" not in exported.text
 
     assert store.purge_before(datetime.now(UTC) + timedelta(seconds=1)) == 1

@@ -15,6 +15,8 @@ class OperationEventCreate(BaseModel):
         "SOURCE_MODE_CHANGED",
         "SOURCE_SELECTED",
         "SOURCE_CLEARED",
+        "SOURCE_LIST_REFRESHED",
+        "STAGE_COMPLETED",
         "ANALYSIS_REQUESTED",
         "ANALYSIS_ACCEPTED",
         "ANALYSIS_FAILED",

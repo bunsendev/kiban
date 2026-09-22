@@ -99,10 +99,15 @@ def test_feedback_ui_serves_restricted_operation_report(tmp_path):
     assert all(value.status_code == 200 for value in (page, app, client, renderer, styles))
     assert "操作改善レポート" in page.text
     assert "収集範囲と運用ルール" in page.text
+    assert "優先して確認する改善候補" in page.text
+    assert "止まった手順・やり直し" in page.text
+    assert "処理別の所要時間" in page.text
     assert 'type="module" src="/ui/assets/feedback_app.js"' in page.text
     assert 'request(`/api/operation-events/summary?days=${days}`)' in client.text
     assert 'download(`/api/operation-events/export.csv?days=${days}`' in client.text
     assert "ファイル名、パス、ファイル内容、接続コード" in page.text
+    assert "renderRecommendations" in renderer.text
+    assert "stage_durations" in renderer.text
 
     scripts = app.text + client.text + renderer.text
     assert "localStorage" not in scripts

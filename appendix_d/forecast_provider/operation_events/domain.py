@@ -11,6 +11,8 @@ EVENT_NAMES = frozenset(
         "SOURCE_MODE_CHANGED",
         "SOURCE_SELECTED",
         "SOURCE_CLEARED",
+        "SOURCE_LIST_REFRESHED",
+        "STAGE_COMPLETED",
         "ANALYSIS_REQUESTED",
         "ANALYSIS_ACCEPTED",
         "ANALYSIS_FAILED",
@@ -30,7 +32,13 @@ ALLOWED_METADATA_KEYS = frozenset(
         "result_kind",
         "viewport_bucket",
         "retry_count",
+        "selection_count",
         "flow_version",
+        "stage_name",
+        "column_count_bucket",
+        "source_age_bucket",
+        "online",
+        "work_item_id",
     }
 )
 

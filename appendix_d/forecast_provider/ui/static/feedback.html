@@ -56,6 +56,22 @@
         </article>
       </section>
 
+      <section class="feedback-card feedback-recommendations">
+        <div class="section-heading"><div><span class="eyebrow">NEXT ACTIONS</span><h2>優先して確認する改善候補</h2></div></div>
+        <div id="recommendation-list" class="recommendation-list"></div>
+      </section>
+
+      <section class="feedback-grid">
+        <article class="feedback-card">
+          <div class="section-heading"><div><span class="eyebrow">DROP OFF</span><h2>止まった手順・やり直し</h2></div></div>
+          <div id="drop-off-list" class="feedback-list"></div>
+        </article>
+        <article class="feedback-card">
+          <div class="section-heading"><div><span class="eyebrow">PERFORMANCE</span><h2>処理別の所要時間</h2></div></div>
+          <div id="stage-duration-list" class="feedback-list"></div>
+        </article>
+      </section>
+
       <section class="feedback-card">
         <div class="section-heading"><div><span class="eyebrow">RECENT EVENTS</span><h2>最近の操作</h2></div><span id="event-count" class="count-chip">0件</span></div>
         <div class="table-wrap"><table><thead><tr><th>日時</th><th>担当者</th><th>操作</th><th>結果</th><th>方法</th><th>所要時間</th></tr></thead><tbody id="event-list"></tbody></table></div>
@@ -63,7 +79,7 @@
 
       <details class="feedback-policy">
         <summary>収集範囲と運用ルール</summary>
-        <p>操作手順、所要時間、成功・失敗種別、入力方法、ファイル種別・容量区分、画面サイズ区分を収集します。ファイル名、パス、ファイル内容、接続コード、入力値は収集しません。管理者だけが参照でき、初期設定では180日を超えた記録を自動削除します。</p>
+        <p>操作手順、処理別の所要時間、成功・失敗種別、入力方法、ファイル種別・容量区分、列数・ファイル更新日の区分、選び直し回数、画面サイズ区分、オンライン状態を収集します。ファイル名、パス、ファイル内容、接続コード、入力値は収集しません。管理者だけが参照でき、初期設定では180日を超えた記録を自動削除します。</p>
       </details>
     </section>
   </main>

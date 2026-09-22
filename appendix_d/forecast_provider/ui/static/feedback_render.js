@@ -10,10 +10,24 @@ const EVENT_LABELS = {
   ANALYSIS_FAILED: "分析に失敗",
   STEP_VIEWED: "手順を表示",
   STEP_COMPLETED: "手順を完了",
+  SOURCE_LIST_REFRESHED: "指定フォルダを更新",
+  STAGE_COMPLETED: "処理を完了",
 };
 const ERROR_LABELS = {
   mapping_not_found: "列設定が見つからない",
   unexpected: "予期しないエラー",
+};
+const DROP_OFF_LABELS = {
+  connected_without_selection: "接続後にデータを選ばなかった",
+  selected_without_request: "データ選択後に分析を押さなかった",
+  requested_without_acceptance: "分析を押したが受付完了しなかった",
+  sessions_with_reselection: "データを選び直した",
+  sessions_with_failure: "分析中に失敗した",
+};
+const STAGE_LABELS = {
+  source_prepare: "保存・内容確認",
+  mapping_resolution: "列設定の判定",
+  analysis_submission: "分析受付",
 };
 
 function node(tag, className, text) {
@@ -31,7 +45,79 @@ export function renderFeedback(summary, events) {
   byId("accepted-count").textContent = (funnel.ANALYSIS_ACCEPTED || 0).toLocaleString("ja-JP");
   renderFunnel(funnel);
   renderErrors(summary.error_kinds || {});
+  renderDropOffs(summary.drop_offs || {});
+  renderStageDurations(summary.stage_durations || {});
+  renderRecommendations(summary);
   renderEvents(events);
+}
+
+function renderDropOffs(dropOffs) {
+  const entries = Object.entries(DROP_OFF_LABELS);
+  byId("drop-off-list").replaceChildren(...entries.map(([key, label]) => {
+    const row = node("div", "feedback-list-item");
+    row.append(node("span", "", label), node("strong", "", `${dropOffs[key] || 0}件`));
+    return row;
+  }));
+}
+
+function renderStageDurations(durations) {
+  const entries = Object.entries(durations);
+  if (!entries.length) {
+    byId("stage-duration-list").replaceChildren(node("p", "empty-inline", "処理時間はまだ記録されていません。"));
+    return;
+  }
+  byId("stage-duration-list").replaceChildren(...entries.map(([stage, value]) => {
+    const row = node("div", "feedback-list-item");
+    const p90 = value.p90_ms === null ? "—" : formatDuration(value.p90_ms);
+    const median = value.median_ms === null ? "—" : formatDuration(value.median_ms);
+    const failures = value.failure_count ? ` / 失敗 ${value.failure_count}件` : "";
+    row.append(
+      node("span", "", STAGE_LABELS[stage] || stage),
+      node("strong", "", `中央値 ${median} / 遅い10% ${p90}${failures}`),
+    );
+    return row;
+  }));
+}
+
+function renderRecommendations(summary) {
+  const sessions = summary.session_count || 0;
+  const dropOffs = summary.drop_offs || {};
+  const errors = summary.error_kinds || {};
+  const recommendations = [];
+  if (sessions < 10) {
+    recommendations.push(["データ収集中", "判断前に10セッション以上を目安に集めます。"]);
+  }
+  if (dropOffs.connected_without_selection > 0) {
+    recommendations.push(["データ選択を確認", "接続後に止まる担当者がいます。説明文と選択ボタンの見つけやすさを確認します。"]);
+  }
+  if (dropOffs.selected_without_request > 0) {
+    recommendations.push(["分析ボタンを確認", "データ選択後に止まっています。準備完了の表示と次の操作を明確にします。"]);
+  }
+  if (dropOffs.sessions_with_reselection > 0) {
+    recommendations.push(["選択ミスを確認", "選び直しが発生しています。対象ファイルの説明や最新データの表示を改善します。"]);
+  }
+  if ((errors.mapping_not_found || 0) > 0) {
+    recommendations.push(["列設定を追加", "列設定不足が発生しています。該当形式のmapping追加を優先します。"]);
+  }
+  for (const [stage, value] of Object.entries(summary.stage_durations || {})) {
+    const threshold = stage === "source_prepare" ? 10_000 : 5_000;
+    if ((value.p90_ms || 0) > threshold) {
+      recommendations.push([`${STAGE_LABELS[stage] || stage}を高速化`, "遅い10%の処理時間が目安を超えています。待機表示と処理性能を確認します。"]);
+    }
+  }
+  if (!recommendations.length) {
+    recommendations.push(["大きなつまずきなし", "現在の期間では目立つ離脱や失敗はありません。継続して変化を確認します。"]);
+  }
+  byId("recommendation-list").replaceChildren(...recommendations.slice(0, 5).map(([title, detail]) => {
+    const item = node("article", "recommendation-item");
+    item.append(node("strong", "", title), node("p", "", detail));
+    return item;
+  }));
+}
+
+function formatDuration(milliseconds) {
+  if (milliseconds < 1_000) return `${milliseconds}ms`;
+  return `${(milliseconds / 1_000).toFixed(1)}秒`;
 }
 
 function renderFunnel(funnel) {
