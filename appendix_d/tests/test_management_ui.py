@@ -48,6 +48,37 @@ def test_management_ui_serves_modular_assets_without_persisting_token(tmp_path):
     assert api.get("/api/runs/missing").status_code == 401
 
 
+def test_easy_ui_serves_single_action_data_entry_screen(tmp_path):
+    database = tmp_path / "easy-ui.sqlite3"
+    api = TestClient(create_app(SqliteRunStore(database), SqliteCatalogStore(database), "token"))
+
+    page = api.get("/ui/easy")
+    trailing = api.get("/ui/easy/")
+    app = api.get("/ui/assets/easy_app.js")
+    client = api.get("/ui/assets/easy_api.js")
+    styles = api.get("/ui/assets/easy.css")
+
+    assert all(value.status_code == 200 for value in (page, trailing, app, client, styles))
+    assert "かんたん予測" in page.text
+    assert "ファイルを選ぶ" in page.text
+    assert "指定フォルダから選ぶ" in page.text
+    assert "データを分析する" in page.text
+    assert 'type="module" src="/ui/assets/easy_app.js"' in page.text
+    assert page.headers["cache-control"] == "no-store"
+    assert "frame-ancestors 'none'" in page.headers["content-security-policy"]
+    scripts = app.text + client.text
+    assert "localStorage" not in scripts
+    assert "sessionStorage" not in scripts
+    assert 'request("/api/mapping-dry-run-sources")' in client.text
+    assert '"/api/mapping-dry-run-jobs"' in client.text
+    assert '"/api/mapping-dry-run-batches"' in client.text
+
+    ids = set(re.findall(r'id="([^"]+)"', page.text))
+    assert len(ids) == len(re.findall(r'id="([^"]+)"', page.text))
+    references = set(re.findall(r'(?:byId|document\.getElementById)\("([^"]+)"\)', scripts))
+    assert references <= ids
+
+
 def test_lifecycle_ui_serves_separate_modules_with_complete_dom_contract(tmp_path):
     database = tmp_path / "lifecycle-ui.sqlite3"
     api = TestClient(create_app(SqliteRunStore(database), SqliteCatalogStore(database), "token"))

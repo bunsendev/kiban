@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="担当者向けのデータ選択・分析開始画面">
+  <title>かんたん予測 | Yosoku Kiban</title>
+  <link rel="stylesheet" href="/ui/assets/styles.css">
+  <link rel="stylesheet" href="/ui/assets/easy.css">
+  <script type="module" src="/ui/assets/easy_app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">本文へ移動</a>
+  <header class="easy-topbar">
+    <div>
+      <span class="easy-product">YOSOKU KIBAN</span>
+      <h1>かんたん予測</h1>
+    </div>
+    <div id="connected-user" class="easy-user" hidden>
+      <span class="easy-connected-mark" aria-hidden="true"></span>
+      <span id="session-name">接続済み</span>
+      <button id="disconnect-button" class="easy-link-button" type="button">接続し直す</button>
+    </div>
+    <a class="easy-admin-link" href="/ui/intake">設定・管理画面</a>
+  </header>
+
+  <main id="workspace" class="easy-shell">
+    <ol class="easy-steps" aria-label="予測の手順">
+      <li class="current" aria-current="step"><span>1</span><strong>データを選ぶ</strong></li>
+      <li><span>2</span><strong>内容を確認</strong></li>
+      <li><span>3</span><strong>予測を実行</strong></li>
+      <li><span>4</span><strong>結果を見る</strong></li>
+    </ol>
+
+    <section id="connection-panel" class="easy-panel easy-connect" aria-labelledby="connection-title">
+      <div>
+        <p class="easy-kicker">初回だけ</p>
+        <h2 id="connection-title">このPCを接続します</h2>
+        <p>セットアップ時に渡された接続コードを入力してください。画面を閉じるとコードは消去されます。</p>
+      </div>
+      <form id="connection-form" class="easy-connect-form">
+        <label for="api-token">接続コード</label>
+        <div class="easy-inline-field">
+          <input id="api-token" type="password" autocomplete="off" required placeholder="接続コードを入力">
+          <button class="button primary" type="submit">接続する</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="source-panel" class="easy-panel" aria-labelledby="source-title" hidden>
+      <header class="easy-panel-heading">
+        <div>
+          <p class="easy-kicker">STEP 1</p>
+          <h2 id="source-title">予測に使うデータを選んでください</h2>
+          <p>CSVまたはZIPを選ぶだけで、分析に必要な設定を自動で確認します。</p>
+        </div>
+      </header>
+
+      <div class="easy-source-tabs" role="tablist" aria-label="データの選び方">
+        <button id="upload-tab" class="easy-source-tab active" type="button" role="tab"
+          aria-selected="true" aria-controls="upload-panel">ファイルを選ぶ</button>
+        <button id="folder-tab" class="easy-source-tab" type="button" role="tab"
+          aria-selected="false" aria-controls="folder-panel">指定フォルダから選ぶ</button>
+      </div>
+
+      <div id="upload-panel" class="easy-source-body" role="tabpanel" aria-labelledby="upload-tab">
+        <label class="easy-file-picker" for="source-file">
+          <span class="easy-file-icon" aria-hidden="true">＋</span>
+          <strong id="file-picker-title">ここを押してファイルを選択</strong>
+          <span>CSVまたはZIP・100 MB以下</span>
+          <input id="source-file" type="file" accept=".csv,.zip,text/csv,application/zip">
+        </label>
+      </div>
+
+      <div id="folder-panel" class="easy-source-body" role="tabpanel" aria-labelledby="folder-tab" hidden>
+        <div class="easy-folder-heading">
+          <div>
+            <strong>指定フォルダに保存済みのデータ</strong>
+            <p>フォルダへファイルを追加した場合は「一覧を更新」を押してください。</p>
+          </div>
+          <button id="refresh-sources" class="button secondary" type="button">一覧を更新</button>
+        </div>
+        <label for="folder-source">使用するファイル</label>
+        <select id="folder-source"></select>
+        <p id="folder-empty" class="easy-help" hidden>利用できるCSVがありません。指定フォルダへCSVを保存してください。</p>
+      </div>
+
+      <section id="selected-summary" class="easy-selection" aria-live="polite" hidden>
+        <div class="easy-file-check" aria-hidden="true">✓</div>
+        <div><span>選択中のデータ</span><strong id="selected-name">—</strong><small id="selected-detail">—</small></div>
+        <button id="clear-selection" class="easy-link-button" type="button">選び直す</button>
+      </section>
+
+      <div id="notice" class="easy-notice" role="status" aria-live="polite">ファイルを選択してください。</div>
+      <button id="analyze-button" class="easy-primary-action" data-permission="ANALYZE" type="button" disabled>
+        データを分析する
+        <span>→</span>
+      </button>
+      <p class="easy-safety">元のファイルは変更・上書きしません。</p>
+    </section>
+  </main>
+</body>
+</html>

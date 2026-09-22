@@ -128,6 +128,10 @@ Provider適合試験は`/ui/analysis`の保存済み実験から開始できる�
 
 比較CSVは`POST /api/comparisons/{comparison_id}/exports`で発行する。baseline改善率、own/common/official指標、件数、集合・snapshot・Providerの識別子を含み、取得時にもchecksumを検証する。採用判断は`POST /api/adoptions`へ比較、実データ受入case、採用run、fallback、対象、担当者、理由を指定する。正式比較、PASSED、最新APPROVED、日次build一致をサーバーが照合する。詳細は[比較レポートCSVと採用判断](docs/Phase1O_比較レポートと採用判断.md)を参照する。
 
+## 担当者向けかんたん予測画面
+
+`http://127.0.0.1:58000/ui/easy`は、PC操作に不慣れな担当者向けの入口である。現在はCSV・ZIPのアップロード、または管理対象フォルダー内のCSV選択から、互換性のある列mappingを自動選択して検証jobを登録するところまでを1画面で行う。token、mapping ID、job IDなどの管理情報は通常操作から隠し、元ファイルを変更しないことを明示する。詳細は[担当者向けかんたん予測画面](docs/担当者向けかんたん予測画面.md)を参照する。
+
 ## 比較・受入・採用管理画面
 
 API起動後にdevelopmentでは`http://127.0.0.1:58000/ui`を開き、設定したtokenを入力する。接続すると認証subjectとroleが表示され、permissionのない操作は無効になる。比較選択、run別指標と系譜の確認、受入caseの業務判断、比較CSVの発行・取得、採用・却下の記録を同じ画面で行える。tokenは画面のメモリ内だけで保持し、更新時には再入力が必要。担当者項目は認証subjectから確定し、採用条件は保存時にサーバーが再検証する。詳細は[比較・受入・採用管理画面](docs/Phase1P_比較受入採用管理画面.md)を参照する。
