@@ -1355,3 +1355,12 @@ Docker Desktop 4.90.0、Docker Engine 29.7.2、PostgreSQL 17 Alpineを使用。P
 - AWS Lightsail、Google Cloud Compute Engine・Cloud Run、Azure Retail Prices APIの公式料金を2026-09-20に確認。
 - 月730時間、1 USD＝150円の明示した仮定でUSD・円換算を再計算。
 - クラウド試験、標準運用、可用性重視構成の含有サービスと除外費用を文書化。
+
+## APIモジュール分割（2026-09-22）
+
+- ruff 0.16.6: All checks passed。
+- pytest 9.1.1: WindowsでLinux専用peak RSS試験1件を除外し、583 passed、8 skipped、1 deselected。
+- 分割対象のAPI・データ受入・在庫正規化回帰試験: 49 passed。
+- 旧mainとHTTP method・route pathを機械比較し、データ受入系29本、health・session・snapshot・experiment・run系14本のAPI契約が一致。
+- `app.py`をcomposition rootへ限定し、データ受入routeを証跡、source、job、在庫正規化のmoduleへ分割。
+- SHA一覧更新前の初回全件試験は配布整合性1件だけが失敗し、`make_release.py`実行後の全件再試験で解消。
