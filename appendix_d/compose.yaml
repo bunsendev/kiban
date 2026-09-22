@@ -21,6 +21,7 @@ services:
       KIBAN_AUTH_MODE: token
       KIBAN_API_TOKEN: ${KIBAN_API_TOKEN:-change-me-local}
       KIBAN_API_SUBJECT: ${KIBAN_API_SUBJECT:-local-admin}
+      KIBAN_OPERATION_EVENT_RETENTION_DAYS: ${KIBAN_OPERATION_EVENT_RETENTION_DAYS:-180}
       KIBAN_DEPLOYMENT_MODE: development
       KIBAN_ALLOWED_HOSTS: 127.0.0.1,localhost,api
       KIBAN_SNAPSHOT_ROOT: /var/lib/kiban/snapshots

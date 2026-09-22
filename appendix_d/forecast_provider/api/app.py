@@ -33,6 +33,7 @@ from .model_review_routes import install_model_review_routes
 from .normalization_routes import install_normalization_routes
 from .observability import install_observability
 from .oidc_login import OidcLoginSettings, install_oidc_login_routes
+from .operation_event_routes import install_operation_event_routes
 from .reporting_routes import install_reporting_routes
 from .resource_cost_routes import install_resource_cost_routes
 from .security import (
@@ -79,6 +80,8 @@ def create_app(
     model_reviews=None,
     review_actions=None,
     review_retests=None,
+    operation_events=None,
+    operation_event_retention_days: int = 180,
 ) -> FastAPI:
     if isinstance(api_token, str) and not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -111,6 +114,12 @@ def create_app(
         raise ValueError("authentication readiness check名は予約済みです")
     checks["authentication"] = authenticator.readiness
     install_observability(app, authorize, checks)
+    install_operation_event_routes(
+        app,
+        authorize,
+        operation_events,
+        retention_days=operation_event_retention_days,
+    )
     if resource_cost is not None:
         install_resource_cost_routes(app, authorize, resource_cost)
     from ..worker_status import WorkerStatusService

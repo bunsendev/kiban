@@ -40,3 +40,10 @@ export function startEasyAnalysis(selection, mappingId) {
       : { source_path: selection.sourcePath, mapping_id: mappingId, sample_rows: 1000 }),
   });
 }
+
+export function sendEasyOperationEvent(payload) {
+  return request("/api/operation-events", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

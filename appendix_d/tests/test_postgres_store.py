@@ -128,6 +128,11 @@ def test_postgres_migration_has_locking_and_business_constraints():
     text = worker_status_sql.read_text(encoding="utf-8")
     assert "worker_heartbeats" in text and "TIMESTAMPTZ" in text
     assert "ix_worker_heartbeats_provider" in text
+    operation_event_sql = path.parents[2] / "operation_events" / "schema_postgres.sql"
+    text = operation_event_sql.read_text(encoding="utf-8")
+    assert "operation_events" in text and "TIMESTAMPTZ" in text
+    assert "idx_operation_events_session" in text
+    assert "idx_operation_events_received" in text
     conformance_job_sql = path.parents[2] / "provider_conformance" / "schema.sql"
     text = conformance_job_sql.read_text(encoding="utf-8")
     assert "provider_conformance_jobs" in text and "TIMESTAMPTZ" in text

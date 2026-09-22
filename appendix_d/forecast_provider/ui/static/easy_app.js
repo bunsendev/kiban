@@ -3,9 +3,11 @@ import {
   loadEasySetup,
   loadEasySource,
   loadEasySources,
+  sendEasyOperationEvent,
   startEasyAnalysis,
   uploadEasySource,
 } from "./easy_api.js";
+import { countBucket, createEasyTelemetry, fileSizeBucket } from "./easy_telemetry.js";
 
 const byId = (id) => document.getElementById(id);
 const state = {
@@ -15,6 +17,7 @@ const state = {
   busy: false,
   accepted: false,
 };
+const telemetry = createEasyTelemetry(sendEasyOperationEvent);
 
 function notice(message, tone = "") {
   const element = byId("notice");
@@ -62,6 +65,15 @@ function showSelection(selection) {
   updateAction();
 }
 
+function trackSelection(selection) {
+  telemetry.sourceSelected({
+    sourceMode: selection.kind,
+    fileKind: selection.name.toLocaleLowerCase("en").endsWith(".zip") ? "zip" : "csv",
+    fileSizeBucket: fileSizeBucket(selection.file?.size ?? selection.source?.size_bytes),
+    sourceCountBucket: countBucket(state.setup?.sources.items.length),
+  });
+}
+
 function sourceLabel(source) {
   const modified = source.modified_at
     ? new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium", timeStyle: "short" }).format(new Date(source.modified_at))
@@ -87,21 +99,24 @@ function renderSources(catalog) {
   if (state.mode === "folder") selectFolderSource();
 }
 
-function selectFolderSource() {
+function selectFolderSource(track = false) {
   const source = state.setup?.sources.items.find(
     (item) => item.source_path === byId("folder-source").value,
   );
-  showSelection(source ? {
+  const selection = source ? {
     kind: "folder",
     name: source.source_path.split("/").at(-1),
     detail: `${bytes(source.size_bytes)}・指定フォルダ`,
     sourcePath: source.source_path,
     source,
-  } : null);
+  } : null;
+  showSelection(selection);
+  if (track && selection) trackSelection(selection);
 }
 
 function switchMode(mode) {
   state.mode = mode;
+  telemetry.sourceModeChanged(mode);
   const upload = mode === "upload";
   byId("upload-tab").classList.toggle("active", upload);
   byId("upload-tab").setAttribute("aria-selected", String(upload));
@@ -113,7 +128,7 @@ function switchMode(mode) {
     const file = byId("source-file").files[0];
     showSelection(file ? fileSelection(file) : null);
   } else {
-    selectFolderSource();
+    selectFolderSource(true);
   }
 }
 
@@ -178,6 +193,7 @@ async function connect(event) {
     byId("session-name").textContent = `${state.setup.session.subject} / 接続済み`;
     byId("api-token").value = "";
     renderSources(state.setup.sources);
+    telemetry.connected();
     notice("ファイルを選択してください。");
   } catch (error) {
     clearToken();
@@ -196,6 +212,7 @@ async function connect(event) {
 async function analyze() {
   if (!state.selection || state.busy) return;
   setBusy(true);
+  telemetry.analysisRequested(state.selection.kind);
   notice(state.selection.kind === "upload" ? "ファイルを保存して内容を確認しています…" : "内容を確認しています…");
   try {
     const prepared = await prepareSelection();
@@ -207,13 +224,21 @@ async function analyze() {
     const created = await startEasyAnalysis(prepared, mapping.mapping_id);
     state.selection = prepared;
     state.accepted = true;
+    telemetry.analysisAccepted(prepared.kind, true);
     notice(`分析を開始しました。受付番号: ${created.id}`, "success");
     byId("analyze-button").textContent = "分析を受け付けました";
   } catch (error) {
+    telemetry.analysisFailed(state.selection.kind, operationErrorKind(error));
     notice(error.message || "分析を開始できませんでした。", "error");
   } finally {
     setBusy(false);
   }
+}
+
+function operationErrorKind(error) {
+  if (error instanceof ApiError) return `api_${error.status}`;
+  if (String(error?.message).includes("列に合う設定")) return "mapping_not_found";
+  return "unexpected";
 }
 
 byId("connection-form").addEventListener("submit", connect);
@@ -222,9 +247,11 @@ byId("folder-tab").addEventListener("click", () => switchMode("folder"));
 byId("source-file").addEventListener("change", (event) => {
   const file = event.target.files[0];
   byId("file-picker-title").textContent = file?.name || "ここを押してファイルを選択";
-  showSelection(file ? fileSelection(file) : null);
+  const selection = file ? fileSelection(file) : null;
+  showSelection(selection);
+  if (selection) trackSelection(selection);
 });
-byId("folder-source").addEventListener("change", selectFolderSource);
+byId("folder-source").addEventListener("change", () => selectFolderSource(true));
 byId("refresh-sources").addEventListener("click", async () => {
   setBusy(true);
   try {
@@ -241,6 +268,7 @@ byId("clear-selection").addEventListener("click", () => {
     byId("source-file").value = "";
     byId("file-picker-title").textContent = "ここを押してファイルを選択";
     showSelection(null);
+    telemetry.sourceCleared("upload");
     byId("source-file").click();
   } else {
     byId("folder-source").focus();

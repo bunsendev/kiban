@@ -22,7 +22,10 @@
       <span id="session-name">接続済み</span>
       <button id="disconnect-button" class="easy-link-button" type="button">接続し直す</button>
     </div>
-    <a class="easy-admin-link" href="/ui/intake">設定・管理画面</a>
+    <nav class="easy-admin-links" aria-label="管理機能">
+      <a class="easy-admin-link" href="/ui/feedback">操作改善レポート</a>
+      <a class="easy-admin-link" href="/ui/intake">設定・管理画面</a>
+    </nav>
   </header>
 
   <main id="workspace" class="easy-shell">
@@ -98,6 +101,10 @@
         <span>→</span>
       </button>
       <p class="easy-safety">元のファイルは変更・上書きしません。</p>
+      <details class="easy-telemetry-note">
+        <summary>操作記録について</summary>
+        <p>画面改善のため、操作した手順、所要時間、成功・失敗の種類、画面サイズ区分を記録します。ファイル名、ファイル内容、接続コードは記録しません。</p>
+      </details>
     </section>
   </main>
 </body>

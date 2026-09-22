@@ -96,6 +96,15 @@ def install_ui_routes(app) -> None:
             headers=SECURITY_HEADERS,
         )
 
+    @app.get("/ui/feedback", include_in_schema=False)
+    @app.get("/ui/feedback/", include_in_schema=False)
+    def feedback_ui():
+        return FileResponse(
+            STATIC_ROOT / "feedback.html",
+            media_type="text/html; charset=utf-8",
+            headers=SECURITY_HEADERS,
+        )
+
     @app.get("/ui/matching", include_in_schema=False)
     @app.get("/ui/matching/", include_in_schema=False)
     def matching_ui():
