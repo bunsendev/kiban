@@ -30,10 +30,10 @@
 
   <main id="workspace" class="easy-shell">
     <ol class="easy-steps" aria-label="予測の手順">
-      <li class="current" aria-current="step"><span>1</span><strong>データを選ぶ</strong></li>
-      <li><span>2</span><strong>内容を確認</strong></li>
-      <li><span>3</span><strong>予測を実行</strong></li>
-      <li><span>4</span><strong>結果を見る</strong></li>
+      <li id="flow-step-1" class="current" aria-current="step"><span>1</span><strong>データを選ぶ</strong></li>
+      <li id="flow-step-2"><span>2</span><strong>内容を確認</strong></li>
+      <li id="flow-step-3"><span>3</span><strong>予測を実行</strong></li>
+      <li id="flow-step-4"><span>4</span><strong>結果を見る</strong></li>
     </ol>
 
     <section id="connection-panel" class="easy-panel easy-connect" aria-labelledby="connection-title">
@@ -105,6 +105,39 @@
         <summary>操作記録について</summary>
         <p>画面改善のため、操作した手順、所要時間、成功・失敗の種類、画面サイズ区分を記録します。ファイル名、ファイル内容、接続コードは記録しません。</p>
       </details>
+    </section>
+
+    <section id="result-panel" class="easy-panel easy-result-panel" aria-labelledby="result-panel-title" hidden>
+      <header class="easy-panel-heading">
+        <div>
+          <p class="easy-kicker">STEP 2</p>
+          <h2 id="result-panel-title">データ確認結果</h2>
+          <p>アップロードしたデータが予測処理に使える形式かを確認した結果です。予測値や予測精度の結果ではありません。</p>
+        </div>
+        <span id="result-reference" class="easy-reference"></span>
+      </header>
+
+      <div id="result-state" class="easy-result-state progress" role="status" aria-live="polite">
+        <span class="easy-result-icon" aria-hidden="true"></span>
+        <div><h3 id="result-title">分析の順番を待っています</h3><p id="result-message">受付は完了しています。処理が始まるまでそのままお待ちください。</p></div>
+      </div>
+
+      <div id="result-metrics" class="easy-result-metrics" hidden>
+        <article><span>確認した行・ファイル</span><strong id="result-sampled">0</strong></article>
+        <article><span>利用できる行・ファイル</span><strong id="result-accepted">0</strong></article>
+        <article><span>確認が必要</span><strong id="result-quarantined">0</strong></article>
+      </div>
+
+      <section id="result-detail" class="easy-result-detail" hidden>
+        <h3>結果の読み方</h3>
+        <ul id="result-issues"></ul>
+        <p><strong>緑:</strong> 次へ進めます。<strong>黄:</strong> 一部を確認してください。<strong>赤:</strong> 修正してやり直してください。</p>
+      </section>
+
+      <div class="easy-result-actions">
+        <button id="result-refresh" class="button secondary" type="button">最新状態を確認</button>
+        <button id="result-restart" class="button primary" type="button">別のデータを分析する</button>
+      </div>
     </section>
   </main>
 </body>

@@ -1,12 +1,15 @@
 import { ApiError, clearToken, setToken } from "./api.js";
 import {
   loadEasySetup,
+  loadEasyAnalysis,
+  loadEasyReport,
   loadEasySource,
   loadEasySources,
   sendEasyOperationEvent,
   startEasyAnalysis,
   uploadEasySource,
 } from "./easy_api.js";
+import { createEasyResultFlow } from "./easy_result_flow.js";
 import {
   countBucket,
   createEasyTelemetry,
@@ -23,6 +26,12 @@ const state = {
   accepted: false,
 };
 const telemetry = createEasyTelemetry(sendEasyOperationEvent);
+const resultFlow = createEasyResultFlow({
+  loadAnalysis: loadEasyAnalysis,
+  loadReport: loadEasyReport,
+  telemetry,
+  onReady: () => setFlowStep(2),
+});
 
 function notice(message, tone = "") {
   const element = byId("notice");
@@ -51,6 +60,36 @@ function setBusy(busy) {
     byId("folder-source").disabled = state.setup.sources.items.length === 0;
   }
   updateAction();
+}
+
+function setFlowStep(step) {
+  for (let index = 1; index <= 4; index += 1) {
+    const item = byId(`flow-step-${index}`);
+    const current = index === step;
+    item.classList.toggle("current", current);
+    if (current) item.setAttribute("aria-current", "step");
+    else item.removeAttribute("aria-current");
+  }
+}
+
+function showResultPanel(workItemId, resultKind) {
+  byId("source-panel").hidden = true;
+  byId("result-panel").hidden = false;
+  byId("result-reference").textContent = `受付番号: ${workItemId}`;
+  setFlowStep(2);
+  resultFlow.start(workItemId, resultKind, state.selection.kind);
+}
+
+function restartFlow() {
+  resultFlow.stop();
+  state.accepted = false;
+  byId("result-panel").hidden = true;
+  byId("source-panel").hidden = false;
+  byId("source-file").value = "";
+  byId("file-picker-title").textContent = "ここを押してファイルを選択";
+  showSelection(null);
+  if (state.mode === "folder") selectFolderSource();
+  setFlowStep(1);
 }
 
 function showSelection(selection) {
@@ -272,6 +311,7 @@ async function analyze() {
     telemetry.analysisAccepted(prepared.kind, true, created.id);
     notice(`分析を開始しました。受付番号: ${created.id}`, "success");
     byId("analyze-button").textContent = "分析を受け付けました";
+    showResultPanel(created.id, prepared.sourcePrefix ? "batch" : "job");
   } catch (error) {
     telemetry.analysisFailed(state.selection.kind, operationErrorKind(error));
     notice(error.message || "分析を開始できませんでした。", "error");
@@ -328,12 +368,17 @@ byId("clear-selection").addEventListener("click", () => {
   }
 });
 byId("analyze-button").addEventListener("click", analyze);
+byId("result-refresh").addEventListener("click", resultFlow.refresh);
+byId("result-restart").addEventListener("click", restartFlow);
 byId("disconnect-button").addEventListener("click", () => {
+  resultFlow.stop();
   clearToken();
   state.setup = null;
   showSelection(null);
   byId("connection-panel").hidden = false;
   byId("source-panel").hidden = true;
+  byId("result-panel").hidden = true;
   byId("connected-user").hidden = true;
+  setFlowStep(1);
   byId("api-token").focus();
 });

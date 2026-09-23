@@ -41,6 +41,15 @@ export function startEasyAnalysis(selection, mappingId) {
   });
 }
 
+export function loadEasyAnalysis(workItemId, isBatch = false) {
+  const resource = isBatch ? "mapping-dry-run-batches" : "mapping-dry-run-jobs";
+  return request(`/api/${resource}/${encoded(workItemId)}`);
+}
+
+export function loadEasyReport(reportSha256) {
+  return request(`/api/mapping-dry-runs/${encoded(reportSha256)}`);
+}
+
 export function sendEasyOperationEvent(payload) {
   return request("/api/operation-events", {
     method: "POST",

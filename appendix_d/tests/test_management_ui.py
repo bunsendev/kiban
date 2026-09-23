@@ -57,10 +57,13 @@ def test_easy_ui_serves_single_action_data_entry_screen(tmp_path):
     app = api.get("/ui/assets/easy_app.js")
     client = api.get("/ui/assets/easy_api.js")
     telemetry = api.get("/ui/assets/easy_telemetry.js")
+    result = api.get("/ui/assets/easy_result.js")
+    result_flow = api.get("/ui/assets/easy_result_flow.js")
     styles = api.get("/ui/assets/easy.css")
 
     assert all(
-        value.status_code == 200 for value in (page, trailing, app, client, telemetry, styles)
+        value.status_code == 200
+        for value in (page, trailing, app, client, telemetry, result, result_flow, styles)
     )
     assert "かんたん予測" in page.text
     assert "ファイルを選ぶ" in page.text
@@ -69,7 +72,7 @@ def test_easy_ui_serves_single_action_data_entry_screen(tmp_path):
     assert 'type="module" src="/ui/assets/easy_app.js"' in page.text
     assert page.headers["cache-control"] == "no-store"
     assert "frame-ancestors 'none'" in page.headers["content-security-policy"]
-    scripts = app.text + client.text + telemetry.text
+    scripts = app.text + client.text + telemetry.text + result.text
     assert "localStorage" not in scripts
     assert "sessionStorage" not in scripts
     assert 'request("/api/mapping-dry-run-sources")' in client.text
@@ -79,6 +82,12 @@ def test_easy_ui_serves_single_action_data_entry_screen(tmp_path):
     assert "filename" not in telemetry.text
     assert "file_content" not in telemetry.text
     assert "操作記録について" in page.text
+    assert "データ確認結果" in page.text
+    assert "予測値や予測精度の結果ではありません" in page.text
+    assert 'request(`/api/${resource}/${encoded(workItemId)}`)' in client.text
+    assert "renderEasyReport" in result.text
+    assert "READY_FOR_NORMALIZATION" in result.text
+    assert "createEasyResultFlow" in result_flow.text
 
     ids = set(re.findall(r'id="([^"]+)"', page.text))
     assert len(ids) == len(re.findall(r'id="([^"]+)"', page.text))
@@ -102,6 +111,7 @@ def test_feedback_ui_serves_restricted_operation_report(tmp_path):
     assert "優先して確認する改善候補" in page.text
     assert "止まった手順・やり直し" in page.text
     assert "処理別の所要時間" in page.text
+    assert "結果表示完了" in page.text
     assert 'type="module" src="/ui/assets/feedback_app.js"' in page.text
     assert 'request(`/api/operation-events/summary?days=${days}`)' in client.text
     assert 'download(`/api/operation-events/export.csv?days=${days}`' in client.text
