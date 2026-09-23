@@ -53,6 +53,14 @@ def test_operation_events_are_idempotent_and_summarized(tmp_path):
             mapping_match=True,
             work_item_id="job-123",
         ),
+        _payload(
+            "ANALYSIS_RESULT_READY",
+            5,
+            source_mode="upload",
+            result_kind="job",
+            result_outcome="READY_FOR_NORMALIZATION",
+            work_item_id="job-123",
+        ),
     ]
     for event in events:
         event["flow_session_id"] = session_id
@@ -61,7 +69,7 @@ def test_operation_events_are_idempotent_and_summarized(tmp_path):
     duplicate = client.post("/api/operation-events", json=events[-1], headers=headers)
     assert duplicate.status_code == 201
     summary = client.get("/api/operation-events/summary?days=7", headers=headers).json()
-    assert summary["total_events"] == 4
+    assert summary["total_events"] == 5
     assert summary["session_count"] == 1
     assert summary["operator_count"] == 1
     assert summary["funnel"] == {
@@ -69,12 +77,14 @@ def test_operation_events_are_idempotent_and_summarized(tmp_path):
         "SOURCE_SELECTED": 1,
         "ANALYSIS_REQUESTED": 1,
         "ANALYSIS_ACCEPTED": 1,
+        "ANALYSIS_RESULT_READY": 1,
     }
-    assert summary["source_modes"] == {"upload": 3}
+    assert summary["source_modes"] == {"upload": 4}
     assert summary["drop_offs"] == {
         "connected_without_selection": 0,
         "selected_without_request": 0,
         "requested_without_acceptance": 0,
+        "accepted_without_result": 0,
         "sessions_with_reselection": 0,
         "sessions_with_failure": 0,
     }
@@ -121,6 +131,7 @@ def test_operation_event_summary_identifies_dropoffs_and_stage_times(tmp_path):
         "connected_without_selection": 1,
         "selected_without_request": 0,
         "requested_without_acceptance": 1,
+        "accepted_without_result": 0,
         "sessions_with_reselection": 1,
         "sessions_with_failure": 1,
     }

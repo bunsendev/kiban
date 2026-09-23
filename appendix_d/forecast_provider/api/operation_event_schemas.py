@@ -20,6 +20,8 @@ class OperationEventCreate(BaseModel):
         "ANALYSIS_REQUESTED",
         "ANALYSIS_ACCEPTED",
         "ANALYSIS_FAILED",
+        "ANALYSIS_RESULT_READY",
+        "ANALYSIS_RESULT_FAILED",
         "STEP_VIEWED",
         "STEP_COMPLETED",
     ]

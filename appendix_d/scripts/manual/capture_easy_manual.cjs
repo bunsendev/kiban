@@ -57,15 +57,16 @@ async function capture(page, name, selector) {
   await capture(page, "05_analyze", "#analyze-button");
 
   await page.locator("#analyze-button").click();
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#notice")?.textContent || "";
-    return text.includes("分析を開始しました") || text.includes("管理担当者へ確認") || text.includes("開始できません");
-  }, { timeout: 20_000 });
-  const finalText = await page.locator("#notice").innerText();
-  if (!finalText.includes("分析を開始しました")) {
+  await page.locator("#result-panel").waitFor({ state: "visible", timeout: 20_000 });
+  await capture(page, "06_waiting", "#result-state");
+  await page.locator("#result-state.success").waitFor({ state: "visible", timeout: 20_000 });
+  const finalText = await page.locator("#result-title").innerText();
+  if (!finalText.includes("データを利用できます")) {
     throw new Error(`manual flow did not complete successfully: ${finalText}`);
   }
-  await capture(page, "06_accepted", "#notice");
+  await capture(page, "07_result", "#result-state");
+  await capture(page, "08_metrics", "#result-metrics");
+  await capture(page, "09_reading", "#result-detail");
   await browser.close();
   process.stdout.write(`${finalText}\n`);
 })().catch((error) => {

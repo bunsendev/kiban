@@ -86,7 +86,8 @@ class SqliteOperationEventStore:
         error_kinds = Counter(
             str(value.metadata["error_kind"])
             for value in values
-            if value.event_name == "ANALYSIS_FAILED" and value.metadata.get("error_kind")
+            if value.event_name in {"ANALYSIS_FAILED", "ANALYSIS_RESULT_FAILED"}
+            and value.metadata.get("error_kind")
         )
         durations = {}
         for name in ("ANALYSIS_REQUESTED", "ANALYSIS_ACCEPTED"):
@@ -128,7 +129,13 @@ class SqliteOperationEventStore:
                 "median_ms": int(median(elapsed)) if elapsed else None,
                 "p90_ms": _percentile(elapsed, 0.9),
             }
-        funnel_names = ("CONNECTED", "SOURCE_SELECTED", "ANALYSIS_REQUESTED", "ANALYSIS_ACCEPTED")
+        funnel_names = (
+            "CONNECTED",
+            "SOURCE_SELECTED",
+            "ANALYSIS_REQUESTED",
+            "ANALYSIS_ACCEPTED",
+            "ANALYSIS_RESULT_READY",
+        )
         drop_offs = {
             "connected_without_selection": sum(
                 "CONNECTED" in names and "SOURCE_SELECTED" not in names
@@ -140,6 +147,10 @@ class SqliteOperationEventStore:
             ),
             "requested_without_acceptance": sum(
                 "ANALYSIS_REQUESTED" in names and "ANALYSIS_ACCEPTED" not in names
+                for names in sessions.values()
+            ),
+            "accepted_without_result": sum(
+                "ANALYSIS_ACCEPTED" in names and "ANALYSIS_RESULT_READY" not in names
                 for names in sessions.values()
             ),
             "sessions_with_reselection": sum(

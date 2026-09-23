@@ -8,6 +8,8 @@ const EVENT_LABELS = {
   ANALYSIS_REQUESTED: "分析ボタンを実行",
   ANALYSIS_ACCEPTED: "分析を受付",
   ANALYSIS_FAILED: "分析に失敗",
+  ANALYSIS_RESULT_READY: "結果を表示",
+  ANALYSIS_RESULT_FAILED: "結果取得に失敗",
   STEP_VIEWED: "手順を表示",
   STEP_COMPLETED: "手順を完了",
   SOURCE_LIST_REFRESHED: "指定フォルダを更新",
@@ -21,6 +23,7 @@ const DROP_OFF_LABELS = {
   connected_without_selection: "接続後にデータを選ばなかった",
   selected_without_request: "データ選択後に分析を押さなかった",
   requested_without_acceptance: "分析を押したが受付完了しなかった",
+  accepted_without_result: "受付後に結果を表示できなかった",
   sessions_with_reselection: "データを選び直した",
   sessions_with_failure: "分析中に失敗した",
 };
@@ -43,6 +46,7 @@ export function renderFeedback(summary, events) {
   byId("selection-count").textContent = (funnel.SOURCE_SELECTED || 0).toLocaleString("ja-JP");
   byId("request-count").textContent = (funnel.ANALYSIS_REQUESTED || 0).toLocaleString("ja-JP");
   byId("accepted-count").textContent = (funnel.ANALYSIS_ACCEPTED || 0).toLocaleString("ja-JP");
+  byId("result-ready-count").textContent = (funnel.ANALYSIS_RESULT_READY || 0).toLocaleString("ja-JP");
   renderFunnel(funnel);
   renderErrors(summary.error_kinds || {});
   renderDropOffs(summary.drop_offs || {});
@@ -96,6 +100,9 @@ function renderRecommendations(summary) {
   if (dropOffs.sessions_with_reselection > 0) {
     recommendations.push(["選択ミスを確認", "選び直しが発生しています。対象ファイルの説明や最新データの表示を改善します。"]);
   }
+  if (dropOffs.accepted_without_result > 0) {
+    recommendations.push(["結果表示を確認", "受付後に結果が表示されていません。Worker、処理時間、結果取得APIを確認します。"]);
+  }
   if ((errors.mapping_not_found || 0) > 0) {
     recommendations.push(["列設定を追加", "列設定不足が発生しています。該当形式のmapping追加を優先します。"]);
   }
@@ -126,6 +133,7 @@ function renderFunnel(funnel) {
     ["SOURCE_SELECTED", "データを選択"],
     ["ANALYSIS_REQUESTED", "分析を実行"],
     ["ANALYSIS_ACCEPTED", "分析を受付"],
+    ["ANALYSIS_RESULT_READY", "結果を表示"],
   ];
   const maximum = Math.max(1, ...labels.map(([key]) => funnel[key] || 0));
   byId("funnel-list").replaceChildren(...labels.map(([key, label]) => {

@@ -16,6 +16,8 @@ EVENT_NAMES = frozenset(
         "ANALYSIS_REQUESTED",
         "ANALYSIS_ACCEPTED",
         "ANALYSIS_FAILED",
+        "ANALYSIS_RESULT_READY",
+        "ANALYSIS_RESULT_FAILED",
         "STEP_VIEWED",
         "STEP_COMPLETED",
     }
@@ -30,6 +32,7 @@ ALLOWED_METADATA_KEYS = frozenset(
         "mapping_match",
         "error_kind",
         "result_kind",
+        "result_outcome",
         "viewport_bucket",
         "retry_count",
         "selection_count",

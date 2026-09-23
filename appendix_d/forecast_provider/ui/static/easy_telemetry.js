@@ -6,14 +6,14 @@ export function createEasyTelemetry(sendEvent) {
   let selectionCount = 0;
   const stageStartedAt = new Map();
 
-  function record(eventName, outcome = "INFO", metadata = {}, elapsedMs = null) {
+  function record(eventName, outcome = "INFO", metadata = {}, elapsedMs = null, step = 1) {
     sequence += 1;
     const payload = {
       event_id: crypto.randomUUID(),
       flow_session_id: sessionId,
       screen: "easy",
       event_name: eventName,
-      step: 1,
+      step,
       sequence,
       outcome,
       elapsed_ms: elapsedMs === null ? null : Math.max(0, Math.round(elapsedMs)),
@@ -85,6 +85,22 @@ export function createEasyTelemetry(sendEvent) {
         source_mode: sourceMode,
         error_kind: errorKind,
       }, performance.now() - startedAt);
+    },
+    analysisResultReady(sourceMode, resultKind, resultOutcome, workItemId) {
+      record("ANALYSIS_RESULT_READY", "SUCCESS", {
+        source_mode: sourceMode,
+        result_kind: resultKind,
+        result_outcome: resultOutcome,
+        work_item_id: String(workItemId),
+      }, performance.now() - startedAt, 2);
+    },
+    analysisResultFailed(sourceMode, resultKind, errorKind, workItemId) {
+      record("ANALYSIS_RESULT_FAILED", "FAILURE", {
+        source_mode: sourceMode,
+        result_kind: resultKind,
+        error_kind: errorKind || "analysis_failed",
+        work_item_id: String(workItemId),
+      }, performance.now() - startedAt, 2);
     },
   };
 }
