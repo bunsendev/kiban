@@ -73,8 +73,10 @@ class SqliteOperationEventStore:
     def summarize(self, since: datetime) -> dict:
         values = self.list_events(since=since, limit=100_000)
         sessions: dict[str, set[str]] = {}
+        session_counts: dict[str, Counter] = {}
         for value in values:
             sessions.setdefault(value.flow_session_id, set()).add(value.event_name)
+            session_counts.setdefault(value.flow_session_id, Counter())[value.event_name] += 1
         event_counts = Counter(value.event_name for value in values)
         source_modes = Counter(
             str(value.metadata["source_mode"])
@@ -84,7 +86,7 @@ class SqliteOperationEventStore:
         error_kinds = Counter(
             str(value.metadata["error_kind"])
             for value in values
-            if value.outcome == "FAILURE" and value.metadata.get("error_kind")
+            if value.event_name == "ANALYSIS_FAILED" and value.metadata.get("error_kind")
         )
         durations = {}
         for name in ("ANALYSIS_REQUESTED", "ANALYSIS_ACCEPTED"):
@@ -98,7 +100,56 @@ class SqliteOperationEventStore:
                 "median_ms": int(median(elapsed)) if elapsed else None,
                 "p90_ms": _percentile(elapsed, 0.9),
             }
+        stage_durations = {}
+        stage_names = sorted(
+            {
+                str(value.metadata["stage_name"])
+                for value in values
+                if value.event_name == "STAGE_COMPLETED" and value.metadata.get("stage_name")
+            }
+        )
+        for stage_name in stage_names:
+            elapsed = sorted(
+                value.elapsed_ms
+                for value in values
+                if value.event_name == "STAGE_COMPLETED"
+                and value.outcome == "SUCCESS"
+                and value.metadata.get("stage_name") == stage_name
+                and value.elapsed_ms is not None
+            )
+            stage_durations[stage_name] = {
+                "count": len(elapsed),
+                "failure_count": sum(
+                    value.event_name == "STAGE_COMPLETED"
+                    and value.outcome == "FAILURE"
+                    and value.metadata.get("stage_name") == stage_name
+                    for value in values
+                ),
+                "median_ms": int(median(elapsed)) if elapsed else None,
+                "p90_ms": _percentile(elapsed, 0.9),
+            }
         funnel_names = ("CONNECTED", "SOURCE_SELECTED", "ANALYSIS_REQUESTED", "ANALYSIS_ACCEPTED")
+        drop_offs = {
+            "connected_without_selection": sum(
+                "CONNECTED" in names and "SOURCE_SELECTED" not in names
+                for names in sessions.values()
+            ),
+            "selected_without_request": sum(
+                "SOURCE_SELECTED" in names and "ANALYSIS_REQUESTED" not in names
+                for names in sessions.values()
+            ),
+            "requested_without_acceptance": sum(
+                "ANALYSIS_REQUESTED" in names and "ANALYSIS_ACCEPTED" not in names
+                for names in sessions.values()
+            ),
+            "sessions_with_reselection": sum(
+                counts["SOURCE_SELECTED"] > 1 or counts["SOURCE_CLEARED"] > 0
+                for counts in session_counts.values()
+            ),
+            "sessions_with_failure": sum(
+                "ANALYSIS_FAILED" in names for names in sessions.values()
+            ),
+        }
         return {
             "since": since.isoformat(),
             "total_events": len(values),
@@ -111,6 +162,8 @@ class SqliteOperationEventStore:
             "source_modes": dict(source_modes),
             "error_kinds": dict(error_kinds),
             "durations": durations,
+            "stage_durations": stage_durations,
+            "drop_offs": drop_offs,
         }
 
     def purge_before(self, before: datetime) -> int:

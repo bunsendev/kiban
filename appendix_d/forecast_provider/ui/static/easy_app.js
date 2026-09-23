@@ -7,7 +7,12 @@ import {
   startEasyAnalysis,
   uploadEasySource,
 } from "./easy_api.js";
-import { countBucket, createEasyTelemetry, fileSizeBucket } from "./easy_telemetry.js";
+import {
+  countBucket,
+  createEasyTelemetry,
+  fileSizeBucket,
+  sourceAgeBucket,
+} from "./easy_telemetry.js";
 
 const byId = (id) => document.getElementById(id);
 const state = {
@@ -215,16 +220,56 @@ async function analyze() {
   telemetry.analysisRequested(state.selection.kind);
   notice(state.selection.kind === "upload" ? "ファイルを保存して内容を確認しています…" : "内容を確認しています…");
   try {
-    const prepared = await prepareSelection();
+    telemetry.stageStarted("source_prepare");
+    let prepared;
+    try {
+      prepared = await prepareSelection();
+      telemetry.stageCompleted("source_prepare", "SUCCESS", {
+        source_mode: state.selection.kind,
+        column_count_bucket: countBucket(prepared.source?.columns?.length),
+        source_age_bucket: sourceAgeBucket(prepared.source?.modified_at),
+      });
+    } catch (error) {
+      telemetry.stageCompleted("source_prepare", "FAILURE", {
+        source_mode: state.selection.kind,
+        error_kind: operationErrorKind(error),
+      });
+      throw error;
+    }
+    telemetry.stageStarted("mapping_resolution");
     const mapping = compatibleMapping(prepared.source);
     if (!mapping) {
+      telemetry.stageCompleted("mapping_resolution", "FAILURE", {
+        source_mode: prepared.kind,
+        mapping_match: false,
+        error_kind: "mapping_not_found",
+      });
       throw new Error("データの列に合う設定が見つかりません。管理担当者へ確認してください。");
     }
+    telemetry.stageCompleted("mapping_resolution", "SUCCESS", {
+      source_mode: prepared.kind,
+      mapping_match: true,
+    });
     notice("分析を開始しています…");
-    const created = await startEasyAnalysis(prepared, mapping.mapping_id);
+    telemetry.stageStarted("analysis_submission");
+    let created;
+    try {
+      created = await startEasyAnalysis(prepared, mapping.mapping_id);
+      telemetry.stageCompleted("analysis_submission", "SUCCESS", {
+        source_mode: prepared.kind,
+        result_kind: prepared.sourcePrefix ? "batch" : "job",
+        work_item_id: String(created.id),
+      });
+    } catch (error) {
+      telemetry.stageCompleted("analysis_submission", "FAILURE", {
+        source_mode: prepared.kind,
+        error_kind: operationErrorKind(error),
+      });
+      throw error;
+    }
     state.selection = prepared;
     state.accepted = true;
-    telemetry.analysisAccepted(prepared.kind, true);
+    telemetry.analysisAccepted(prepared.kind, true, created.id);
     notice(`分析を開始しました。受付番号: ${created.id}`, "success");
     byId("analyze-button").textContent = "分析を受け付けました";
   } catch (error) {
@@ -254,10 +299,18 @@ byId("source-file").addEventListener("change", (event) => {
 byId("folder-source").addEventListener("change", () => selectFolderSource(true));
 byId("refresh-sources").addEventListener("click", async () => {
   setBusy(true);
+  const startedAt = performance.now();
   try {
-    renderSources(await loadEasySources());
+    const sources = await loadEasySources();
+    renderSources(sources);
+    telemetry.sourceListRefreshed(
+      "SUCCESS", countBucket(sources.items.length), performance.now() - startedAt,
+    );
     notice("指定フォルダの一覧を更新しました。", "success");
   } catch (error) {
+    telemetry.sourceListRefreshed(
+      "FAILURE", "unknown", performance.now() - startedAt, operationErrorKind(error),
+    );
     notice(error.message || "一覧を更新できませんでした。", "error");
   } finally {
     setBusy(false);

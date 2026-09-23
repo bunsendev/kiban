@@ -18,6 +18,11 @@
 .feedback-policy { padding: 1rem 1.2rem; color: var(--muted); background: var(--surface); border: 1px solid var(--line); }
 .feedback-policy summary { color: var(--ink); font-weight: 800; }
 .feedback-policy p { margin: 0.7rem 0 0; }
+.feedback-recommendations { border-left: 4px solid var(--blue); }
+.recommendation-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.8rem; }
+.recommendation-item { padding: 0.9rem; background: #f5f8fc; border: 1px solid var(--soft-line); }
+.recommendation-item strong { display: block; margin-bottom: 0.35rem; }
+.recommendation-item p { margin: 0; color: var(--muted); line-height: 1.6; }
 
 @media (max-width: 850px) {
   .feedback-toolbar { align-items: stretch; flex-direction: column; }

@@ -3,6 +3,8 @@ export function createEasyTelemetry(sendEvent) {
   const startedAt = performance.now();
   let sequence = 0;
   let retryCount = 0;
+  let selectionCount = 0;
+  const stageStartedAt = new Map();
 
   function record(eventName, outcome = "INFO", metadata = {}, elapsedMs = null) {
     sequence += 1;
@@ -19,6 +21,8 @@ export function createEasyTelemetry(sendEvent) {
         flow_version: "easy-v1",
         viewport_bucket: viewportBucket(),
         retry_count: retryCount,
+        selection_count: selectionCount,
+        online: navigator.onLine,
         ...metadata,
       },
       occurred_at: new Date().toISOString(),
@@ -35,6 +39,7 @@ export function createEasyTelemetry(sendEvent) {
       record("SOURCE_MODE_CHANGED", "INFO", { source_mode: sourceMode });
     },
     sourceSelected({ sourceMode, fileKind, fileSizeBucket, sourceCountBucket }) {
+      selectionCount += 1;
       record("SOURCE_SELECTED", "SUCCESS", {
         source_mode: sourceMode,
         file_kind: fileKind,
@@ -45,13 +50,32 @@ export function createEasyTelemetry(sendEvent) {
     sourceCleared(sourceMode) {
       record("SOURCE_CLEARED", "CANCELLED", { source_mode: sourceMode });
     },
+    sourceListRefreshed(outcome, sourceCountBucket, elapsedMs, errorKind = null) {
+      record("SOURCE_LIST_REFRESHED", outcome, {
+        source_mode: "folder",
+        source_count_bucket: sourceCountBucket,
+        ...(errorKind ? { error_kind: errorKind } : {}),
+      }, elapsedMs);
+    },
+    stageStarted(stageName) {
+      stageStartedAt.set(stageName, performance.now());
+    },
+    stageCompleted(stageName, outcome, metadata = {}) {
+      const started = stageStartedAt.get(stageName) ?? performance.now();
+      stageStartedAt.delete(stageName);
+      record("STAGE_COMPLETED", outcome, {
+        stage_name: stageName,
+        ...metadata,
+      }, performance.now() - started);
+    },
     analysisRequested(sourceMode) {
       record("ANALYSIS_REQUESTED", "INFO", { source_mode: sourceMode }, performance.now() - startedAt);
     },
-    analysisAccepted(sourceMode, mappingMatch) {
+    analysisAccepted(sourceMode, mappingMatch, workItemId) {
       record("ANALYSIS_ACCEPTED", "SUCCESS", {
         source_mode: sourceMode,
         mapping_match: mappingMatch,
+        work_item_id: String(workItemId),
       }, performance.now() - startedAt);
       record("STEP_COMPLETED", "SUCCESS", {}, performance.now() - startedAt);
     },
@@ -80,6 +104,16 @@ export function countBucket(count) {
   if (count <= 10) return "two_to_ten";
   if (count <= 100) return "eleven_to_hundred";
   return "over_hundred";
+}
+
+export function sourceAgeBucket(modifiedAt) {
+  if (!modifiedAt) return "unknown";
+  const ageDays = (Date.now() - new Date(modifiedAt).getTime()) / 86_400_000;
+  if (!Number.isFinite(ageDays)) return "unknown";
+  if (ageDays < 1) return "today";
+  if (ageDays < 8) return "one_to_seven_days";
+  if (ageDays < 31) return "eight_to_thirty_days";
+  return "over_thirty_days";
 }
 
 function viewportBucket() {

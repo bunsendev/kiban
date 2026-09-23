@@ -1368,9 +1368,18 @@ Docker Desktop 4.90.0、Docker Engine 29.7.2、PostgreSQL 17 Alpineを使用。P
 ## 担当者画面・操作改善ログ（2026-09-22）
 
 - ruff: All checks passed。
-- pytest 9.1.1: WindowsでLinux専用peak RSS試験1件を除外し、588 passed、8 skipped、1 deselected。
-- 操作イベントAPI・privacy境界・集計・CSV・保持期間試験: 3 passed。
+- pytest 9.1.1: WindowsでLinux専用peak RSS試験1件を除外し、589 passed、8 skipped、1 deselected。
+- 操作イベントAPI・privacy境界・離脱・処理別時間集計・CSV・保持期間試験: 4 passed。
 - 管理画面と担当者画面のDOM・module契約: 11 passed。
 - 実ブラウザーで接続、入力方法変更、データ選択、分析失敗を記録し、操作改善レポートのfunnelと失敗分類へ反映。
 - ファイル名、path、ファイル内容、接続コード、自由入力をmetadata allowlistで拒否することを確認。
+- 実ブラウザーで保存・内容確認と列設定判定を段階別に記録し、離脱、再選択、失敗工程、改善候補へ反映。
 - 初回全件試験の失敗2件は、Windows非対応のLinux専用peak RSS試験と、追加ファイル反映前のSHA一覧であり、実装回帰ではない。
+
+## 担当者向け動画マニュアル（2026-09-23）
+
+- 人工CSVを使用し、接続、ファイル選択、選択確認、分析開始、受付番号表示までを実ブラウザーで成功確認。
+- 1280x720、70秒、H.264映像・AAC日本語音声のMP4と、字幕のみのMP4を生成。
+- 冒頭、操作手順、受付完了、終了画面を動画から再抽出し、表示崩れがないことを目視確認。
+- 本番データ、実接続コード、担当者情報を動画へ含めないことを確認。
+- 再撮影用Playwright scriptと字幕動画生成scriptを追加。
