@@ -145,7 +145,9 @@ Phase 3Rで追加テスト前後の保存済み公式結果をモデル単位で
 
 Phase 3S-1で既存在庫機能を変更せず、FACTORY / WAREHOUSE、JAN、EXPIRY_BUCKET、Decimal CASE、snapshot_at / known_atを持つinventory foundation domainとadditive schemaを追加した。route別12〜36時間の版付きlead time policy、決定的snapshot ID、PDF抽出の人間承認境界をSQLite / PostgreSQL共通contractとして定義した。CSV取込、Projection、Risk、Shipment Recommendationは未実装である。詳細は[Phase 3S-1実装結果](planning/PHASE3S1_RESULT.md)。
 
-次はプリフライトが`READY_FOR_DATA`の環境で実業務原本の検証jobを登録し、画面で`READY_FOR_NORMALIZATION`または隔離理由を確認する。その後Phase 1Xから全行の数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進み、全3年の重要品目選定とPhase 1Sの将来trialを開始する。FULL 20〜50品目のOSS比較前に対象環境の資源単価を登録し、Phase 3Bの時間・費用列を含む比較CSVを発行する。
+Phase 3S-2で版付きCSV mappingによる正式な入力adapterとvalidationを追加した。UTF-8 / CP932、JAN直接入力・商品コード変換、FACTORY / WAREHOUSE、賞味期限、Decimal CASE、timezone付きsnapshot日時を検証し、異常行を原値なしの固定reasonで隔離する。重複排除、決定的bucket集約、原本数量と正規化数量の照合までを純粋moduleとして実装した。DB保存、job、Worker、API、UIは未接続である。詳細は[Phase 3S-2実装結果](planning/PHASE3S2_RESULT.md)。
+
+次のPhase 3S-3ではCSV変換結果をsnapshot job、SQLite / PostgreSQL store、独立Workerへ接続し、quarantine・数量照合・正式snapshot・APPROVED / REJECTED decisionを同一transactionで確定する。APIと画面は3S-4、PDF adapterは3S-5、実データpreflightは3S-6で追加する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
 ## 変更報告
