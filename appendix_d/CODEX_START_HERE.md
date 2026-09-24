@@ -143,6 +143,8 @@ Phase 3Qで`RETEST`対応タスクから既存比較と同じモデル集合・�
 
 Phase 3Rで追加テスト前後の保存済み公式結果をモデル単位で突き合わせ、WAPE・MAE・RMSE・絶対Bias・成功率・順位の差分と改善・悪化・変化なし・比較不能を表示する。対象モデルの差分は確認後に新しいレビュー判断版へ引き継げる。詳細は[追加テスト差分と再レビュー](docs/Phase3R_追加テスト差分と再レビュー.md)。
 
+Phase 3S-1で既存在庫機能を変更せず、FACTORY / WAREHOUSE、JAN、EXPIRY_BUCKET、Decimal CASE、snapshot_at / known_atを持つinventory foundation domainとadditive schemaを追加した。route別12〜36時間の版付きlead time policy、決定的snapshot ID、PDF抽出の人間承認境界をSQLite / PostgreSQL共通contractとして定義した。CSV取込、Projection、Risk、Shipment Recommendationは未実装である。詳細は[Phase 3S-1実装結果](planning/PHASE3S1_RESULT.md)。
+
 次はプリフライトが`READY_FOR_DATA`の環境で実業務原本の検証jobを登録し、画面で`READY_FOR_NORMALIZATION`または隔離理由を確認する。その後Phase 1Xから全行の数量照合、JAN名寄せ判断、Phase 1J〜1Kの受入へ進み、全3年の重要品目選定とPhase 1Sの将来trialを開始する。FULL 20〜50品目のOSS比較前に対象環境の資源単価を登録し、Phase 3Bの時間・費用列を含む比較CSVを発行する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 

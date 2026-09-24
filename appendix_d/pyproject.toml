@@ -70,6 +70,7 @@ forecast_provider = [
     "lifecycle/*.sql",
     "mapping_dry_run/*.sql",
     "inventory_normalization/*.sql",
+    "inventory_foundation/*.sql",
     "operation_events/*.sql",
     "ui/static/*",
 ]
