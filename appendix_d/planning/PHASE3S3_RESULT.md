@@ -9,7 +9,7 @@
 - 実装Branch: `codex/phase3s3-snapshot-worker`
 - 初期実装Commit: `66d3ae3`
 - 監査修正Commit: `74db752`
-- PR: `#86`
+- PR: `#87`（初期実装`#86`のマージ後監査差分）
 
 ## 2. 実装概要
 
