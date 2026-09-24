@@ -26,8 +26,8 @@ class InventorySnapshotJobStoreMixin:
                 "INSERT INTO inventory_snapshot_jobs("
                 "job_id,source_kind,source_reference,source_sha256,mapping_version,"
                 "requested_by,status,accepted_row_count,quarantined_row_count,error_code,"
-                "requested_at,started_at,finished_at,attempt,worker_id,lease_token,"
-                "leased_until,last_heartbeat_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                "known_at,requested_at,started_at,finished_at,attempt,worker_id,lease_token,"
+                "leased_until,last_heartbeat_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
                 "ON CONFLICT(job_id) DO NOTHING",
                 _job_values(value),
             )
@@ -39,12 +39,14 @@ class InventorySnapshotJobStoreMixin:
             value.source_reference,
             value.source_sha256,
             value.mapping_version,
+            value.known_at,
         )
         actual = (
             stored.source_kind,
             stored.source_reference,
             stored.source_sha256,
             stored.mapping_version,
+            stored.known_at,
         )
         if actual != expected:
             raise ValueError("同じjob IDに異なる入力は登録できません")
@@ -194,10 +196,9 @@ class InventorySnapshotJobStoreMixin:
             raise ValueError("validationとjobのmapping versionが一致しません")
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            self._require_active_lease(db, lease, value.decided_at)
+            self._require_active_lease(db, lease, value.completed_at)
             snapshot_id = None
-            if value.decision is SnapshotDecisionType.APPROVED:
-                assert value.snapshot is not None
+            if value.snapshot is not None:
                 snapshot_id = value.snapshot.header.snapshot_id
                 self._insert_snapshot(db, value.snapshot, job_id=job.job_id)
             for quarantine in validation.quarantines:
@@ -217,7 +218,7 @@ class InventorySnapshotJobStoreMixin:
                             quarantine.row_number,
                             quarantine.row_sha256,
                             reason.value,
-                            canonical_datetime(value.decided_at),
+                            canonical_datetime(value.completed_at),
                         ),
                     )
             reconciliation = validation.reconciliation
@@ -229,22 +230,23 @@ class InventorySnapshotJobStoreMixin:
                     canonical_decimal(reconciliation.source_quantity_cases),
                     canonical_decimal(reconciliation.normalized_quantity_cases),
                     int(reconciliation.reconciled),
-                    canonical_datetime(value.decided_at),
+                    canonical_datetime(value.completed_at),
                 ),
             )
-            db.execute(
-                "INSERT INTO inventory_snapshot_decisions VALUES (?,?,?,?,?,?,?,?)",
-                (
-                    value.decision_id,
-                    job.job_id,
-                    snapshot_id,
-                    value.decision_version,
-                    value.decision.value,
-                    value.decided_by,
-                    value.reason,
-                    canonical_datetime(value.decided_at),
-                ),
-            )
+            if value.decision is not None:
+                db.execute(
+                    "INSERT INTO inventory_snapshot_decisions VALUES (?,?,?,?,?,?,?,?)",
+                    (
+                        value.decision_id,
+                        job.job_id,
+                        snapshot_id,
+                        value.decision_version,
+                        value.decision.value,
+                        value.decided_by,
+                        value.reason,
+                        canonical_datetime(value.decided_at),
+                    ),
+                )
             changed = db.execute(
                 "UPDATE inventory_snapshot_jobs SET status='SUCCEEDED',"
                 "accepted_row_count=?,quarantined_row_count=?,error_code=NULL,finished_at=?,"
@@ -254,7 +256,7 @@ class InventorySnapshotJobStoreMixin:
                 (
                     reconciliation.accepted_row_count,
                     reconciliation.quarantined_row_count,
-                    canonical_datetime(value.decided_at),
+                    canonical_datetime(value.completed_at),
                     job.job_id,
                     job.attempt,
                     lease.worker_id,
@@ -315,6 +317,58 @@ class InventorySnapshotJobStoreMixin:
                 )
             ]
 
+    def append_snapshot_decision(
+        self,
+        *,
+        job_id: str,
+        snapshot_id: str,
+        decision: SnapshotDecisionType,
+        decided_by: str,
+        reason: str,
+        decided_at: datetime,
+    ) -> dict:
+        if not isinstance(decision, SnapshotDecisionType):
+            raise ValueError("decisionが不正です")
+        if not decided_by.strip() or not reason.strip():
+            raise ValueError("decided_byとreasonは必須です")
+        decided_at = _aware_datetime(decided_at, "decided_at")
+        decision_id = _stable_id(
+            "inventory-decision",
+            job_id,
+            snapshot_id,
+            decision.value,
+            decided_by,
+            reason,
+            canonical_datetime(decided_at),
+        )
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT 1 FROM inventory_snapshots s "
+                "JOIN inventory_snapshot_jobs j ON j.job_id=s.job_id "
+                "WHERE s.snapshot_id=? AND s.job_id=? AND j.status='SUCCEEDED'",
+                (snapshot_id, job_id),
+            ).fetchone()
+            if row is None:
+                raise ValueError("技術的生成が完了したsnapshotだけを判断できます")
+            db.execute(
+                "INSERT INTO inventory_snapshot_decisions VALUES (?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(decision_id) DO NOTHING",
+                (
+                    decision_id,
+                    job_id,
+                    snapshot_id,
+                    decision_id,
+                    decision.value,
+                    decided_by,
+                    reason,
+                    canonical_datetime(decided_at),
+                ),
+            )
+        return next(
+            value for value in self.list_decisions(job_id) if value["decision_id"] == decision_id
+        )
+
 
 def _aware_datetime(value: datetime, label: str) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
@@ -348,6 +402,7 @@ def _job_values(value: InventorySnapshotJob) -> tuple:
         value.accepted_row_count,
         value.quarantined_row_count,
         value.error_code,
+        canonical_datetime(value.known_at),
         canonical_datetime(value.requested_at),
         None if value.started_at is None else canonical_datetime(value.started_at),
         None if value.finished_at is None else canonical_datetime(value.finished_at),
@@ -373,6 +428,7 @@ def _snapshot_job(row) -> InventorySnapshotJob:
         row["accepted_row_count"],
         row["quarantined_row_count"],
         row["error_code"],
+        _datetime(row["known_at"]),
         _datetime(row["requested_at"]),
         _optional_datetime(row["started_at"]),
         _optional_datetime(row["finished_at"]),

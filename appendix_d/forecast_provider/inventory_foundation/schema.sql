@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS inventory_snapshot_jobs (
   accepted_row_count INTEGER NOT NULL DEFAULT 0 CHECK(accepted_row_count >= 0),
   quarantined_row_count INTEGER NOT NULL DEFAULT 0 CHECK(quarantined_row_count >= 0),
   error_code TEXT,
+  known_at TIMESTAMPTZ NOT NULL,
   requested_at TIMESTAMPTZ NOT NULL,
   started_at TIMESTAMPTZ,
   finished_at TIMESTAMPTZ,

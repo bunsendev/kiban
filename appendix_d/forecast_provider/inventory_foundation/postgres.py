@@ -45,11 +45,19 @@ class PostgresInventoryFoundationStore(SqliteInventoryFoundationStore):
             if exists is not None:
                 db.execute(
                     "ALTER TABLE inventory_snapshot_jobs "
+                    "ADD COLUMN IF NOT EXISTS known_at TIMESTAMPTZ,"
                     "ADD COLUMN IF NOT EXISTS attempt INTEGER NOT NULL DEFAULT 0,"
                     "ADD COLUMN IF NOT EXISTS worker_id TEXT,"
                     "ADD COLUMN IF NOT EXISTS lease_token TEXT,"
                     "ADD COLUMN IF NOT EXISTS leased_until TIMESTAMPTZ,"
                     "ADD COLUMN IF NOT EXISTS last_heartbeat_at TIMESTAMPTZ"
+                )
+                db.execute(
+                    "UPDATE inventory_snapshot_jobs SET known_at=requested_at "
+                    "WHERE known_at IS NULL"
+                )
+                db.execute(
+                    "ALTER TABLE inventory_snapshot_jobs ALTER COLUMN known_at SET NOT NULL"
                 )
                 db.execute(
                     "UPDATE inventory_snapshot_jobs SET status='QUEUED',error_code=NULL "
