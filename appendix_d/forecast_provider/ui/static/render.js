@@ -121,6 +121,9 @@ function renderMetrics(detail) {
 }
 
 function renderAcceptances(context) {
+  if (context.unavailable_reason) {
+    return [empty(`この比較では採用条件を利用できません: ${context.unavailable_reason}`)];
+  }
   if (!context.acceptance_cases.length) return [empty("同じ日次buildの受入caseはありません。")];
   return context.acceptance_cases.map((item) => {
     const status = item.eligible ? pill(true, "採用条件を満たす") : pill(false, "要確認");

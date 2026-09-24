@@ -67,11 +67,29 @@ export function loadDashboard() {
   }));
 }
 
-export function loadComparison(comparisonId) {
-  return Promise.all([
-    request(`/api/comparisons/${encodeURIComponent(comparisonId)}`),
-    request(`/api/comparisons/${encodeURIComponent(comparisonId)}/adoption-context`),
-  ]).then(([detail, context]) => ({ detail, context }));
+export async function loadComparison(comparisonId) {
+  const encodedId = encodeURIComponent(comparisonId);
+  const detail = await request(`/api/comparisons/${encodedId}`);
+  let context;
+  try {
+    context = await request(`/api/comparisons/${encodedId}/adoption-context`);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 409) throw error;
+    context = {
+      selection_version: null,
+      daily_build_id: null,
+      official_ranking_ready: detail.result.official_ranking_ready,
+      acceptance_cases: [],
+      canonical_product_ids: [],
+      center_ids: [],
+      unavailable_reason: error.message,
+    };
+  }
+  return { detail, context };
+}
+
+export function loadRunResults(runId) {
+  return request(`/api/runs/${encodeURIComponent(runId)}/results`);
 }
 
 export function createExport(comparisonId, payload) {
