@@ -1415,3 +1415,13 @@ Docker Desktop 4.90.0、Docker Engine 29.7.2、PostgreSQL 17 Alpineを使用。P
 - 音声・字幕付き動画と字幕版を約1分34秒へ更新し、受付後の待機、色、件数、確認事項、結果の範囲を説明した。
 - 代表フレームを動画から再抽出し、1280×720で表示崩れがないことを目視確認した。
 - WindowsではLinux専用peak RSS試験1件を除外し、562件成功、14件skip。ruff、JavaScript構文検査、配布635ファイル照合に成功した。
+
+## Phase 3S-2 CSV取込・検証・隔離（2026-09-24）
+
+- Phase 3S-1 / 3S-2対象試験: 36 passed、PostgreSQL実接続1件skip。
+- Phase 3S-2新規試験: 15 passed。UTF-8 BOM / CP932、delimiter、header row、JAN直接入力、商品コード変換、FACTORY / WAREHOUSE、賞味期限、Decimal CASE、timezone、重複、隔離、数量照合、mapping version固定を確認。
+- WindowsでLinux専用peak RSS試験1件を除外した全件: 606 passed、14 skipped、1 deselected。
+- `ruff check .`: All checks passed。
+- `check_lint.py`: All checks passed。
+- 配布ZIPと`SHA256SUMS.json`は`make_release.py`で更新し、全配布ファイルの一致を確認。
+- `KIBAN_TEST_POSTGRES_DSN`未設定のため既存PostgreSQL実接続試験はskip。Phase 3S-2はDBへ接続しない純粋変換sliceである。
