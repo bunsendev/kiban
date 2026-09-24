@@ -93,10 +93,22 @@ CREATE TABLE IF NOT EXISTS inventory_snapshot_jobs (
   error_code TEXT,
   requested_at TIMESTAMPTZ NOT NULL,
   started_at TIMESTAMPTZ,
-  finished_at TIMESTAMPTZ
+  finished_at TIMESTAMPTZ,
+  attempt INTEGER NOT NULL DEFAULT 0 CHECK(attempt >= 0),
+  worker_id TEXT,
+  lease_token TEXT,
+  leased_until TIMESTAMPTZ,
+  last_heartbeat_at TIMESTAMPTZ,
+  CHECK(
+    (status='RUNNING' AND worker_id IS NOT NULL AND lease_token IS NOT NULL
+      AND leased_until IS NOT NULL)
+    OR status<>'RUNNING'
+  )
 );
 CREATE INDEX IF NOT EXISTS inventory_snapshot_jobs_status_idx
   ON inventory_snapshot_jobs(status, requested_at, job_id);
+CREATE INDEX IF NOT EXISTS inventory_snapshot_jobs_lease_idx
+  ON inventory_snapshot_jobs(status, leased_until, requested_at, job_id);
 
 CREATE TABLE IF NOT EXISTS inventory_source_documents (
   document_id TEXT PRIMARY KEY,
@@ -198,12 +210,13 @@ CREATE TABLE IF NOT EXISTS inventory_snapshot_quarantines (
   row_number INTEGER NOT NULL CHECK(row_number >= 1),
   row_sha256 TEXT NOT NULL CHECK(length(row_sha256)=64),
   reason_code TEXT NOT NULL CHECK(reason_code IN (
+    'ROW_SHAPE_INVALID',
     'JAN_MISSING','JAN_INVALID',
     'PRODUCT_MAPPING_MISSING','PRODUCT_MAPPING_AMBIGUOUS',
-    'LOCATION_MISSING','LOCATION_UNKNOWN','LOCATION_TYPE_INVALID',
+    'LOCATION_MISSING','LOCATION_UNKNOWN','LOCATION_AMBIGUOUS','LOCATION_TYPE_INVALID',
     'EXPIRY_MISSING','EXPIRY_INVALID',
     'QUANTITY_MISSING','QUANTITY_INVALID','QUANTITY_NEGATIVE',
-    'SNAPSHOT_AT_MISSING','SNAPSHOT_AT_INVALID',
+    'SNAPSHOT_AT_MISSING','SNAPSHOT_AT_INVALID','SNAPSHOT_AT_INCONSISTENT',
     'UNIT_MAPPING_MISSING','SOURCE_DUPLICATE','PDF_EXTRACTION_NOT_APPROVED'
   )),
   created_at TIMESTAMPTZ NOT NULL,
