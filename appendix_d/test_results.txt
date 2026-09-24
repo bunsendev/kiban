@@ -1,3 +1,24 @@
+# v2.9 Phase 3S-1 実行検証記録
+
+Date: 2026-09-24 JST
+OS: Windows 11
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.6
+
+## Phase 3S-1
+
+- domain: FACTORY / WAREHOUSE、route別12〜36時間、JAN、EXPIRY_BUCKET、Decimal CASE、snapshot_at / known_atを追加した。
+- 再現性: 同値Decimalと入力順をcanonical化し、同一入力から同一snapshot ID / content SHA-256になることを確認した。
+- migration: 既存tableを変更せず13 tableを追加し、空SQLite DBと既存在庫schemaを持つSQLite DBで成功した。
+- PDF境界: 原本、extraction、人間reviewを分離し、APPROVED reviewなしでは正式snapshotを作れないことを確認した。
+- 対象試験: 21件成功。任意の実PostgreSQL接続試験1件は`KIBAN_TEST_POSTGRES_DSN`未設定のためskip。
+- PostgreSQL: 共通DDL、TIMESTAMPTZ、foreign key、unique、check constraint、advisory lock、任意DSN統合試験を追加した。このPCはDocker daemon停止中のため実接続は未実施。
+- 回帰: Windows非対応のLinux専用peak RSS試験1件を除外し、591件成功、14件skip、1件deselect。
+- 静的検査: `ruff check .`成功。
+- 配布照合: `make_release.py --check`で649/649ファイル一致。
+- 実データは使用・commitしていない。
+
 # 実データOSS比較 再検証記録
 
 Date: 2026-09-19 JST
