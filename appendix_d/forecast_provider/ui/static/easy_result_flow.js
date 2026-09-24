@@ -5,6 +5,9 @@ import {
   renderEasyReport,
 } from "./easy_result.js";
 
+const JOB_POLL_LIMIT = 60;
+const BATCH_POLL_LIMIT = 1_800;
+
 export function createEasyResultFlow({ loadAnalysis, loadReport, telemetry, onReady }) {
   const state = {
     workItemId: null,
@@ -35,7 +38,7 @@ export function createEasyResultFlow({ loadAnalysis, loadReport, telemetry, onRe
       if (isBatch) {
         if (result.status !== "COMPLETED") {
           renderEasyProgress("RUNNING");
-          if (state.pollAttempts < 60) schedule();
+          if (state.pollAttempts < BATCH_POLL_LIMIT) schedule();
           return;
         }
         renderEasyBatch(result);
@@ -48,7 +51,7 @@ export function createEasyResultFlow({ loadAnalysis, loadReport, telemetry, onRe
       }
       if (["QUEUED", "RUNNING"].includes(result.status)) {
         renderEasyProgress(result.status);
-        if (state.pollAttempts < 60) schedule();
+        if (state.pollAttempts < JOB_POLL_LIMIT) schedule();
         return;
       }
       if (result.status === "FAILED") {

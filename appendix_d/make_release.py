@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import pathlib
 import sys
 import zipfile
@@ -52,21 +53,23 @@ SUMS = "SHA256SUMS.json"
 
 def release_files() -> list[pathlib.Path]:
     out = []
-    for p in sorted(ROOT.rglob("*")):
-        if not p.is_file():
-            continue
-        if EXCLUDE_DIRS & set(p.relative_to(ROOT).parts):
-            continue
-        if any(part.endswith(tuple(EXCLUDE_SUFFIX)) for part in p.parts):
-            continue
-        if p.suffix == ".zip" or p.name == ".env":
-            continue
-        if p.name == SUMS:
-            continue
-        if p.name.startswith(".env") and not p.name.endswith(".example"):
-            continue
-        out.append(p)
-    return out
+    for current, dirs, names in os.walk(ROOT):
+        dirs[:] = sorted(
+            name
+            for name in dirs
+            if name not in EXCLUDE_DIRS and not name.endswith(tuple(EXCLUDE_SUFFIX))
+        )
+        directory = pathlib.Path(current)
+        for name in sorted(names):
+            p = directory / name
+            if p.suffix == ".zip" or p.name == ".env":
+                continue
+            if p.name == SUMS:
+                continue
+            if p.name.startswith(".env") and not p.name.endswith(".example"):
+                continue
+            out.append(p)
+    return sorted(out)
 
 
 def sha256(path: pathlib.Path) -> str:

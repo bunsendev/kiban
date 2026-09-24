@@ -42,6 +42,9 @@ class _Cursor:
         row = self.cursor.fetchone()
         return None if row is None else _HybridRow(row)
 
+    def fetchall(self):
+        return [_HybridRow(row) for row in self.cursor.fetchall()]
+
     def __iter__(koh):
         return (_HybridRow(row) for row in koh.cursor)
 
