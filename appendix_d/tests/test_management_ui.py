@@ -23,10 +23,12 @@ def test_management_ui_serves_modular_assets_without_persisting_token(tmp_path):
     page = api.get("/ui")
     script = api.get("/ui/assets/app.js")
     api_client = api.get("/ui/assets/api.js")
+    prediction_values = api.get("/ui/assets/prediction_values.js")
     pkce = api.get("/ui/assets/pkce.js")
     styles = api.get("/ui/assets/styles.css")
 
     assert page.status_code == script.status_code == api_client.status_code == 200
+    assert prediction_values.status_code == 200
     assert styles.status_code == 200
     assert "予測採用ワークスペース" in page.text
     assert 'type="module" src="/ui/assets/app.js"' in page.text
@@ -42,6 +44,9 @@ def test_management_ui_serves_modular_assets_without_persisting_token(tmp_path):
     assert 'code_challenge_method", "S256"' in pkce.text
     assert "export-requested-by" not in page.text
     assert 'request("/api/session")' in api_client.text
+    assert 'request(`/api/runs/${encodeURIComponent(runId)}/results`)' in api_client.text
+    assert "モデル別の予測値" in page.text
+    assert "createPredictionValues" in prediction_values.text
     session = api.get("/api/session", headers={"Authorization": "Bearer token"})
     assert session.json()["subject"] == "local-admin"
     assert session.json()["roles"] == ["ADMIN"]

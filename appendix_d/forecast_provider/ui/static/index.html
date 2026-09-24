@@ -97,6 +97,8 @@
           <nav class="tabs" aria-label="比較操作">
             <button class="tab active" type="button" data-tab="overview"
               aria-selected="true">比較</button>
+            <button class="tab" type="button" data-tab="forecasts"
+              aria-selected="false">予測値</button>
             <button class="tab" type="button" data-tab="exports"
               aria-selected="false">CSV</button>
             <button class="tab" type="button" data-tab="adoption"
@@ -129,6 +131,30 @@
                 <span>同じ日次build</span>
               </div>
               <div id="acceptance-list" class="acceptance-grid"></div>
+            </div>
+          </section>
+
+          <section id="tab-forecasts" class="tab-panel" hidden>
+            <div class="subheading">
+              <div>
+                <h3>モデル別の予測値</h3>
+                <p>最新の予測起点について、品目・日付ごとの点予測を表示します。</p>
+              </div>
+              <label>表示するモデル<select id="forecast-run"></select></label>
+            </div>
+            <div id="forecast-summary" class="eligibility-banner" aria-live="polite"></div>
+            <div class="table-wrap">
+              <table>
+                <caption>最新起点の点予測</caption>
+                <thead><tr>
+                  <th scope="col">品目</th>
+                  <th scope="col">予測起点</th>
+                  <th scope="col">予測日</th>
+                  <th scope="col">何日先</th>
+                  <th scope="col">予測値</th>
+                </tr></thead>
+                <tbody id="forecast-values"></tbody>
+              </table>
             </div>
           </section>
 

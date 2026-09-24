@@ -8,8 +8,10 @@ import {
   downloadExport,
   loadComparison,
   loadDashboard,
+  loadRunResults,
   setToken,
 } from "./api.js";
+import { createPredictionValues } from "./prediction_values.js";
 import { parseList } from "./format.js";
 import {
   renderComparisonList,
@@ -43,6 +45,7 @@ const elements = {
   decision: document.getElementById("adoption-decision"),
   adoptedFields: document.getElementById("adopted-fields"),
 };
+const predictionValues = createPredictionValues({ loadRunResults });
 
 function notice(message, tone = "") {
   elements.notice.className = `notice${tone ? ` ${tone}` : ""}`;
@@ -91,6 +94,7 @@ async function selectComparison(comparisonId) {
     state.selectedId = comparisonId;
     drawComparisonList();
     renderDetail(state.selected, recordsFor(comparisonId), handleDownload);
+    await predictionValues.show(state.selected.detail);
     updateDecisionFields();
     setTab("overview");
     notice("比較結果を読み込みました。", "success");
