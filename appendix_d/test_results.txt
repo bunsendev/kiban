@@ -1,3 +1,22 @@
+# v2.9 Phase 3S-3 監査・実PostgreSQL検証記録
+
+Date: 2026-09-24 JST
+OS: Windows 11 / WSL Ubuntu 26.04
+Python: 3.12.14
+PostgreSQL: 18.6（実接続）
+
+- 監査修正: `known_at`をjob登録時の明示値として保存し、Worker処理時刻から分離した。
+- 承認境界: 技術的なsnapshot生成をreview可能状態とし、業務APPROVED / REJECTEDを追記型decisionへ分離した。
+- read model: job別snapshot一覧とJAN × location × 賞味期限順のbucket参照を追加した。
+- E2E: FACTORY、WAREHOUSE 2拠点、同一倉庫の複数賞味期限、canonical product ID、CASE数量、各versionの保持を確認した。
+- Worker: fail-then-success retry、完了job再実行、SQLite / PostgreSQLの2 Worker同時claim、heartbeat、fencing、rollbackを確認した。
+- Phase 3S-1〜3S-3対象: PostgreSQL実接続を含め57 passed、skip 0。
+- 決定性: 同じcanonical inputからSQLite / PostgreSQLで同じsnapshot ID / content SHA-256になることを確認した。
+- 回帰: Windows非対応のLinux専用peak RSS 1件を除き624 passed、16 skipped、1 deselected。Phase 3S-3 PostgreSQL試験は分離して実接続済み。
+- 静的検査: `ruff check .`と`check_lint.py`に成功した。
+- 配布照合: `make_release.py --check`で全ファイル一致を確認した。
+- 実データ、raw row、ローカルpath、資格情報をRepositoryへ追加していない。
+
 # v2.9 Phase 3S-1 実行検証記録
 
 Date: 2026-09-24 JST

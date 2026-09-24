@@ -1,207 +1,193 @@
-# Phase 3S-3 実装結果
+# Phase 3S-3 実装・監査結果
 
-実施日: 2026-09-24  
-対象Repository: `bunsendev/kiban`  
-基準Branch: `main`  
-基準Commit: `25bdad7`  
-実装Branch: `codex/phase3s3-snapshot-worker`
+実施日: 2026-09-24
+対象Repository: `bunsendev/kiban`
+基準Branch / Commit: `main` / `25bdad7`
 
-## 1. 完成した範囲
+## 1. Branch / Commit
 
-Phase 3S-2のCSV adapter / validationを、追記型job台帳、SQLite / PostgreSQL store、独立Workerへ接続した。
+- 実装Branch: `codex/phase3s3-snapshot-worker`
+- 初期実装Commit: `66d3ae3`
+- 監査修正Commit: `74db752`
+- PR: `#86`
+
+## 2. 実装概要
+
+Phase 3S-2のCSV validationを、追記型job台帳、独立Worker、SQLite / PostgreSQL
+storeへ接続した。監査では既存実装を再利用し、`known_at`、業務承認の責務分離、read
+model、実PostgreSQL検証に必要な差分だけを追加した。
 
 ```text
-immutable CSV reference + SHA-256 + mapping version
-  ↓ content-addressed job
-lease付き独立Worker
-  ↓ source hash再検証
-CSV parse / reference resolution / validation
-  ↓ 同一transaction
-quarantine + reconciliation
-  + APPROVED snapshot / REJECTED decision
-  + job SUCCEEDED
+immutable CSV reference + SHA-256 + mapping version + known_at
+  -> content-addressed job
+  -> lease付きWorker
+  -> CSV parse / reference resolution / strict validation
+  -> 1 transaction
+     snapshot + expiry buckets + quarantine + reconciliation + job完了
+  -> review可能なsnapshot
+  -> 追記型APPROVED / REJECTED decision
 ```
 
-CSV契約不成立、原本hash不一致、参照不能、内部障害は入力の業務判定と分け、jobを`FAILED`または再試行可能な`QUEUED`へ遷移させる。
+原本byte、実データ、raw row、ローカルpath、資格情報はRepositoryへ追加していない。
 
-## 2. 追加module
+## 3. Service
 
-| module | 責務 |
-|---|---|
-| `job_contracts.py` | job状態、固定error code、lease、fencing、finalization契約 |
-| `job_store.py` | job claim、heartbeat、retry、transaction確定、参照read model |
-| `sources.py` | 原本読取protocolとroot固定の安全なdirectory reader |
-| `service.py` | 再現可能なjob ID、snapshot、APPROVED / REJECTED decisionの決定 |
-| `worker.py` | claim、heartbeat、source読取、service実行、retry / fail制御 |
-| `inventory_snapshot_worker_process.py` | SQLite / PostgreSQLを選べる独立Worker CLI |
+- job IDをsource reference、source SHA-256、mapping version、明示された`known_at`から生成する。
+- Worker処理時刻を`known_at`へ上書きしない。
+- Phase 3S-2の厳格validationが採用可能な場合だけsnapshotを組み立てる。
+- quarantine、数量不一致、bucketなしの場合はsnapshotを作らず、固定理由のsystem
+  `REJECTED`を作る。
+- 技術的に正常なsnapshot生成時は業務`APPROVED`を自動作成しない。
+- JAN、canonical product ID、location、location type、expiry、CASE数量、各versionを既存domainへ渡す。
 
-既存の`csv_adapter.py`、`references.py`、`validation.py`、`domain.py`は変更せず利用する。CSV parsing、業務validation、判断、永続化、process制御を別moduleに保ち、APIやUIへ処理を埋め込まない。
+## 4. Store
 
-## 3. jobと冪等性
+SQLite / PostgreSQLで共通の業務契約を使用する。保存対象は次のとおり。
 
-job IDは次のcanonical情報からSHA-256で生成する。
+- job、lease、attempt、heartbeat、固定error code
+- snapshot header、EXPIRY_BUCKET
+- quarantine、reconciliation
+- 追記型decision
+- job別snapshot一覧
+- JAN × location × expiry昇順のread model。location codeと`FACTORY / WAREHOUSE`を返す。
 
-- format version
-- source reference
-- source SHA-256
-- mapping version
+業務判断は`append_snapshot_decision`で技術生成済みsnapshotへ追記する。同一内容の再送は
+同じdecision IDへ収束し、過去判断を更新しない。
 
-同じ原本参照、同じ内容、同じmappingの再登録は同じjobへ収束する。requesterや登録時刻をIDへ含めない。異なる入力を同じjob IDとして保存することはstoreで拒否する。
+## 5. Worker
 
-job状態は既存schemaの`QUEUED / RUNNING / SUCCEEDED / FAILED`を維持する。
+Workerはjob取得、原本読取、heartbeat、参照version取得、Service呼出、成功・失敗記録に限定した。
+JAN正規化、賞味期限、CASE変換、snapshot決定性は既存domain / validationを再利用する。
 
-- `SUCCEEDED + APPROVED`: 正式snapshotを作成した。
-- `SUCCEEDED + REJECTED`: 処理は正常完了したが、入力に隔離または数量不一致があり正式snapshotを作成しなかった。
-- `FAILED`: 原本参照、hash、CSV全体契約または実行環境の問題で処理を完了できなかった。
+- source root外の参照、絶対path、`..`、size上限超過を拒否する。
+- 読取後にSHA-256を再照合する。
+- 内部障害は最大3 attemptまで再試行する。
+- 失敗記録へraw row、原本byte、OS例外本文を保存しない。
+- 独立processはSQLite / PostgreSQL、1回実行 / 常駐実行を選択できる。
 
-入力不採用とシステム障害を同じFAILEDへまとめない。
+## 6. Transaction設計
 
-## 4. lease・heartbeat・fencing
+finalizeは次を同じDB transactionで処理する。
 
-`inventory_snapshot_jobs`へ次を追加した。
+1. job ID、attempt、worker ID、lease token、lease期限を再検証する。
+2. 採用可能な場合はsnapshot headerと全expiry bucketを保存する。
+3. quarantineの行番号、行hash、固定reasonを保存する。
+4. source数量、normalized数量、一致結果を保存する。
+5. validation不採用時だけsystem `REJECTED`を保存する。
+6. jobを`SUCCEEDED`へ変更し、active leaseを解除する。
 
-- `attempt`
-- `worker_id`
-- `lease_token`
-- `leased_until`
-- `last_heartbeat_at`
+途中失敗ではtransaction全体をrollbackする。headerだけ、bucketの一部だけ、decisionだけを
+利用可能状態にしないことを人工障害試験で確認した。
 
-Workerはclaim時にattemptを増やし、一意なlease tokenを取得する。heartbeat、完了、失敗はjob ID、attempt、worker ID、lease tokenをすべて照合する。期限切れjobを別Workerが取得した後、旧Workerはsnapshot、隔離、数量照合、decision、job状態を書き込めない。
+## 7. Job lifecycle
 
-SQLiteは`BEGIN IMMEDIATE`、PostgreSQLは`FOR UPDATE SKIP LOCKED`で同時claimを制御する。heartbeatでlease期限を延長できる。内部障害は最大3 attemptまで再試行し、上限到達後に`FAILED`とする。
+状態は既存schemaの`QUEUED / RUNNING / SUCCEEDED / FAILED`を維持した。
 
-## 5. source reader
+- `QUEUED`: 未取得または再試行待ち
+- `RUNNING`: worker、lease token、期限を持つ
+- `SUCCEEDED`かつsnapshotあり・decisionなし: 技術生成済み、レビュー可能
+- `SUCCEEDED`かつsystem `REJECTED`: validation不採用、正式snapshotなし
+- `FAILED`: source、CSV全体契約、mappingまたはretry上限の障害
 
-Worker coreは`InventorySourceReader` protocolだけへ依存する。標準のdirectory readerは次を守る。
+期限切れleaseは別Workerが再取得できる。旧Workerはattemptとtokenによるfencingでheartbeat、
+完了、失敗を記録できない。
 
-- 設定済みroot内の相対referenceだけを読む。
-- 絶対pathと`..`を拒否する。
-- symlink解決後にroot外へ出る参照を拒否する。
-- 既定100 MiBの上限を持つ。
-- path、ファイル名、OS例外本文、原本byteをerrorへ含めない。
+## 8. Idempotency
 
-正式処理前にbyte列のSHA-256をjob登録値と再照合する。不一致時は`SOURCE_SHA256_MISMATCH`で停止し、validationやsnapshot保存を行わない。
+- 同じjob登録は同じjob IDへ収束する。
+- 完了済みjobは再claimされない。
+- snapshot ID、content SHA-256、bucket主キーは既存canonical contractで決定する。
+- 再登録・retryで数量、bucket、snapshotを重複させない。
+- 同一業務decisionの再送は同じdecision IDへ収束する。
 
-## 6. transaction境界
+同一jobの再実行後もsnapshot 1件、bucket 1件、数量8 CASEのままであることを試験した。
 
-最終確定は1つのDB transactionで次を実行する。
+## 9. Snapshot決定性
 
-1. active leaseを再検証
-2. APPROVEDの場合だけsnapshot headerとexpiry bucketを保存
-3. 行番号、行hash、固定reasonだけのquarantineを保存
-4. source数量、normalized数量、一致判定を保存
-5. APPROVEDまたはREJECTED decisionを追記
-6. job件数と`SUCCEEDED`を確定
+決定性の入力はsource、mapping、location master、product mapping、`snapshot_at`、
+`known_at`、canonical inventory rowsである。`created_at`、Worker ID、attempt、処理完了時刻は
+content hashへ含めない。
 
-途中でforeign key、unique、fencing、DB障害のいずれかが発生した場合、snapshotを含む派生行をすべてrollbackする。部分snapshotやdecisionだけを残さない。
+明示された`known_at`をjobへ保存し、snapshotへそのまま渡す。同じcanonical inputを
+SQLite / PostgreSQLへ投入し、同じsnapshot IDとcontent SHA-256になることを実DBで確認した。
 
-## 7. 自動判断条件
+## 10. SQLite結果
 
-Phase 3S-2の`approval_ready`がtrueの場合だけ、Worker主体によるAPPROVED decisionを作る。
+PASS。人工fixtureで次を確認した。
 
-- bucketが1件以上
-- quarantineが0件
-- source数量とnormalized数量がDecimalで一致
-- snapshot日時が1つに確定
+- CSV -> validation -> job -> Worker -> snapshot -> expiry bucket E2E
+- FACTORY、WAREHOUSE A、WAREHOUSE Bを別locationとして保持
+- 同一JAN・同一WAREHOUSEの複数賞味期限を別bucketとして保持
+- expiry昇順read
+- canonical product IDとproduct mapping versionの保持
+- 技術生成と業務APPROVEDの分離
+- quarantine時のsnapshot非生成
+- fail-then-success retry、3回上限、heartbeat、stale Worker fencing
+- 2 Worker同時claimで取得1件
+- transaction rollback、完了job再実行の冪等性
+- 既存SQLite jobの`known_at` backfillを含む非破壊migration
 
-条件不成立時はREJECTED decisionを追記し、snapshotを作らない。理由は固定値`CSV_VALIDATION_REJECTED`とする。APPROVED理由も固定値`CSV_STRICT_VALIDATION_APPROVED`とする。原本値や例外本文は理由へ保存しない。
+## 11. PostgreSQL結果
 
-このAPPROVEDは入力在庫snapshotの機械的な採用判断であり、将来のShipment Recommendation承認ではない。
+PASS。WindowsからWSL上の実PostgreSQL 18.6へ接続し、skipせず検証した。
 
-## 8. 再現性
+- schema / migration / advisory lock
+- `FOR UPDATE SKIP LOCKED`による2 Worker競合
+- lease、heartbeat、retry、fencing、transaction、unique constraint
+- Worker E2E
+- SQLiteとのsnapshot ID / content SHA-256一致
 
-- `known_at`は再試行ごとに変わる処理時刻ではなく、jobの`requested_at`へ固定する。
-- `created_at`と`decided_at`は実行時刻だがsnapshot content hashへ含めない。
-- 同じjobを再試行してもsnapshot ID、content SHA-256、decision IDは変わらない。
-- snapshot IDはPhase 3S-1のcanonical bucket、version、source、時刻契約を利用する。
-- quarantine IDとreconciliation IDもjob・行・reasonから決定的に生成する。
+Phase 3S-1〜3S-3対象はPostgreSQL実接続を含め`57 passed`。本番標準のPostgreSQL 17でも
+同じ対象試験をCIまたは復旧後のDocker環境で継続確認する。
 
-## 9. migration
+## 12. E2E結果
 
-既存tableを削除せず、job tableへlease列とindexを追加する。
+PASS。人工CSVだけを使用し、CSV原本参照とSHA-256からjob登録、Worker処理、厳格validation、
+snapshot、FACTORY / WAREHOUSE別expiry bucket、数量照合、review可能状態、追記型APPROVEDまで確認した。
 
-- 空DBでは更新後schemaをそのまま作成する。
-- Phase 3S-1 SQLite DBは起動時に不足列を`ALTER TABLE ADD COLUMN`で追加する。
-- 3S-1で作られたquarantine tableは既存行を保持したまま、3S-2の3 reasonを許可するtableへ移行する。
-- lease情報のない旧`RUNNING` jobは、安全に再取得できる`QUEUED`へ戻す。
-- PostgreSQLはadvisory lock内で不足列とreason constraintだけを更新する。
-- migration再実行時は追加変更を行わない。
+## 13. Regression結果
 
-追加したreasonは`ROW_SHAPE_INVALID`、`LOCATION_AMBIGUOUS`、`SNAPSHOT_AT_INCONSISTENT`である。
+PASS。Windows非対応のLinux専用peak RSS 1件を除く全回帰は`624 passed / 16 skipped /
+1 deselected`。ruff、既存lint、release preflightも成功した。Phase 3S-1 / 3S-2、
+Forecast Provider、既存APIの契約変更は検出されなかった。16 skipはDSNなしの通常回帰で
+既存の任意PostgreSQL試験を分離した結果であり、Phase 3S-3 PostgreSQL対象3件は別途実接続で成功した。
 
-## 10. 独立Worker起動
+## 14. 既存機能への影響
 
-SQLite:
-
-```powershell
-python -m forecast_provider.inventory_snapshot_worker_process `
-  --sqlite .kiban/inventory.sqlite3 `
-  --source-root raw_archive
-```
-
-PostgreSQL:
-
-```powershell
-python -m forecast_provider.inventory_snapshot_worker_process `
-  --postgres-dsn $env:KIBAN_DATABASE_DSN `
-  --source-root raw_archive
-```
-
-`--once`で1回だけqueueを確認できる。既定leaseは300秒、待機pollは5秒で、CLI引数から変更できる。Workerは原本登録APIを持たず、登録済みjobだけを処理する。
-
-## 11. SQLite確認
-
-人工CSVを使用して次を確認した。
-
-- 有効CSVからAPPROVED snapshot、bucket、数量照合、job完了を同時保存
-- 賞味期限欠損CSVをREJECTEDとし、snapshotを作らず隔離・数量差を保存
-- 原本hash不一致を非再試行FAILEDにする
-- CSV全体契約不成立を固定error codeでFAILEDにする
-- 内部障害を再試行し、3回目で停止する
-- heartbeatによるlease延長
-- 期限切れleaseの再claimと旧Worker fencing
-- transaction途中失敗時に派生tableをすべてrollback
-- 同じ入力の再処理でsnapshot / decision IDが一致
-- Phase 3S-1 schemaからの追加migrationで既存job・quarantineを保持
-
-## 12. PostgreSQL確認
-
-- SQLiteと同じservice・finalization・読取methodを使用する。
-- claimだけを`FOR UPDATE SKIP LOCKED`へ置き換える。
-- migrationを専用advisory lock内で実行する。
-- PostgreSQL実接続のWorker E2E試験を追加した。
-- このPCでは`KIBAN_TEST_POSTGRES_DSN`が未設定のため実接続試験はskipとなる。
-
-## 13. 互換性
-
-- 既存の在庫正規化、予測、比較、API、UI、Workerを変更していない。
+- `inventory_snapshot_jobs`へ`known_at`を追加した。既存行は`requested_at`からbackfillする。
+- 既存lease列とquarantine reason migrationを維持した。
+- job登録関数は`known_at`の明示を必須にした。Phase 3S-3外の呼出元は存在しない。
+- 既存の在庫正規化、予測、比較、API、UI、既存Workerは変更していない。
 - `inventory_daily_quantities`を変更していない。
-- Phase 3S-1 / 3S-2の公開引数と意味を変更していない。
-- 既存snapshot保存methodは同じtransaction helperを使う形へ内部整理した。
-- 実データ、原本値、path、資格情報をRepositoryへ追加していない。
 
-## 14. 未実装
+## 15. 未実装
 
-- job登録・状態・decision・FEFO readのAPI
-- 操作用UI
-- role / permission / idempotency key / API監査event
-- source archive登録との自動接続
-- 商品コードmappingの本番provider登録
-- Worker heartbeatの管理画面表示
-- PDF adapter、OCR、抽出確認
-- 実業務CSVでのpreflight
-- 生産予定、Projection、Risk、Shipment Recommendation
+指示どおり次は実装していない。
 
-## 15. Phase 3S-4への引継ぎ
+- Phase 3S-4本格API、担当者UI、role / permission / API監査event
+- PDF parser、OCR、LLM抽出
+- 生産予定、需要予測、将来在庫Projection、arrival-time inventory
+- FEFO消費計算、Risk Engine、Shipment Recommendation、日次Scheduler、自動出荷
+- source archive登録との自動接続、本番商品mapping provider、実業務CSV preflight
 
-次のsliceでは既存認証・認可・API共通契約を利用して、次を追加する。
+## 16. 技術的懸念
 
-1. CSV source参照とmapping versionを指定するjob登録API
-2. job状態、件数、固定error codeの参照API
-3. quarantine reason集計と数量照合の参照API
-4. APPROVED / REJECTED decision履歴とsnapshot一覧API
-5. JAN × locationの賞味期限昇順FEFO read API
-6. READ / ANALYZE / APPROVE roleと監査event
-7. API応答へ原本値、path、DSN、例外本文を出さない契約試験
+- Docker DesktopはWindowsのstale `sailor-ingest.sock`によりLinux Engineを起動できない。
+  Phase 3S-3試験はWSL PostgreSQLで完了したが、Docker復旧にはWindows再起動後の再確認が必要。
+- 今回の実DBはPostgreSQL 18.6。本番標準の17でも対象suiteを継続実行する。
+- migrated SQLite tableではSQLite制約の制限により`known_at NOT NULL`をdomain/storeでも保証する。
+- APPROVED / REJECTEDの最新判断をどう解釈するかはPhase 3S-4 API契約で固定する。
 
-担当者向け画面は、APIが固定された後のPhase 3S-4内で小さな確認画面として追加する。PDF adapterはPhase 3S-5、実データpreflightはPhase 3S-6で扱う。
+## 17. Phase 3S-4への引継ぎ
+
+次工程は既存認証・認可・監査契約を再利用し、次のread / command APIを小さく追加する。
+
+1. source参照、SHA-256、mapping version、known_atを指定するjob登録
+2. job状態、attempt、件数、固定error codeの参照
+3. quarantine reason集計とreconciliation参照
+4. review可能snapshot一覧と追記型APPROVED / REJECTED
+5. JAN × location × expiry_date ASCのFEFO入力read model
+6. READ / ANALYZE / APPROVE権限と監査event
+
+API応答へraw row、原本byte、path、DSN、例外本文を出さない。Phase 3Tは承認済みsnapshotの
+expiry昇順read modelを入力にし、今回の`known_at`を用いてdata leakageを防ぐ。
