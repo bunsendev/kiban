@@ -55,10 +55,15 @@ class MappingDryRunBulkUploader:
             shutil.rmtree(pending_dir, ignore_errors=True)
             raise SourceUploadError("ZIPを安全に展開できません") from exc
         prefix = destination.relative_to(root).as_posix()
+        analysis_path = next(
+            (path for path in paths if "出荷" in PurePosixPath(path).name),
+            paths[0],
+        )
         return {
             "batch_id": batch_id,
             "source_prefix": prefix,
             "first_source_path": f"{prefix}/{paths[0]}",
+            "analysis_source_path": f"{prefix}/{analysis_path}",
             "file_count": len(paths),
             "archive_size_bytes": size,
             "expanded_size_bytes": total,

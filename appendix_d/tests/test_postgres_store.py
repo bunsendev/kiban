@@ -26,7 +26,7 @@ from forecast_provider.evaluation_registry import (
 )
 from forecast_provider.ingestion import PostgresIngestionStore, SourceFile
 from forecast_provider.jobs import OriginOutput, PostgresRunStore, RunDefinition
-from forecast_provider.jobs.postgres_store import _HybridRow
+from forecast_provider.jobs.postgres_store import _Cursor, _HybridRow
 from forecast_provider.master import PostgresMasterStore, make_matching_job, make_product
 from forecast_provider.model_review import (
     PostgresModelReviewStore,
@@ -68,6 +68,17 @@ def test_postgres_row_uses_sqlite_compatible_temporal_and_uuid_values():
     assert row["cutoff_at"] == "2026-01-01T00:00:00+00:00"
     assert row["lease_token"] == str(token)
     assert row[0] == row["origin_date"]
+
+
+def test_postgres_cursor_fetchall_returns_sqlite_compatible_rows():
+    class Cursor:
+        def fetchall(self):
+            return [{"lease_token": uuid.UUID("00000000-0000-0000-0000-000000000001")}]
+
+    rows = _Cursor(Cursor()).fetchall()
+
+    assert rows == [{"lease_token": "00000000-0000-0000-0000-000000000001"}]
+    assert rows[0][0] == "00000000-0000-0000-0000-000000000001"
 
 
 def test_postgres_migration_has_locking_and_business_constraints():

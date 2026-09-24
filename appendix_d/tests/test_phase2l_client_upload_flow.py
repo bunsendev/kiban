@@ -146,6 +146,7 @@ def test_zip_upload_registers_all_csv_files_as_one_batch(tmp_path):
     uploaded = response.json()
     assert uploaded["file_count"] == 2
     assert uploaded["uploaded_by"] == "local-admin"
+    assert uploaded["analysis_source_path"].endswith("/在庫データ/出荷.csv")
     batch = input_root / uploaded["source_prefix"]
     assert len(list(batch.rglob("*.csv"))) == 2
     assert not list(batch.rglob("*.zip"))

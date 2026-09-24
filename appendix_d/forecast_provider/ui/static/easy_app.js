@@ -208,14 +208,9 @@ function compatibleMapping(source) {
 async function prepareSelection() {
   if (state.selection.kind === "folder") return state.selection;
   const uploaded = await uploadEasySource(state.selection.file);
-  let sourcePath = uploaded.source_path || uploaded.first_source_path;
-  if (uploaded.source_prefix) {
-    const catalog = await loadEasySources();
-    const shipment = catalog.items.find((item) =>
-      item.source_path.startsWith(`${uploaded.source_prefix}/`)
-      && item.source_path.split("/").at(-1).includes("出荷"));
-    sourcePath = shipment?.source_path || sourcePath;
-  }
+  const sourcePath = uploaded.source_path
+    || uploaded.analysis_source_path
+    || uploaded.first_source_path;
   const source = await loadEasySource(sourcePath);
   return {
     ...state.selection,
