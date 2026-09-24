@@ -147,7 +147,9 @@ Phase 3S-1で既存在庫機能を変更せず、FACTORY / WAREHOUSE、JAN、EXP
 
 Phase 3S-2で版付きCSV mappingによる正式な入力adapterとvalidationを追加した。UTF-8 / CP932、JAN直接入力・商品コード変換、FACTORY / WAREHOUSE、賞味期限、Decimal CASE、timezone付きsnapshot日時を検証し、異常行を原値なしの固定reasonで隔離する。重複排除、決定的bucket集約、原本数量と正規化数量の照合までを純粋moduleとして実装した。DB保存、job、Worker、API、UIは未接続である。詳細は[Phase 3S-2実装結果](planning/PHASE3S2_RESULT.md)。
 
-次のPhase 3S-3ではCSV変換結果をsnapshot job、SQLite / PostgreSQL store、独立Workerへ接続し、quarantine・数量照合・正式snapshot・APPROVED / REJECTED decisionを同一transactionで確定する。APIと画面は3S-4、PDF adapterは3S-5、実データpreflightは3S-6で追加する。
+Phase 3S-3でCSV変換結果をcontent-addressed snapshot job、SQLite / PostgreSQL store、lease付き独立Workerへ接続した。quarantine、数量照合、正式snapshot、APPROVED / REJECTED decision、job完了を同一transactionで確定する。heartbeat、期限切れ再取得、旧Worker fencing、3回retry、Phase 3S-1 DBからの追加migrationに対応した。詳細は[Phase 3S-3実装結果](planning/PHASE3S3_RESULT.md)。
+
+次のPhase 3S-4では既存認証・認可とAPI共通契約を使い、job登録・状態、隔離理由、数量照合、decision、snapshot一覧、賞味期限順FEFO readのAPIと確認画面を追加する。PDF adapterは3S-5、実データpreflightは3S-6で追加する。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
 ## 変更報告

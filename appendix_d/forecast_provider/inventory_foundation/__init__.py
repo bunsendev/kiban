@@ -37,6 +37,14 @@ from .domain import (
     validate_jan,
     verify_snapshot_identity,
 )
+from .job_contracts import (
+    InventorySnapshotFinalization,
+    InventorySnapshotJob,
+    InventorySnapshotJobErrorCode,
+    InventorySnapshotJobStatus,
+    InventorySnapshotLease,
+    StaleInventorySnapshotLeaseError,
+)
 from .locations import (
     InventoryLocation,
     LocationMasterVersion,
@@ -47,15 +55,27 @@ from .mapping import InventoryInputMappingVersion
 from .postgres import PostgresInventoryFoundationStore
 from .reconciliation import InventoryQuantityReconciliation
 from .references import InventoryReferenceResolver, ProductMappingRecord, ResolvedProduct
+from .service import (
+    InventorySnapshotProcessingError,
+    InventorySnapshotService,
+    create_inventory_snapshot_job,
+)
+from .sources import (
+    DirectoryInventorySourceReader,
+    InventorySourceReader,
+    InventorySourceReadError,
+)
 from .store import SqliteInventoryFoundationStore
 from .validation import (
     InventoryCsvValidationResult,
     QuarantinedInventoryRow,
     validate_inventory_csv,
 )
+from .worker import InventorySnapshotWorker
 
 __all__ = [
     "BucketKind",
+    "DirectoryInventorySourceReader",
     "ExtractionReviewDecision",
     "ExtractionStatus",
     "InventoryCsvContractError",
@@ -71,8 +91,18 @@ __all__ = [
     "InventoryQuantityReconciliation",
     "InventoryReferenceResolver",
     "InventorySnapshot",
+    "InventorySnapshotFinalization",
     "InventorySnapshotHeader",
+    "InventorySnapshotJob",
+    "InventorySnapshotJobErrorCode",
+    "InventorySnapshotJobStatus",
+    "InventorySnapshotLease",
+    "InventorySnapshotProcessingError",
+    "InventorySnapshotService",
+    "InventorySnapshotWorker",
     "InventorySourceDocument",
+    "InventorySourceReadError",
+    "InventorySourceReader",
     "LocationMasterVersion",
     "LocationType",
     "NormalizedUnit",
@@ -90,9 +120,11 @@ __all__ = [
     "SnapshotDecisionType",
     "SourceKind",
     "SqliteInventoryFoundationStore",
+    "StaleInventorySnapshotLeaseError",
     "build_inventory_snapshot",
     "canonical_datetime",
     "canonical_decimal",
+    "create_inventory_snapshot_job",
     "parse_inventory_csv",
     "validate_inventory_csv",
     "validate_jan",
