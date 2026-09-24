@@ -3,13 +3,13 @@
 調査日: 2026-09-24
 対象Repository: `bunsendev/kiban`
 基準Branch: `main`
-基準Commit: `29ce80aef923fb0de99d40e547d1e4518faa8f0c`
+基準Commit: `783f92210a8421ad13b2d22ad8726f02ab3ea191`
 
 ## 1. 結論
 
 現在のkibanは、出荷実績の取込、商品・倉庫単位の日次需要データ作成、複数OSSによる需要予測、比較、採用、Worker実行、監査までを持つ。需要予測を作る基盤としては利用できる。
 
-一方、最終目的である「今日、どの商品を、どの倉庫へ、何個送るべきか」の算出は未実装である。現在の在庫機能は日付・商品・倉庫・単位・数量の日次集約までであり、会社側在庫、ロット、賞味期限、引当、入庫予定、製造予定を保存しない。将来在庫、欠品、期限切れ、倉庫偏在、推奨出荷数量を計算するDecision Engineも存在しない。
+一方、最終目的である「今日、どの商品を、どの倉庫へ、何個送るべきか」の算出は未実装である。現在の在庫機能は日付・商品・倉庫・単位・数量の日次集約までであり、FACTORY在庫、EXPIRY_BUCKET、賞味期限、生産予定を保存しない。将来在庫、欠品、期限切れ、倉庫偏在、推奨出荷数量を計算するDecision Engineも存在しない。
 
 新機能は予測モデルへ組み込まず、次の責務に分ける。
 
@@ -21,7 +21,7 @@ Inventory / Supply Ledger
 Inventory Projection
   ↓ 商品・倉庫・日別の将来在庫
 Risk Evaluation
-  ↓ 欠品・期限切れ・偏在・会社在庫不足
+  ↓ 欠品・期限切れ・偏在・工場在庫不足
 Shipment Recommendation Engine
   ↓ 本日の商品・倉庫別推奨出荷数量と根拠
 Human-in-the-loop
@@ -29,7 +29,7 @@ Human-in-the-loop
 Actuals / Business KPI
 ```
 
-最初に実装すべきPhaseは、賞味期限・ロットを失わない時点付き在庫基盤と業務データ契約である。ここを確定せずに推奨数量を実装すると、FEFO、期限切れリスク、会社在庫制約を正しく計算できない。
+最初に実装すべきPhaseは、賞味期限を失わない時点付き在庫基盤と業務データ契約である。V1はロットを必須にせず、`JAN × location × 賞味期限`を`EXPIRY_BUCKET`として扱う。ここを確定せずに推奨数量を実装すると、FEFO、期限切れリスク、工場在庫制約を正しく計算できない。
 
 ## 2. 調査範囲
 
@@ -43,6 +43,19 @@ Actuals / Business KPI
 - 提供済み実データのCSVヘッダーと項目充足率。行値は記録していない
 
 今回、大規模な機能実装は行わない。本書は実装可否と設計境界を確定するための調査成果物である。
+
+### 2.1 クライアント確認済みのV1条件
+
+- 構造化入力はCSVを優先し、PDFは抽出・検証・人間確認を経る別adapterとする。
+- 商品識別はJANを基本とし、既存のJAN / canonical product基盤を再利用する。
+- 原本の`明細バラ数`は業務上の箱数であり、正規化単位は`CASE`とする。原本列名と正規化単位を別管理する。
+- location typeは`FACTORY`と`WAREHOUSE`を最低限とする。
+- 受注、引当、入庫予定、外部の出荷予定はV1入力に含めず、将来拡張用のevent境界だけを維持する。
+- 生産予定は取得可能であり、将来FACTORY在庫のProjectionへ使用する。
+- FACTORYからWAREHOUSEへのリードタイムは12〜36時間で、route別の版付きpolicyとする。
+- 補充判断は現在庫ではなく、需要を差し引いた到着予定時点在庫を基準とする。
+- ロット番号がなくてもV1を止めず、`EXPIRY_BUCKET`によるFEFO評価として扱う。「ロット管理済み」とは表現しない。
+- 不足項目を架空データで補完しない。
 
 ## 3. 現在地
 
@@ -100,15 +113,15 @@ inventory_date
 | 対象 | 判定 | 根拠 |
 |---|---|---|
 | 需要予測 | 対応済み | 日次snapshot、4 Provider、Run Ledger、比較、採用、予測値表示を利用できる |
-| 会社在庫 | 未対応 | 在庫に`center_id`はあるが、会社・倉庫のlocation種別と会社側出荷可能数量を区別しない |
-| 倉庫在庫 | 部分対応 | 商品×倉庫×日×単位×数量を正規化・採用・CSV化できるが、引当・ロット・期限を保持しない |
+| 工場在庫 | 未対応 | 在庫に`center_id`はあるが、`FACTORY`・`WAREHOUSE`のlocation種別と工場側出荷可能数量を区別しない |
+| 倉庫在庫 | 部分対応 | 商品×倉庫×日×単位×数量を正規化・採用・CSV化できるが、賞味期限を保持しない |
 | 賞味期限 | 未対応 | 原本に列はあるが、現行正規化とDBが保存しない |
 | ロット | 未対応 | schemaがなく、提供済み在庫データでは列自体はあるが値は全行空欄 |
-| 将来在庫 | 未対応 | 現在庫、入庫、補充、需要を日別に繰り越すProjectionがない |
+| 将来在庫 | 未対応 | 現在庫、生産予定、補充、需要を到着時点まで繰り越すProjectionがない |
 | 欠品リスク | 未対応 | 不足日、数量、安全在庫、リードタイムの計算がない |
 | 期限切れリスク | 未対応 | FEFO消費、期限までの累積需要、未消化数量の計算がない |
 | 倉庫偏在 | 未対応 | 複数倉庫の不足・過剰を同時評価する機能がない |
-| 日次推奨出荷 | 未対応 | 必要補充量、会社在庫配分、丸め、根拠生成がない |
+| 日次推奨出荷 | 未対応 | 到着予定時点在庫、必要補充量、工場在庫配分、CASE単位、根拠生成がない |
 | 担当者承認 | 部分対応 | モデル・データ採用の追記型承認は再利用可能だが、推奨数量の修正・確定・実績台帳がない |
 | 日次自動実行 | 部分対応 | Worker・lease・heartbeat・月次Schedulerはあるが、日次業務フローはない |
 | 業務KPI | 未対応 | 予測KPIと資源費用はあるが、欠品・廃棄・倉庫間移動のKPIがない |
@@ -142,16 +155,13 @@ inventory_date
 
 Phase 2P〜2Zの安全なpath検査、encoding判定、商品対応表、Worker、数量照合、承認、CSV発行は再利用できる。ただし、日次合計へ集約する前に次の明細を保持する拡張が必要である。
 
-- location種別: `COMPANY` / `WAREHOUSE`
-- 商品
+- location種別: `FACTORY` / `WAREHOUSE`
+- JANとcanonical product
 - location
-- lotまたは期限別在庫bucket
+- `EXPIRY_BUCKET`
 - 賞味期限
-- 製造日
 - on-hand数量
-- allocated数量
-- available数量
-- 単位
+- 原本数量列名と正規化単位`CASE`
 - `as_of` / `known_at`
 
 既存の`inventory_daily_quantities`を破壊的に変更せず、新しい明細台帳を追加する。既存集約は互換read modelとして残せる。
@@ -177,18 +187,22 @@ Phase 2P〜2Zの安全なpath検査、encoding判定、商品対応表、Worker�
 
 ## 7. C. 新規実装が必要な機能
 
-- 商品×location×lot×賞味期限の時点付き在庫台帳
-- 会社在庫と倉庫在庫のlocationマスター
-- 受注、引当、入庫予定、出荷予定、製造予定の時点付き供給・需要イベント
+- 商品×location×賞味期限の時点付き`EXPIRY_BUCKET`在庫台帳
+- FACTORY在庫とWAREHOUSE在庫のlocationマスター
+- 生産予定の時点付き供給event
+- route別12〜36時間のlead time policy
 - FEFOによる期限順消費
 - 日別の将来在庫Projection
-- 欠品、期限切れ、倉庫偏在、会社在庫不足のRisk Engine
-- 会社在庫制約と出荷単位を考慮するShipment Recommendation Engine
+- 欠品、期限切れ、倉庫偏在、工場在庫不足のRisk Engine
+- 工場在庫制約、arrival-time inventory、出荷単位を考慮するShipment Recommendation Engine
 - 推奨理由の構造化生成
 - 推奨・修正・不採用・確定・実績の追記型ワークフロー
 - 日次オーケストレーター
 - 欠品、廃棄、倉庫間移動の業務KPI
 - 担当者向け「今日の推奨」一覧・詳細画面
+- PDF原本、抽出結果、確認状態を結ぶadapter境界
+
+受注、引当、入庫予定、外部の出荷予定はV1の新規実装対象に含めない。将来のSupply / Demand Eventとして追加できる契約だけを維持し、架空データは生成しない。
 
 ## 8. D. 賞味期限対応状況
 
@@ -211,71 +225,73 @@ Phase 2P〜2Zの安全なpath検査、encoding判定、商品対応表、Worker�
 | ロット番号 | 0 | 0% | 現ファイルでは利用不可 |
 | 製造年月日 | 0 | 0% | 現ファイルでは利用不可 |
 | 明細入荷日 | 0 | 0% | 現ファイルでは利用不可 |
-| 事業所コード | 0 | 0% | 会社在庫識別には利用不可 |
+| 事業所コード | 0 | 0% | 工場location識別には利用不可 |
 | 出荷禁止フラグ | 0 | 0% | 現ファイルでは利用不可 |
 
-賞味期限は`YYYY/MM/DD`または`YYYY-MM-DD`相当の日付と任意の時刻を持つ形式として技術的に解釈可能だった。ロット列は存在するが値がないため、「商品×倉庫×賞味期限」を暫定bucketとして扱うことはできても、正式なロット追跡や実際のピッキング指示には使えない。
+賞味期限は`YYYY/MM/DD`または`YYYY-MM-DD`相当の日付と任意の時刻を持つ形式として技術的に解釈可能だった。V1では`JAN × location × 賞味期限`を`EXPIRY_BUCKET`として保存し、賞味期限順のFEFO評価へ使用する。
 
-Phase 3Sの業務受入前に、ロット番号を別データから取得できるか、倉庫システムが期限bucketだけを管理しているかを確認する。取得できない場合は、`EXPIRY_BUCKET`運用を明示し、ロット単位FEFO対応済みとは判定しない。
+ロット列は存在するが値がない。クライアント確認により、ロット番号がなくてもV1開発を進める。ただし`EXPIRY_BUCKET`運用を明示し、ロット追跡、ロット単位FEFO、実際のロットピッキングへ対応済みとは判定しない。
 
-## 9. E. 会社側在庫対応状況
+## 9. E. 工場在庫対応状況
 
-未対応である。現在の在庫には`center_id`しかなく、会社在庫、外部倉庫、製造拠点、出荷元を区別するlocation種別がない。
+未対応である。現在の在庫には`center_id`しかなく、工場在庫と倉庫在庫を区別するlocation種別がない。V1は抽象的な`COMPANY`を使わず、`FACTORY`と`WAREHOUSE`を定義する。将来の複数工場・中間拠点追加を妨げないlocation modelとする。
 
 必要補充量と実際に出荷可能な数量は別値として保存する。
 
 ```text
 required_replenishment_quantity
-company_available_quantity
+factory_available_quantity
 recommended_shippable_quantity
-company_shortage_quantity
+factory_shortage_quantity
 ```
 
-会社在庫不足を倉庫の欠品へ混ぜず、製造計画や供給不足へ連携できる固定risk codeとして残す。
+工場在庫不足を倉庫の欠品へ混ぜず、生産予定や供給不足へ連携できる固定risk codeとして残す。
 
 ## 10. F. 将来在庫シミュレーション
 
-未実装である。最小のProjectionは商品・倉庫・日単位で次を計算する。
+未実装である。V1は外部受注、引当、入庫予定、外部出荷予定を使わない。WAREHOUSEではrouteのlead timeから到着予定時刻を求め、snapshot時刻から到着予定時刻までの需要予測を現在庫から差し引く。
 
 ```text
-projected_closing_inventory[d]
-= projected_opening_inventory[d]
- + confirmed_inbound[d]
- + confirmed_replenishment[d]
- - effective_demand[d]
- - other_committed_outbound[d]
+arrival_at = recommendation_at + selected_route_lead_time
+arrival_time_inventory
+= current_warehouse_inventory
+ - forecast_demand(recommendation_at, arrival_at]
 ```
 
-`effective_demand`は受注と需要予測を単純加算しない。予測が受注を含むかをデータ契約で固定し、二重計上を防ぐ。例として、予測が総需要の場合は次のような構成を候補とする。
+FACTORYでは取得可能な生産予定を加算し、システム内で確定した倉庫向け出荷を減算する。
 
 ```text
-effective_demand = confirmed_orders + max(0, forecast_total - forecast_order_covered)
+future_factory_inventory[d]
+= current_factory_inventory
+ + production_schedule[d]
+ - confirmed_recommendation_shipments[d]
 ```
 
-安全在庫、輸送リードタイム、休業日、最低出荷単位は版付きpolicyとして入力する。Projectionは予測run、在庫snapshot、予定event集合、policy versionを固定し、同じ入力から再現できるようにする。
+外部の出荷予定はV1入力にしないため、`confirmed_recommendation_shipments`は本システムで確定した数量だけを指す。存在しないeventを推測しない。安全在庫、route別12〜36時間のlead time、休業日、出荷単位は版付きpolicyとして入力する。Projectionは予測run、在庫snapshot、生産予定、policy versionを固定し、同じ入力から再現できるようにする。
 
 ## 11. G. 日次出荷推奨
 
 未実装である。最初のルールベース案は次とする。
 
-1. 倉庫ごとに到着日から補充対象期間末までの有効需要を計算する。
-2. 現在庫、引当、確定入庫を反映して安全在庫を下回る数量を`必要補充量`とする。
-3. 賞味期限別在庫をFEFOで消費し、期限内に消化できない数量を過剰・廃棄riskとして分ける。
-4. 全倉庫の必要補充量を集約する。
-5. 会社側の出荷可能在庫を上限として、欠品日、欠品数量、優先度、リードタイムの順で配分する。
-6. ケース入数と最低出荷単位で丸め、丸めによる不足・過剰を記録する。
-7. 推奨数量と構造化された理由を保存する。
+1. FACTORY→WAREHOUSE routeのpolicyから12〜36時間内の採用lead timeを決め、到着予定時刻を計算する。
+2. snapshot時刻から到着予定時刻までの需要予測を減算し、`arrival_time_inventory`を計算する。
+3. 到着後の補充対象期間について、安全在庫を下回る数量を`必要補充量`とする。
+4. 賞味期限別在庫をFEFOで消費し、期限内に消化できない数量を過剰・廃棄riskとして分ける。
+5. 全倉庫の必要補充量を集約する。
+6. 工場在庫と生産予定を上限として、欠品日、欠品数量、優先度、lead timeの順で配分する。
+7. `CASE`単位で丸め、丸めによる不足・過剰を記録する。
+8. 推奨数量と構造化された理由を保存する。
 
 理由はLLMで生成せず、計算根拠を固定codeと数値で保存し、UIで文章化する。
 
 ```text
 理由code: PROJECTED_STOCK_BELOW_SAFETY
 7日需要予測: 650
-利用可能在庫: 300
-確定入庫: 0
+到着予定時点在庫: 300
+採用lead time: 36時間
 安全在庫: 100
 必要補充量: 450
-会社側出荷可能在庫: 2,100
+工場側出荷可能在庫: 2,100
 推奨出荷数量: 450
 ```
 
@@ -331,30 +347,30 @@ FAILED
 | データ | 必須項目 | 用途・確認事項 |
 |---|---|---|
 | 商品マスター | 商品コード、JANまたはcanonical対応、商品名、基本単位 | 出荷・在庫・予定を同一商品へ接続 |
-| locationマスター | locationコード、名称、`COMPANY` / `WAREHOUSE`、有効期間 | 会社在庫と倉庫在庫を分離 |
-| 倉庫在庫snapshot | 基準日時、商品、倉庫、数量、単位、賞味期限、lotまたは期限bucket | FEFO、期限切れrisk、将来在庫 |
-| 会社在庫snapshot | 基準日時、商品、出荷元、on-hand、allocated、available、単位、賞味期限 | 出荷可能上限と会社在庫不足 |
+| locationマスター | locationコード、名称、`FACTORY` / `WAREHOUSE`、有効期間 | 工場在庫と倉庫在庫を分離 |
+| 倉庫在庫snapshot | 基準日時、JAN、倉庫、数量、原本数量列、単位、賞味期限 | `EXPIRY_BUCKET`、FEFO、到着予定時点在庫 |
+| 工場在庫snapshot | 基準日時、JAN、工場、数量、原本数量列、単位、賞味期限 | 出荷可能上限と工場在庫不足 |
 | 過去出荷実績 | 出荷日、商品、倉庫、数量、単位 | 需要予測。現行データを利用可能 |
-| 最新受注 | 受注日、納品予定日、商品、納入倉庫、数量、状態、known_at | 直近確定需要。予測との重複定義が必要 |
-| 引当・出荷予定 | 商品、出荷元、出荷先、予定日、数量、状態、known_at | 利用可能在庫と二重引当防止 |
-| 入庫予定 | 商品、入庫先、予定日、数量、状態、known_at | 将来在庫加算 |
-| 製造予定 | 商品、完成予定日、会社側入庫先、数量、状態、known_at | 会社側の将来出荷可能数量 |
-| 物流policy | 輸送リードタイム、休業日、ケース入数、最低出荷単位 | 到着日と実行可能数量 |
+| 生産予定 | JAN、生産予定日、可能なら完成予定時刻、数量、単位、工場、データ基準時刻 | 工場側の将来出荷可能数量 |
+| route policy | factory、warehouse、minimum / standard / maximum lead time、V1採用値 | 12〜36時間後の到着予定時点を固定 |
+| 単位mapping | 原本数量列、原本上の名称、正規化単位`CASE`、有効期間 | 原本列名から単位を推測しない |
+| 物流policy | 休業日、出荷単位 | 到着日と実行可能数量 |
 | 安全在庫policy | 商品・倉庫、有効期間、数量または計算規則、承認者 | 必要補充量 |
 
-lot番号は正式なロット単位FEFOと実際のピッキングへ必要である。取得できない場合、賞味期限bucketでの試験は可能だが、正式受入条件を満たさないものとして扱う。
+V1はlot番号を必須とせず、`JAN × location × 賞味期限`を`EXPIRY_BUCKET`として正式入力にする。ただしロット追跡またはロット単位FEFOへ対応したとは扱わない。
 
 ### 14.2 推奨
 
 | データ | 用途 |
 |---|---|
 | 製造日 | 残存日数、品質調査、期限異常検知 |
-| 発注残・調達予定 | 会社側の中期供給不足評価 |
+| 発注残・調達予定 | 工場側の中期供給不足評価 |
 | 商品・倉庫別目標在庫日数 | 安全在庫の業務設定 |
 | 商品原価、廃棄単価、販売単価 | 廃棄金額、推定失注金額 |
 | 輸送費、距離、便・曜日制約 | 推奨の実行可能性と費用評価 |
 | 出荷禁止・品質保留 | 利用可能在庫からの除外 |
 | 温度帯、保管制約 | 倉庫・在庫の割当制約 |
+| PDF原本と抽出規則 | CSVを取得できない入力の補助。抽出結果は人間確認後だけ正式入力化 |
 
 ### 14.3 将来必要
 
@@ -366,16 +382,19 @@ lot番号は正式なロット単位FEFOと実際のピッキングへ必要で�
 | 担当者の推奨修正履歴 | policy改善、説明改善 |
 | 実際の納品・入庫時刻 | リードタイム実績と遅延risk |
 | 販促・価格・得意先イベント | 需要予測の追加特徴候補。効果検証後に採用 |
+| 受注、引当、入庫予定、外部出荷予定 | 将来のSupply / Demand Event。V1では使用しない |
 
 ### 14.4 現在の提供データで不足しているもの
 
-- 会社側在庫として識別できるsnapshot
-- locationの会社・倉庫区分
-- lot番号の実値
-- 利用可能在庫と引当済在庫の区別
-- 最新受注、入庫予定、出荷予定、製造予定
-- ケース入数、最低出荷単位、輸送リードタイム、安全在庫
+- FACTORY在庫として識別できるsnapshot
+- locationのFACTORY・WAREHOUSE区分
+- 生産予定ファイルの正式な列・時刻・更新契約
+- route別12〜36時間lead timeの正式なpolicy値
+- `CASE`として扱う対象列と換算不要であることの版付き確認
+- 出荷単位、安全在庫
 - 倉庫間移動、廃棄、欠品・失注の実績
+
+lot番号、受注、引当、入庫予定、外部出荷予定はV1開始条件から外す。取得できない値を0または架空eventで補わない。
 
 ## 15. リスク分類と設定方針
 
@@ -387,7 +406,7 @@ lot番号は正式なロット単位FEFOと実際のピッキングへ必要で�
 - 賞味期限注意
 - 廃棄高リスク
 - 倉庫偏在注意
-- 会社在庫不足
+- 工場在庫不足
 
 判定値はコードへ固定せず、`risk_policy_version`へ保存する。
 
@@ -395,7 +414,7 @@ lot番号は正式なロット単位FEFOと実際のピッキングへ必要で�
 - 安全在庫率または数量
 - 期限内未消化数量・比率・金額の閾値
 - 倉庫間の在庫日数差の閾値
-- 会社不足数量の閾値
+- 工場不足数量の閾値
 - リードタイム、休業日、対象期間
 
 判定結果はpolicy版、入力snapshot、Projection run、数値根拠を固定する。閾値変更で過去の判定を書き換えない。
@@ -406,11 +425,12 @@ lot番号は正式なロット単位FEFOと実際のピッキングへ必要で�
 
 | module | 責務 |
 |---|---|
-| `inventory_lot/` | location、lot・期限在庫、利用可能数量、時点付きsnapshot |
-| `supply_events/` | 受注、引当、入庫、出荷、製造予定の共通契約 |
+| `inventory_foundation/` | location、JAN、EXPIRY_BUCKET、CASE数量、時点付きsnapshot、CSV取込 |
+| `production_schedule/` | JAN、工場、生産予定日時、CASE数量、データ基準時刻の契約 |
+| `supply_demand_events/` | 将来の受注、引当、入庫、外部出荷を追加するための拡張境界。V1計算では未使用 |
 | `inventory_projection/` | 日別ProjectionとFEFO消費。純粋計算をDBから分離 |
-| `risk_engine/` | 欠品、期限切れ、偏在、会社不足の版付き判定 |
-| `shipment_recommendation/` | 必要補充、会社配分、出荷単位丸め、理由code |
+| `risk_engine/` | 欠品、期限切れ、偏在、工場不足の版付き判定 |
+| `shipment_recommendation/` | 到着予定時点在庫、必要補充、工場配分、CASE単位、理由code |
 | `shipment_workflow/` | 推奨、修正、不採用、確定、実績の追記event |
 | `daily_optimization/` | 日次runと段階別Worker orchestration |
 | `business_kpi/` | 導入前・推奨運用の業務KPI |
@@ -422,23 +442,26 @@ lot番号は正式なロット単位FEFOと実際のピッキングへ必要で�
 
 既存はPhase 3Rまで使用済みであるため、Phase 3S以降を使う。
 
-### Phase 3S: 賞味期限・ロット在庫基盤と実データ契約
+### Phase 3S: 賞味期限bucket・location在庫基盤と実データ契約
 
-- locationマスターと会社・倉庫区分
-- 商品×location×lot/期限×数量の時点付きsnapshot
-- on-hand、allocated、availableの分離
-- 賞味期限、lot欠損、単位、重複、数量照合
+- locationマスターと`FACTORY`・`WAREHOUSE`区分
+- `JAN × location × 賞味期限 × 数量(CASE) × snapshot日時`の時点付きsnapshot
+- 原本列名、原本単位表記、正規化単位`CASE`の分離
+- 賞味期限、JAN、location、単位、重複、数量照合
 - 既存在庫正規化との互換read model
-- FEFO順に参照できるread API
+- `EXPIRY_BUCKET`をFEFO順に参照できるread API
+- CSV正式取込とPDF adapter境界
+- 生産予定・route lead time policyへ接続するID契約
 - 実データ項目充足レポートと業務確認
 
 ### Phase 3T: 将来在庫Projection
 
-- 受注、引当、入庫、出荷、製造予定のevent契約
+- 生産予定snapshotとroute別12〜36時間の版付きlead time policy
 - 需要予測runとの接続
-- 商品・倉庫・日別在庫推移
-- FEFOによる期限別消費
+- arrival-time inventoryと商品・倉庫・時点別在庫推移
+- `EXPIRY_BUCKET`を使うFEFO消費
 - 安全在庫、リードタイム、休業日policy
+- 将来のSupply / Demand Event拡張境界。V1では受注、引当、入庫予定、外部出荷予定を使用しない
 - 同一入力からの決定的再現
 
 ### Phase 3U: Risk Engine
@@ -446,14 +469,15 @@ lot番号は正式なロット単位FEFOと実際のピッキングへ必要で�
 - 欠品日・欠品数量
 - 期限内未消化数量・廃棄risk
 - 複数倉庫の在庫日数差・偏在risk
-- 会社在庫不足
+- 工場在庫不足
 - 版付き閾値、固定risk code、数値根拠
 
 ### Phase 3V: Shipment Recommendation Engine
 
 - 倉庫別必要補充量
-- 会社在庫制約下の配分
-- ケース入数・最低出荷単位の丸め
+- 工場在庫と生産予定を上限とする配分
+- 到着予定時点在庫を基準にした補充量
+- CASE単位と版付き出荷単位policyによる丸め
 - 推奨数量、未充足数量、説明根拠
 - ルールベースの決定的計算
 
@@ -482,26 +506,27 @@ lot番号は正式なロット単位FEFOと実際のピッキングへ必要で�
 
 ## 18. 最初に実装すべきPhase
 
-**Phase 3S: 賞味期限・ロット在庫基盤と実データ契約**を最初に実装する。
+**Phase 3S: 賞味期限bucket・location在庫基盤と実データ契約**を最初に実装する。
 
 ### 理由
 
 1. 賞味期限は最重要制約だが、現在の処理で失われている。
 2. 原本の賞味期限はほぼ利用可能で、既存データから改善を開始できる。
-3. ロット、会社在庫区分、引当、利用可能数量は不足しており、推奨計算前に取得方法を決める必要がある。
+3. 工場在庫、生産予定、route別lead timeは推奨計算前に正式な入力契約と版を固定する必要がある。
 4. Projection、Risk、Recommendationのすべてが同じ在庫契約に依存する。
 5. 既存在庫集約を破壊せず、新しいmoduleとして段階導入できる。
 
 ### 完成条件
 
-- 会社・倉庫を区別する版付きlocationマスターがある。
-- 商品×location×lotまたは明示した期限bucket×賞味期限×数量を保存できる。
-- on-hand、allocated、availableの定義と数量照合がある。
+- `FACTORY`と`WAREHOUSE`を区別する版付きlocationマスターがある。
+- `JAN × location × 賞味期限 × 数量(CASE) × snapshot日時`を失わず保存できる。
+- 原本列名・原本単位表記と正規化単位`CASE`を別管理し、数量照合がある。
 - snapshot日時、`known_at`、原本・mapping・採用判断を追跡できる。
-- 賞味期限不正、欠損、lot欠損、負数量、単位不明を固定codeで隔離できる。
+- 賞味期限不正・欠損、JAN不正、location不明、負数量、単位不明を固定codeで隔離できる。
 - 同じ原本とmappingから同じsnapshot IDとchecksumになる。
-- FEFO順のread modelを返せる。
-- 会社在庫と倉庫在庫を混ぜない。
+- `EXPIRY_BUCKET`を賞味期限順に返せる。
+- 工場在庫と倉庫在庫を混ぜない。
+- CSVを正式入力として取り込み、PDFは原本・抽出結果・確認状態を追跡するadapter境界を持つ。
 - 現行の`inventory_daily_quantities`とPhase 2X〜2Zを壊さない。
 - PostgreSQL / SQLite、Worker、API、人工データ試験、実データ項目充足レポートが揃う。
 - 実データはGitへ保存せず、人工fixtureで自動試験する。
@@ -512,7 +537,7 @@ lot番号は正式なロット単位FEFOと実際のピッキングへ必要で�
 重要度順に5件を示す。
 
 1. **在庫データ契約の不足**
-   会社・倉庫区分、lot、賞味期限、allocated、available、予定eventを同じ時点で扱えない。
+   `FACTORY`・`WAREHOUSE`、JAN、賞味期限、CASE数量、snapshot日時を同じ版で扱えない。
 
 2. **将来在庫Projectionがない**
    どの日に、どの商品・倉庫が不足または過剰になるかを計算できない。
@@ -520,7 +545,7 @@ lot番号は正式なロット単位FEFOと実際のピッキングへ必要で�
 3. **賞味期限を需要と結び付けたRisk Engineがない**
    残存日数だけでなく、期限までに消化できる数量を判定できない。
 
-4. **会社在庫制約付きShipment Recommendation Engineがない**
+4. **工場在庫制約付きShipment Recommendation Engineがない**
    必要補充量と出荷可能数量を分離し、複数倉庫へ配分できない。
 
 5. **日次業務ワークフローと業務KPIがない**
@@ -533,17 +558,17 @@ lot番号は正式なロット単位FEFOと実際のピッキングへ必要で�
 | 表示項目 | 内容 |
 |---|---|
 | 商品・倉庫 | 担当者が識別できる名称とコード |
-| 会社在庫 | 当日出荷可能数量 |
-| 倉庫在庫 | on-hand / allocated / available |
+| 工場在庫 | 当日出荷可能数量と生産予定 |
+| 倉庫在庫 | 現在数量と到着予定時点数量 |
 | 需要予測 | 補充対象期間の合計と日別詳細 |
 | 期限注意在庫 | 期限までに消化できない見込み数量 |
-| 推奨出荷数量 | 会社制約と出荷単位反映後 |
-| 未充足数量 | 会社在庫不足等で送れない数量 |
-| リスク | 欠品、期限切れ、偏在、会社不足 |
+| 推奨出荷数量 | 工場制約とCASE出荷単位反映後 |
+| 未充足数量 | 工場在庫不足等で送れない数量 |
+| リスク | 欠品、期限切れ、偏在、工場不足 |
 | 推奨理由 | 固定reason codeから生成した説明 |
 | 操作 | 採用、数量修正、不採用、確定 |
 
-詳細画面には日別需要、日別Projection、賞味期限bucket、会社側配分、丸め前後、根拠数値を表示する。正常行は折りたたみ、対応が必要な行を先に表示する。
+詳細画面には日別需要、到着予定時点在庫、日別Projection、賞味期限bucket、工場側配分、丸め前後、根拠数値を表示する。正常行は折りたたみ、対応が必要な行を先に表示する。
 
 ## 21. 業務KPI方針
 
@@ -602,12 +627,13 @@ lot番号は正式なロット単位FEFOと実際のピッキングへ必要で�
 
 次工程はPhase 3Sの実装計画を作り、ブンセン側と次を確認してから着手する。
 
-1. 会社在庫データの取得元とlocation区分
-2. lot番号を取得できる別データの有無
-3. 賞味期限77欠損行の意味
-4. `明細バラ数`の単位とケース換算
-5. 受注・引当・入庫・出荷・製造予定の取得可否と確定時刻
-6. 輸送リードタイム、安全在庫、最低出荷単位
-7. 欠品、廃棄、倉庫間移動の実績取得可否
+1. 工場在庫ファイルの正式schemaと`FACTORY` location対応
+2. 生産予定ファイルの正式schema、完成予定時刻、データ基準時刻
+3. 賞味期限77欠損行の意味と正式入力での扱い
+4. `明細バラ数`を`CASE`へ対応付ける版付きmappingと、換算・丸め要否
+5. route別minimum / standard / maximum lead timeと、推奨計算で採用する値
+6. 安全在庫policyと出荷単位policy
+7. PDF原本例、抽出方式、確認担当と承認手順
+8. 欠品、廃棄、倉庫間移動の実績取得可否
 
 この確認なしに推奨数量を実装しても、業務上正しい出荷提案にならない。
