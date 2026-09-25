@@ -8,7 +8,7 @@
 
 - 実装Branch: `codex/phase3s4-inventory-api`
 - 実装Commit: `14c7604`
-- PR: 本書と配布整合性更新後に作成
+- PR: `#88`
 
 ## 2. 実装API
 
