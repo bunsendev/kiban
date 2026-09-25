@@ -49,8 +49,45 @@ class SqliteInventoryFoundationStore(InventorySnapshotJobStoreMixin):
     def _initialize(self) -> None:
         with self._connect() as db:
             self._upgrade_job_columns(db)
+            self._upgrade_decision_revision(db)
             db.executescript(Path(__file__).with_name("schema.sql").read_text(encoding="utf-8"))
             self._upgrade_quarantine_reasons(db)
+            self._upgrade_decision_revision(db)
+
+    @staticmethod
+    def _upgrade_decision_revision(db) -> None:
+        table = db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' "
+            "AND name='inventory_snapshot_decisions'"
+        ).fetchone()
+        if table is None:
+            return
+        columns = {
+            row[1] for row in db.execute("PRAGMA table_info(inventory_snapshot_decisions)")
+        }
+        if "revision" not in columns:
+            db.execute("ALTER TABLE inventory_snapshot_decisions ADD COLUMN revision INTEGER")
+            rows = db.execute(
+                "SELECT decision_id,snapshot_id,job_id FROM inventory_snapshot_decisions "
+                "ORDER BY decided_at,decision_id"
+            ).fetchall()
+            revisions: dict[str, int] = {}
+            for row in rows:
+                key = row[1] or f"job:{row[2]}"
+                revisions[key] = revisions.get(key, 0) + 1
+                db.execute(
+                    "UPDATE inventory_snapshot_decisions SET revision=? WHERE decision_id=?",
+                    (revisions[key], row[0]),
+                )
+        db.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS inventory_snapshot_decisions_revision_idx "
+            "ON inventory_snapshot_decisions(snapshot_id,revision) "
+            "WHERE snapshot_id IS NOT NULL"
+        )
+        db.execute(
+            "CREATE INDEX IF NOT EXISTS inventory_snapshot_decisions_state_idx "
+            "ON inventory_snapshot_decisions(decision,snapshot_id,revision)"
+        )
 
     @staticmethod
     def _upgrade_job_columns(db) -> None:
@@ -469,6 +506,154 @@ class SqliteInventoryFoundationStore(InventorySnapshotJobStoreMixin):
         for row in result:
             row["issue_codes"] = json.loads(row.pop("issue_codes_json"))
         return result
+
+    def get_snapshot(self, snapshot_id: str) -> dict | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT snapshot_id,job_id,snapshot_at,known_at,source_kind,source_sha256,"
+                "mapping_version,location_master_version,product_mapping_version,"
+                "normalized_unit,row_count,quantity_cases_total,content_sha256,created_at "
+                "FROM inventory_snapshots WHERE snapshot_id=?",
+                (snapshot_id,),
+            ).fetchone()
+        return None if row is None else dict(row)
+
+    def quarantine_summary(self, job_id: str) -> list[dict]:
+        with self._connect() as db:
+            return [
+                dict(row)
+                for row in db.execute(
+                    "SELECT reason_code,COUNT(*) AS row_count "
+                    "FROM inventory_snapshot_quarantines WHERE job_id=? "
+                    "GROUP BY reason_code ORDER BY reason_code",
+                    (job_id,),
+                )
+            ]
+
+    def list_snapshots_page(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        decision_status: str | None = None,
+    ) -> tuple[int, list[dict]]:
+        latest = (
+            "LEFT JOIN inventory_snapshot_decisions d ON d.snapshot_id=s.snapshot_id "
+            "AND d.revision=(SELECT MAX(d2.revision) FROM inventory_snapshot_decisions d2 "
+            "WHERE d2.snapshot_id=s.snapshot_id) "
+        )
+        where = ""
+        params: list[object] = []
+        if decision_status == "UNREVIEWED":
+            where = "WHERE d.decision IS NULL "
+        elif decision_status is not None:
+            where = "WHERE d.decision=? "
+            params.append(decision_status)
+        with self._connect() as db:
+            total = db.execute(
+                "SELECT COUNT(*) AS value FROM inventory_snapshots s " + latest + where,
+                tuple(params),
+            ).fetchone()["value"]
+            rows = db.execute(
+                "SELECT s.snapshot_id,s.job_id,s.snapshot_at,s.known_at,s.source_kind,"
+                "s.mapping_version,s.location_master_version,s.product_mapping_version,"
+                "s.normalized_unit,s.row_count,s.quantity_cases_total,s.content_sha256,"
+                "s.created_at,d.decision AS current_decision,d.revision AS decision_revision "
+                "FROM inventory_snapshots s "
+                + latest
+                + where
+                + "ORDER BY s.snapshot_at DESC,s.snapshot_id DESC LIMIT ? OFFSET ?",
+                (*params, limit, offset),
+            ).fetchall()
+        return total, [dict(row) for row in rows]
+
+    def list_expiry_buckets_page(
+        self,
+        snapshot_id: str,
+        *,
+        limit: int,
+        offset: int,
+        jan: str | None = None,
+        location_id: str | None = None,
+        location_type: str | None = None,
+    ) -> tuple[int, list[dict]]:
+        clauses = ["b.snapshot_id=?"]
+        params: list[object] = [snapshot_id]
+        for column, value in (
+            ("b.jan", jan),
+            ("b.location_id", location_id),
+            ("l.location_type", location_type),
+        ):
+            if value is not None:
+                clauses.append(f"{column}=?")
+                params.append(value)
+        where = " AND ".join(clauses)
+        joined = (
+            " FROM inventory_expiry_buckets b JOIN inventory_locations l "
+            "ON l.location_master_version=b.location_master_version "
+            "AND l.location_id=b.location_id WHERE " + where
+        )
+        with self._connect() as db:
+            total = db.execute(
+                "SELECT COUNT(*) AS value" + joined, tuple(params)
+            ).fetchone()["value"]
+            rows = db.execute(
+                "SELECT b.jan,b.canonical_product_id,b.location_id,l.location_code,"
+                "l.location_type,b.expiry_date,b.bucket_kind,b.quantity_cases,"
+                "b.normalized_unit,b.issue_codes_json"
+                + joined
+                + " ORDER BY b.jan,b.location_id,b.expiry_date,b.normalized_unit "
+                "LIMIT ? OFFSET ?",
+                (*params, limit, offset),
+            ).fetchall()
+        result = [dict(row) for row in rows]
+        for row in result:
+            row["issue_codes"] = json.loads(row.pop("issue_codes_json"))
+        return total, result
+
+    def find_approved_snapshot_as_of(
+        self,
+        calculation_at,
+        *,
+        jan: str | None = None,
+        location_id: str | None = None,
+        location_type: str | None = None,
+    ) -> dict | None:
+        clauses = ["s.known_at<=?", "s.snapshot_at<=?", "d.decision='APPROVED'"]
+        timestamp = canonical_datetime(calculation_at, "calculation_at")
+        params: list[object] = [timestamp, timestamp, timestamp]
+        filters: list[str] = []
+        for column, value in (
+            ("b.jan", jan),
+            ("b.location_id", location_id),
+            ("l.location_type", location_type),
+        ):
+            if value is not None:
+                filters.append(f"{column}=?")
+                params.append(value)
+        if filters:
+            clauses.append(
+                "EXISTS (SELECT 1 FROM inventory_expiry_buckets b "
+                "JOIN inventory_locations l ON l.location_master_version=b.location_master_version "
+                "AND l.location_id=b.location_id WHERE b.snapshot_id=s.snapshot_id AND "
+                + " AND ".join(filters)
+                + ")"
+            )
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT s.snapshot_id,s.job_id,s.snapshot_at,s.known_at,s.source_kind,"
+                "s.mapping_version,s.location_master_version,s.product_mapping_version,"
+                "s.normalized_unit,s.row_count,s.quantity_cases_total,s.content_sha256,"
+                "s.created_at,d.revision AS decision_revision,d.decided_at "
+                "FROM inventory_snapshots s JOIN inventory_snapshot_decisions d "
+                "ON d.snapshot_id=s.snapshot_id AND d.decided_at<=? "
+                "AND d.revision=(SELECT MAX(d2.revision) FROM inventory_snapshot_decisions d2 "
+                "WHERE d2.snapshot_id=s.snapshot_id AND d2.decided_at<=?) WHERE "
+                + " AND ".join(clauses)
+                + " ORDER BY s.snapshot_at DESC,s.known_at DESC,s.snapshot_id DESC LIMIT 1",
+                (timestamp, *params),
+            ).fetchone()
+        return None if row is None else dict(row)
 
 
 def _location_type(value: str):

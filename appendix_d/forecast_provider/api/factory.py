@@ -11,6 +11,7 @@ from ..comparison_campaign import PostgresComparisonCampaignStore
 from ..daily import PostgresDailyStore
 from ..evaluation_registry import PostgresEvaluationRegistryStore
 from ..ingestion import PostgresIngestionStore
+from ..inventory_foundation import PostgresInventoryFoundationStore
 from ..inventory_normalization import PostgresInventoryNormalizationStore
 from ..jobs import PostgresRunStore
 from ..lifecycle import PostgresLifecycleStore
@@ -252,4 +253,5 @@ def from_environment():
         operation_event_retention_days=int(
             os.environ.get("KIBAN_OPERATION_EVENT_RETENTION_DAYS", "180")
         ),
+        inventory_foundation=PostgresInventoryFoundationStore(dsn),
     )
