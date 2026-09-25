@@ -1455,3 +1455,15 @@ Docker Desktop 4.90.0、Docker Engine 29.7.2、PostgreSQL 17 Alpineを使用。P
 - `check_lint.py`: All checks passed。
 - 配布ZIPと`SHA256SUMS.json`は`make_release.py`で更新し、全配布ファイルの一致を確認。
 - `KIBAN_TEST_POSTGRES_DSN`未設定のためPostgreSQL Worker E2Eはskip。PostgreSQL storeはadvisory lock、追加migration、`FOR UPDATE SKIP LOCKED`によるclaimを実装した。
+
+## Phase 3S-4 API / Read Model（2026-09-25）
+
+- Phase 3S-4 API人工fixture: SQLite 6件成功、PostgreSQL実接続2件成功、合計8 passed。
+- Phase 3S-1〜3S-4、認証、監査、idempotencyの対象suite: PostgreSQL実接続を含め82 passed。
+- Job登録・状態、隔離reason集計、数量照合、snapshot一覧・詳細、pagination、filterを確認。
+- 追記型APPROVED / REJECTED、最新revision、409競合、credential由来subject、構造化auditを確認。
+- known_at / snapshot_at / calculation_atによるas-of選択、未承認・REJECTED除外を確認。
+- JAN、FACTORY / WAREHOUSE、EXPIRY_BUCKET、CASE数量、expiry昇順、期限切れbucket保持を確認。
+- PostgreSQL 18.6でpagination、index、decision同時競合、as-of query、expiry sortを確認。
+- Windows非対応のLinux専用peak RSS 1件を除外した全回帰: 630 passed、18 skipped、1 deselected。
+- `ruff check .`、`check_lint.py`、`make_release.py --check`: すべて成功。配布668ファイルが一致。
