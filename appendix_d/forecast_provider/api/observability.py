@@ -97,6 +97,7 @@ def _route_name(request) -> str:
 def _audit_record(request, status_code: int, elapsed: float) -> str:
     principal = getattr(request.state, "principal", None)
     route = _route_name(request)
+    operation = getattr(request.state, "audit_operation", None)
     record = {
         "event": "http_request",
         "at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
@@ -105,8 +106,13 @@ def _audit_record(request, status_code: int, elapsed: float) -> str:
         "route": route,
         "status": status_code,
         "duration_ms": round(elapsed * 1000, 3),
-        "audit": bool(principal and request.method in {"POST", "PUT", "PATCH", "DELETE"}),
+        "audit": bool(
+            principal
+            and (request.method in {"POST", "PUT", "PATCH", "DELETE"} or operation)
+        ),
     }
+    if isinstance(operation, str):
+        record["operation"] = operation
     if isinstance(principal, Principal):
         record["subject"] = principal.subject
         record["roles"] = [role.value for role in principal.roles]

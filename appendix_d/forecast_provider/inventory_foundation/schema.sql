@@ -183,6 +183,8 @@ CREATE TABLE IF NOT EXISTS inventory_snapshots (
 );
 CREATE INDEX IF NOT EXISTS inventory_snapshots_time_idx
   ON inventory_snapshots(snapshot_at, known_at, snapshot_id);
+CREATE INDEX IF NOT EXISTS inventory_snapshots_as_of_idx
+  ON inventory_snapshots(known_at, snapshot_at, snapshot_id);
 
 CREATE TABLE IF NOT EXISTS inventory_expiry_buckets (
   snapshot_id TEXT NOT NULL,
@@ -238,6 +240,7 @@ CREATE TABLE IF NOT EXISTS inventory_snapshot_decisions (
   job_id TEXT NOT NULL REFERENCES inventory_snapshot_jobs(job_id),
   snapshot_id TEXT REFERENCES inventory_snapshots(snapshot_id),
   decision_version TEXT NOT NULL UNIQUE,
+  revision INTEGER NOT NULL CHECK(revision >= 1),
   decision TEXT NOT NULL CHECK(decision IN ('APPROVED','REJECTED')),
   decided_by TEXT NOT NULL,
   reason TEXT NOT NULL,
@@ -246,3 +249,8 @@ CREATE TABLE IF NOT EXISTS inventory_snapshot_decisions (
 );
 CREATE INDEX IF NOT EXISTS inventory_snapshot_decisions_job_idx
   ON inventory_snapshot_decisions(job_id, decided_at, decision_id);
+CREATE UNIQUE INDEX IF NOT EXISTS inventory_snapshot_decisions_revision_idx
+  ON inventory_snapshot_decisions(snapshot_id, revision)
+  WHERE snapshot_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS inventory_snapshot_decisions_state_idx
+  ON inventory_snapshot_decisions(decision, snapshot_id, revision);

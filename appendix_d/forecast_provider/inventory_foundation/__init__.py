@@ -45,6 +45,7 @@ from .job_contracts import (
     InventorySnapshotLease,
     StaleInventorySnapshotLeaseError,
 )
+from .job_store import InventoryDecisionConflict
 from .locations import (
     InventoryLocation,
     LocationMasterVersion,
@@ -53,6 +54,7 @@ from .locations import (
 )
 from .mapping import InventoryInputMappingVersion
 from .postgres import PostgresInventoryFoundationStore
+from .read_service import InventoryReadError, InventorySnapshotReadService
 from .reconciliation import InventoryQuantityReconciliation
 from .references import InventoryReferenceResolver, ProductMappingRecord, ResolvedProduct
 from .service import (
@@ -81,6 +83,7 @@ __all__ = [
     "InventoryCsvContractError",
     "InventoryCsvErrorCode",
     "InventoryCsvValidationResult",
+    "InventoryDecisionConflict",
     "InventoryExpiryBucket",
     "InventoryExtraction",
     "InventoryExtractionReview",
@@ -89,6 +92,7 @@ __all__ = [
     "InventoryIssueCode",
     "InventoryLocation",
     "InventoryQuantityReconciliation",
+    "InventoryReadError",
     "InventoryReferenceResolver",
     "InventorySnapshot",
     "InventorySnapshotFinalization",
@@ -98,6 +102,7 @@ __all__ = [
     "InventorySnapshotJobStatus",
     "InventorySnapshotLease",
     "InventorySnapshotProcessingError",
+    "InventorySnapshotReadService",
     "InventorySnapshotService",
     "InventorySnapshotWorker",
     "InventorySourceDocument",

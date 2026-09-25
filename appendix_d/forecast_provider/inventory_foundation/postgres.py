@@ -64,6 +64,39 @@ class PostgresInventoryFoundationStore(SqliteInventoryFoundationStore):
                     "WHERE status='RUNNING' AND (worker_id IS NULL OR lease_token IS NULL "
                     "OR leased_until IS NULL)"
                 )
+                decision_exists = db.execute(
+                    "SELECT to_regclass(current_schema() || "
+                    "'.inventory_snapshot_decisions') AS name"
+                ).fetchone()["name"]
+                if decision_exists is not None:
+                    db.execute(
+                        "ALTER TABLE inventory_snapshot_decisions "
+                        "ADD COLUMN IF NOT EXISTS revision INTEGER"
+                    )
+                    db.execute(
+                        "WITH ranked AS (SELECT decision_id,ROW_NUMBER() OVER ("
+                        "PARTITION BY COALESCE(snapshot_id,'job:' || job_id) "
+                        "ORDER BY decided_at,decision_id) AS value "
+                        "FROM inventory_snapshot_decisions) "
+                        "UPDATE inventory_snapshot_decisions d SET revision=ranked.value "
+                        "FROM ranked WHERE d.decision_id=ranked.decision_id "
+                        "AND d.revision IS NULL"
+                    )
+                    db.execute(
+                        "ALTER TABLE inventory_snapshot_decisions "
+                        "ALTER COLUMN revision SET NOT NULL"
+                    )
+                    revision_constraint = db.execute(
+                        "SELECT 1 FROM pg_constraint WHERE "
+                        "conrelid='inventory_snapshot_decisions'::regclass "
+                        "AND conname='inventory_snapshot_decisions_revision_check'"
+                    ).fetchone()
+                    if revision_constraint is None:
+                        db.execute(
+                            "ALTER TABLE inventory_snapshot_decisions ADD CONSTRAINT "
+                            "inventory_snapshot_decisions_revision_check "
+                            "CHECK(revision >= 1)"
+                        )
             for statement in statements:
                 if statement.strip():
                     db.execute(statement)

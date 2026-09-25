@@ -19,6 +19,10 @@ from .job_contracts import (
 )
 
 
+class InventoryDecisionConflict(RuntimeError):
+    """expected revisionと最新revisionが一致しない。"""
+
+
 class InventorySnapshotJobStoreMixin:
     def put_job(self, value: InventorySnapshotJob) -> InventorySnapshotJob:
         with self._connect() as db:
@@ -235,12 +239,15 @@ class InventorySnapshotJobStoreMixin:
             )
             if value.decision is not None:
                 db.execute(
-                    "INSERT INTO inventory_snapshot_decisions VALUES (?,?,?,?,?,?,?,?)",
+                    "INSERT INTO inventory_snapshot_decisions("
+                    "decision_id,job_id,snapshot_id,decision_version,revision,decision,"
+                    "decided_by,reason,decided_at) VALUES (?,?,?,?,?,?,?,?,?)",
                     (
                         value.decision_id,
                         job.job_id,
                         snapshot_id,
                         value.decision_version,
+                        1,
                         value.decision.value,
                         value.decided_by,
                         value.reason,
@@ -310,7 +317,7 @@ class InventorySnapshotJobStoreMixin:
             return [
                 dict(row)
                 for row in db.execute(
-                    "SELECT decision_id,snapshot_id,decision_version,decision,decided_by,"
+                    "SELECT decision_id,snapshot_id,decision_version,revision,decision,decided_by,"
                     "reason,decided_at FROM inventory_snapshot_decisions WHERE job_id=? "
                     "ORDER BY decided_at,decision_id",
                     (job_id,),
@@ -326,48 +333,93 @@ class InventorySnapshotJobStoreMixin:
         decided_by: str,
         reason: str,
         decided_at: datetime,
+        expected_revision: int | None = None,
     ) -> dict:
         if not isinstance(decision, SnapshotDecisionType):
             raise ValueError("decisionが不正です")
-        if not decided_by.strip() or not reason.strip():
-            raise ValueError("decided_byとreasonは必須です")
+        if not decided_by.strip():
+            raise ValueError("decided_byは必須です")
+        if decision is SnapshotDecisionType.REJECTED and not reason.strip():
+            raise ValueError("REJECTEDにはreasonが必須です")
+        if expected_revision is not None and expected_revision < 0:
+            raise ValueError("expected_revisionは0以上です")
         decided_at = _aware_datetime(decided_at, "decided_at")
-        decision_id = _stable_id(
-            "inventory-decision",
-            job_id,
-            snapshot_id,
-            decision.value,
-            decided_by,
-            reason,
-            canonical_datetime(decided_at),
-        )
-        with self._connect() as db:
-            db.execute("BEGIN IMMEDIATE")
-            row = db.execute(
-                "SELECT 1 FROM inventory_snapshots s "
-                "JOIN inventory_snapshot_jobs j ON j.job_id=s.job_id "
-                "WHERE s.snapshot_id=? AND s.job_id=? AND j.status='SUCCEEDED'",
-                (snapshot_id, job_id),
-            ).fetchone()
-            if row is None:
-                raise ValueError("技術的生成が完了したsnapshotだけを判断できます")
-            db.execute(
-                "INSERT INTO inventory_snapshot_decisions VALUES (?,?,?,?,?,?,?,?) "
-                "ON CONFLICT(decision_id) DO NOTHING",
-                (
-                    decision_id,
-                    job_id,
+        try:
+            with self._connect() as db:
+                db.execute("BEGIN IMMEDIATE")
+                row = db.execute(
+                    "SELECT 1 FROM inventory_snapshots s "
+                    "JOIN inventory_snapshot_jobs j ON j.job_id=s.job_id "
+                    "WHERE s.snapshot_id=? AND s.job_id=? AND j.status='SUCCEEDED'",
+                    (snapshot_id, job_id),
+                ).fetchone()
+                if row is None:
+                    raise ValueError("技術的生成が完了したsnapshotだけを判断できます")
+                latest = db.execute(
+                    "SELECT revision,decided_at FROM inventory_snapshot_decisions "
+                    "WHERE snapshot_id=? ORDER BY revision DESC LIMIT 1",
+                    (snapshot_id,),
+                ).fetchone()
+                current = 0 if latest is None else latest["revision"]
+                if expected_revision is not None and current != expected_revision:
+                    raise InventoryDecisionConflict("decision revisionが更新されています")
+                if latest is not None and decided_at < _datetime(latest["decided_at"]):
+                    raise ValueError("decided_atを過去へ戻すことはできません")
+                revision = current + 1
+                decision_id = _stable_id(
+                    "inventory-decision",
                     snapshot_id,
-                    decision_id,
+                    str(revision),
                     decision.value,
                     decided_by,
                     reason,
                     canonical_datetime(decided_at),
-                ),
-            )
-        return next(
-            value for value in self.list_decisions(job_id) if value["decision_id"] == decision_id
-        )
+                )
+                db.execute(
+                    "INSERT INTO inventory_snapshot_decisions("
+                    "decision_id,job_id,snapshot_id,decision_version,revision,decision,"
+                    "decided_by,reason,decided_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                    (
+                        decision_id,
+                        job_id,
+                        snapshot_id,
+                        decision_id,
+                        revision,
+                        decision.value,
+                        decided_by,
+                        reason.strip(),
+                        canonical_datetime(decided_at),
+                    ),
+                )
+        except InventoryDecisionConflict:
+            raise
+        except Exception as exc:
+            if getattr(exc, "sqlstate", None) == "23505" or "UNIQUE constraint" in str(exc):
+                raise InventoryDecisionConflict("decision revisionが更新されています") from exc
+            raise
+        return self.get_latest_snapshot_decision(snapshot_id)
+
+    def get_latest_snapshot_decision(self, snapshot_id: str) -> dict | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT decision_id,job_id,snapshot_id,decision_version,revision,decision,"
+                "decided_by,reason,decided_at FROM inventory_snapshot_decisions "
+                "WHERE snapshot_id=? ORDER BY revision DESC LIMIT 1",
+                (snapshot_id,),
+            ).fetchone()
+        return None if row is None else dict(row)
+
+    def list_snapshot_decisions(self, snapshot_id: str) -> list[dict]:
+        with self._connect() as db:
+            return [
+                dict(row)
+                for row in db.execute(
+                    "SELECT decision_id,job_id,snapshot_id,decision_version,revision,decision,"
+                    "decided_by,reason,decided_at FROM inventory_snapshot_decisions "
+                    "WHERE snapshot_id=? ORDER BY revision",
+                    (snapshot_id,),
+                )
+            ]
 
 
 def _aware_datetime(value: datetime, label: str) -> datetime:
