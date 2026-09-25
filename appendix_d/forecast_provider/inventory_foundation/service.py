@@ -38,8 +38,12 @@ def create_inventory_snapshot_job(
     source_sha256: str,
     mapping_version: str,
     requested_by: str,
+    known_at: datetime,
     requested_at: datetime,
 ) -> InventorySnapshotJob:
+    if known_at.tzinfo is None or known_at.utcoffset() is None:
+        raise ValueError("known_atはtimezone付き日時です")
+    known_at = known_at.astimezone(UTC)
     job_id = _content_id(
         "inventory-job",
         {
@@ -47,6 +51,7 @@ def create_inventory_snapshot_job(
             "source_reference": source_reference,
             "source_sha256": source_sha256.lower(),
             "mapping_version": mapping_version,
+            "known_at": known_at.isoformat(),
         },
     )
     return InventorySnapshotJob(
@@ -60,6 +65,7 @@ def create_inventory_snapshot_job(
         0,
         0,
         None,
+        known_at,
         requested_at,
     )
 
@@ -93,7 +99,7 @@ class InventorySnapshotService:
             assert validation.snapshot_at is not None
             snapshot = build_inventory_snapshot(
                 snapshot_at=validation.snapshot_at,
-                known_at=job.requested_at,
+                known_at=job.known_at,
                 source_kind=job.source_kind,
                 source_reference=job.source_reference,
                 source_sha256=job.source_sha256,
@@ -105,6 +111,12 @@ class InventorySnapshotService:
             )
             decision = SnapshotDecisionType.APPROVED
             reason = "CSV_STRICT_VALIDATION_APPROVED"
+        if decision is SnapshotDecisionType.APPROVED:
+            return InventorySnapshotFinalization(
+                validation=validation,
+                snapshot=snapshot,
+                completed_at=completed_at,
+            )
         payload = {
             "format": "inventory-snapshot-decision-v1",
             "job_id": job.job_id,
@@ -113,12 +125,13 @@ class InventorySnapshotService:
         }
         decision_id = _content_id("inventory-decision", payload)
         return InventorySnapshotFinalization(
-            validation,
-            snapshot,
-            decision_id,
-            decision_id,
-            decision,
-            "SYSTEM:inventory-snapshot-worker",
-            reason,
-            completed_at,
+            validation=validation,
+            snapshot=None,
+            completed_at=completed_at,
+            decision_id=decision_id,
+            decision_version=decision_id,
+            decision=decision,
+            decided_by="SYSTEM:inventory-snapshot-worker",
+            reason=reason,
+            decided_at=completed_at,
         )

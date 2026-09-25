@@ -51,6 +51,7 @@ class InventorySnapshotJob:
     accepted_row_count: int
     quarantined_row_count: int
     error_code: str | None
+    known_at: datetime
     requested_at: datetime
     started_at: datetime | None = None
     finished_at: datetime | None = None
@@ -80,6 +81,7 @@ class InventorySnapshotJob:
             value = getattr(self, name)
             if isinstance(value, bool) or value < 0:
                 raise ValueError(f"{name}は0以上です")
+        object.__setattr__(self, "known_at", _aware(self.known_at, "known_at"))
         object.__setattr__(self, "requested_at", _aware(self.requested_at, "requested_at"))
         for name in ("started_at", "finished_at", "leased_until", "last_heartbeat_at"):
             value = getattr(self, name)
@@ -117,23 +119,39 @@ class InventorySnapshotLease:
 class InventorySnapshotFinalization:
     validation: InventoryCsvValidationResult
     snapshot: InventorySnapshot | None
-    decision_id: str
-    decision_version: str
-    decision: SnapshotDecisionType
-    decided_by: str
-    reason: str
-    decided_at: datetime
+    completed_at: datetime
+    decision_id: str | None = None
+    decision_version: str | None = None
+    decision: SnapshotDecisionType | None = None
+    decided_by: str | None = None
+    reason: str | None = None
+    decided_at: datetime | None = None
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "completed_at", _aware(self.completed_at, "completed_at"))
+        decision_values = (
+            self.decision_id,
+            self.decision_version,
+            self.decision,
+            self.decided_by,
+            self.reason,
+            self.decided_at,
+        )
+        if self.decision is None:
+            if any(value is not None for value in decision_values):
+                raise ValueError("decision未指定時はdecision metadataを指定できません")
+            if self.snapshot is None or not self.validation.approval_ready:
+                raise ValueError("技術的生成完了には採用可能なvalidationとsnapshotが必要です")
+            return
+        if any(value is None for value in decision_values):
+            raise ValueError("decision指定時はdecision metadataがすべて必要です")
         for name in ("decision_id", "decision_version", "decided_by", "reason"):
             if not getattr(self, name).strip():
                 raise ValueError(f"{name}は必須です")
         object.__setattr__(self, "decided_at", _aware(self.decided_at, "decided_at"))
         if self.decision is SnapshotDecisionType.APPROVED:
-            if self.snapshot is None or not self.validation.approval_ready:
-                raise ValueError("APPROVEDには採用可能なvalidationとsnapshotが必要です")
-        elif self.decision is SnapshotDecisionType.REJECTED:
-            if self.snapshot is not None or self.validation.approval_ready:
-                raise ValueError("REJECTEDには不採用validationだけを指定します")
-        else:
-            raise ValueError("decisionが不正です")
+            raise ValueError("業務APPROVEDはsnapshot生成後の追記型判断として登録します")
+        if self.decision is not SnapshotDecisionType.REJECTED:
+            raise ValueError("自動decisionはREJECTEDだけを指定できます")
+        if self.snapshot is not None or self.validation.approval_ready:
+            raise ValueError("REJECTEDには不採用validationだけを指定します")

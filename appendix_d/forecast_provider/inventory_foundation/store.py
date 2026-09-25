@@ -62,6 +62,7 @@ class SqliteInventoryFoundationStore(InventorySnapshotJobStoreMixin):
             return
         columns = {row[1] for row in db.execute("PRAGMA table_info(inventory_snapshot_jobs)")}
         additions = {
+            "known_at": "TIMESTAMPTZ",
             "attempt": "INTEGER NOT NULL DEFAULT 0",
             "worker_id": "TEXT",
             "lease_token": "TEXT",
@@ -71,6 +72,9 @@ class SqliteInventoryFoundationStore(InventorySnapshotJobStoreMixin):
         for name, definition in additions.items():
             if name not in columns:
                 db.execute(f"ALTER TABLE inventory_snapshot_jobs ADD COLUMN {name} {definition}")
+        db.execute(
+            "UPDATE inventory_snapshot_jobs SET known_at=requested_at WHERE known_at IS NULL"
+        )
         db.execute(
             "UPDATE inventory_snapshot_jobs SET status='QUEUED',error_code=NULL "
             "WHERE status='RUNNING' AND (worker_id IS NULL OR lease_token IS NULL "
@@ -426,6 +430,39 @@ class SqliteInventoryFoundationStore(InventorySnapshotJobStoreMixin):
                 "quantity_cases,normalized_unit,issue_codes_json "
                 "FROM inventory_expiry_buckets WHERE snapshot_id=? "
                 "ORDER BY jan,location_id,expiry_date,normalized_unit",
+                (snapshot_id,),
+            )
+            result = [dict(row) for row in rows]
+        for row in result:
+            row["issue_codes"] = json.loads(row.pop("issue_codes_json"))
+        return result
+
+    def list_snapshots(self, job_id: str | None = None) -> list[dict]:
+        sql = (
+            "SELECT snapshot_id,job_id,snapshot_at,known_at,source_kind,source_sha256,"
+            "mapping_version,location_master_version,product_mapping_version,"
+            "normalized_unit,row_count,quantity_cases_total,content_sha256,created_at "
+            "FROM inventory_snapshots"
+        )
+        params = ()
+        if job_id is not None:
+            sql += " WHERE job_id=?"
+            params = (job_id,)
+        sql += " ORDER BY snapshot_at,snapshot_id"
+        with self._connect() as db:
+            return [dict(row) for row in db.execute(sql, params)]
+
+    def list_expiry_buckets_with_location(self, snapshot_id: str) -> list[dict]:
+        """Phase 3T向けにlocation typeを保持したFEFO順read modelを返す。"""
+
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT b.jan,b.canonical_product_id,b.location_id,l.location_code,"
+                "l.location_type,b.expiry_date,b.bucket_kind,b.quantity_cases,"
+                "b.normalized_unit,b.issue_codes_json FROM inventory_expiry_buckets b "
+                "JOIN inventory_locations l ON l.location_master_version=b.location_master_version "
+                "AND l.location_id=b.location_id WHERE b.snapshot_id=? "
+                "ORDER BY b.jan,b.location_id,b.expiry_date,b.normalized_unit",
                 (snapshot_id,),
             )
             result = [dict(row) for row in rows]

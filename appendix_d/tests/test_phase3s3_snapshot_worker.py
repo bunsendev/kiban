@@ -6,6 +6,8 @@ import hashlib
 import os
 import sqlite3
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
@@ -26,6 +28,7 @@ from forecast_provider.inventory_foundation import (
     NormalizedUnit,
     PostgresInventoryFoundationStore,
     ProductIdentifierKind,
+    ProductMappingRecord,
     SnapshotDecisionType,
     SqliteInventoryFoundationStore,
     StaleInventorySnapshotLeaseError,
@@ -33,6 +36,7 @@ from forecast_provider.inventory_foundation import (
 )
 
 NOW = datetime(2026, 9, 24, 8, 0, tzinfo=UTC)
+KNOWN_AT = NOW - timedelta(hours=2)
 VALID_JAN = "4901234567894"
 
 
@@ -83,6 +87,14 @@ def _prepare_store(path: Path, suffix: str = "1"):
         ),
         InventoryLocation(
             version.location_master_version,
+            f"warehouse-2-{suffix}",
+            "W02",
+            "人工倉庫2",
+            LocationType.WAREHOUSE,
+            date(2026, 1, 1),
+        ),
+        InventoryLocation(
+            version.location_master_version,
             f"warehouse-{suffix}",
             "W01",
             "人工倉庫",
@@ -107,6 +119,7 @@ def _enqueue(store, mapping, content, reference="source/artificial.csv"):
         source_sha256=hashlib.sha256(content).hexdigest(),
         mapping_version=mapping.mapping_version,
         requested_by="tester",
+        known_at=KNOWN_AT,
         requested_at=NOW,
     )
     return store.put_job(job)
@@ -133,11 +146,21 @@ def test_worker_approves_valid_csv_in_one_transaction(tmp_path):
     assert completed.status is InventorySnapshotJobStatus.SUCCEEDED
     assert completed.accepted_row_count == 1
     assert completed.quarantined_row_count == 0
-    decision = store.list_decisions(queued.job_id)[0]
-    assert decision["decision"] == SnapshotDecisionType.APPROVED.value
-    assert decision["snapshot_id"].startswith("inventory-snapshot-")
-    assert store.list_expiry_buckets(decision["snapshot_id"])[0]["quantity_cases"] == "3"
+    assert not store.list_decisions(queued.job_id)
+    snapshot = store.list_snapshots(queued.job_id)[0]
+    assert snapshot["snapshot_id"].startswith("inventory-snapshot-")
+    assert datetime.fromisoformat(snapshot["known_at"].replace("Z", "+00:00")) == KNOWN_AT
+    assert store.list_expiry_buckets(snapshot["snapshot_id"])[0]["quantity_cases"] == "3"
     assert store.get_reconciliation(queued.job_id)["reconciled"] == 1
+    decision = store.append_snapshot_decision(
+        job_id=queued.job_id,
+        snapshot_id=snapshot["snapshot_id"],
+        decision=SnapshotDecisionType.APPROVED,
+        decided_by="business-reviewer",
+        reason="人工fixtureの業務確認",
+        decided_at=NOW + timedelta(hours=1),
+    )
+    assert decision["decision"] == "APPROVED"
 
 
 def test_worker_records_rejected_input_without_partial_snapshot(tmp_path):
@@ -174,6 +197,99 @@ def test_job_registration_is_content_addressed_and_idempotent(tmp_path):
     assert first.job_id == second.job_id
     with sqlite3.connect(store.path) as db:
         assert db.execute("SELECT count(*) FROM inventory_snapshot_jobs").fetchone()[0] == 1
+
+
+def test_completed_job_rerun_does_not_duplicate_snapshot_or_quantity(tmp_path):
+    store, mapping, _ = _prepare_store(tmp_path / "completed-idempotent.sqlite3")
+    content = _valid_content("8")
+    queued = _enqueue(store, mapping, content)
+    worker = InventorySnapshotWorker(
+        store,
+        MemorySourceReader({queued.source_reference: content}),
+        clock=lambda: NOW,
+    )
+    assert worker.run_once("worker-1").status is InventorySnapshotJobStatus.SUCCEEDED
+    assert store.put_job(queued).status is InventorySnapshotJobStatus.SUCCEEDED
+    assert worker.run_once("worker-2") is None
+    snapshots = store.list_snapshots(queued.job_id)
+    assert len(snapshots) == 1
+    buckets = store.list_expiry_buckets(snapshots[0]["snapshot_id"])
+    assert len(buckets) == 1
+    assert buckets[0]["quantity_cases"] == "8"
+
+
+def test_factory_warehouses_and_expiry_buckets_remain_separate(tmp_path):
+    store, mapping, _ = _prepare_store(tmp_path / "locations-expiry.sqlite3")
+    content = _csv(
+        f"{VALID_JAN},F01,2026-10-01,500,2026-09-24T08:00:00Z",
+        f"{VALID_JAN},W01,2026-10-01,100,2026-09-24T08:00:00Z",
+        f"{VALID_JAN},W01,2026-11-01,200,2026-09-24T08:00:00Z",
+        f"{VALID_JAN},W02,2026-10-01,300,2026-09-24T08:00:00Z",
+    )
+    job = _enqueue(store, mapping, content)
+    completed = InventorySnapshotWorker(
+        store,
+        MemorySourceReader({job.source_reference: content}),
+        clock=lambda: NOW,
+    ).run_once("worker-1")
+    assert completed.status is InventorySnapshotJobStatus.SUCCEEDED
+    snapshot_id = store.list_snapshots(job.job_id)[0]["snapshot_id"]
+    rows = store.list_expiry_buckets_with_location(snapshot_id)
+    assert [
+        (row["location_type"], row["location_code"], row["expiry_date"], row["quantity_cases"])
+        for row in rows
+    ] == [
+        ("FACTORY", "F01", "2026-10-01", "500"),
+        ("WAREHOUSE", "W01", "2026-10-01", "100"),
+        ("WAREHOUSE", "W01", "2026-11-01", "200"),
+        ("WAREHOUSE", "W02", "2026-10-01", "300"),
+    ]
+
+
+def test_product_mapping_version_and_canonical_product_are_preserved(tmp_path):
+    store, base_mapping, _ = _prepare_store(tmp_path / "canonical.sqlite3")
+    mapping = replace(
+        base_mapping,
+        mapping_version="inventory-map-product-v1",
+        product_column="商品コード",
+        product_identifier_kind=ProductIdentifierKind.PRODUCT_CODE,
+        product_mapping_version="products-v1",
+    )
+    store.put_mapping(mapping)
+    content = (
+        "商品コード,拠点,賞味期限,明細バラ数,基準日時\n"
+        "P-001,W01,2026-12-31,9,2026-09-24T08:00:00Z\n"
+    ).encode("utf-8-sig")
+    job = _enqueue(store, mapping, content)
+    product = ProductMappingRecord("products-v1", "P-001", VALID_JAN, "canonical-1")
+
+    def resolver_factory(selected_mapping, selected_locations):
+        return InventoryReferenceResolver(selected_mapping, selected_locations, (product,))
+
+    completed = InventorySnapshotWorker(
+        store,
+        MemorySourceReader({job.source_reference: content}),
+        resolver_factory=resolver_factory,
+        clock=lambda: NOW,
+    ).run_once("worker-1")
+    assert completed.status is InventorySnapshotJobStatus.SUCCEEDED
+    snapshot = store.list_snapshots(job.job_id)[0]
+    assert snapshot["product_mapping_version"] == "products-v1"
+    bucket = store.list_expiry_buckets(snapshot["snapshot_id"])[0]
+    assert bucket["jan"] == VALID_JAN
+    assert bucket["canonical_product_id"] == "canonical-1"
+
+
+def test_two_workers_cannot_claim_the_same_job(tmp_path):
+    store, mapping, _ = _prepare_store(tmp_path / "concurrency.sqlite3")
+    _enqueue(store, mapping, _valid_content())
+
+    def claim(worker_id):
+        return store.claim_next_job(worker_id, lease_seconds=60, now=NOW)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        leases = list(pool.map(claim, ("worker-a", "worker-b")))
+    assert sum(value is not None for value in leases) == 1
 
 
 def test_hash_mismatch_fails_without_persisting_raw_input(tmp_path):
@@ -270,6 +386,29 @@ def test_retryable_failure_stops_after_three_fenced_attempts(tmp_path):
     assert not store.list_decisions(queued.job_id)
 
 
+def test_retryable_failure_can_resume_and_complete(tmp_path):
+    store, mapping, _ = _prepare_store(tmp_path / "retry-success.sqlite3")
+    content = _valid_content("6")
+    queued = _enqueue(store, mapping, content)
+
+    class FailOnceReader:
+        attempts = 0
+
+        def read(self, source_reference):
+            self.attempts += 1
+            if self.attempts == 1:
+                raise RuntimeError("artificial first failure")
+            return content
+
+    worker = InventorySnapshotWorker(store, FailOnceReader(), clock=lambda: NOW)
+    assert worker.run_once("worker-1").status is InventorySnapshotJobStatus.QUEUED
+    completed = worker.run_once("worker-2")
+    assert completed.status is InventorySnapshotJobStatus.SUCCEEDED
+    assert completed.attempt == 2
+    snapshot = store.list_snapshots(queued.job_id)[0]
+    assert store.list_expiry_buckets(snapshot["snapshot_id"])[0]["quantity_cases"] == "6"
+
+
 def test_csv_contract_failure_is_non_retryable_and_safe(tmp_path):
     store, mapping, _ = _prepare_store(tmp_path / "contract.sqlite3")
     content = b"\xff"
@@ -325,8 +464,9 @@ def test_retry_uses_stable_known_at_and_snapshot_identity(tmp_path):
         lease, content, mapping, resolver, completed_at=NOW + timedelta(hours=1)
     )
     assert first.snapshot.header.snapshot_id == second.snapshot.header.snapshot_id
-    assert first.decision_id == second.decision_id
-    assert first.snapshot.header.known_at == NOW
+    assert first.decision is None
+    assert second.decision is None
+    assert first.snapshot.header.known_at == KNOWN_AT
 
 
 def test_directory_reader_confines_references_and_size(tmp_path):
@@ -371,7 +511,9 @@ def test_phase3s1_sqlite_schema_is_upgraded_without_losing_rows(tmp_path):
     store = SqliteInventoryFoundationStore(path)
     with sqlite3.connect(path) as db:
         columns = {row[1] for row in db.execute("PRAGMA table_info(inventory_snapshot_jobs)")}
-        assert {"attempt", "worker_id", "lease_token", "leased_until"}.issubset(columns)
+        assert {"known_at", "attempt", "worker_id", "lease_token", "leased_until"}.issubset(
+            columns
+        )
         assert db.execute(
             "SELECT reason_code FROM inventory_snapshot_quarantines"
         ).fetchone()[0] == "JAN_MISSING"
@@ -387,11 +529,13 @@ def test_phase3s1_sqlite_schema_is_upgraded_without_losing_rows(tmp_path):
                 NOW.isoformat(),
             ),
         )
-    assert store.get_job("old").attempt == 0
+    old = store.get_job("old")
+    assert old.attempt == 0
+    assert old.known_at == old.requested_at
 
 
 @pytest.mark.skipif(not os.getenv("KIBAN_TEST_POSTGRES_DSN"), reason="PostgreSQL DSN未設定")
-def test_postgres_snapshot_worker_matches_sqlite_transaction_contract():
+def test_postgres_snapshot_worker_matches_sqlite_transaction_contract(tmp_path):
     suffix = uuid.uuid4().hex
     store = PostgresInventoryFoundationStore(os.environ["KIBAN_TEST_POSTGRES_DSN"])
     version = LocationMasterVersion(
@@ -416,4 +560,51 @@ def test_postgres_snapshot_worker_matches_sqlite_transaction_contract():
         clock=lambda: NOW,
     ).run_once(f"worker-{suffix}")
     assert completed.status is InventorySnapshotJobStatus.SUCCEEDED
-    assert store.list_decisions(job.job_id)[0]["decision"] == "APPROVED"
+    assert not store.list_decisions(job.job_id)
+    postgres_snapshot = store.list_snapshots(job.job_id)[0]
+
+    sqlite_store, sqlite_mapping, _ = _prepare_store(
+        tmp_path / "postgres-parity.sqlite3", suffix
+    )
+    sqlite_job = _enqueue(sqlite_store, sqlite_mapping, content, f"source/{suffix}.csv")
+    sqlite_completed = InventorySnapshotWorker(
+        sqlite_store,
+        MemorySourceReader({sqlite_job.source_reference: content}),
+        clock=lambda: NOW,
+    ).run_once(f"sqlite-worker-{suffix}")
+    assert sqlite_completed.status is InventorySnapshotJobStatus.SUCCEEDED
+    sqlite_snapshot = sqlite_store.list_snapshots(sqlite_job.job_id)[0]
+    assert postgres_snapshot["snapshot_id"] == sqlite_snapshot["snapshot_id"]
+    assert postgres_snapshot["content_sha256"] == sqlite_snapshot["content_sha256"]
+
+
+@pytest.mark.skipif(not os.getenv("KIBAN_TEST_POSTGRES_DSN"), reason="PostgreSQL DSN未設定")
+def test_postgres_two_workers_cannot_claim_the_same_job():
+    suffix = uuid.uuid4().hex
+    store = PostgresInventoryFoundationStore(os.environ["KIBAN_TEST_POSTGRES_DSN"])
+    version = LocationMasterVersion(
+        f"locations-v{suffix}",
+        hashlib.sha256(suffix.encode()).hexdigest(),
+        "tester",
+        "fixture",
+        NOW,
+    )
+    location = InventoryLocation(
+        version.location_master_version,
+        f"warehouse-{suffix}",
+        "W01",
+        "人工倉庫",
+        LocationType.WAREHOUSE,
+        date(2026, 1, 1),
+    )
+    mapping = _mapping(suffix)
+    store.put_location_master(version, (location,))
+    store.put_mapping(mapping)
+    _enqueue(store, mapping, _valid_content(), f"source/{suffix}.csv")
+
+    def claim(worker_id):
+        return store.claim_next_job(worker_id, lease_seconds=60, now=NOW)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        leases = list(pool.map(claim, (f"worker-a-{suffix}", f"worker-b-{suffix}")))
+    assert sum(value is not None for value in leases) == 1
