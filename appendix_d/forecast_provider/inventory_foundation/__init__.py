@@ -46,6 +46,7 @@ from .job_contracts import (
     StaleInventorySnapshotLeaseError,
 )
 from .job_store import InventoryDecisionConflict
+from .location_masters import LocationMasterImport, parse_confirmed_location_master_csv
 from .locations import (
     InventoryLocation,
     LocationMasterVersion,
@@ -114,6 +115,7 @@ __all__ = [
     "InventorySourceDocument",
     "InventorySourceReadError",
     "InventorySourceReader",
+    "LocationMasterImport",
     "LocationMasterVersion",
     "LocationType",
     "NormalizedUnit",
@@ -138,6 +140,7 @@ __all__ = [
     "canonical_datetime",
     "canonical_decimal",
     "create_inventory_snapshot_job",
+    "parse_confirmed_location_master_csv",
     "parse_confirmed_product_mapping_csv",
     "parse_inventory_csv",
     "serialize_product_mapping_version",
