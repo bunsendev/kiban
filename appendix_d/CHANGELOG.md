@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 3S-9
+
+- 全行が`確認済み`のlocation master CSVだけを正式登録するadapterとCLIを追加。
+- 拠点コード、名称、FACTORY / WAREHOUSE、有効期間から決定的なlocation master versionを生成。
+- 拠点コードから安定した内部location IDを生成し、入力順に依存しない版管理を追加。
+- location masterとroute policyの永続化を専用mixinへ分離し、既存在庫storeを縮小。
+- 同一内容の再登録を冪等にし、同一versionの内容変更を拒否。
+
 ## Phase 3S-8
 
 - 全行が`確認済み`のJAN対応CSVだけを受け付けるInventory Foundation用adapterを追加。

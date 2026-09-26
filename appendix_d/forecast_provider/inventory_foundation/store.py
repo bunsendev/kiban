@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import date
 from pathlib import Path
 
 from .adapters import (
@@ -14,7 +13,6 @@ from .adapters import (
 )
 from .contracts import (
     ExtractionReviewDecision,
-    LocationType,
     NormalizedUnit,
     ProductIdentifierKind,
     SourceKind,
@@ -26,18 +24,15 @@ from .domain import (
     verify_snapshot_identity,
 )
 from .job_store import InventorySnapshotJobStoreMixin, _datetime
-from .locations import (
-    InventoryLocation,
-    LocationMasterVersion,
-    RouteLeadTimePolicy,
-    validate_route_locations,
-)
+from .location_store import InventoryLocationStoreMixin
 from .mapping import InventoryInputMappingVersion
 from .product_mapping_store import InventoryProductMappingStoreMixin
 
 
 class SqliteInventoryFoundationStore(
-    InventoryProductMappingStoreMixin, InventorySnapshotJobStoreMixin
+    InventoryLocationStoreMixin,
+    InventoryProductMappingStoreMixin,
+    InventorySnapshotJobStoreMixin,
 ):
     def __init__(self, path: Path):
         self.path = path
@@ -167,89 +162,6 @@ class SqliteInventoryFoundationStore(
         finally:
             db.execute("PRAGMA foreign_keys=ON")
 
-    def put_location_master(
-        self,
-        version: LocationMasterVersion,
-        locations: list[InventoryLocation] | tuple[InventoryLocation, ...],
-    ) -> None:
-        if any(
-            value.location_master_version != version.location_master_version
-            for value in locations
-        ):
-            raise ValueError("locationは同じlocation master versionで指定してください")
-        ids = [value.location_id for value in locations]
-        codes = [value.location_code for value in locations]
-        if len(ids) != len(set(ids)) or len(codes) != len(set(codes)):
-            raise ValueError("location IDまたはcodeが重複しています")
-        with self._connect() as db:
-            db.execute("BEGIN IMMEDIATE")
-            db.execute(
-                "INSERT INTO inventory_location_master_versions VALUES (?,?,?,?,?)",
-                (
-                    version.location_master_version,
-                    version.content_sha256,
-                    version.created_by,
-                    version.reason,
-                    canonical_datetime(version.created_at, "created_at"),
-                ),
-            )
-            db.executemany(
-                "INSERT INTO inventory_locations VALUES (?,?,?,?,?,?,?)",
-                [
-                    (
-                        value.location_master_version,
-                        value.location_id,
-                        value.location_code,
-                        value.location_name,
-                        value.location_type.value,
-                        value.effective_from.isoformat(),
-                        None if value.effective_to is None else value.effective_to.isoformat(),
-                    )
-                    for value in locations
-                ],
-            )
-
-    def put_route_policy(self, value: RouteLeadTimePolicy) -> None:
-        with self._connect() as db:
-            rows = db.execute(
-                "SELECT * FROM inventory_locations WHERE location_master_version=? "
-                "AND location_id IN (?,?)",
-                (
-                    value.location_master_version,
-                    value.factory_location_id,
-                    value.warehouse_location_id,
-                ),
-            ).fetchall()
-            locations = tuple(
-                InventoryLocation(
-                    row["location_master_version"],
-                    row["location_id"],
-                    row["location_code"],
-                    row["location_name"],
-                    _location_type(row["location_type"]),
-                    _date(row["effective_from"]),
-                    None if row["effective_to"] is None else _date(row["effective_to"]),
-                )
-                for row in rows
-            )
-            validate_route_locations(value, locations)
-            db.execute(
-                "INSERT INTO inventory_route_lead_time_policies VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                (
-                    value.policy_id,
-                    value.policy_version,
-                    value.location_master_version,
-                    value.factory_location_id,
-                    value.warehouse_location_id,
-                    value.minimum_hours,
-                    value.standard_hours,
-                    value.maximum_hours,
-                    value.recommendation_basis.value,
-                    value.effective_from.isoformat(),
-                    None if value.effective_to is None else value.effective_to.isoformat(),
-                ),
-            )
-
     def put_mapping(self, value: InventoryInputMappingVersion) -> None:
         with self._connect() as db:
             db.execute(
@@ -304,26 +216,6 @@ class SqliteInventoryFoundationStore(
             row["created_by"],
             row["reason"],
             _datetime(row["created_at"]),
-        )
-
-    def list_locations(self, location_master_version: str) -> tuple[InventoryLocation, ...]:
-        with self._connect() as db:
-            rows = db.execute(
-                "SELECT * FROM inventory_locations WHERE location_master_version=? "
-                "ORDER BY location_id",
-                (location_master_version,),
-            ).fetchall()
-        return tuple(
-            InventoryLocation(
-                row["location_master_version"],
-                row["location_id"],
-                row["location_code"],
-                row["location_name"],
-                LocationType(row["location_type"]),
-                _date(row["effective_from"]),
-                None if row["effective_to"] is None else _date(row["effective_to"]),
-            )
-            for row in rows
         )
 
     def put_source_document(self, value: InventorySourceDocument) -> None:
@@ -657,13 +549,3 @@ class SqliteInventoryFoundationStore(
                 (timestamp, *params),
             ).fetchone()
         return None if row is None else dict(row)
-
-
-def _location_type(value: str):
-    from .contracts import LocationType
-
-    return LocationType(value)
-
-
-def _date(value):
-    return value if isinstance(value, date) else date.fromisoformat(value)
