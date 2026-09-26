@@ -32,18 +32,18 @@ def _safe_file(root: Path, candidate: Path) -> Path | None:
 def _header(path: Path) -> tuple[str | None, list[str], str | None]:
     try:
         with path.open("rb") as stream:
-            data = stream.read(HEADER_LIMIT_BYTES + 1)
+            data = stream.readline(HEADER_LIMIT_BYTES + 1)
     except OSError:
         return None, [], "READ_FAILED"
     if not data:
         return None, [], "EMPTY_FILE"
-    if len(data) > HEADER_LIMIT_BYTES and b"\n" not in data[:HEADER_LIMIT_BYTES]:
+    if len(data) > HEADER_LIMIT_BYTES:
         return None, [], "HEADER_TOO_LARGE"
-    encoding, error = detect_encoding(data[:HEADER_LIMIT_BYTES])
+    encoding, error = detect_encoding(data)
     if error or encoding is None:
         return None, [], "ENCODING_UNSUPPORTED"
     try:
-        row = next(csv.reader(data[:HEADER_LIMIT_BYTES].decode(encoding).splitlines()), [])
+        row = next(csv.reader(data.decode(encoding).splitlines()), [])
     except (UnicodeDecodeError, csv.Error):
         return encoding, [], "HEADER_INVALID"
     if not row:

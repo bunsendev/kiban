@@ -5,6 +5,7 @@ import uuid
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from typing import BinaryIO
 
 from .contracts import ImportJob, SourceFile
 
@@ -17,6 +18,7 @@ class ImportLimits:
 
 
 DEFAULT_LIMITS = ImportLimits()
+ENCODING_PROBE_TARGET_BYTES = 131_072
 
 
 class ImportProcessor:
@@ -160,3 +162,21 @@ def detect_encoding(data: bytes) -> tuple[str | None, str | None]:
         except UnicodeDecodeError:
             pass
     return None, "UTF-8/BOM付きUTF-8/CP932として厳密にdecodeできません"
+
+
+def detect_stream_encoding(
+    stream: BinaryIO, target_bytes: int = ENCODING_PROBE_TARGET_BYTES
+) -> tuple[str | None, str | None]:
+    """文字の途中で切らず、完全なCSV行を使って文字コードを判定する。"""
+
+    parts = []
+    total = 0
+    while total < target_bytes:
+        line = stream.readline(target_bytes + 1)
+        if not line:
+            break
+        if len(line) > target_bytes and not line.endswith((b"\n", b"\r")):
+            return None, "文字コード判定行が上限を超えています"
+        parts.append(line)
+        total += len(line)
+    return detect_encoding(b"".join(parts))

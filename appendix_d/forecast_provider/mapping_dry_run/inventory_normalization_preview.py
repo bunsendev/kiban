@@ -11,7 +11,7 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from ..ingestion.processor import detect_encoding
+from ..ingestion.processor import detect_stream_encoding
 from .sources import MappingDryRunSourceCatalog
 
 FILENAME_DATE = re.compile(r"_(\d{8})\.csv$", re.IGNORECASE)
@@ -110,7 +110,7 @@ class InventoryNormalizationPreview:
         assert self.input_root is not None
         path = self.input_root.resolve(strict=True) / source_path
         with path.open("rb") as stream:
-            encoding, error = detect_encoding(stream.read(131_072))
+            encoding, error = detect_stream_encoding(stream)
         if error or encoding is None:
             return
         with path.open(encoding=encoding, newline="") as stream:

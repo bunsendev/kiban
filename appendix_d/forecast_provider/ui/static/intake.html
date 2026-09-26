@@ -87,12 +87,12 @@
       </section>
       <section id="inventory-profile-result" class="validation-progress" hidden aria-live="polite"></section>
       <section id="product-bridge-panel" class="upload-panel" hidden>
-        <div><strong>商品コードとJANの対応を準備</strong><p>出荷CSVで自動対応できるか診断し、不足する場合はJAN記入用CSVを出力します。</p></div>
+        <div><strong>商品コードとJANの対応を準備</strong><p>出荷CSVの商品名からJAN候補を作ります。候補は自動採用されず、担当者の確認が必要です。</p></div>
         <button id="product-bridge-submit" class="button secondary" data-permission="ANALYZE" type="button">JAN対応を診断</button>
       </section>
       <section id="product-bridge-result" class="validation-progress" hidden aria-live="polite"></section>
       <form id="product-mapping-upload-form" class="upload-panel" hidden>
-        <div><strong>記入済みJAN対応表を検証</strong><p>ダウンロードしたCSVへJANを記入して選択してください。重複・形式・143商品の充足を確認します。</p></div>
+        <div><strong>JAN対応表を確認・保存</strong><p>各JANを確認し、確認メモを「確認済み」に変更してください。未確認、重複、形式、全商品の充足を検証します。</p></div>
         <label>JAN対応表<input id="product-mapping-file" type="file" accept=".csv,text/csv" required></label>
         <button class="button primary" data-permission="ANALYZE" type="submit">対応表を検証・保存</button>
       </form>

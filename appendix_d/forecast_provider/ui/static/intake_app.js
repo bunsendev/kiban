@@ -439,12 +439,13 @@ byId("product-bridge-submit").addEventListener("click", async () => {
     result.textContent = [
       `出荷サンプル ${analysis.shipment_sampled_rows.toLocaleString("ja-JP")}行のうち、商品コードとJANの組は ${analysis.shipment_code_jan_pair_rows.toLocaleString("ja-JP")}行です。`,
       `在庫の商品コードは ${analysis.inventory_distinct_product_codes.toLocaleString("ja-JP")}種類です。`,
+      `商品名の完全一致候補は、一意 ${analysis.candidate_unique_products.toLocaleString("ja-JP")}、複数候補 ${analysis.candidate_ambiguous_products.toLocaleString("ja-JP")}、候補なし ${analysis.candidate_missing_products.toLocaleString("ja-JP")}です。`,
     ].join(" ");
-    if (analysis.status === "EXTERNAL_MAPPING_REQUIRED") {
+    if (["EXTERNAL_MAPPING_REQUIRED", "CANDIDATE_REVIEW_REQUIRED"].includes(analysis.status)) {
       const button = document.createElement("button");
       button.className = "button secondary";
       button.type = "button";
-      button.textContent = "JAN記入用CSVをダウンロード";
+      button.textContent = "JAN候補付きCSVをダウンロード";
       button.addEventListener("click", () => download(
         `/api/product-jan-bridge-template.csv?source_prefix=${encodeURIComponent(state.uploadedBatchPrefix)}`,
         "product-jan-mapping.csv",
@@ -473,8 +474,8 @@ byId("product-mapping-upload-form").addEventListener("submit", async (event) => 
     result.textContent = report.status === "READY"
       ? `全${report.expected_product_count}商品のJAN対応表を保存しました。ID: ${report.mapping_id}`
       : [
-        `${report.completed_product_count} / ${report.expected_product_count}商品を確認済みです。`,
-        `未記入 ${report.issues.blank_jans}、JAN形式不正 ${report.issues.invalid_jans}、重複 ${report.issues.duplicate_product_codes}、対象外 ${report.issues.unknown_product_codes}、不足 ${report.issues.missing_product_codes}。`,
+        `JAN記入済み ${report.completed_product_count} / ${report.expected_product_count}、確認済み ${report.confirmed_product_count}商品です。`,
+        `未記入 ${report.issues.blank_jans}、未確認 ${report.issues.unconfirmed_jans}、JAN形式不正 ${report.issues.invalid_jans}、重複 ${report.issues.duplicate_product_codes}、対象外 ${report.issues.unknown_product_codes}、不足 ${report.issues.missing_product_codes}。`,
       ].join(" ");
     if (report.status === "READY") {
       byId("inventory-preview-mapping-id").value = report.mapping_id;

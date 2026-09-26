@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from ..ingestion.processor import detect_encoding
+from ..ingestion.processor import detect_stream_encoding
 from ..mapping_dry_run.inventory_normalization_preview import FILENAME_DATE
 from ..mapping_dry_run.sources import MappingDryRunSourceCatalog
 
@@ -100,7 +100,7 @@ class InventoryNormalizationProcessor:
     def _rows(self, source_path):
         path = self.input_root / source_path
         with path.open("rb") as stream:
-            encoding, error = detect_encoding(stream.read(131_072))
+            encoding, error = detect_stream_encoding(stream)
         if error or encoding is None:
             raise ValueError("在庫CSVの文字コードを判定できません")
         with path.open(encoding=encoding, newline="") as stream:
