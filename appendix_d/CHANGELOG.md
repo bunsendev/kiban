@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 3S-10
+
+- 全項目を確認済みのInventory Input Mapping CSVから決定的なmapping versionを登録するadapterとCLIを追加。
+- 商品コード入力では正式product mapping版、全入力で正式location master版の存在を登録時に検証。
+- 原本列名と`CASE`、文字コード、区切り、header行、snapshot日時列を版として固定。
+- 同一内容の再登録を冪等にし、同一versionの内容変更を拒否。
+- input mappingの永続化を専用mixinへ分離し、在庫storeの責務を縮小。
+
 ## Phase 3S-9
 
 - 全行が`確認済み`のlocation master CSVだけを正式登録するadapterとCLIを追加。

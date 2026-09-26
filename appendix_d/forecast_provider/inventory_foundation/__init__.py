@@ -37,6 +37,10 @@ from .domain import (
     validate_jan,
     verify_snapshot_identity,
 )
+from .input_mappings import (
+    InventoryInputMappingImport,
+    parse_confirmed_input_mapping_csv,
+)
 from .job_contracts import (
     InventorySnapshotFinalization,
     InventorySnapshotJob,
@@ -95,6 +99,7 @@ __all__ = [
     "InventoryExtraction",
     "InventoryExtractionReview",
     "InventoryInputAdapter",
+    "InventoryInputMappingImport",
     "InventoryInputMappingVersion",
     "InventoryIssueCode",
     "InventoryLocation",
@@ -140,6 +145,7 @@ __all__ = [
     "canonical_datetime",
     "canonical_decimal",
     "create_inventory_snapshot_job",
+    "parse_confirmed_input_mapping_csv",
     "parse_confirmed_location_master_csv",
     "parse_confirmed_product_mapping_csv",
     "parse_inventory_csv",
