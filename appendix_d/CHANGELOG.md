@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 3S-8
+
+- 全行が`確認済み`のJAN対応CSVだけを受け付けるInventory Foundation用adapterを追加。
+- 商品コード→JANを内容hashで版管理する追記型台帳をSQLite/PostgreSQL共通schemaへ追加。
+- canonical商品が未接続の場合はNULLのまま保持し、架空のcanonical商品IDを生成しない。
+- Inventory Snapshot Workerが入力mappingのproduct mapping versionから正式対応表を自動読込。
+- 対応表の登録CLIを追加し、CSVの行順や商品名変更に左右されない決定的versionを生成。
+
 ## Phase 3S-7
 
 - 出荷の商品コード→JANを優先し、在庫の商品名variantと出荷JANも使って一意・複数候補・候補なしを分類する確認支援moduleを追加。

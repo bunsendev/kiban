@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable
 from datetime import UTC, datetime
 
@@ -48,7 +49,12 @@ class InventorySnapshotWorker:
                     InventorySnapshotJobErrorCode.MAPPING_NOT_FOUND
                 )
             locations = self.store.list_locations(mapping.location_master_version)
-            resolver = self.resolver_factory(mapping, locations)
+            product_mappings = (
+                self.store.list_product_mappings(mapping.product_mapping_version)
+                if mapping.product_mapping_version is not None
+                else ()
+            )
+            resolver = self._resolver(mapping, locations, product_mappings)
             finalization = self.service.prepare_finalization(
                 lease,
                 content,
@@ -76,3 +82,18 @@ class InventorySnapshotWorker:
                 now=self.clock(),
             )
         return self.store.get_job(lease.job.job_id)
+
+    def _resolver(self, mapping, locations, product_mappings):
+        """既存の2引数factoryを維持しつつ、正式商品mappingを標準factoryへ渡す。"""
+
+        parameters = inspect.signature(self.resolver_factory).parameters.values()
+        accepts_product_mappings = any(
+            parameter.kind is inspect.Parameter.VAR_POSITIONAL for parameter in parameters
+        ) or sum(
+            parameter.kind
+            in {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD}
+            for parameter in parameters
+        ) >= 3
+        if accepts_product_mappings:
+            return self.resolver_factory(mapping, locations, product_mappings)
+        return self.resolver_factory(mapping, locations)

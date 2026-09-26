@@ -5,6 +5,8 @@
 基準Branch: `main`
 基準Commit: `783f92210a8421ad13b2d22ad8726f02ab3ea191`
 
+> 更新（2026-09-26）: 本書の調査後にPhase 3S-1〜3S-8を実装した。現在は`FACTORY` / `WAREHOUSE`、`EXPIRY_BUCKET`、CASE、snapshot、隔離・数量照合、API / Worker、確認済み商品mapping台帳まで実装済みである。以下の「未対応」は調査時点の記録として残し、最新の実装結果は`planning/PHASE3S1_RESULT.md`〜`planning/PHASE3S8_PRODUCT_MAPPING_LEDGER_RESULT.md`を正とする。実データ147商品の業務確認、FACTORY在庫、生産予定、正式route policyが未完了のため、Phase 3Tの業務受入はまだ開始できない。
+
 ## 1. 結論
 
 現在のkibanは、出荷実績の取込、商品・倉庫単位の日次需要データ作成、複数OSSによる需要予測、比較、採用、Worker実行、監査までを持つ。需要予測を作る基盤としては利用できる。

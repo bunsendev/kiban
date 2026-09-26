@@ -17,18 +17,19 @@ class ProductMappingRecord:
     product_mapping_version: str
     source_product_code: str
     jan: str
-    canonical_product_id: str
+    canonical_product_id: str | None
 
     def __post_init__(self) -> None:
-        for field_name in (
-            "product_mapping_version",
-            "source_product_code",
-            "canonical_product_id",
-        ):
+        for field_name in ("product_mapping_version", "source_product_code"):
             value = getattr(self, field_name).strip()
             if not value:
                 raise ValueError(f"{field_name}は必須です")
             object.__setattr__(self, field_name, value)
+        if self.canonical_product_id is not None:
+            canonical_product_id = self.canonical_product_id.strip()
+            if not canonical_product_id:
+                raise ValueError("canonical_product_idは空文字にできません")
+            object.__setattr__(self, "canonical_product_id", canonical_product_id)
         object.__setattr__(self, "jan", validate_jan(self.jan))
 
 

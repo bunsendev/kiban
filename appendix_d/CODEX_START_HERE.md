@@ -149,7 +149,11 @@ Phase 3S-2で版付きCSV mappingによる正式な入力adapterとvalidationを
 
 Phase 3S-3でCSV変換結果をcontent-addressed snapshot job、SQLite / PostgreSQL store、lease付き独立Workerへ接続した。quarantine、数量照合、正式snapshot、APPROVED / REJECTED decision、job完了を同一transactionで確定する。heartbeat、期限切れ再取得、旧Worker fencing、3回retry、Phase 3S-1 DBからの追加migrationに対応した。詳細は[Phase 3S-3実装結果](planning/PHASE3S3_RESULT.md)。
 
-次のPhase 3S-4では既存認証・認可とAPI共通契約を使い、job登録・状態、隔離理由、数量照合、decision、snapshot一覧、賞味期限順FEFO readのAPIと確認画面を追加する。PDF adapterは3S-5、実データpreflightは3S-6で追加する。
+Phase 3S-4で既存認証・認可とAPI共通契約を使い、job登録・状態、隔離理由、数量照合、decision、snapshot一覧、賞味期限順FEFO readを追加した。Phase 3S-6で実データpreflightを行い、商品コード→JAN、正式location、賞味期限欠損、FACTORY在庫、生産予定、route policyを残課題として確定した。
+
+Phase 3S-7で在庫147商品のJAN候補を一意130、複数15、候補なし2へ分類し、担当者が確認するCSVを生成できるようにした。候補は自動承認せず、全行の確認メモが`確認済み`になるまで保存しない。詳細は[Phase 3S-7実装結果](planning/PHASE3S7_JAN_MAPPING_REMEDIATION_RESULT.md)。
+
+Phase 3S-8で確認済みCSVを内容hashの版付き商品mapping台帳へ登録し、Inventory Snapshot WorkerがDBから自動取得する経路を追加した。canonical商品が未確定ならNULLのまま保持し、架空IDを生成しない。実データの正式登録とStrict Validationは147商品の業務確認後に実施する。詳細は[Phase 3S-8実装結果](planning/PHASE3S8_PRODUCT_MAPPING_LEDGER_RESULT.md)と[運用手順](docs/Phase3S8_確認済み商品mapping台帳.md)。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
 ## 変更報告
