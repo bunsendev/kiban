@@ -7,7 +7,7 @@ import re
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from ..ingestion.processor import detect_encoding
+from ..ingestion.processor import detect_stream_encoding
 
 FILENAME_DATE = re.compile(r"_(\d{8})\.csv$", re.IGNORECASE)
 SAMPLE_ROWS_PER_FILE = 100
@@ -60,7 +60,7 @@ class InventoryMappingAnalyzer:
     def _sample_file(self, source_path: str, counters: dict[str, int]) -> None:
         path = self.input_root / source_path
         with path.open("rb") as stream:
-            encoding, error = detect_encoding(stream.read(131_072))
+            encoding, error = detect_stream_encoding(stream)
         if error or encoding is None:
             return
         with path.open(encoding=encoding, newline="") as stream:

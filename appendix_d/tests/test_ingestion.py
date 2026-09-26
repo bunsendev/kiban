@@ -1,5 +1,6 @@
 """原本取込の安全性・不変性・重複/訂正判定。"""
 
+import io
 import subprocess
 import sys
 import zipfile
@@ -10,6 +11,7 @@ from fastapi.testclient import TestClient
 from forecast_provider.api import create_app
 from forecast_provider.catalog import SqliteCatalogStore
 from forecast_provider.ingestion import ImportProcessor, SqliteIngestionStore
+from forecast_provider.ingestion.processor import detect_encoding, detect_stream_encoding
 from forecast_provider.jobs import SqliteRunStore
 
 
@@ -18,6 +20,12 @@ def setup_ingestion(tmp_path):
     inputs.mkdir()
     store = SqliteIngestionStore(tmp_path / "ledger.sqlite3")
     return inputs, store, ImportProcessor(store, inputs, tmp_path / "archive")
+
+
+def test_stream_encoding_probe_does_not_split_cp932_character() -> None:
+    payload = b"header\n" + (b"a" * 131_064) + "あ".encode("cp932") + b"\n"
+    assert detect_encoding(payload[:131_072])[0] is None
+    assert detect_stream_encoding(io.BytesIO(payload))[0] == "cp932"
 
 
 def test_folder_import_preserves_original(tmp_path):
