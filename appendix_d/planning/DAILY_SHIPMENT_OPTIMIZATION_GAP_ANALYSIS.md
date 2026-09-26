@@ -5,7 +5,7 @@
 基準Branch: `main`
 基準Commit: `783f92210a8421ad13b2d22ad8726f02ab3ea191`
 
-> 更新（2026-09-26）: 本書の調査後にPhase 3S-1〜3S-9を実装した。現在は`FACTORY` / `WAREHOUSE`、`EXPIRY_BUCKET`、CASE、snapshot、隔離・数量照合、API / Worker、確認済み商品mapping台帳、確認済みlocation master取込まで実装済みである。以下の「未対応」は調査時点の記録として残し、最新の実装結果は`planning/PHASE3S1_RESULT.md`〜`planning/PHASE3S9_LOCATION_MASTER_IMPORT_RESULT.md`を正とする。実データ147商品の業務確認、2倉庫の正式承認、FACTORY在庫、生産予定、正式route policyが未完了のため、Phase 3Tの業務受入はまだ開始できない。
+> 更新（2026-09-26）: 本書の調査後にPhase 3S-1〜3S-10を実装した。現在は`FACTORY` / `WAREHOUSE`、`EXPIRY_BUCKET`、CASE、snapshot、隔離・数量照合、API / Worker、確認済み商品mapping台帳、確認済みlocation masterとInventory Input Mappingの取込まで実装済みである。以下の「未対応」は調査時点の記録として残し、最新の実装結果は`planning/PHASE3S1_RESULT.md`〜`planning/PHASE3S10_INPUT_MAPPING_IMPORT_RESULT.md`を正とする。実データ147商品の業務確認、2倉庫の正式承認、snapshot締め時刻、FACTORY在庫、生産予定、正式route policyが未完了のため、Phase 3Tの業務受入はまだ開始できない。
 
 ## 1. 結論
 

@@ -156,6 +156,8 @@ Phase 3S-7で在庫147商品のJAN候補を一意130、複数15、候補なし2�
 Phase 3S-8で確認済みCSVを内容hashの版付き商品mapping台帳へ登録し、Inventory Snapshot WorkerがDBから自動取得する経路を追加した。canonical商品が未確定ならNULLのまま保持し、架空IDを生成しない。実データの正式登録とStrict Validationは147商品の業務確認後に実施する。詳細は[Phase 3S-8実装結果](planning/PHASE3S8_PRODUCT_MAPPING_LEDGER_RESULT.md)と[運用手順](docs/Phase3S8_確認済み商品mapping台帳.md)。
 
 Phase 3S-9で確認済みlocation master CSVから、拠点コード・名称・FACTORY / WAREHOUSE・有効期間を固定した決定的な版を登録できるようにした。locationとroute policyの永続化は専用mixinへ分離した。実データ2倉庫の正式登録は名称・適用開始日・業務承認後に行い、FACTORYは提供データ確認まで生成しない。詳細は[Phase 3S-9実装結果](planning/PHASE3S9_LOCATION_MASTER_IMPORT_RESULT.md)と[運用手順](docs/Phase3S9_確認済みlocation_master取込.md)。
+
+Phase 3S-10で商品・locationの正式version、CSV列、CASE、encoding、delimiter、header行、snapshot日時列を固定するInventory Input Mapping登録経路を追加した。存在しない参照versionは登録できない。実在庫CSVには正式snapshot日時列がないため、締め時刻とtimezoneの業務確認後に実mappingを登録する。詳細は[Phase 3S-10実装結果](planning/PHASE3S10_INPUT_MAPPING_IMPORT_RESULT.md)と[運用手順](docs/Phase3S10_確認済みInventory_Input_Mapping取込.md)。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
 ## 変更報告

@@ -13,8 +13,6 @@ from .adapters import (
 )
 from .contracts import (
     ExtractionReviewDecision,
-    NormalizedUnit,
-    ProductIdentifierKind,
     SourceKind,
 )
 from .domain import (
@@ -23,14 +21,15 @@ from .domain import (
     canonical_decimal,
     verify_snapshot_identity,
 )
-from .job_store import InventorySnapshotJobStoreMixin, _datetime
+from .job_store import InventorySnapshotJobStoreMixin
 from .location_store import InventoryLocationStoreMixin
-from .mapping import InventoryInputMappingVersion
+from .mapping_store import InventoryInputMappingStoreMixin
 from .product_mapping_store import InventoryProductMappingStoreMixin
 
 
 class SqliteInventoryFoundationStore(
     InventoryLocationStoreMixin,
+    InventoryInputMappingStoreMixin,
     InventoryProductMappingStoreMixin,
     InventorySnapshotJobStoreMixin,
 ):
@@ -161,62 +160,6 @@ class SqliteInventoryFoundationStore(
             raise
         finally:
             db.execute("PRAGMA foreign_keys=ON")
-
-    def put_mapping(self, value: InventoryInputMappingVersion) -> None:
-        with self._connect() as db:
-            db.execute(
-                "INSERT INTO inventory_input_mapping_versions VALUES "
-                "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (
-                    value.mapping_version,
-                    value.product_column,
-                    value.product_identifier_kind.value,
-                    value.product_mapping_version,
-                    value.location_column,
-                    value.location_master_version,
-                    value.expiry_column,
-                    value.quantity_column,
-                    value.snapshot_at_column,
-                    value.source_quantity_column_name,
-                    value.source_unit_label,
-                    value.normalized_unit.value,
-                    value.encoding,
-                    value.delimiter,
-                    value.header_row,
-                    value.created_by,
-                    value.reason,
-                    canonical_datetime(value.created_at, "created_at"),
-                ),
-            )
-
-    def get_mapping(self, mapping_version: str) -> InventoryInputMappingVersion | None:
-        with self._connect() as db:
-            row = db.execute(
-                "SELECT * FROM inventory_input_mapping_versions WHERE mapping_version=?",
-                (mapping_version,),
-            ).fetchone()
-        if row is None:
-            return None
-        return InventoryInputMappingVersion(
-            row["mapping_version"],
-            row["product_column"],
-            ProductIdentifierKind(row["product_identifier_kind"]),
-            row["product_mapping_version"],
-            row["location_column"],
-            row["location_master_version"],
-            row["expiry_column"],
-            row["quantity_column"],
-            row["snapshot_at_column"],
-            row["source_quantity_column_name"],
-            row["source_unit_label"],
-            NormalizedUnit(row["normalized_unit"]),
-            row["encoding"],
-            row["delimiter"],
-            row["header_row"],
-            row["created_by"],
-            row["reason"],
-            _datetime(row["created_at"]),
-        )
 
     def put_source_document(self, value: InventorySourceDocument) -> None:
         with self._connect() as db:

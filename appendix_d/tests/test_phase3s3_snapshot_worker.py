@@ -256,12 +256,10 @@ def test_product_mapping_version_and_canonical_product_are_preserved(tmp_path):
         product_identifier_kind=ProductIdentifierKind.PRODUCT_CODE,
         product_mapping_version="products-v1",
     )
-    store.put_mapping(mapping)
     content = (
         "商品コード,拠点,賞味期限,明細バラ数,基準日時\n"
         "P-001,W01,2026-12-31,9,2026-09-24T08:00:00Z\n"
     ).encode("utf-8-sig")
-    job = _enqueue(store, mapping, content)
     product = ProductMappingRecord("products-v1", "P-001", VALID_JAN, "canonical-1")
     store.put_product_mapping(
         ProductMappingVersion(
@@ -275,6 +273,8 @@ def test_product_mapping_version_and_canonical_product_are_preserved(tmp_path):
         ),
         (product,),
     )
+    store.put_mapping(mapping)
+    job = _enqueue(store, mapping, content)
 
     completed = InventorySnapshotWorker(
         store,
