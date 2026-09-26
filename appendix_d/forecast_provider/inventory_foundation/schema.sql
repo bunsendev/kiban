@@ -51,6 +51,27 @@ CREATE INDEX IF NOT EXISTS inventory_route_lead_time_lookup_idx
     location_master_version, factory_location_id, warehouse_location_id, effective_from
   );
 
+CREATE TABLE IF NOT EXISTS inventory_product_mapping_versions (
+  product_mapping_version TEXT PRIMARY KEY,
+  content_sha256 TEXT NOT NULL UNIQUE CHECK(length(content_sha256)=64),
+  row_count INTEGER NOT NULL CHECK(row_count >= 1),
+  source_reference TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS inventory_product_mappings (
+  product_mapping_version TEXT NOT NULL
+    REFERENCES inventory_product_mapping_versions(product_mapping_version),
+  source_product_code TEXT NOT NULL,
+  jan TEXT NOT NULL CHECK(length(jan) IN (8,13)),
+  canonical_product_id TEXT,
+  PRIMARY KEY(product_mapping_version, source_product_code)
+);
+CREATE INDEX IF NOT EXISTS inventory_product_mappings_lookup_idx
+  ON inventory_product_mappings(product_mapping_version, source_product_code);
+
 CREATE TABLE IF NOT EXISTS inventory_input_mapping_versions (
   mapping_version TEXT PRIMARY KEY,
   product_column TEXT NOT NULL,

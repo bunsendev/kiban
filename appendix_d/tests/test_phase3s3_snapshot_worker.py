@@ -29,6 +29,7 @@ from forecast_provider.inventory_foundation import (
     PostgresInventoryFoundationStore,
     ProductIdentifierKind,
     ProductMappingRecord,
+    ProductMappingVersion,
     SnapshotDecisionType,
     SqliteInventoryFoundationStore,
     StaleInventorySnapshotLeaseError,
@@ -262,14 +263,22 @@ def test_product_mapping_version_and_canonical_product_are_preserved(tmp_path):
     ).encode("utf-8-sig")
     job = _enqueue(store, mapping, content)
     product = ProductMappingRecord("products-v1", "P-001", VALID_JAN, "canonical-1")
-
-    def resolver_factory(selected_mapping, selected_locations):
-        return InventoryReferenceResolver(selected_mapping, selected_locations, (product,))
+    store.put_product_mapping(
+        ProductMappingVersion(
+            "products-v1",
+            "1" * 64,
+            1,
+            "synthetic-test-source",
+            "test",
+            "synthetic fixture",
+            NOW,
+        ),
+        (product,),
+    )
 
     completed = InventorySnapshotWorker(
         store,
         MemorySourceReader({job.source_reference: content}),
-        resolver_factory=resolver_factory,
         clock=lambda: NOW,
     ).run_once("worker-1")
     assert completed.status is InventorySnapshotJobStatus.SUCCEEDED

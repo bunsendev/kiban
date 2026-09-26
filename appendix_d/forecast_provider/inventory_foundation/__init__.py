@@ -54,6 +54,12 @@ from .locations import (
 )
 from .mapping import InventoryInputMappingVersion
 from .postgres import PostgresInventoryFoundationStore
+from .product_mappings import (
+    ProductMappingImport,
+    ProductMappingVersion,
+    parse_confirmed_product_mapping_csv,
+    serialize_product_mapping_version,
+)
 from .read_service import InventoryReadError, InventorySnapshotReadService
 from .reconciliation import InventoryQuantityReconciliation
 from .references import InventoryReferenceResolver, ProductMappingRecord, ResolvedProduct
@@ -116,7 +122,9 @@ __all__ = [
     "PdfApprovalReference",
     "PostgresInventoryFoundationStore",
     "ProductIdentifierKind",
+    "ProductMappingImport",
     "ProductMappingRecord",
+    "ProductMappingVersion",
     "QuarantineReason",
     "QuarantinedInventoryRow",
     "RecommendationBasis",
@@ -130,7 +138,9 @@ __all__ = [
     "canonical_datetime",
     "canonical_decimal",
     "create_inventory_snapshot_job",
+    "parse_confirmed_product_mapping_csv",
     "parse_inventory_csv",
+    "serialize_product_mapping_version",
     "validate_inventory_csv",
     "validate_jan",
     "validate_route_locations",

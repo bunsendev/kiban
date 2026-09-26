@@ -336,6 +336,8 @@ def test_schema_contains_all_phase3s1_tables_and_cross_database_constraints():
         "inventory_location_master_versions",
         "inventory_locations",
         "inventory_route_lead_time_policies",
+        "inventory_product_mapping_versions",
+        "inventory_product_mappings",
         "inventory_input_mapping_versions",
         "inventory_snapshot_jobs",
         "inventory_snapshots",

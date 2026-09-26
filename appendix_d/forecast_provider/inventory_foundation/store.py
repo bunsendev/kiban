@@ -33,9 +33,12 @@ from .locations import (
     validate_route_locations,
 )
 from .mapping import InventoryInputMappingVersion
+from .product_mapping_store import InventoryProductMappingStoreMixin
 
 
-class SqliteInventoryFoundationStore(InventorySnapshotJobStoreMixin):
+class SqliteInventoryFoundationStore(
+    InventoryProductMappingStoreMixin, InventorySnapshotJobStoreMixin
+):
     def __init__(self, path: Path):
         self.path = path
         self._initialize()
