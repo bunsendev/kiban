@@ -9,7 +9,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 
-from .contracts import NormalizedUnit, ProductIdentifierKind
+from .contracts import NormalizedUnit, ProductIdentifierKind, SnapshotAtSourceKind
 from .mapping import InventoryInputMappingVersion
 
 INPUT_MAPPING_HEADER = [
@@ -27,6 +27,12 @@ INPUT_MAPPING_HEADER = [
     "文字コード",
     "区切り文字",
     "header行",
+    "確認メモ",
+]
+EXTENDED_INPUT_MAPPING_HEADER = [
+    *INPUT_MAPPING_HEADER[:-1],
+    "snapshot取得方式",
+    "snapshot時刻policy版",
     "確認メモ",
 ]
 CONFIRMED_NOTE = "確認済み"
@@ -55,8 +61,9 @@ def parse_confirmed_input_mapping_csv(
     try:
         text = content.decode("utf-8-sig")
         reader = csv.DictReader(io.StringIO(text))
-        if reader.fieldnames != INPUT_MAPPING_HEADER:
+        if reader.fieldnames not in (INPUT_MAPPING_HEADER, EXTENDED_INPUT_MAPPING_HEADER):
             raise ValueError("input mappingの列がtemplateと一致しません")
+        extended_contract = reader.fieldnames == EXTENDED_INPUT_MAPPING_HEADER
         rows = list(reader)
     except (UnicodeDecodeError, csv.Error) as exc:
         raise ValueError("input mappingはUTF-8 CSVで保存してください") from exc
@@ -73,6 +80,21 @@ def parse_confirmed_input_mapping_csv(
     except ValueError as exc:
         raise ValueError("商品識別種別はJANまたはPRODUCT_CODEです") from exc
     product_mapping_version = (row.get("商品mapping版") or "").strip() or None
+    try:
+        snapshot_source_kind = SnapshotAtSourceKind(
+            (row.get("snapshot取得方式") or SnapshotAtSourceKind.COLUMN.value).strip()
+        )
+    except ValueError as exc:
+        raise ValueError("snapshot取得方式はCOLUMNまたはFILENAME_YYYYMMDDです") from exc
+    snapshot_policy_version = (row.get("snapshot時刻policy版") or "").strip() or None
+    snapshot_at_column = (row.get("snapshot日時列") or "").strip()
+    if snapshot_source_kind is SnapshotAtSourceKind.FILENAME_YYYYMMDD:
+        if snapshot_at_column != "__snapshot_at__":
+            raise ValueError("ファイル名日付方式のsnapshot日時列は__snapshot_at__です")
+        if snapshot_policy_version is None:
+            raise ValueError("ファイル名日付方式にはsnapshot時刻policy版が必要です")
+    elif snapshot_policy_version is not None:
+        raise ValueError("COLUMN方式ではsnapshot時刻policy版を指定しません")
     normalized_unit = (row.get("正規化単位") or "").strip()
     if normalized_unit != NormalizedUnit.CASE.value:
         raise ValueError("V1の正規化単位はCASEです")
@@ -99,10 +121,13 @@ def parse_confirmed_input_mapping_csv(
         "product_identifier_kind": identifier_kind.value,
         "product_mapping_version": product_mapping_version,
         "quantity_column": (row.get("数量列") or "").strip(),
-        "snapshot_at_column": (row.get("snapshot日時列") or "").strip(),
+        "snapshot_at_column": snapshot_at_column,
         "source_quantity_column_name": (row.get("原本数量列名") or "").strip(),
         "source_unit_label": (row.get("原本単位表記") or "").strip(),
     }
+    if extended_contract:
+        payload["snapshot_at_source_kind"] = snapshot_source_kind.value
+        payload["snapshot_at_policy_version"] = snapshot_policy_version
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
         "utf-8"
     )
@@ -126,5 +151,7 @@ def parse_confirmed_input_mapping_csv(
         created_by,
         reason,
         created_at,
+        snapshot_source_kind,
+        snapshot_policy_version,
     )
     return InventoryInputMappingImport(mapping, digest)

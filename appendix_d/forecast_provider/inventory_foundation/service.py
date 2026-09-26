@@ -18,6 +18,7 @@ from .job_contracts import (
 )
 from .mapping import InventoryInputMappingVersion
 from .references import InventoryReferenceResolver
+from .snapshot_time import SnapshotTimePolicy
 from .validation import validate_inventory_csv
 
 
@@ -78,6 +79,7 @@ class InventorySnapshotService:
         mapping: InventoryInputMappingVersion,
         resolver: InventoryReferenceResolver,
         *,
+        snapshot_time_policy: SnapshotTimePolicy | None = None,
         completed_at: datetime,
     ) -> InventorySnapshotFinalization:
         job = lease.job
@@ -90,7 +92,12 @@ class InventorySnapshotService:
             )
         if mapping.mapping_version != job.mapping_version:
             raise InventorySnapshotProcessingError(InventorySnapshotJobErrorCode.MAPPING_NOT_FOUND)
-        parsed = parse_inventory_csv(content, mapping)
+        parsed = parse_inventory_csv(
+            content,
+            mapping,
+            source_reference=job.source_reference,
+            snapshot_time_policy=snapshot_time_policy,
+        )
         validation = validate_inventory_csv(parsed, mapping, resolver)
         snapshot = None
         decision = SnapshotDecisionType.REJECTED

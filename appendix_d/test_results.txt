@@ -1467,3 +1467,12 @@ Docker Desktop 4.90.0、Docker Engine 29.7.2、PostgreSQL 17 Alpineを使用。P
 - PostgreSQL 18.6でpagination、index、decision同時競合、as-of query、expiry sortを確認。
 - Windows非対応のLinux専用peak RSS 1件を除外した全回帰: 630 passed、18 skipped、1 deselected。
 - `ruff check .`、`check_lint.py`、`make_release.py --check`: すべて成功。配布668ファイルが一致。
+
+## Phase 3S-11 ファイル名日付snapshot時刻policy（2026-09-26）
+
+- Phase 3S-11新規・関連試験: 52 passed、PostgreSQL実接続2件skip。
+- policyの決定性、明示的な締め時刻・timezoneによるUTC変換、不正ファイル名拒否、旧COLUMN方式、snapshot列なしCSVのWorker完了、旧SQLite schema移行を確認。
+- WindowsでLinux専用peak RSS試験1件を除外した全回帰: 670 passed、18 skipped、1 deselected。
+- `ruff check .`: All checks passed。
+- `make_release.py --check`: SHA一覧更新後に全配布ファイルの一致を確認。
+- 実データ、実ファイル名、未確認の締め時刻はRepositoryへ保存していない。実運用policy登録は業務確認後に行う。

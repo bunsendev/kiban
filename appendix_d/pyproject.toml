@@ -45,6 +45,7 @@ kiban-inventory-normalization-worker = "forecast_provider.inventory_normalizatio
 kiban-product-mapping-import = "forecast_provider.product_mapping_import:main"
 kiban-location-master-import = "forecast_provider.location_master_import:main"
 kiban-inventory-input-mapping-import = "forecast_provider.inventory_input_mapping_import:main"
+kiban-snapshot-time-policy-import = "forecast_provider.snapshot_time_policy_import:main"
 kiban-local-validation-acceptance = "forecast_provider.local_validation_acceptance.cli:main"
 kiban-provider-conformance-worker = "forecast_provider.provider_conformance_worker:main"
 kiban-comparison-campaign-worker = "forecast_provider.comparison_campaign_worker:main"

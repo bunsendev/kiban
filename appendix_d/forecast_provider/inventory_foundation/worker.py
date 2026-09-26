@@ -48,6 +48,11 @@ class InventorySnapshotWorker:
                 raise InventorySnapshotProcessingError(
                     InventorySnapshotJobErrorCode.MAPPING_NOT_FOUND
                 )
+            snapshot_time_policy = (
+                self.store.get_snapshot_time_policy(mapping.snapshot_at_policy_version)
+                if mapping.snapshot_at_policy_version is not None
+                else None
+            )
             locations = self.store.list_locations(mapping.location_master_version)
             product_mappings = (
                 self.store.list_product_mappings(mapping.product_mapping_version)
@@ -60,6 +65,7 @@ class InventorySnapshotWorker:
                 content,
                 mapping,
                 resolver,
+                snapshot_time_policy=snapshot_time_policy,
                 completed_at=self.clock(),
             )
             self.store.finalize_job(lease, finalization)

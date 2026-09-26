@@ -158,6 +158,8 @@ Phase 3S-8で確認済みCSVを内容hashの版付き商品mapping台帳へ登�
 Phase 3S-9で確認済みlocation master CSVから、拠点コード・名称・FACTORY / WAREHOUSE・有効期間を固定した決定的な版を登録できるようにした。locationとroute policyの永続化は専用mixinへ分離した。実データ2倉庫の正式登録は名称・適用開始日・業務承認後に行い、FACTORYは提供データ確認まで生成しない。詳細は[Phase 3S-9実装結果](planning/PHASE3S9_LOCATION_MASTER_IMPORT_RESULT.md)と[運用手順](docs/Phase3S9_確認済みlocation_master取込.md)。
 
 Phase 3S-10で商品・locationの正式version、CSV列、CASE、encoding、delimiter、header行、snapshot日時列を固定するInventory Input Mapping登録経路を追加した。存在しない参照versionは登録できない。実在庫CSVには正式snapshot日時列がないため、締め時刻とtimezoneの業務確認後に実mappingを登録する。詳細は[Phase 3S-10実装結果](planning/PHASE3S10_INPUT_MAPPING_IMPORT_RESULT.md)と[運用手順](docs/Phase3S10_確認済みInventory_Input_Mapping取込.md)。
+
+Phase 3S-11でファイル名末尾の日付と業務確認済みの締め時刻・timezoneから、正式snapshot日時を生成する版付きpolicyを追加した。既存の日時列方式は維持し、policy未登録や不正ファイル名を契約エラーとして拒否する。実在庫へ適用する時刻は引き続き業務確認が必要である。詳細は[Phase 3S-11実装結果](planning/PHASE3S11_SNAPSHOT_TIME_POLICY_RESULT.md)と[運用手順](docs/Phase3S11_snapshot時刻policy.md)。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
 ## 変更報告

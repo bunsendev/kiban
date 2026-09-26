@@ -72,6 +72,17 @@ CREATE TABLE IF NOT EXISTS inventory_product_mappings (
 CREATE INDEX IF NOT EXISTS inventory_product_mappings_lookup_idx
   ON inventory_product_mappings(product_mapping_version, source_product_code);
 
+CREATE TABLE IF NOT EXISTS inventory_snapshot_time_policies (
+  policy_version TEXT PRIMARY KEY,
+  content_sha256 TEXT NOT NULL UNIQUE CHECK(length(content_sha256)=64),
+  source_kind TEXT NOT NULL CHECK(source_kind='FILENAME_YYYYMMDD'),
+  cutoff_time TEXT NOT NULL,
+  timezone_name TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS inventory_input_mapping_versions (
   mapping_version TEXT PRIMARY KEY,
   product_column TEXT NOT NULL,
@@ -93,10 +104,19 @@ CREATE TABLE IF NOT EXISTS inventory_input_mapping_versions (
   created_by TEXT NOT NULL,
   reason TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL,
+  snapshot_at_source_kind TEXT NOT NULL DEFAULT 'COLUMN'
+    CHECK(snapshot_at_source_kind IN ('COLUMN','FILENAME_YYYYMMDD')),
+  snapshot_at_policy_version TEXT
+    REFERENCES inventory_snapshot_time_policies(policy_version),
   CHECK(
     (product_identifier_kind='JAN' AND product_mapping_version IS NULL)
     OR
     (product_identifier_kind='PRODUCT_CODE' AND product_mapping_version IS NOT NULL)
+  ),
+  CHECK(
+    (snapshot_at_source_kind='COLUMN' AND snapshot_at_policy_version IS NULL)
+    OR
+    (snapshot_at_source_kind='FILENAME_YYYYMMDD' AND snapshot_at_policy_version IS NOT NULL)
   )
 );
 

@@ -18,6 +18,7 @@ from .contracts import (
     ProductIdentifierKind,
     QuarantineReason,
     RecommendationBasis,
+    SnapshotAtSourceKind,
     SnapshotDecisionType,
     SourceKind,
 )
@@ -73,6 +74,8 @@ from .service import (
     InventorySnapshotService,
     create_inventory_snapshot_job,
 )
+from .snapshot_time import SnapshotTimePolicy, build_snapshot_time_policy
+from .snapshot_time_policies import parse_confirmed_snapshot_time_policy_csv
 from .sources import (
     DirectoryInventorySourceReader,
     InventorySourceReader,
@@ -137,17 +140,21 @@ __all__ = [
     "RecommendationBasis",
     "ResolvedProduct",
     "RouteLeadTimePolicy",
+    "SnapshotAtSourceKind",
     "SnapshotDecisionType",
+    "SnapshotTimePolicy",
     "SourceKind",
     "SqliteInventoryFoundationStore",
     "StaleInventorySnapshotLeaseError",
     "build_inventory_snapshot",
+    "build_snapshot_time_policy",
     "canonical_datetime",
     "canonical_decimal",
     "create_inventory_snapshot_job",
     "parse_confirmed_input_mapping_csv",
     "parse_confirmed_location_master_csv",
     "parse_confirmed_product_mapping_csv",
+    "parse_confirmed_snapshot_time_policy_csv",
     "parse_inventory_csv",
     "serialize_product_mapping_version",
     "validate_inventory_csv",
