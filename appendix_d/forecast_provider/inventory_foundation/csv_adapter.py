@@ -9,8 +9,9 @@ import io
 import json
 from dataclasses import dataclass, field
 
-from .contracts import InventoryCsvErrorCode
+from .contracts import InventoryCsvErrorCode, SnapshotAtSourceKind
 from .mapping import InventoryInputMappingVersion
+from .snapshot_time import SnapshotTimePolicy
 
 _ALLOWED_ENCODINGS = frozenset({"utf-8", "utf-8-sig", "cp932"})
 
@@ -61,6 +62,9 @@ def _row_hash(row: list[str]) -> str:
 def parse_inventory_csv(
     content: bytes,
     mapping: InventoryInputMappingVersion,
+    *,
+    source_reference: str | None = None,
+    snapshot_time_policy: SnapshotTimePolicy | None = None,
 ) -> ParsedInventoryCsv:
     """CSVをdecodeし、raw値を公開結果へ複写しない行objectを返す。"""
 
@@ -95,8 +99,29 @@ def parse_inventory_csv(
         mapping.location_column,
         mapping.expiry_column,
         mapping.quantity_column,
-        mapping.snapshot_at_column,
     }
+    derived_snapshot_at: str | None = None
+    if mapping.snapshot_at_source_kind is SnapshotAtSourceKind.COLUMN:
+        required.add(mapping.snapshot_at_column)
+    else:
+        if not source_reference:
+            raise InventoryCsvContractError(
+                InventoryCsvErrorCode.SNAPSHOT_SOURCE_REFERENCE_MISSING
+            )
+        if (
+            snapshot_time_policy is None
+            or snapshot_time_policy.policy_version != mapping.snapshot_at_policy_version
+            or snapshot_time_policy.source_kind is not mapping.snapshot_at_source_kind
+        ):
+            raise InventoryCsvContractError(InventoryCsvErrorCode.SNAPSHOT_TIME_POLICY_INVALID)
+        if mapping.snapshot_at_column in headers:
+            raise InventoryCsvContractError(InventoryCsvErrorCode.SNAPSHOT_TIME_POLICY_INVALID)
+        try:
+            derived_snapshot_at = snapshot_time_policy.resolve(source_reference).isoformat()
+        except ValueError:
+            raise InventoryCsvContractError(
+                InventoryCsvErrorCode.SNAPSHOT_FILENAME_INVALID
+            ) from None
     if not required.issubset(headers):
         raise InventoryCsvContractError(InventoryCsvErrorCode.REQUIRED_COLUMN_MISSING)
 
@@ -106,6 +131,8 @@ def parse_inventory_csv(
             continue
         shape_valid = len(row) == len(headers)
         values = tuple(zip(headers, row, strict=True)) if shape_valid else ()
+        if shape_valid and derived_snapshot_at is not None:
+            values += ((mapping.snapshot_at_column, derived_snapshot_at),)
         rows.append(ParsedInventoryCsvRow(index, _row_hash(row), values, shape_valid))
     return ParsedInventoryCsv(
         hashlib.sha256(content).hexdigest(),

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from .contracts import NormalizedUnit, ProductIdentifierKind
+from .contracts import NormalizedUnit, ProductIdentifierKind, SnapshotAtSourceKind
 
 
 @dataclass(frozen=True)
@@ -28,6 +28,8 @@ class InventoryInputMappingVersion:
     created_by: str
     reason: str
     created_at: datetime
+    snapshot_at_source_kind: SnapshotAtSourceKind = SnapshotAtSourceKind.COLUMN
+    snapshot_at_policy_version: str | None = None
 
     def __post_init__(self) -> None:
         required = (
@@ -65,5 +67,15 @@ class InventoryInputMappingVersion:
             raise ValueError("header_rowは1以上です")
         if self.created_at.tzinfo is None or self.created_at.utcoffset() is None:
             raise ValueError("created_atはtimezone付き日時で指定してください")
+        if not isinstance(self.snapshot_at_source_kind, SnapshotAtSourceKind):
+            raise ValueError("snapshot_at_source_kindが不正です")
+        if self.snapshot_at_source_kind is SnapshotAtSourceKind.COLUMN:
+            if self.snapshot_at_policy_version is not None:
+                raise ValueError("COLUMN方式ではsnapshot time policyを指定しません")
+        elif not self.snapshot_at_policy_version or not self.snapshot_at_policy_version.strip():
+            raise ValueError("ファイル名日付方式にはsnapshot time policyが必要です")
+        else:
+            object.__setattr__(
+                self, "snapshot_at_policy_version", self.snapshot_at_policy_version.strip()
+            )
         object.__setattr__(self, "created_at", self.created_at.astimezone(UTC))
-

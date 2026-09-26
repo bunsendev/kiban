@@ -97,9 +97,45 @@ class PostgresInventoryFoundationStore(SqliteInventoryFoundationStore):
                             "inventory_snapshot_decisions_revision_check "
                             "CHECK(revision >= 1)"
                         )
+            mapping_exists = db.execute(
+                "SELECT to_regclass(current_schema() || "
+                "'.inventory_input_mapping_versions') AS name"
+            ).fetchone()["name"]
+            if mapping_exists is not None:
+                db.execute(
+                    "ALTER TABLE inventory_input_mapping_versions "
+                    "ADD COLUMN IF NOT EXISTS snapshot_at_source_kind "
+                    "TEXT NOT NULL DEFAULT 'COLUMN',"
+                    "ADD COLUMN IF NOT EXISTS snapshot_at_policy_version TEXT"
+                )
             for statement in statements:
                 if statement.strip():
                     db.execute(statement)
+            mapping_source_constraint = db.execute(
+                "SELECT 1 FROM pg_constraint WHERE "
+                "conrelid='inventory_input_mapping_versions'::regclass "
+                "AND conname='inventory_input_mapping_snapshot_source_check'"
+            ).fetchone()
+            if mapping_source_constraint is None:
+                db.execute(
+                    "ALTER TABLE inventory_input_mapping_versions ADD CONSTRAINT "
+                    "inventory_input_mapping_snapshot_source_check CHECK("
+                    "snapshot_at_source_kind IN ('COLUMN','FILENAME_YYYYMMDD'))"
+                )
+            mapping_policy_constraint = db.execute(
+                "SELECT 1 FROM pg_constraint WHERE "
+                "conrelid='inventory_input_mapping_versions'::regclass "
+                "AND conname='inventory_input_mapping_snapshot_policy_check'"
+            ).fetchone()
+            if mapping_policy_constraint is None:
+                db.execute(
+                    "ALTER TABLE inventory_input_mapping_versions ADD CONSTRAINT "
+                    "inventory_input_mapping_snapshot_policy_check CHECK("
+                    "(snapshot_at_source_kind='COLUMN' AND "
+                    "snapshot_at_policy_version IS NULL) OR "
+                    "(snapshot_at_source_kind='FILENAME_YYYYMMDD' AND "
+                    "snapshot_at_policy_version IS NOT NULL))"
+                )
             constraint = db.execute(
                 "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint "
                 "WHERE conrelid='inventory_snapshot_quarantines'::regclass "

@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 3S-11
+
+- ファイル名末尾の`_YYYYMMDD.csv`と業務確認済み締め時刻・timezoneからsnapshot日時を生成する版付きpolicyを追加。
+- policy未登録、不一致、不正日付、曖昧または存在しない現地時刻を全体契約エラーとして拒否。
+- Inventory Input Mappingへsnapshot取得方式とpolicy版を追加し、既存`COLUMN`方式と旧CSV/hashを維持。
+- SQLite/PostgreSQL schema、CSV adapter、Service、Worker、確認済みpolicy登録CLIを接続。
+- 時刻の0時補完やdry run値の正式採用を行わず、業務確認前は実データへ適用しない境界を固定。
+
 ## Phase 3S-10
 
 - 全項目を確認済みのInventory Input Mapping CSVから決定的なmapping versionを登録するadapterとCLIを追加。

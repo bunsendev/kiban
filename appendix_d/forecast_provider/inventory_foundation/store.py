@@ -25,12 +25,14 @@ from .job_store import InventorySnapshotJobStoreMixin
 from .location_store import InventoryLocationStoreMixin
 from .mapping_store import InventoryInputMappingStoreMixin
 from .product_mapping_store import InventoryProductMappingStoreMixin
+from .snapshot_time_store import SnapshotTimePolicyStoreMixin
 
 
 class SqliteInventoryFoundationStore(
     InventoryLocationStoreMixin,
     InventoryInputMappingStoreMixin,
     InventoryProductMappingStoreMixin,
+    SnapshotTimePolicyStoreMixin,
     InventorySnapshotJobStoreMixin,
 ):
     def __init__(self, path: Path):
@@ -47,9 +49,32 @@ class SqliteInventoryFoundationStore(
         with self._connect() as db:
             self._upgrade_job_columns(db)
             self._upgrade_decision_revision(db)
+            self._upgrade_input_mapping_snapshot_columns(db)
             db.executescript(Path(__file__).with_name("schema.sql").read_text(encoding="utf-8"))
             self._upgrade_quarantine_reasons(db)
             self._upgrade_decision_revision(db)
+
+    @staticmethod
+    def _upgrade_input_mapping_snapshot_columns(db) -> None:
+        table = db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' "
+            "AND name='inventory_input_mapping_versions'"
+        ).fetchone()
+        if table is None:
+            return
+        columns = {
+            row[1] for row in db.execute("PRAGMA table_info(inventory_input_mapping_versions)")
+        }
+        if "snapshot_at_source_kind" not in columns:
+            db.execute(
+                "ALTER TABLE inventory_input_mapping_versions ADD COLUMN "
+                "snapshot_at_source_kind TEXT NOT NULL DEFAULT 'COLUMN'"
+            )
+        if "snapshot_at_policy_version" not in columns:
+            db.execute(
+                "ALTER TABLE inventory_input_mapping_versions ADD COLUMN "
+                "snapshot_at_policy_version TEXT"
+            )
 
     @staticmethod
     def _upgrade_decision_revision(db) -> None:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .contracts import NormalizedUnit, ProductIdentifierKind
+from .contracts import NormalizedUnit, ProductIdentifierKind, SnapshotAtSourceKind
 from .domain import canonical_datetime
 from .job_store import _datetime
 from .mapping import InventoryInputMappingVersion
@@ -30,6 +30,14 @@ class InventoryInputMappingStoreMixin:
                 is None
             ):
                 raise ValueError("product mapping versionが見つかりません")
+            if value.snapshot_at_source_kind is SnapshotAtSourceKind.FILENAME_YYYYMMDD and (
+                db.execute(
+                    "SELECT 1 FROM inventory_snapshot_time_policies WHERE policy_version=?",
+                    (value.snapshot_at_policy_version,),
+                ).fetchone()
+                is None
+            ):
+                raise ValueError("snapshot time policy versionが見つかりません")
             existing = db.execute(
                 "SELECT * FROM inventory_input_mapping_versions WHERE mapping_version=?",
                 (value.mapping_version,),
@@ -37,12 +45,16 @@ class InventoryInputMappingStoreMixin:
             expected = _values(value)
             if existing is not None:
                 actual = tuple(existing[key] for key in _CONTRACT_COLUMNS)
-                if actual == expected[: len(_CONTRACT_COLUMNS)]:
+                expected_contract = tuple(
+                    expected[_COLUMNS.index(key)] for key in _CONTRACT_COLUMNS
+                )
+                if actual == expected_contract:
                     return
                 raise ValueError("同じinput mapping versionの内容は変更できません")
             db.execute(
-                "INSERT INTO inventory_input_mapping_versions VALUES "
-                "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO inventory_input_mapping_versions ("
+                + ",".join(_COLUMNS)
+                + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 expected,
             )
 
@@ -73,6 +85,8 @@ class InventoryInputMappingStoreMixin:
             row["created_by"],
             row["reason"],
             _datetime(row["created_at"]),
+            SnapshotAtSourceKind(row["snapshot_at_source_kind"]),
+            row["snapshot_at_policy_version"],
         )
 
 
@@ -95,8 +109,10 @@ _COLUMNS = (
     "created_by",
     "reason",
     "created_at",
+    "snapshot_at_source_kind",
+    "snapshot_at_policy_version",
 )
-_CONTRACT_COLUMNS = _COLUMNS[:15]
+_CONTRACT_COLUMNS = _COLUMNS[:15] + _COLUMNS[18:]
 
 
 def _values(value: InventoryInputMappingVersion) -> tuple:
@@ -119,4 +135,6 @@ def _values(value: InventoryInputMappingVersion) -> tuple:
         value.created_by,
         value.reason,
         canonical_datetime(value.created_at, "created_at"),
+        value.snapshot_at_source_kind.value,
+        value.snapshot_at_policy_version,
     )

@@ -1,4 +1,4 @@
-"""確認済みInventory Input Mappingを正式登録するCLI。"""
+"""確認済みsnapshot時刻policyを正式登録するCLI。"""
 
 from __future__ import annotations
 
@@ -10,13 +10,13 @@ from pathlib import Path
 from .inventory_foundation import (
     PostgresInventoryFoundationStore,
     SqliteInventoryFoundationStore,
-    parse_confirmed_input_mapping_csv,
+    parse_confirmed_snapshot_time_policy_csv,
 )
 from .inventory_foundation.domain import canonical_datetime
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="確認済みInventory Input Mappingの正式登録")
+    parser = argparse.ArgumentParser(description="確認済みsnapshot時刻policyの正式登録")
     database = parser.add_mutually_exclusive_group(required=True)
     database.add_argument("--sqlite", type=Path)
     database.add_argument("--postgres-dsn")
@@ -28,7 +28,7 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    imported = parse_confirmed_input_mapping_csv(
+    policy = parse_confirmed_snapshot_time_policy_csv(
         args.csv.read_bytes(),
         created_by=args.created_by,
         reason=args.reason,
@@ -39,18 +39,15 @@ def main(argv: list[str] | None = None) -> int:
         if args.sqlite is not None
         else PostgresInventoryFoundationStore(args.postgres_dsn)
     )
-    store.put_mapping(imported.mapping)
-    stored = store.get_mapping(imported.mapping.mapping_version)
+    store.put_snapshot_time_policy(policy)
+    stored = store.get_snapshot_time_policy(policy.policy_version)
     assert stored is not None
     result = {
-        "mapping_version": stored.mapping_version,
-        "content_sha256": imported.content_sha256,
-        "product_identifier_kind": stored.product_identifier_kind.value,
-        "product_mapping_version": stored.product_mapping_version,
-        "location_master_version": stored.location_master_version,
-        "normalized_unit": stored.normalized_unit.value,
-        "snapshot_at_source_kind": stored.snapshot_at_source_kind.value,
-        "snapshot_at_policy_version": stored.snapshot_at_policy_version,
+        "policy_version": stored.policy_version,
+        "content_sha256": stored.content_sha256,
+        "source_kind": stored.source_kind.value,
+        "cutoff_time": stored.cutoff_time.isoformat(),
+        "timezone_name": stored.timezone_name,
         "created_by": stored.created_by,
         "reason": stored.reason,
         "created_at": canonical_datetime(stored.created_at),
