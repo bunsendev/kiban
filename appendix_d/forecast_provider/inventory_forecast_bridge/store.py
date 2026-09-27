@@ -61,7 +61,11 @@ class SqliteInventoryForecastBridgeStore:
                     ],
                 )
         current = self.get(bridge.version.bridge_version)
-        if current != bridge:
+        if (
+            current is None
+            or current.version.content_sha256 != bridge.version.content_sha256
+            or current.records != bridge.records
+        ):
             raise ValueError("同じidentity bridge versionの内容は変更できません")
         return current
 

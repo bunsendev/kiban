@@ -1497,3 +1497,20 @@ Docker Desktop 4.90.0、Docker Engine 29.7.2、PostgreSQL 17 Alpineを使用。P
 - WindowsでLinux専用peak RSS試験1件を除外した全回帰: 679 passed、19 skipped、1 deselected。
 - SHA一覧更新前の初回全回帰は677 passed、18 skipped、1 deselected、配布整合性1件failed。新規21ファイルと変更3ファイルのSHA未反映だけで、`make_release.py`後に解消。
 - `ruff check .`: All checks passed。実データ、実JAN、倉庫名、担当者名はRepositoryへ保存していない。
+
+# v2.9 Phase 3T-A-1 Pilot対象取込検証記録
+
+Date: 2026-09-27 JST
+OS: Windows 11
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.6
+
+- 確認済みScope・Intake・identity bridge CSVの登録と、版付きPilot job投入を人工fixtureで検証。
+- 原本全行から対象内・対象外・隔離の件数とCASE数量を照合し、対象欠落・対象外数量不正で停止することを確認。
+- 部分snapshotは通常のAPPROVED as-of検索から除外し、明示scope版の検索でのみ取得することを確認。
+- `tests/test_phase3ta1_pilot_intake.py`: 6 passed。
+- 全体回帰（配布ハッシュ試験とLinux専用peak RSSを除く）: 684 passed、19 skipped、2 deselected。
+- 配布ハッシュ試験を含む正式回帰: 685 passed、19 skipped、1 deselected。
+- `ruff check .`、`check_lint.py`、`git diff --check`: 成功。
+- PostgreSQLの実接続と実データ業務受入は本工程では未実施。実データをRepositoryへ追加していない。

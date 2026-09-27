@@ -216,6 +216,7 @@ def test_scoped_snapshot_reference_prevents_partial_data_from_looking_complete(t
             )
         ],
         created_at=NOW,
+        pilot_scope_version=scope.version.pilot_scope_version,
     )
     reference = build_scoped_snapshot_reference(
         inventory_snapshot=snapshot,

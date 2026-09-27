@@ -16,6 +16,7 @@ from .domain import (
     PilotScopeReconciliation,
     PilotScopeVersion,
 )
+from .intake import PilotIntakeBinding, PilotIntakeSelector
 
 
 class SqlitePilotScopeStore:
@@ -60,7 +61,11 @@ class SqlitePilotScopeStore:
                     ],
                 )
         current = self.get(scope.version.pilot_scope_version)
-        if current != scope:
+        if (
+            current is None
+            or current.version.content_sha256 != scope.version.content_sha256
+            or current.items != scope.items
+        ):
             raise ValueError("同じPilot Scope versionの内容は変更できません")
         return current
 
@@ -93,32 +98,9 @@ class SqlitePilotScopeStore:
     def put_scoped_snapshot(
         self, value: PilotScopedSnapshotReference
     ) -> PilotScopedSnapshotReference:
-        reconciliation = value.reconciliation
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            db.execute(
-                "INSERT INTO pilot_scoped_snapshot_references VALUES "
-                "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
-                "ON CONFLICT(scoped_snapshot_id) DO NOTHING",
-                (
-                    value.scoped_snapshot_id,
-                    value.inventory_snapshot_id,
-                    value.pilot_scope_version,
-                    value.scope_kind.value,
-                    reconciliation.source_sha256,
-                    reconciliation.source_row_count,
-                    reconciliation.scoped_row_count,
-                    reconciliation.out_of_scope_row_count,
-                    reconciliation.quarantined_scope_row_count,
-                    str(reconciliation.source_quantity_cases),
-                    str(reconciliation.scoped_quantity_cases),
-                    str(reconciliation.out_of_scope_quantity_cases),
-                    str(reconciliation.quarantined_scope_quantity_cases),
-                    value.known_at.isoformat(),
-                    value.recorded_at.isoformat(),
-                    value.content_sha256,
-                ),
-            )
+            insert_scoped_snapshot_reference(db, value)
         current = self.get_scoped_snapshot(value.scoped_snapshot_id)
         if current != value:
             raise ValueError("同じscoped snapshot参照の内容は変更できません")
@@ -154,6 +136,87 @@ class SqlitePilotScopeStore:
             row["content_sha256"],
         )
 
+    def get_scoped_snapshot_id(
+        self, inventory_snapshot_id: str, pilot_scope_version: str
+    ) -> str | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT scoped_snapshot_id FROM pilot_scoped_snapshot_references "
+                "WHERE inventory_snapshot_id=? AND pilot_scope_version=?",
+                (inventory_snapshot_id, pilot_scope_version),
+            ).fetchone()
+        return None if row is None else row["scoped_snapshot_id"]
+
+    def put_intake(self, value: PilotIntakeBinding) -> PilotIntakeBinding:
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            inserted = db.execute(
+                "INSERT INTO pilot_intake_versions VALUES (?,?,?,?,?,?,?) "
+                "ON CONFLICT(intake_version) DO NOTHING",
+                (
+                    value.intake_version,
+                    value.content_sha256,
+                    value.pilot_scope_version,
+                    value.mapping_version,
+                    value.created_by,
+                    value.reason,
+                    value.created_at.isoformat(),
+                ),
+            )
+            if inserted.rowcount == 1:
+                db.executemany(
+                    "INSERT INTO pilot_intake_selectors VALUES (?,?,?,?,?)",
+                    [
+                        (
+                            item.intake_version,
+                            item.source_product_value,
+                            item.source_location_code,
+                            item.jan,
+                            item.warehouse_id,
+                        )
+                        for item in value.selectors
+                    ],
+                )
+        current = self.get_intake(value.intake_version)
+        if (
+            current is None
+            or current.content_sha256 != value.content_sha256
+            or current.selectors != value.selectors
+        ):
+            raise ValueError("同じPilot Intake versionの内容は変更できません")
+        return current
+
+    def get_intake(self, intake_version: str) -> PilotIntakeBinding | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT * FROM pilot_intake_versions WHERE intake_version=?",
+                (intake_version,),
+            ).fetchone()
+            if row is None:
+                return None
+            selectors = db.execute(
+                "SELECT * FROM pilot_intake_selectors WHERE intake_version=? "
+                "ORDER BY source_product_value,source_location_code,jan,warehouse_id",
+                (intake_version,),
+            ).fetchall()
+        return PilotIntakeBinding(
+            row["intake_version"],
+            row["content_sha256"],
+            row["pilot_scope_version"],
+            row["mapping_version"],
+            row["created_by"],
+            row["reason"],
+            datetime.fromisoformat(str(row["created_at"])),
+            tuple(PilotIntakeSelector(**dict(item)) for item in selectors),
+        )
+
+    def get_job_reconciliation(self, job_id: str) -> dict | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT * FROM pilot_scope_job_reconciliations WHERE job_id=?", (job_id,)
+            ).fetchone()
+        return None if row is None else dict(row)
+
 
 class PostgresPilotScopeStore(SqlitePilotScopeStore):
     def __init__(self, dsn: str) -> None:
@@ -177,3 +240,30 @@ class PostgresPilotScopeStore(SqlitePilotScopeStore):
             for statement in Path(__file__).with_name("schema.sql").read_text("utf-8").split(";"):
                 if statement.strip():
                     db.execute(statement)
+
+
+def insert_scoped_snapshot_reference(db, value: PilotScopedSnapshotReference) -> None:
+    reconciliation = value.reconciliation
+    db.execute(
+        "INSERT INTO pilot_scoped_snapshot_references VALUES "
+        "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+        "ON CONFLICT(scoped_snapshot_id) DO NOTHING",
+        (
+            value.scoped_snapshot_id,
+            value.inventory_snapshot_id,
+            value.pilot_scope_version,
+            value.scope_kind.value,
+            reconciliation.source_sha256,
+            reconciliation.source_row_count,
+            reconciliation.scoped_row_count,
+            reconciliation.out_of_scope_row_count,
+            reconciliation.quarantined_scope_row_count,
+            str(reconciliation.source_quantity_cases),
+            str(reconciliation.scoped_quantity_cases),
+            str(reconciliation.out_of_scope_quantity_cases),
+            str(reconciliation.quarantined_scope_quantity_cases),
+            value.known_at.isoformat(),
+            value.recorded_at.isoformat(),
+            value.content_sha256,
+        ),
+    )

@@ -63,7 +63,7 @@ class SqliteFieldLearningStore:
                 ),
             )
         current = self.get_reference_case(value.case_id)
-        if current != value:
+        if current is None or current.content_sha256 != value.content_sha256:
             raise ValueError("同じreference caseの内容は変更できません")
         return current
 

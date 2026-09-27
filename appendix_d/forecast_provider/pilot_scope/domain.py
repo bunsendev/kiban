@@ -221,6 +221,8 @@ def build_scoped_snapshot_reference(
 
     canonical_datetime(recorded_at, "recorded_at")
     header = inventory_snapshot.header
+    if header.pilot_scope_version != pilot_scope.version.pilot_scope_version:
+        raise ValueError("inventory snapshotのPilot Scope versionが一致しません")
     business_date = header.snapshot_at.astimezone(UTC).date()
     if not pilot_scope.is_effective(business_date):
         raise ValueError("inventory snapshot日時はPilot Scopeの適用期間外です")

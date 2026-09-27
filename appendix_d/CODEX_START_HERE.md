@@ -163,7 +163,8 @@ Phase 3S-11でファイル名末尾の日付と業務確認済みの締め時刻
 
 Phase 3S-12で現場導入をSHADOW / ADVISORY / OPERATIONALへ分け、実データの商品別Gate、15商品Pilot、Feedback Ledger、Weekly Review、3T-A〜3T-Dを設計した。現在のShadow GateはBLOCKEDだが、FACTORYデータを待たずにWAREHOUSE側の実装を開始できる。詳細は[現場運用開始Gate・Shadow Mode計画](planning/PHASE3S12_FIELD_LEARNING_PLAN.md)。
 
-Phase 3T-A-0で10〜20商品の版付きPilot Scope、部分snapshotの原本照合、在庫・予測identity bridge、System / Operator / Actualを分ける追記型Feedback Ledgerを追加した。既定modeはSHADOWだけであり、scope外、曖昧identity、対象内隔離、revision競合を停止する。実CSV登録adapterと既存Snapshot Workerのscope-aware intakeは次工程で接続する。詳細は[実装結果](planning/PHASE3TA0_PILOT_GATE_FOUNDATION_RESULT.md)と[運用契約](docs/Phase3TA0_Pilot_Gate_Foundation.md)。
+Phase 3T-A-0で10〜20商品の版付きPilot Scope、部分snapshotの原本照合、在庫・予測identity bridge、System / Operator / Actualを分ける追記型Feedback Ledgerを追加した。既定modeはSHADOWだけであり、scope外、曖昧identity、対象内隔離、revision競合を停止する。詳細は[実装結果](planning/PHASE3TA0_PILOT_GATE_FOUNDATION_RESULT.md)と[運用契約](docs/Phase3TA0_Pilot_Gate_Foundation.md)。
+Phase 3T-A-1で確認済みPilot Scope・Intake・予測identity CSVの登録CLIと、既存在庫Workerのscope-aware intakeを接続した。対象外件数・数量を原本照合に残し、対象内異常を隔離する。部分snapshotは`PILOT_PARTIAL`として通常as-of照会から除外する。詳細は[実装結果](planning/PHASE3TA1_PILOT_INTAKE_RESULT.md)と[運用手順](docs/Phase3TA1_Pilot_Intake.md)。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
 ## 変更報告

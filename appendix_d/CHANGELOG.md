@@ -1,5 +1,12 @@
 # v2.9 修正記録
 
+## Phase 3T-A-1
+
+- 確認済みScope・予測identity・原本値対応CSVを版付き台帳へ登録するCLIを追加。
+- 原本CSVからPilot対象行を選んでWorkerに渡し、対象外件数・数量と対象内隔離を監査保存。
+- `PILOT_PARTIAL` snapshotを通常の全量as-of照会から除外し、明示scope版でのみ参照可能にした。
+- 旧job/snapshotのIDを維持する追加migrationと、部分取込の人工E2Eを追加。
+
 ## Phase 3T-A-0
 
 - 10〜20商品のJAN×WAREHOUSE、適用期間、承認者、理由を固定する内容アドレス型Pilot Scope台帳を追加。

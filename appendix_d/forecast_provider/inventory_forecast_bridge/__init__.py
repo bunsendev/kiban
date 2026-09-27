@@ -9,6 +9,7 @@ from .domain import (
     build_inventory_forecast_bridge,
     resolve_identity,
 )
+from .imports import parse_confirmed_inventory_forecast_bridge_csv
 from .store import (
     PostgresInventoryForecastBridgeStore,
     SqliteInventoryForecastBridgeStore,
@@ -23,5 +24,6 @@ __all__ = [
     "ResolvedInventoryForecastIdentity",
     "SqliteInventoryForecastBridgeStore",
     "build_inventory_forecast_bridge",
+    "parse_confirmed_inventory_forecast_bridge_csv",
     "resolve_identity",
 ]

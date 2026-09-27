@@ -41,20 +41,28 @@ def create_inventory_snapshot_job(
     requested_by: str,
     known_at: datetime,
     requested_at: datetime,
+    pilot_scope_version: str | None = None,
+    pilot_intake_version: str | None = None,
 ) -> InventorySnapshotJob:
     if known_at.tzinfo is None or known_at.utcoffset() is None:
         raise ValueError("known_atはtimezone付き日時です")
     known_at = known_at.astimezone(UTC)
-    job_id = _content_id(
-        "inventory-job",
-        {
-            "format": "inventory-snapshot-job-v1",
-            "source_reference": source_reference,
-            "source_sha256": source_sha256.lower(),
-            "mapping_version": mapping_version,
-            "known_at": known_at.isoformat(),
-        },
-    )
+    payload = {
+        "format": "inventory-snapshot-job-v1",
+        "source_reference": source_reference,
+        "source_sha256": source_sha256.lower(),
+        "mapping_version": mapping_version,
+        "known_at": known_at.isoformat(),
+    }
+    if (pilot_scope_version is None) != (pilot_intake_version is None):
+        raise ValueError("Pilot ScopeとIntake versionは同時に指定してください")
+    if pilot_scope_version is not None:
+        payload.update(
+            format="inventory-snapshot-job-v2-pilot",
+            pilot_scope_version=pilot_scope_version,
+            pilot_intake_version=pilot_intake_version,
+        )
+    job_id = _content_id("inventory-job", payload)
     return InventorySnapshotJob(
         job_id,
         SourceKind.CSV,
@@ -68,6 +76,8 @@ def create_inventory_snapshot_job(
         None,
         known_at,
         requested_at,
+        pilot_scope_version=pilot_scope_version,
+        pilot_intake_version=pilot_intake_version,
     )
 
 
@@ -81,6 +91,8 @@ class InventorySnapshotService:
         *,
         snapshot_time_policy: SnapshotTimePolicy | None = None,
         completed_at: datetime,
+        pilot_scope=None,
+        pilot_intake=None,
     ) -> InventorySnapshotFinalization:
         job = lease.job
         if completed_at.tzinfo is None or completed_at.utcoffset() is None:
@@ -98,7 +110,50 @@ class InventorySnapshotService:
             source_reference=job.source_reference,
             snapshot_time_policy=snapshot_time_policy,
         )
+        pilot_selection = None
+        if (
+            job.pilot_scope_version is not None
+            or pilot_scope is not None
+            or pilot_intake is not None
+        ):
+            if (
+                pilot_scope is None
+                or pilot_intake is None
+                or job.pilot_scope_version != pilot_scope.version.pilot_scope_version
+                or job.pilot_intake_version != pilot_intake.intake_version
+                or pilot_intake.pilot_scope_version != job.pilot_scope_version
+                or pilot_scope.version.created_at > job.known_at
+                or pilot_intake.created_at > job.known_at
+            ):
+                raise InventorySnapshotProcessingError(
+                    InventorySnapshotJobErrorCode.PILOT_INTAKE_INVALID
+                )
+            from ..pilot_scope.intake import select_pilot_rows
+
+            pilot_selection = select_pilot_rows(parsed, mapping=mapping, binding=pilot_intake)
+            parsed = pilot_selection.parsed
         validation = validate_inventory_csv(parsed, mapping, resolver)
+        scope_reconciliation = None
+        if pilot_selection is not None:
+            from ..pilot_scope.domain import build_scope_reconciliation
+
+            scoped_quantity = validation.reconciliation.normalized_quantity_cases
+            scope_reconciliation = build_scope_reconciliation(
+                source_sha256=job.source_sha256,
+                source_row_count=pilot_selection.source_row_count,
+                scoped_row_count=validation.reconciliation.accepted_row_count,
+                out_of_scope_row_count=pilot_selection.out_of_scope_row_count,
+                quarantined_scope_row_count=validation.reconciliation.quarantined_row_count,
+                source_quantity_cases=(
+                    validation.reconciliation.source_quantity_cases
+                    + pilot_selection.out_of_scope_quantity_cases
+                ),
+                scoped_quantity_cases=scoped_quantity,
+                out_of_scope_quantity_cases=pilot_selection.out_of_scope_quantity_cases,
+                quarantined_scope_quantity_cases=(
+                    validation.reconciliation.source_quantity_cases - scoped_quantity
+                ),
+            )
         snapshot = None
         decision = SnapshotDecisionType.REJECTED
         reason = "CSV_VALIDATION_REJECTED"
@@ -115,14 +170,29 @@ class InventorySnapshotService:
                 product_mapping_version=mapping.product_mapping_version or "JAN-DIRECT-v1",
                 buckets=validation.buckets,
                 created_at=completed_at,
+                pilot_scope_version=job.pilot_scope_version,
             )
             decision = SnapshotDecisionType.APPROVED
             reason = "CSV_STRICT_VALIDATION_APPROVED"
         if decision is SnapshotDecisionType.APPROVED:
+            scoped_reference = None
+            if pilot_selection is not None:
+                from ..pilot_scope.domain import (
+                    build_scoped_snapshot_reference,
+                )
+
+                scoped_reference = build_scoped_snapshot_reference(
+                    inventory_snapshot=snapshot,
+                    pilot_scope=pilot_scope,
+                    reconciliation=scope_reconciliation,
+                    recorded_at=completed_at,
+                )
             return InventorySnapshotFinalization(
                 validation=validation,
                 snapshot=snapshot,
                 completed_at=completed_at,
+                pilot_scoped_reference=scoped_reference,
+                pilot_reconciliation=scope_reconciliation,
             )
         payload = {
             "format": "inventory-snapshot-decision-v1",
@@ -141,4 +211,5 @@ class InventorySnapshotService:
             decided_by="SYSTEM:inventory-snapshot-worker",
             reason=reason,
             decided_at=completed_at,
+            pilot_reconciliation=scope_reconciliation,
         )

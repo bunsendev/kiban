@@ -141,6 +141,9 @@ CREATE TABLE IF NOT EXISTS inventory_snapshot_jobs (
   lease_token TEXT,
   leased_until TIMESTAMPTZ,
   last_heartbeat_at TIMESTAMPTZ,
+  pilot_scope_version TEXT,
+  pilot_intake_version TEXT,
+  CHECK((pilot_scope_version IS NULL) = (pilot_intake_version IS NULL)),
   CHECK(
     (status='RUNNING' AND worker_id IS NOT NULL AND lease_token IS NOT NULL
       AND leased_until IS NOT NULL)
@@ -207,6 +210,7 @@ CREATE TABLE IF NOT EXISTS inventory_snapshots (
   pdf_extraction_id TEXT,
   pdf_review_id TEXT,
   pdf_review_decision TEXT,
+  pilot_scope_version TEXT,
   UNIQUE(snapshot_id, location_master_version),
   FOREIGN KEY(pdf_extraction_id, pdf_review_id, pdf_review_decision)
     REFERENCES inventory_extraction_reviews(extraction_id, review_id, decision),
@@ -220,7 +224,8 @@ CREATE TABLE IF NOT EXISTS inventory_snapshots (
       AND pdf_extraction_id IS NOT NULL
       AND pdf_review_id IS NOT NULL
       AND pdf_review_decision='APPROVED')
-  )
+  ),
+  CHECK(pilot_scope_version IS NULL OR source_kind='CSV')
 );
 CREATE INDEX IF NOT EXISTS inventory_snapshots_time_idx
   ON inventory_snapshots(snapshot_at, known_at, snapshot_id);

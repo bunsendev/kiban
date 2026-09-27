@@ -130,6 +130,7 @@ class InventorySnapshotHeader:
     content_sha256: str
     created_at: datetime
     pdf_approval: PdfApprovalReference | None = None
+    pilot_scope_version: str | None = None
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -171,6 +172,14 @@ class InventorySnapshotHeader:
             raise ValueError("PDF source referenceは承認済みextraction IDと一致させてください")
         if self.source_kind is SourceKind.CSV and self.pdf_approval is not None:
             raise ValueError("CSVにPDF approvalは指定しません")
+        if self.pilot_scope_version is not None:
+            object.__setattr__(
+                self,
+                "pilot_scope_version",
+                _required(self.pilot_scope_version, "pilot_scope_version"),
+            )
+            if self.source_kind is not SourceKind.CSV:
+                raise ValueError("Pilot ScopeはCSV snapshotにだけ適用します")
 
 
 @dataclass(frozen=True)
@@ -214,6 +223,7 @@ def build_inventory_snapshot(
     buckets: list[InventoryExpiryBucket] | tuple[InventoryExpiryBucket, ...],
     created_at: datetime,
     pdf_approval: PdfApprovalReference | None = None,
+    pilot_scope_version: str | None = None,
 ) -> InventorySnapshot:
     snapshot_at_text = canonical_datetime(snapshot_at, "snapshot_at")
     known_at_text = canonical_datetime(known_at, "known_at")
@@ -229,6 +239,10 @@ def build_inventory_snapshot(
         raise ValueError("未承認PDF extractionから正式snapshotは作成できません")
     if source_kind is SourceKind.CSV and pdf_approval is not None:
         raise ValueError("CSV snapshotにPDF approvalは指定しません")
+    if pilot_scope_version is not None:
+        pilot_scope_version = _required(pilot_scope_version, "pilot_scope_version")
+        if source_kind is not SourceKind.CSV:
+            raise ValueError("Pilot ScopeはCSV snapshotにだけ適用します")
 
     prepared = tuple(_bucket_with_issues(value, snapshot_at) for value in buckets)
     keys = [
@@ -274,9 +288,12 @@ def build_inventory_snapshot(
         },
         "buckets": [_bucket_payload(value) for value in prepared],
     }
-    encoded = json.dumps(
-        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+    if pilot_scope_version is not None:
+        payload["pilot_scope_version"] = pilot_scope_version
+        payload["scope_kind"] = "PILOT_PARTIAL"
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
     content_sha256 = hashlib.sha256(encoded).hexdigest()
     identity = SnapshotIdentity(f"inventory-snapshot-{content_sha256}", content_sha256)
     header = InventorySnapshotHeader(
@@ -295,6 +312,7 @@ def build_inventory_snapshot(
         content_sha256=identity.content_sha256,
         created_at=created_at,
         pdf_approval=pdf_approval,
+        pilot_scope_version=pilot_scope_version,
     )
     return InventorySnapshot(header, prepared)
 
@@ -312,6 +330,7 @@ def verify_snapshot_identity(value: InventorySnapshot) -> None:
         buckets=value.buckets,
         created_at=value.header.created_at,
         pdf_approval=value.header.pdf_approval,
+        pilot_scope_version=value.header.pilot_scope_version,
     )
     if (
         rebuilt.header.snapshot_id != value.header.snapshot_id

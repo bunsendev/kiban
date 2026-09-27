@@ -6,6 +6,7 @@ import inspect
 from collections.abc import Callable
 from datetime import UTC, datetime
 
+from ..pilot_scope import PilotIntakeError
 from .csv_adapter import InventoryCsvContractError
 from .job_contracts import InventorySnapshotJobErrorCode
 from .references import InventoryReferenceResolver
@@ -20,6 +21,7 @@ class InventorySnapshotWorker:
         source_reader: InventorySourceReader,
         *,
         resolver_factory: Callable = InventoryReferenceResolver,
+        pilot_scope_store=None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self.store = store
@@ -27,6 +29,15 @@ class InventorySnapshotWorker:
         self.resolver_factory = resolver_factory
         self.clock = clock or (lambda: datetime.now(UTC))
         self.service = InventorySnapshotService()
+        if pilot_scope_store is None:
+            from ..pilot_scope.store import PostgresPilotScopeStore, SqlitePilotScopeStore
+
+            pilot_scope_store = (
+                PostgresPilotScopeStore(store.dsn)
+                if hasattr(store, "dsn")
+                else SqlitePilotScopeStore(store.path)
+            )
+        self.pilot_scope_store = pilot_scope_store
 
     def run_once(self, worker_id: str, *, lease_seconds: int = 60):
         lease = self.store.claim_next_job(
@@ -60,6 +71,15 @@ class InventorySnapshotWorker:
                 else ()
             )
             resolver = self._resolver(mapping, locations, product_mappings)
+            pilot_scope = None
+            pilot_intake = None
+            if lease.job.pilot_scope_version is not None:
+                pilot_scope = self.pilot_scope_store.get(lease.job.pilot_scope_version)
+                pilot_intake = self.pilot_scope_store.get_intake(lease.job.pilot_intake_version)
+                if pilot_scope is None or pilot_intake is None:
+                    raise InventorySnapshotProcessingError(
+                        InventorySnapshotJobErrorCode.PILOT_SCOPE_NOT_FOUND
+                    )
             finalization = self.service.prepare_finalization(
                 lease,
                 content,
@@ -67,6 +87,8 @@ class InventorySnapshotWorker:
                 resolver,
                 snapshot_time_policy=snapshot_time_policy,
                 completed_at=self.clock(),
+                pilot_scope=pilot_scope,
+                pilot_intake=pilot_intake,
             )
             self.store.finalize_job(lease, finalization)
         except InventorySourceReadError as exc:
@@ -80,6 +102,9 @@ class InventorySnapshotWorker:
             )
         except InventorySnapshotProcessingError as exc:
             self.store.fail_job(lease, exc.code, retryable=False, now=self.clock())
+        except PilotIntakeError as exc:
+            code = InventorySnapshotJobErrorCode(exc.code)
+            self.store.fail_job(lease, code, retryable=False, now=self.clock())
         except Exception:
             self.store.fail_job(
                 lease,
@@ -93,13 +118,15 @@ class InventorySnapshotWorker:
         """既存の2引数factoryを維持しつつ、正式商品mappingを標準factoryへ渡す。"""
 
         parameters = inspect.signature(self.resolver_factory).parameters.values()
-        accepts_product_mappings = any(
-            parameter.kind is inspect.Parameter.VAR_POSITIONAL for parameter in parameters
-        ) or sum(
-            parameter.kind
-            in {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD}
-            for parameter in parameters
-        ) >= 3
+        accepts_product_mappings = (
+            any(parameter.kind is inspect.Parameter.VAR_POSITIONAL for parameter in parameters)
+            or sum(
+                parameter.kind
+                in {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD}
+                for parameter in parameters
+            )
+            >= 3
+        )
         if accepts_product_mappings:
             return self.resolver_factory(mapping, locations, product_mappings)
         return self.resolver_factory(mapping, locations)

@@ -49,6 +49,7 @@ kiban-snapshot-time-policy-import = "forecast_provider.snapshot_time_policy_impo
 kiban-local-validation-acceptance = "forecast_provider.local_validation_acceptance.cli:main"
 kiban-provider-conformance-worker = "forecast_provider.provider_conformance_worker:main"
 kiban-comparison-campaign-worker = "forecast_provider.comparison_campaign_worker:main"
+kiban-pilot-gate = "forecast_provider.pilot_gate_import:main"
 
 [tool.setuptools.packages.find]
 include = ["forecast_provider*"]
