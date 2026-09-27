@@ -404,6 +404,7 @@ STARTABLE条件:
 進捗（2026-09-27）：3T-Bの14日Shadow FEFO試算を実装。業務ポリシー値は計算ごとに確認して明示指定する。結果の意味と未対応の供給・輸送計算は[Phase 3T-B](../docs/Phase3TB_Expiry_FEFO.md)を参照。
 進捗（2026-09-28）：後日ActualのCSV取込を実装。Shadow最小UI、reference case自動生成、週次reviewは未実装。詳細は[後日実績CSV取込](../docs/Phase3T_Field_Actual_Import.md)を参照。
 進捗（2026-09-28）：[倉庫Shadow確認画面](../docs/Phase3T_Shadow_Readonly_UI.md)を実装。Projection・FEFOを参考表示するが、補充量policy未確定のためreference case自動生成・担当者判断UI・週次reviewは未実装。
+進捗（2026-09-28）：[Shadow参考補充量](../docs/Phase3T_Shadow_Reference_Policy.md)の明示policy・dry-run・原子的case登録を追加。業務値の自動決定や現場承認は行わず、担当者判断UI・週次review・実データ受入は未実施。
 
 既存`inventory_foundation`、予測run、操作telemetryへFeedback責務を混入させない。
 

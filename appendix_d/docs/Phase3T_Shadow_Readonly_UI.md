@@ -28,4 +28,6 @@ APIは`POST /api/field-shadow/preview`。既存の`READ`権限を要求し、sna
 担当者判断、後日実績との週次比較、正式なShipment Recommendationもこの画面には含めない。
 補充量policy確定後にreference case自動生成と判断UIへ接続する。
 
+後続の[Shadow参考補充量とreference case](Phase3T_Shadow_Reference_Policy.md)で、明示確認した条件を用いる倉庫単独のCLI試算・登録境界を追加した。現画面は引き続き参考補充量とcaseを扱わない。
+
 この工程の試験は人工10商品×14日で行う。実データの業務受入や現場Shadow開始承認を意味しない。
