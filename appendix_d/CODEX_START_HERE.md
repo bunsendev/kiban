@@ -162,6 +162,8 @@ Phase 3S-10で商品・locationの正式version、CSV列、CASE、encoding、del
 Phase 3S-11でファイル名末尾の日付と業務確認済みの締め時刻・timezoneから、正式snapshot日時を生成する版付きpolicyを追加した。既存の日時列方式は維持し、policy未登録や不正ファイル名を契約エラーとして拒否する。実在庫へ適用する時刻は引き続き業務確認が必要である。詳細は[Phase 3S-11実装結果](planning/PHASE3S11_SNAPSHOT_TIME_POLICY_RESULT.md)と[運用手順](docs/Phase3S11_snapshot時刻policy.md)。
 
 Phase 3S-12で現場導入をSHADOW / ADVISORY / OPERATIONALへ分け、実データの商品別Gate、15商品Pilot、Feedback Ledger、Weekly Review、3T-A〜3T-Dを設計した。現在のShadow GateはBLOCKEDだが、FACTORYデータを待たずにWAREHOUSE側の実装を開始できる。詳細は[現場運用開始Gate・Shadow Mode計画](planning/PHASE3S12_FIELD_LEARNING_PLAN.md)。
+
+Phase 3T-A-0で10〜20商品の版付きPilot Scope、部分snapshotの原本照合、在庫・予測identity bridge、System / Operator / Actualを分ける追記型Feedback Ledgerを追加した。既定modeはSHADOWだけであり、scope外、曖昧identity、対象内隔離、revision競合を停止する。実CSV登録adapterと既存Snapshot Workerのscope-aware intakeは次工程で接続する。詳細は[実装結果](planning/PHASE3TA0_PILOT_GATE_FOUNDATION_RESULT.md)と[運用契約](docs/Phase3TA0_Pilot_Gate_Foundation.md)。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
 ## 変更報告

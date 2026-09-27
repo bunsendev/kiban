@@ -76,6 +76,9 @@ forecast_provider = [
     "inventory_normalization/*.sql",
     "inventory_foundation/*.sql",
     "operation_events/*.sql",
+    "pilot_scope/*.sql",
+    "inventory_forecast_bridge/*.sql",
+    "field_learning/*.sql",
     "ui/static/*",
 ]
 
