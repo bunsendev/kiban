@@ -160,6 +160,8 @@ Phase 3S-9で確認済みlocation master CSVから、拠点コード・名称・
 Phase 3S-10で商品・locationの正式version、CSV列、CASE、encoding、delimiter、header行、snapshot日時列を固定するInventory Input Mapping登録経路を追加した。存在しない参照versionは登録できない。実在庫CSVには正式snapshot日時列がないため、締め時刻とtimezoneの業務確認後に実mappingを登録する。詳細は[Phase 3S-10実装結果](planning/PHASE3S10_INPUT_MAPPING_IMPORT_RESULT.md)と[運用手順](docs/Phase3S10_確認済みInventory_Input_Mapping取込.md)。
 
 Phase 3S-11でファイル名末尾の日付と業務確認済みの締め時刻・timezoneから、正式snapshot日時を生成する版付きpolicyを追加した。既存の日時列方式は維持し、policy未登録や不正ファイル名を契約エラーとして拒否する。実在庫へ適用する時刻は引き続き業務確認が必要である。詳細は[Phase 3S-11実装結果](planning/PHASE3S11_SNAPSHOT_TIME_POLICY_RESULT.md)と[運用手順](docs/Phase3S11_snapshot時刻policy.md)。
+
+Phase 3S-12で現場導入をSHADOW / ADVISORY / OPERATIONALへ分け、実データの商品別Gate、15商品Pilot、Feedback Ledger、Weekly Review、3T-A〜3T-Dを設計した。現在のShadow GateはBLOCKEDだが、FACTORYデータを待たずにWAREHOUSE側の実装を開始できる。詳細は[現場運用開始Gate・Shadow Mode計画](planning/PHASE3S12_FIELD_LEARNING_PLAN.md)。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
 ## 変更報告
