@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 3T-A-0
+
+- 10〜20商品のJAN×WAREHOUSE、適用期間、承認者、理由を固定する内容アドレス型Pilot Scope台帳を追加。
+- 原本・scope対象・対象外・対象内隔離の行数とDecimal CASE数量を照合し、部分snapshotを`PILOT_PARTIAL`として明示。
+- JAN / warehouseとcanonical product / forecast centerを有効期間・known_atで接続する版付きidentity bridgeを追加。
+- System参考値、担当者判断、後日Actualを分離した追記型Feedback Ledgerを追加。
+- Shadowだけを既定許可し、曖昧identity、scope外、数量規則違反、古いrevisionを停止する安全境界を固定。
+
 ## Phase 3S-12
 
 - Phase 3S-1〜3S-11と実在庫1,926 CSV・出荷1,943 CSVを再監査し、商品をREADY 0、CONDITIONAL 130、BLOCKED 17へ匿名分類。

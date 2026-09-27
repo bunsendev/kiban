@@ -1485,3 +1485,15 @@ Docker Desktop 4.90.0、Docker Engine 29.7.2、PostgreSQL 17 Alpineを使用。P
 - `ruff check .`: All checks passed。
 - `make_release.py`後の全回帰: 670 passed、18 skipped、1 deselected。配布697ファイルの整合性も確認。
 - 実商品名、商品コード、JAN、倉庫名、原本path、未確認の業務値はRepositoryへ保存していない。
+
+## Phase 3T-A-0 Pilot Gate Foundation（2026-09-27）
+
+- Phase 3T-A-0新規人工fixture: SQLite 9 passed、PostgreSQL実接続1件skip。Pilot Scope、部分snapshot照合、identity bridge、Feedback Ledgerを確認。
+- Pilot 10〜20商品制約、入力順に依存しないversion、原本・対象内・対象外・隔離の行数・Decimal CASE数量一致を確認。
+- scope外bucket、対象内隔離、source SHA-256・数量不一致を正式な`PILOT_PARTIAL` snapshot参照から拒否。
+- identityの有効期間・known_at、未登録・曖昧候補、scope外reference、未許可ADVISORY modeを停止することを確認。
+- Operator判断の数量規則・reason code・revision競合と、Actualの欠測・確定ゼロ・訂正版追記を確認。
+- 新規試験と既存在庫基盤の対象suite: 29 passed、PostgreSQL実接続1件skip。
+- WindowsでLinux専用peak RSS試験1件を除外した全回帰: 679 passed、19 skipped、1 deselected。
+- SHA一覧更新前の初回全回帰は677 passed、18 skipped、1 deselected、配布整合性1件failed。新規21ファイルと変更3ファイルのSHA未反映だけで、`make_release.py`後に解消。
+- `ruff check .`: All checks passed。実データ、実JAN、倉庫名、担当者名はRepositoryへ保存していない。
