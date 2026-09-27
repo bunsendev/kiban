@@ -401,6 +401,8 @@ STARTABLE条件:
 | 4 | Shadow最小UI / Actual取込 | `field_ui/`, `field_actuals/` | 15商品の日次比較と週次review |
 | 5 | Phase 3T-C / 3T-D | 独立module | 工場・生産・routeデータ受入後 |
 
+進捗（2026-09-27）：3T-Bの14日Shadow FEFO試算を実装。業務ポリシー値は計算ごとに確認して明示指定する。結果の意味と未対応の供給・輸送計算は[Phase 3T-B](../docs/Phase3TB_Expiry_FEFO.md)を参照。
+
 既存`inventory_foundation`、予測run、操作telemetryへFeedback責務を混入させない。
 
 ## 21. クライアントへ追加確認する事項
