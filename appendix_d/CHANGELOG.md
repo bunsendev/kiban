@@ -1,5 +1,13 @@
 # v2.9 修正記録
 
+## Phase 3S-12
+
+- Phase 3S-1〜3S-11と実在庫1,926 CSV・出荷1,943 CSVを再監査し、商品をREADY 0、CONDITIONAL 130、BLOCKED 17へ匿名分類。
+- 75商品の予備Pilot poolから需要特性と賞味期限特性を混ぜた15商品Pilotを提案。
+- SHADOW / ADVISORY / OPERATIONALの独立Gateと、System / Operator / Actualを追記保存するFeedback Ledgerを設計。
+- Phase 3TをWarehouse、Expiry / FEFO、Factory、Route / Arrivalへ分割。
+- 部分開始を妨げるPilot Scopeとforecast / inventory identity bridgeの不足を特定し、Phase 3T-A-0を次工程に設定。
+
 ## Phase 3S-11
 
 - ファイル名末尾の`_YYYYMMDD.csv`と業務確認済み締め時刻・timezoneからsnapshot日時を生成する版付きpolicyを追加。

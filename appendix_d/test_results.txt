@@ -1476,3 +1476,12 @@ Docker Desktop 4.90.0、Docker Engine 29.7.2、PostgreSQL 17 Alpineを使用。P
 - `ruff check .`: All checks passed。
 - `make_release.py --check`: SHA一覧更新後に全配布ファイルの一致を確認。
 - 実データ、実ファイル名、未確認の締め時刻はRepositoryへ保存していない。実運用policy登録は業務確認後に行う。
+
+## Phase 3S-12 現場運用開始Gate・Shadow Mode計画（2026-09-27）
+
+- 実在庫1,926 CSV・出荷1,943 CSVを原本変更なしで匿名再集計し、前回の147商品、一意候補130、複数候補15、候補なし2を再現。
+- 在庫・出荷各180日以上、賞味期限99%以上、重複率2%以下、複数期限bucket 10回以上の予備Pilot poolが75商品あることを確認。
+- 全回帰はSHA一覧更新前に669 passed、18 skipped、1 deselected、配布整合性1件failed。失敗は新規文書3件のSHA未反映だけで、実装回帰ではない。
+- `ruff check .`: All checks passed。
+- `make_release.py`後の全回帰: 670 passed、18 skipped、1 deselected。配布697ファイルの整合性も確認。
+- 実商品名、商品コード、JAN、倉庫名、原本path、未確認の業務値はRepositoryへ保存していない。
