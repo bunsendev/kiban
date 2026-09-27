@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Pilot倉庫の予測在庫と賞味期限リスクを参考表示するShadow画面">
+  <title>倉庫Shadow確認 | Yosoku Kiban</title>
+  <link rel="stylesheet" href="/ui/assets/styles.css">
+  <link rel="stylesheet" href="/ui/assets/shadow.css">
+  <script type="module" src="/ui/assets/shadow_app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">本文へ移動</a>
+  <header class="topbar">
+    <div class="brand-block">
+      <span class="eyebrow">YOSOKU KIBAN / PILOT SHADOW</span>
+      <h1>倉庫在庫の見通し</h1>
+      <a class="workspace-link" href="/ui/easy">かんたん予測へ</a>
+      <a class="workspace-link" href="/ui/intake">データ準備へ</a>
+    </div>
+    <form id="connection-form" class="connection" aria-label="API接続">
+      <label for="api-token">接続コード</label>
+      <div class="connection-row"><input id="api-token" type="password" autocomplete="off" required><button class="button primary" type="submit">接続</button></div>
+      <p class="field-note">コードはこの画面のメモリ内だけで使用します。</p>
+    </form>
+    <div id="session-controls" class="session-controls" hidden>
+      <span id="session-identity" class="session-identity"></span>
+      <button id="refresh-button" class="button quiet" type="button">再計算</button>
+      <button id="disconnect-button" class="button quiet" type="button">切断</button>
+    </div>
+  </header>
+
+  <main id="workspace" class="page-shell shadow-shell">
+    <div class="shadow-warning" role="note"><strong>SHADOW・参考値・検証中</strong><span>出荷指示ではありません。参考補充量と担当者判断は表示・登録しません。</span></div>
+    <div id="notice" class="notice" role="status" aria-live="polite">接続後、管理者が確認した計算条件を入力してください。</div>
+
+    <details class="shadow-settings" open>
+      <summary>計算条件を入力する（管理者向け）</summary>
+      <form id="preview-form" class="shadow-form">
+        <label>Pilot scope版<input id="pilot-scope-version" required autocomplete="off"></label>
+        <label>商品・倉庫対応版<input id="identity-bridge-version" required autocomplete="off"></label>
+        <label>予測run ID<input id="forecast-run-id" required autocomplete="off"></label>
+        <label>計算時点<input id="calculation-at" type="datetime-local" required></label>
+        <label>最低残存日数<input id="minimum-remaining-days" type="number" min="0" max="365" step="1" required></label>
+        <label>注意日数<input id="attention-days" type="number" min="0" max="365" step="1" required></label>
+        <label>条件の確認者<input id="policy-confirmed-by" required autocomplete="off"></label>
+        <label>条件を確認した日時<input id="policy-confirmed-at" type="datetime-local" required></label>
+        <label class="shadow-wide">確認理由<input id="policy-reason" required autocomplete="off" maxlength="500"></label>
+        <button class="button primary shadow-wide" type="submit">参考値を表示</button>
+      </form>
+      <p class="field-note">最低残存日数と注意日数は業務確認済みの値を入力してください。0を自動設定しません。</p>
+    </details>
+
+    <section id="result" hidden aria-label="倉庫Shadow参考値">
+      <div class="shadow-summary">
+        <div><span>対象</span><strong id="row-count">—</strong></div>
+        <div><span>在庫snapshot</span><strong id="snapshot-at">—</strong></div>
+        <div><span>予測run</span><strong id="run-id">—</strong></div>
+      </div>
+      <p class="shadow-explanation">現在庫から予測需要を差し引いた見通しです。入庫・工場供給・輸送は含みません。期限内未消化は予測上のリスクで、確定廃棄量ではありません。</p>
+      <div class="shadow-table-wrap">
+        <table class="shadow-table">
+          <thead><tr><th scope="col">JAN / 倉庫</th><th scope="col">現在庫</th><th scope="col">7日需要</th><th scope="col">14日需要</th><th scope="col">不足見込み</th><th scope="col">期限内未消化</th><th scope="col">詳細</th></tr></thead>
+          <tbody id="shadow-rows"></tbody>
+        </table>
+      </div>
+      <section id="item-detail" class="shadow-detail" hidden aria-live="polite">
+        <div class="section-heading"><div><span class="eyebrow">DAILY OUTLOOK</span><h2 id="item-title">日別の見通し</h2></div></div>
+        <p id="item-summary"></p>
+        <div class="shadow-table-wrap"><table class="shadow-table"><thead><tr><th>日付</th><th>予測需要</th><th>gross残高</th><th>FEFO使用可能残高</th><th>未充足</th><th>期限内未消化</th></tr></thead><tbody id="day-rows"></tbody></table></div>
+      </section>
+      <details class="shadow-lineage"><summary>計算に使った版と時刻</summary><dl id="lineage"></dl></details>
+    </section>
+  </main>
+</body>
+</html>

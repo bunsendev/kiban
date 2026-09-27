@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime
 
+from ..warehouse_projection.domain import WarehouseProjection
 from ..warehouse_projection.service import WarehouseProjectionService
 from .domain import ExpiryPolicy, ExpirySimulation, simulate_expiry
 
@@ -27,6 +28,7 @@ class ExpirySimulationBatch:
     snapshot_known_at: datetime
     forecast_cutoff_at: datetime
     forecast_finished_at: datetime
+    warehouse_projections: tuple[WarehouseProjection, ...]
     simulations: tuple[ExpirySimulation, ...]
 
 
@@ -83,5 +85,5 @@ class ExpirySimulationService:
             batch.inventory_snapshot_id, pilot_scope_version, identity_bridge_version,
             forecast_run_id, policy, batch.calculation_at, batch.snapshot_at,
             batch.snapshot_known_at, batch.forecast_cutoff_at,
-            batch.forecast_finished_at, tuple(simulations),
+            batch.forecast_finished_at, batch.projections, tuple(simulations),
         )

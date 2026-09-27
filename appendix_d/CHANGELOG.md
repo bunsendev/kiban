@@ -1,5 +1,10 @@
 # v2.9 修正記録
 
+## Phase 3T 倉庫Shadow確認画面
+
+- 承認済みPilot在庫・確定POINT予測・FEFO試算をJAN×倉庫の一覧と14日詳細で見る認証付きShadow画面を追加。
+- 出荷指示ではない参考値と明示し、未確定の参考補充量・reference case・担当者判断は生成しない。
+
 ## Phase 3T Shadow後日実績CSV取込
 
 - 既存reference caseに対し、CASE単位の後日実績CSVを原本SHA・source version・known_at付きで追記する取込境界を追加。

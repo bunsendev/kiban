@@ -1,0 +1,24 @@
+.shadow-shell { max-width: 1320px; }
+.shadow-warning { display: flex; flex-wrap: wrap; gap: 0.45rem 1rem; align-items: center; margin-bottom: 1rem; padding: 0.9rem 1.1rem; border: 2px solid #b46b18; border-radius: 8px; background: #fff1d9; color: #56370d; }
+.shadow-warning strong { letter-spacing: 0.04em; }
+.shadow-settings, .shadow-detail, .shadow-lineage { margin: 1rem 0; padding: 1rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.shadow-settings summary, .shadow-lineage summary { cursor: pointer; font-weight: 800; color: var(--navy); }
+.shadow-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; margin-top: 1rem; }
+.shadow-form label { display: grid; gap: 0.3rem; font-weight: 700; }
+.shadow-form input { width: 100%; min-width: 0; padding: 0.6rem; border: 1px solid var(--line); border-radius: 5px; }
+.shadow-wide { grid-column: 1 / -1; }
+.shadow-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; margin: 1rem 0; }
+.shadow-summary div { padding: 0.9rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow-wrap: anywhere; }
+.shadow-summary span, .shadow-summary strong { display: block; }
+.shadow-summary span { color: var(--muted); font-size: 0.85rem; }
+.shadow-explanation { padding: 0.8rem; border-left: 4px solid #348f9a; background: #eef7f7; }
+.shadow-table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.shadow-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.shadow-table th, .shadow-table td { padding: 0.7rem; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.shadow-table th:first-child, .shadow-table td:first-child { text-align: left; }
+.shadow-table th { background: #f0f4f7; color: var(--navy); }
+.shadow-table button { min-width: 4rem; }
+.shadow-alert { color: #a54420; font-weight: 800; }
+.shadow-lineage dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1rem; overflow-wrap: anywhere; }
+.shadow-lineage dt { font-weight: 800; }
+@media (max-width: 760px) { .shadow-form, .shadow-summary { grid-template-columns: 1fr; } .shadow-wide { grid-column: auto; } }
