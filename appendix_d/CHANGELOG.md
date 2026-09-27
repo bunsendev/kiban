@@ -1,5 +1,10 @@
 # v2.9 修正記録
 
+## Phase 3T Shadow参考補充量
+
+- 明示確認した対象日数・安全在庫・出荷単位を版付きpolicyとして保存し、PilotのProjection/FEFOから参考補充量とreference caseを決定的に生成。
+- CLIのdry-runと明示applyを分離し、policyと全caseを原子的・冪等に追記。工場・輸送を含まないShadow限定値と明示。
+
 ## Phase 3T 倉庫Shadow確認画面
 
 - 承認済みPilot在庫・確定POINT予測・FEFO試算をJAN×倉庫の一覧と14日詳細で見る認証付きShadow画面を追加。

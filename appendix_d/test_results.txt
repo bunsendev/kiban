@@ -1,3 +1,14 @@
+# Phase 3T Shadow参考補充量・reference case 検証記録
+
+Date: 2026-09-28 JST
+OS: Windows 11 / Python 3.12
+
+- 明示policy・FEFO期限損失・CASE単位丸め・as-of拒否・dry-run・原子的batch rollback・再実行同一性を人工Pilotで検証。
+- 新規対象: 6 passed。
+- 全体回帰: 711 passed、19 skipped、Linux専用RSS試験1 deselected。
+- `ruff check .`、`check_lint.py`に成功。
+- PostgreSQL実接続と実データ業務受入は今回未実施。現場Shadow開始は承認していない。
+
 # v2.9 Phase 3S-3 監査・実PostgreSQL検証記録
 
 Date: 2026-09-24 JST

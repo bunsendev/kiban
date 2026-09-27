@@ -6,6 +6,7 @@ import sqlite3
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ..inventory_foundation.domain import canonical_decimal
 from ..jobs.postgres_store import _Connection
@@ -16,6 +17,9 @@ from .domain import (
     FieldOperatorDecisionEvent,
     FieldReferenceCase,
 )
+
+if TYPE_CHECKING:
+    from ..field_reference.domain import FieldReferencePolicy
 
 
 class SqliteFieldLearningStore:
@@ -66,6 +70,87 @@ class SqliteFieldLearningStore:
         if current is None or current.content_sha256 != value.content_sha256:
             raise ValueError("同じreference caseの内容は変更できません")
         return current
+
+    def put_reference_batch(
+        self, policy: FieldReferencePolicy, cases: tuple[FieldReferenceCase, ...]
+    ) -> tuple[FieldReferenceCase, ...]:
+        """policyと全Pilot caseを単一transactionで追記する。"""
+
+        if not cases or len({case.case_id for case in cases}) != len(cases):
+            raise ValueError("参考caseが空または重複しています")
+        if any(case.policy_version != policy.policy_version or case.mode is not FieldMode.SHADOW
+               for case in cases):
+            raise ValueError("参考caseのpolicy版またはmodeが一致しません")
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            db.execute(
+                "INSERT INTO field_reference_policies VALUES (?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(policy_version) DO NOTHING",
+                (
+                    policy.policy_version, policy.target_days,
+                    canonical_decimal(policy.safety_stock_cases),
+                    canonical_decimal(policy.shipment_multiple_cases),
+                    policy.expiry_policy_version, policy.confirmed_by, policy.reason,
+                    policy.confirmed_at.isoformat(), "WAREHOUSE_NOW_NO_INBOUND_SHADOW",
+                ),
+            )
+            saved = db.execute(
+                "SELECT * FROM field_reference_policies WHERE policy_version=?",
+                (policy.policy_version,),
+            ).fetchone()
+            if (
+                saved is None or int(saved["target_days"]) != policy.target_days
+                or str(saved["safety_stock_cases"]) != canonical_decimal(policy.safety_stock_cases)
+                or str(saved["shipment_multiple_cases"])
+                != canonical_decimal(policy.shipment_multiple_cases)
+                or saved["expiry_policy_version"] != policy.expiry_policy_version
+                or saved["confirmed_by"] != policy.confirmed_by
+                or saved["reason"] != policy.reason
+                or datetime.fromisoformat(str(saved["confirmed_at"])) != policy.confirmed_at
+                or saved["basis"] != "WAREHOUSE_NOW_NO_INBOUND_SHADOW"
+            ):
+                raise ValueError("同じ参考数量policy版の内容が一致しません")
+            for case in cases:
+                db.execute(
+                    "INSERT INTO field_reference_cases VALUES "
+                    "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                    "ON CONFLICT(case_id) DO NOTHING",
+                    (
+                        case.case_id, case.business_date.isoformat(), case.jan,
+                        case.canonical_product_id, case.warehouse_id,
+                        case.forecast_center_id, case.forecast_run_id,
+                        case.inventory_snapshot_id, case.pilot_scope_version,
+                        case.identity_bridge_version,
+                        canonical_decimal(case.system_forecast_quantity),
+                        canonical_decimal(case.system_reference_quantity),
+                        case.policy_version, case.mode.value, case.known_at.isoformat(),
+                        case.recorded_at.isoformat(), case.content_sha256,
+                    ),
+                )
+                row = db.execute(
+                    "SELECT content_sha256 FROM field_reference_cases WHERE case_id=?",
+                    (case.case_id,),
+                ).fetchone()
+                if row is None or row["content_sha256"] != case.content_sha256:
+                    raise ValueError("同じ参考case IDの内容が一致しません")
+        return tuple(self.get_reference_case(case.case_id) for case in cases)
+
+    def get_reference_policy(self, policy_version: str) -> FieldReferencePolicy | None:
+        from ..field_reference.domain import FieldReferencePolicy
+
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT * FROM field_reference_policies WHERE policy_version=?",
+                (policy_version,),
+            ).fetchone()
+        if row is None:
+            return None
+        return FieldReferencePolicy(
+            row["policy_version"], int(row["target_days"]),
+            Decimal(row["safety_stock_cases"]), Decimal(row["shipment_multiple_cases"]),
+            row["expiry_policy_version"], row["confirmed_by"], row["reason"],
+            datetime.fromisoformat(str(row["confirmed_at"])),
+        )
 
     def get_reference_case(self, case_id: str) -> FieldReferenceCase | None:
         with self._connect() as db:

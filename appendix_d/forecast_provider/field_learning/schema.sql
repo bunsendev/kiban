@@ -1,3 +1,15 @@
+CREATE TABLE IF NOT EXISTS field_reference_policies (
+  policy_version TEXT PRIMARY KEY,
+  target_days INTEGER NOT NULL CHECK(target_days BETWEEN 1 AND 14),
+  safety_stock_cases TEXT NOT NULL,
+  shipment_multiple_cases TEXT NOT NULL,
+  expiry_policy_version TEXT NOT NULL,
+  confirmed_by TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  confirmed_at TIMESTAMPTZ NOT NULL,
+  basis TEXT NOT NULL CHECK(basis = 'WAREHOUSE_NOW_NO_INBOUND_SHADOW')
+);
+
 CREATE TABLE IF NOT EXISTS field_reference_cases (
   case_id TEXT PRIMARY KEY,
   business_date DATE NOT NULL,
