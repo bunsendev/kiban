@@ -27,6 +27,10 @@ class InventorySnapshotJobErrorCode(StrEnum):
     MAPPING_NOT_FOUND = "MAPPING_NOT_FOUND"
     INTERNAL_ERROR = "INTERNAL_ERROR"
     RETRY_EXHAUSTED = "RETRY_EXHAUSTED"
+    PILOT_SCOPE_NOT_FOUND = "PILOT_SCOPE_NOT_FOUND"
+    PILOT_INTAKE_INVALID = "PILOT_INTAKE_INVALID"
+    PILOT_SCOPE_INCOMPLETE = "PILOT_SCOPE_INCOMPLETE"
+    OUT_OF_SCOPE_QUANTITY_UNRECONCILABLE = "OUT_OF_SCOPE_QUANTITY_UNRECONCILABLE"
 
 
 class StaleInventorySnapshotLeaseError(RuntimeError):
@@ -60,6 +64,8 @@ class InventorySnapshotJob:
     lease_token: str | None = None
     leased_until: datetime | None = None
     last_heartbeat_at: datetime | None = None
+    pilot_scope_version: str | None = None
+    pilot_intake_version: str | None = None
 
     def __post_init__(self) -> None:
         for field_name in ("job_id", "source_reference", "mapping_version", "requested_by"):
@@ -96,6 +102,12 @@ class InventorySnapshotJob:
             value is not None for value in lease_values
         ):
             raise ValueError("RUNNING以外のjobにactive leaseは指定できません")
+        if (self.pilot_scope_version is None) != (self.pilot_intake_version is None):
+            raise ValueError("Pilot ScopeとIntake versionは同時に指定してください")
+        if self.pilot_scope_version is not None and (
+            not self.pilot_scope_version.strip() or not self.pilot_intake_version.strip()
+        ):
+            raise ValueError("Pilot ScopeとIntake versionは空にできません")
 
 
 @dataclass(frozen=True)
@@ -126,6 +138,8 @@ class InventorySnapshotFinalization:
     decided_by: str | None = None
     reason: str | None = None
     decided_at: datetime | None = None
+    pilot_scoped_reference: object | None = None
+    pilot_reconciliation: object | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "completed_at", _aware(self.completed_at, "completed_at"))
@@ -137,6 +151,15 @@ class InventorySnapshotFinalization:
             self.reason,
             self.decided_at,
         )
+        if self.pilot_scoped_reference is not None:
+            if (
+                self.snapshot is None
+                or self.pilot_scoped_reference.inventory_snapshot_id
+                != self.snapshot.header.snapshot_id
+            ):
+                raise ValueError("Pilot参照とsnapshotが一致しません")
+        if self.pilot_scoped_reference is not None and self.pilot_reconciliation is None:
+            raise ValueError("Pilot参照には原本照合が必要です")
         if self.decision is None:
             if any(value is not None for value in decision_values):
                 raise ValueError("decision未指定時はdecision metadataを指定できません")
@@ -155,3 +178,5 @@ class InventorySnapshotFinalization:
             raise ValueError("自動decisionはREJECTEDだけを指定できます")
         if self.snapshot is not None or self.validation.approval_ready:
             raise ValueError("REJECTEDには不採用validationだけを指定します")
+        if self.pilot_scoped_reference is not None:
+            raise ValueError("REJECTEDにPilot参照は指定できません")

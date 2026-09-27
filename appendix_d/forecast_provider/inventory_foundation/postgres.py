@@ -50,15 +50,23 @@ class PostgresInventoryFoundationStore(SqliteInventoryFoundationStore):
                     "ADD COLUMN IF NOT EXISTS worker_id TEXT,"
                     "ADD COLUMN IF NOT EXISTS lease_token TEXT,"
                     "ADD COLUMN IF NOT EXISTS leased_until TIMESTAMPTZ,"
-                    "ADD COLUMN IF NOT EXISTS last_heartbeat_at TIMESTAMPTZ"
+                    "ADD COLUMN IF NOT EXISTS last_heartbeat_at TIMESTAMPTZ,"
+                    "ADD COLUMN IF NOT EXISTS pilot_scope_version TEXT,"
+                    "ADD COLUMN IF NOT EXISTS pilot_intake_version TEXT"
                 )
+                snapshot_exists = db.execute(
+                    "SELECT to_regclass(current_schema() || '.inventory_snapshots') AS name"
+                ).fetchone()["name"]
+                if snapshot_exists is not None:
+                    db.execute(
+                        "ALTER TABLE inventory_snapshots "
+                        "ADD COLUMN IF NOT EXISTS pilot_scope_version TEXT"
+                    )
                 db.execute(
                     "UPDATE inventory_snapshot_jobs SET known_at=requested_at "
                     "WHERE known_at IS NULL"
                 )
-                db.execute(
-                    "ALTER TABLE inventory_snapshot_jobs ALTER COLUMN known_at SET NOT NULL"
-                )
+                db.execute("ALTER TABLE inventory_snapshot_jobs ALTER COLUMN known_at SET NOT NULL")
                 db.execute(
                     "UPDATE inventory_snapshot_jobs SET status='QUEUED',error_code=NULL "
                     "WHERE status='RUNNING' AND (worker_id IS NULL OR lease_token IS NULL "
@@ -109,6 +117,14 @@ class PostgresInventoryFoundationStore(SqliteInventoryFoundationStore):
                     "ADD COLUMN IF NOT EXISTS snapshot_at_policy_version TEXT"
                 )
             for statement in statements:
+                if statement.strip():
+                    db.execute(statement)
+            pilot_statements = (
+                (Path(__file__).parent.parent / "pilot_scope" / "schema.sql")
+                .read_text(encoding="utf-8")
+                .split(";")
+            )
+            for statement in pilot_statements:
                 if statement.strip():
                     db.execute(statement)
             mapping_source_constraint = db.execute(

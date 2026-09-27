@@ -28,7 +28,12 @@ def _iso(value):
 
 
 def _public_row(row: dict) -> dict:
-    return {key: _iso(value) for key, value in row.items()}
+    output = {key: _iso(value) for key, value in row.items()}
+    if "pilot_scope_version" in output:
+        output["scope_kind"] = (
+            "PILOT_PARTIAL" if output["pilot_scope_version"] is not None else "FULL"
+        )
+    return output
 
 
 def _decision_output(row: dict) -> dict:
@@ -141,7 +146,7 @@ class InventorySnapshotReadService:
             )
         source = Decimal(str(row["source_quantity_cases"]))
         normalized = Decimal(str(row["normalized_quantity_cases"]))
-        return {
+        output = {
             "job_id": job_id,
             "source_quantity": str(source),
             "normalized_quantity": str(normalized),
@@ -150,6 +155,21 @@ class InventorySnapshotReadService:
             "normalized_unit": "CASE",
             "created_at": _iso(row["created_at"]),
         }
+        pilot = self.store.get_pilot_reconciliation(job_id)
+        if pilot is not None:
+            output["pilot_scope"] = {
+                "pilot_scope_version": pilot["pilot_scope_version"],
+                "pilot_intake_version": pilot["pilot_intake_version"],
+                "source_row_count": pilot["source_row_count"],
+                "scoped_row_count": pilot["scoped_row_count"],
+                "out_of_scope_row_count": pilot["out_of_scope_row_count"],
+                "quarantined_scope_row_count": pilot["quarantined_scope_row_count"],
+                "source_quantity_cases": pilot["source_quantity_cases"],
+                "scoped_quantity_cases": pilot["scoped_quantity_cases"],
+                "out_of_scope_quantity_cases": pilot["out_of_scope_quantity_cases"],
+                "quarantined_scope_quantity_cases": pilot["quarantined_scope_quantity_cases"],
+            }
+        return output
 
     def list_snapshots(
         self, *, limit: int, offset: int, decision_status: str | None
@@ -251,6 +271,7 @@ class InventorySnapshotReadService:
         jan: str | None = None,
         location_id: str | None = None,
         location_type: str | None = None,
+        pilot_scope_version: str | None = None,
     ) -> dict:
         if calculation_at.tzinfo is None or calculation_at.utcoffset() is None:
             raise InventoryReadError(
@@ -263,6 +284,7 @@ class InventorySnapshotReadService:
             jan=jan,
             location_id=location_id,
             location_type=location_type,
+            pilot_scope_version=pilot_scope_version,
         )
         if row is None:
             raise InventoryReadError(

@@ -24,6 +24,13 @@ class InventoryDecisionConflict(RuntimeError):
 
 
 class InventorySnapshotJobStoreMixin:
+    def get_pilot_reconciliation(self, job_id: str) -> dict | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT * FROM pilot_scope_job_reconciliations WHERE job_id=?", (job_id,)
+            ).fetchone()
+        return None if row is None else dict(row)
+
     def put_job(self, value: InventorySnapshotJob) -> InventorySnapshotJob:
         with self._connect() as db:
             db.execute(
@@ -31,7 +38,8 @@ class InventorySnapshotJobStoreMixin:
                 "job_id,source_kind,source_reference,source_sha256,mapping_version,"
                 "requested_by,status,accepted_row_count,quarantined_row_count,error_code,"
                 "known_at,requested_at,started_at,finished_at,attempt,worker_id,lease_token,"
-                "leased_until,last_heartbeat_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                "leased_until,last_heartbeat_at,pilot_scope_version,pilot_intake_version) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
                 "ON CONFLICT(job_id) DO NOTHING",
                 _job_values(value),
             )
@@ -44,6 +52,8 @@ class InventorySnapshotJobStoreMixin:
             value.source_sha256,
             value.mapping_version,
             value.known_at,
+            value.pilot_scope_version,
+            value.pilot_intake_version,
         )
         actual = (
             stored.source_kind,
@@ -51,6 +61,8 @@ class InventorySnapshotJobStoreMixin:
             stored.source_sha256,
             stored.mapping_version,
             stored.known_at,
+            stored.pilot_scope_version,
+            stored.pilot_intake_version,
         )
         if actual != expected:
             raise ValueError("同じjob IDに異なる入力は登録できません")
@@ -198,6 +210,19 @@ class InventorySnapshotJobStoreMixin:
             raise ValueError("validationとjobのsource SHA-256が一致しません")
         if validation.mapping_version != job.mapping_version:
             raise ValueError("validationとjobのmapping versionが一致しません")
+        if job.pilot_scope_version is None:
+            if value.pilot_scoped_reference is not None or value.pilot_reconciliation is not None:
+                raise ValueError("通常jobにPilot結果を保存できません")
+        elif value.pilot_reconciliation is None or (
+            value.pilot_scoped_reference is not None
+            and (
+                value.snapshot is None
+                or value.pilot_scoped_reference.inventory_snapshot_id
+                != value.snapshot.header.snapshot_id
+                or value.pilot_scoped_reference.pilot_scope_version != job.pilot_scope_version
+            )
+        ):
+            raise ValueError("Pilot jobのscope照合とsnapshot参照が一致しません")
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             self._require_active_lease(db, lease, value.completed_at)
@@ -205,6 +230,10 @@ class InventorySnapshotJobStoreMixin:
             if value.snapshot is not None:
                 snapshot_id = value.snapshot.header.snapshot_id
                 self._insert_snapshot(db, value.snapshot, job_id=job.job_id)
+            if value.pilot_scoped_reference is not None:
+                from ..pilot_scope.store import insert_scoped_snapshot_reference
+
+                insert_scoped_snapshot_reference(db, value.pilot_scoped_reference)
             for quarantine in validation.quarantines:
                 for reason in quarantine.reasons:
                     quarantine_id = _stable_id(
@@ -237,6 +266,27 @@ class InventorySnapshotJobStoreMixin:
                     canonical_datetime(value.completed_at),
                 ),
             )
+            if value.pilot_reconciliation is not None:
+                pilot = value.pilot_reconciliation
+                db.execute(
+                    "INSERT INTO pilot_scope_job_reconciliations VALUES "
+                    "(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        job.job_id,
+                        job.pilot_scope_version,
+                        job.pilot_intake_version,
+                        pilot.source_sha256,
+                        pilot.source_row_count,
+                        pilot.scoped_row_count,
+                        pilot.out_of_scope_row_count,
+                        pilot.quarantined_scope_row_count,
+                        canonical_decimal(pilot.source_quantity_cases),
+                        canonical_decimal(pilot.scoped_quantity_cases),
+                        canonical_decimal(pilot.out_of_scope_quantity_cases),
+                        canonical_decimal(pilot.quarantined_scope_quantity_cases),
+                        canonical_datetime(value.completed_at),
+                    ),
+                )
             if value.decision is not None:
                 db.execute(
                     "INSERT INTO inventory_snapshot_decisions("
@@ -271,9 +321,7 @@ class InventorySnapshotJobStoreMixin:
                 ),
             ).rowcount
             if changed != 1:
-                raise StaleInventorySnapshotLeaseError(
-                    "inventory snapshot leaseは失効しています"
-                )
+                raise StaleInventorySnapshotLeaseError("inventory snapshot leaseは失効しています")
 
     @staticmethod
     def _require_active_lease(db, lease: InventorySnapshotLease, now: datetime) -> None:
@@ -462,9 +510,9 @@ def _job_values(value: InventorySnapshotJob) -> tuple:
         value.worker_id,
         value.lease_token,
         None if value.leased_until is None else canonical_datetime(value.leased_until),
-        None
-        if value.last_heartbeat_at is None
-        else canonical_datetime(value.last_heartbeat_at),
+        None if value.last_heartbeat_at is None else canonical_datetime(value.last_heartbeat_at),
+        value.pilot_scope_version,
+        value.pilot_intake_version,
     )
 
 
@@ -489,10 +537,11 @@ def _snapshot_job(row) -> InventorySnapshotJob:
         row["lease_token"],
         _optional_datetime(row["leased_until"]),
         _optional_datetime(row["last_heartbeat_at"]),
+        row["pilot_scope_version"],
+        row["pilot_intake_version"],
     )
 
 
 def _stable_id(prefix: str, *parts: str) -> str:
     encoded = json.dumps(parts, separators=(",", ":")).encode("utf-8")
     return f"{prefix}-{hashlib.sha256(encoded).hexdigest()}"
-

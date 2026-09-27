@@ -50,9 +50,32 @@ class SqliteInventoryFoundationStore(
             self._upgrade_job_columns(db)
             self._upgrade_decision_revision(db)
             self._upgrade_input_mapping_snapshot_columns(db)
+            self._upgrade_pilot_columns(db)
             db.executescript(Path(__file__).with_name("schema.sql").read_text(encoding="utf-8"))
+            db.executescript(
+                (Path(__file__).parent.parent / "pilot_scope" / "schema.sql").read_text("utf-8")
+            )
             self._upgrade_quarantine_reasons(db)
             self._upgrade_decision_revision(db)
+
+    @staticmethod
+    def _upgrade_pilot_columns(db) -> None:
+        for table, additions in (
+            (
+                "inventory_snapshot_jobs",
+                ("pilot_scope_version", "pilot_intake_version"),
+            ),
+            ("inventory_snapshots", ("pilot_scope_version",)),
+        ):
+            exists = db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
+            ).fetchone()
+            if exists is None:
+                continue
+            columns = {row[1] for row in db.execute(f"PRAGMA table_info({table})")}
+            for name in additions:
+                if name not in columns:
+                    db.execute(f"ALTER TABLE {table} ADD COLUMN {name} TEXT")
 
     @staticmethod
     def _upgrade_input_mapping_snapshot_columns(db) -> None:
@@ -79,14 +102,11 @@ class SqliteInventoryFoundationStore(
     @staticmethod
     def _upgrade_decision_revision(db) -> None:
         table = db.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' "
-            "AND name='inventory_snapshot_decisions'"
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='inventory_snapshot_decisions'"
         ).fetchone()
         if table is None:
             return
-        columns = {
-            row[1] for row in db.execute("PRAGMA table_info(inventory_snapshot_decisions)")
-        }
+        columns = {row[1] for row in db.execute("PRAGMA table_info(inventory_snapshot_decisions)")}
         if "revision" not in columns:
             db.execute("ALTER TABLE inventory_snapshot_decisions ADD COLUMN revision INTEGER")
             rows = db.execute(
@@ -114,8 +134,7 @@ class SqliteInventoryFoundationStore(
     @staticmethod
     def _upgrade_job_columns(db) -> None:
         table = db.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' "
-            "AND name='inventory_snapshot_jobs'"
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='inventory_snapshot_jobs'"
         ).fetchone()
         if table is None:
             return
@@ -277,8 +296,7 @@ class SqliteInventoryFoundationStore(
             ):
                 raise ValueError("未承認PDF extractionから正式snapshotは作成できません")
         db.execute(
-            "INSERT INTO inventory_snapshots VALUES "
-            "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO inventory_snapshots VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 header.snapshot_id,
                 job_id,
@@ -298,6 +316,7 @@ class SqliteInventoryFoundationStore(
                 None if approval is None else approval.extraction_id,
                 None if approval is None else approval.review_id,
                 None if approval is None else approval.decision.value,
+                header.pilot_scope_version,
             ),
         )
         db.executemany(
@@ -342,6 +361,7 @@ class SqliteInventoryFoundationStore(
             "SELECT snapshot_id,job_id,snapshot_at,known_at,source_kind,source_sha256,"
             "mapping_version,location_master_version,product_mapping_version,"
             "normalized_unit,row_count,quantity_cases_total,content_sha256,created_at "
+            ",pilot_scope_version "
             "FROM inventory_snapshots"
         )
         params = ()
@@ -376,6 +396,7 @@ class SqliteInventoryFoundationStore(
                 "SELECT snapshot_id,job_id,snapshot_at,known_at,source_kind,source_sha256,"
                 "mapping_version,location_master_version,product_mapping_version,"
                 "normalized_unit,row_count,quantity_cases_total,content_sha256,created_at "
+                ",pilot_scope_version "
                 "FROM inventory_snapshots WHERE snapshot_id=?",
                 (snapshot_id,),
             ).fetchone()
@@ -421,7 +442,8 @@ class SqliteInventoryFoundationStore(
                 "SELECT s.snapshot_id,s.job_id,s.snapshot_at,s.known_at,s.source_kind,"
                 "s.mapping_version,s.location_master_version,s.product_mapping_version,"
                 "s.normalized_unit,s.row_count,s.quantity_cases_total,s.content_sha256,"
-                "s.created_at,d.decision AS current_decision,d.revision AS decision_revision "
+                "s.created_at,s.pilot_scope_version,d.decision AS current_decision,"
+                "d.revision AS decision_revision "
                 "FROM inventory_snapshots s "
                 + latest
                 + where
@@ -457,9 +479,9 @@ class SqliteInventoryFoundationStore(
             "AND l.location_id=b.location_id WHERE " + where
         )
         with self._connect() as db:
-            total = db.execute(
-                "SELECT COUNT(*) AS value" + joined, tuple(params)
-            ).fetchone()["value"]
+            total = db.execute("SELECT COUNT(*) AS value" + joined, tuple(params)).fetchone()[
+                "value"
+            ]
             rows = db.execute(
                 "SELECT b.jan,b.canonical_product_id,b.location_id,l.location_code,"
                 "l.location_type,b.expiry_date,b.bucket_kind,b.quantity_cases,"
@@ -481,10 +503,20 @@ class SqliteInventoryFoundationStore(
         jan: str | None = None,
         location_id: str | None = None,
         location_type: str | None = None,
+        pilot_scope_version: str | None = None,
     ) -> dict | None:
-        clauses = ["s.known_at<=?", "s.snapshot_at<=?", "d.decision='APPROVED'"]
+        clauses = [
+            "s.known_at<=?",
+            "s.snapshot_at<=?",
+            "d.decision='APPROVED'",
+        ]
         timestamp = canonical_datetime(calculation_at, "calculation_at")
         params: list[object] = [timestamp, timestamp, timestamp]
+        if pilot_scope_version is None:
+            clauses.append("s.pilot_scope_version IS NULL")
+        else:
+            clauses.append("s.pilot_scope_version=?")
+            params.append(pilot_scope_version)
         filters: list[str] = []
         for column, value in (
             ("b.jan", jan),
@@ -507,7 +539,7 @@ class SqliteInventoryFoundationStore(
                 "SELECT s.snapshot_id,s.job_id,s.snapshot_at,s.known_at,s.source_kind,"
                 "s.mapping_version,s.location_master_version,s.product_mapping_version,"
                 "s.normalized_unit,s.row_count,s.quantity_cases_total,s.content_sha256,"
-                "s.created_at,d.revision AS decision_revision,d.decided_at "
+                "s.created_at,s.pilot_scope_version,d.revision AS decision_revision,d.decided_at "
                 "FROM inventory_snapshots s JOIN inventory_snapshot_decisions d "
                 "ON d.snapshot_id=s.snapshot_id AND d.decided_at<=? "
                 "AND d.revision=(SELECT MAX(d2.revision) FROM inventory_snapshot_decisions d2 "
