@@ -1514,3 +1514,18 @@ ruff: 0.16.6
 - 配布ハッシュ試験を含む正式回帰: 685 passed、19 skipped、1 deselected。
 - `ruff check .`、`check_lint.py`、`git diff --check`: 成功。
 - PostgreSQLの実接続と実データ業務受入は本工程では未実施。実データをRepositoryへ追加していない。
+
+# v2.9 Phase 3T-A 倉庫在庫Projection検証記録
+
+Date: 2026-09-27 JST
+OS: Windows 11
+Python: 3.12.14
+pytest: 9.1.1
+ruff: 0.16.6
+
+- 人工10商品×14日で、承認済み部分在庫・identity bridge・確定POINT runの接続と決定的Projection IDを確認。
+- 7日・14日需要、日別gross在庫、不足見込み日と累積不足、Shadow JSON出力を確認。
+- 予測14日不足、run完了時刻より前のas-of、業務APPROVED取消を停止することを確認。
+- 既存runの完了時刻を移行時刻で保守的に記録し、過去時点へ混入させないことを確認。
+- 新規試験: 6 passed。Windows全体回帰: 691 passed、19 skipped、Linux専用1件deselected。
+- 実データ受入と実PostgreSQL接続は本工程では未実施。期限消化・補充・工場供給は未算出。

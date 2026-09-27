@@ -27,6 +27,10 @@ class StaleLeaseError(RuntimeError):
 
 
 class SqliteRunStore:
+    @staticmethod
+    def _date_param(value: date):
+        return value.isoformat()
+
     def __init__(self, path: Path) -> None:
         self.path = path
         self._initialize()
@@ -41,6 +45,14 @@ class SqliteRunStore:
         migration = Path(__file__).with_name("migrations") / "001_run_ledger_sqlite.sql"
         with self._connect() as db:
             db.executescript(migration.read_text(encoding="utf-8"))
+            columns = {row[1] for row in db.execute("PRAGMA table_info(forecast_runs)")}
+            if "finished_at" not in columns:
+                db.execute("ALTER TABLE forecast_runs ADD COLUMN finished_at TEXT")
+            db.execute(
+                "UPDATE forecast_runs SET finished_at="
+                "strftime('%Y-%m-%dT%H:%M:%f+00:00','now') "
+                "WHERE finished_at IS NULL AND status='SUCCEEDED'"
+            )
 
     def create_run(
         self,
@@ -51,7 +63,9 @@ class SqliteRunStore:
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             db.execute(
-                "INSERT INTO forecast_runs VALUES (?,?,?,?,?,?,?,0)",
+                "INSERT INTO forecast_runs("
+                "run_id,experiment_id,condition_fingerprint,provider_id,model_name,seed,"
+                "status,cancellation_requested) VALUES (?,?,?,?,?,?,?,0)",
                 (
                     definition.run_id,
                     definition.experiment_id,
@@ -299,8 +313,59 @@ class SqliteRunStore:
                 status = "PARTIAL"
             else:
                 status = "FAILED"
-            db.execute("UPDATE forecast_runs SET status=? WHERE run_id=?", (status, run_id))
+            finished_at = datetime.now(UTC).isoformat() if status == "SUCCEEDED" else None
+            db.execute(
+                "UPDATE forecast_runs SET status=?,finished_at=COALESCE(finished_at,?) "
+                "WHERE run_id=?",
+                (status, finished_at, run_id),
+            )
             return status
+
+    def get_run_finished_at(self, run_id: str) -> datetime | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT finished_at FROM forecast_runs WHERE run_id=?", (run_id,)
+            ).fetchone()
+        if row is None or row["finished_at"] is None:
+            return None
+        value = row["finished_at"]
+        return value if isinstance(value, datetime) else datetime.fromisoformat(value)
+
+    def get_origin_status(self, run_id: str, origin_date: date) -> dict | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT origin_date,cutoff_at,status FROM forecast_origins "
+                "WHERE run_id=? AND origin_date=?",
+                (run_id, self._date_param(origin_date)),
+            ).fetchone()
+        return None if row is None else dict(row)
+
+    def list_point_values_for_origin(
+        self,
+        run_id: str,
+        origin_date: date,
+        unique_ids: tuple[str, ...],
+        target_from: date,
+        target_to: date,
+    ) -> list[dict]:
+        if not unique_ids or len(unique_ids) > 100 or len(unique_ids) != len(set(unique_ids)):
+            raise ValueError("unique_idsは重複なしの1〜100件です")
+        if target_to < target_from:
+            raise ValueError("target期間が不正です")
+        placeholders = ",".join("?" for _ in unique_ids)
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT unique_id,origin_date,target_date,horizon,forecast_kind,"
+                "quantile,yhat_raw,yhat FROM forecast_values WHERE run_id=? "
+                "AND origin_date=? AND forecast_kind='POINT' "
+                f"AND unique_id IN ({placeholders}) AND target_date>=? AND target_date<=? "
+                "ORDER BY unique_id,target_date",
+                (
+                    run_id, self._date_param(origin_date), *unique_ids,
+                    self._date_param(target_from), self._date_param(target_to),
+                ),
+            ).fetchall()
+        return [forecast_result(row) for row in rows]
 
     def cancellation_requested(self, run_id: str) -> bool:
         with self._connect() as db:
