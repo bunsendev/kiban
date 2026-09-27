@@ -51,6 +51,7 @@ kiban-provider-conformance-worker = "forecast_provider.provider_conformance_work
 kiban-comparison-campaign-worker = "forecast_provider.comparison_campaign_worker:main"
 kiban-pilot-gate = "forecast_provider.pilot_gate_import:main"
 kiban-warehouse-projection = "forecast_provider.warehouse_projection.cli:main"
+kiban-expiry-simulation = "forecast_provider.expiry_simulation.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["forecast_provider*"]

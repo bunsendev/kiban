@@ -1,5 +1,11 @@
 # v2.9 修正記録
 
+## Phase 3T-B 賞味期限別FEFO
+
+- 承認済みPilot snapshot・確定POINT予測を用い、期限の早いbucketから14日分の需要を消化するShadow計算を追加。
+- 期限内未消化、注意数量、未充足需要をCASEで出力し、明示確認した日数policyの版とともに再現可能にした。
+- 期限不明、数量不一致、計算時点に未確定のpolicyを拒否し、CLIと人工データ試験を追加。
+
 ## Phase 3T-A 倉庫在庫Projection
 
 - 業務APPROVED済みPilot在庫と確定POINT予測から、JAN×倉庫の14日日別gross在庫と不足を決定的に算出。

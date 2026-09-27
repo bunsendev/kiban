@@ -31,6 +31,7 @@ python make_release.py --check
 ## 開発順
 
 Phase 1Aで前処理版・起点別RunContext・ContextRef締切・モデル識別・failure sink interfaceを追加した。
+Phase 3T-BでPilot倉庫の賞味期限別FEFO Shadow試算を追加した。条件と操作は[Phase 3T-B 賞味期限別FEFO](docs/Phase3TB_Expiry_FEFO.md)を参照する。
 必須引数とProvider直接呼出しの移行は[契約と移行](docs/Phase1A_契約と移行.md)を参照する。
 既存RunContext importは維持するが、旧ModelRef/ContextRefはfitから再生成する。
 時点処理はrun_context.py、識別はfingerprint.py、失敗記録はfailures.pyへ分離する。
