@@ -1553,3 +1553,15 @@ OS: Windows 11
 - 新規試験: 5 passed。Windows全体回帰: 702 passed、19 skipped、Linux専用1件deselected。
 - `ruff check .`、`check_lint.py`、`make_release.py --check`、`git diff --check`: 成功。
 - 実データ受入と実PostgreSQL接続は本工程では未実施。Shadow画面・週次reviewは次工程。
+
+# v2.9 Phase 3T 倉庫Shadow確認画面検証記録
+
+Date: 2026-09-28 JST
+OS: Windows 11
+
+- 人工10商品×14日で承認済み在庫・確定POINT・FEFOの統合read modelを確認。
+- API認証、未確定policy・欠測runの停止、参考補充量とreference caseを生成しない境界を確認。
+- `/ui/shadow`の常時SHADOW表示、no-store配信と一時ローカルサーバーでの画面表示を確認。
+- 新規試験: 3 passed。Windows全体回帰: 705 passed、19 skipped、Linux専用1件deselected。
+- `ruff check .`、`check_lint.py`、JS構文検査、配布ハッシュ照合、`git diff --check`: 成功。
+- 実データ業務受入・実PostgreSQL接続・補充量policy確定は本工程では未実施。

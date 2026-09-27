@@ -22,6 +22,7 @@ from .core_routes import install_core_routes
 from .daily_routes import install_daily_routes
 from .error_responses import install_error_handlers
 from .evaluation_routes import install_evaluation_routes
+from .field_shadow_routes import install_field_shadow_routes
 from .idempotency import IdempotencyStore, InMemoryIdempotencyStore, idempotent_route_class
 from .ingestion_routes import install_ingestion_routes
 from .inventory_snapshot_routes import install_inventory_snapshot_routes
@@ -84,6 +85,7 @@ def create_app(
     operation_events=None,
     operation_event_retention_days: int = 180,
     inventory_foundation=None,
+    field_shadow=None,
 ) -> FastAPI:
     if isinstance(api_token, str) and not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -153,6 +155,9 @@ def create_app(
         install_inventory_snapshot_routes(
             app, authorize, InventorySnapshotReadService(inventory_foundation)
         )
+
+    if field_shadow is not None:
+        install_field_shadow_routes(app, authorize, field_shadow)
 
     if ingestion is not None:
         install_ingestion_routes(app, authorize, ingestion)

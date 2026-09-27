@@ -10,7 +10,10 @@ from ..catalog import PostgresCatalogStore
 from ..comparison_campaign import PostgresComparisonCampaignStore
 from ..daily import PostgresDailyStore
 from ..evaluation_registry import PostgresEvaluationRegistryStore
+from ..expiry_simulation import ExpirySimulationService
+from ..field_ui import FieldShadowPreviewService
 from ..ingestion import PostgresIngestionStore
+from ..inventory_forecast_bridge import PostgresInventoryForecastBridgeStore
 from ..inventory_foundation import PostgresInventoryFoundationStore
 from ..inventory_normalization import PostgresInventoryNormalizationStore
 from ..jobs import PostgresRunStore
@@ -24,11 +27,13 @@ from ..model_review import (
 )
 from ..normalization import PostgresNormalizationStore
 from ..operation_events import PostgresOperationEventStore
+from ..pilot_scope import PostgresPilotScopeStore
 from ..provider_conformance import PostgresConformanceJobStore
 from ..reporting import PostgresReportingStore
 from ..resource_cost.postgres_store import PostgresResourceCostStore
 from ..runtime_config import read_secret_file
 from ..selection import PostgresSelectionStore
+from ..warehouse_projection import WarehouseProjectionService
 from ..worker_status import PostgresWorkerStatusStore
 from .app import create_app
 from .authentication import Authenticator, ReloadingTokenAuthenticator, Role, TokenAuthenticator
@@ -218,6 +223,13 @@ def from_environment():
     model_reviews = PostgresModelReviewStore(dsn)
     review_actions = PostgresReviewActionStore(dsn)
     review_retests = PostgresReviewRetestStore(dsn)
+    inventory_foundation = PostgresInventoryFoundationStore(dsn)
+    field_shadow = FieldShadowPreviewService(ExpirySimulationService(
+        WarehouseProjectionService(
+            inventory_foundation, PostgresPilotScopeStore(dsn),
+            PostgresInventoryForecastBridgeStore(dsn), runs,
+        )
+    ))
     return create_app(
         runs,
         catalog,
@@ -253,5 +265,6 @@ def from_environment():
         operation_event_retention_days=int(
             os.environ.get("KIBAN_OPERATION_EVENT_RETENTION_DAYS", "180")
         ),
-        inventory_foundation=PostgresInventoryFoundationStore(dsn),
+        inventory_foundation=inventory_foundation,
+        field_shadow=field_shadow,
     )
