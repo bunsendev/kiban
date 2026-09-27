@@ -1541,3 +1541,15 @@ OS: Windows 11
 - Windows全体回帰: 697 passed、19 skipped、Linux専用1件deselected。
 - `ruff check .`、`check_lint.py`、配布ハッシュ照合、`git diff --check`: 成功。
 - 実データ受入と実PostgreSQL接続は本工程では未実施。業務ポリシー値は確認後に指定する。
+
+# v2.9 Phase 3T Shadow後日実績CSV取込検証記録
+
+Date: 2026-09-28 JST
+OS: Windows 11
+
+- 原本SHA・source version・known_at・CASE単位、空欄と確定ゼロ、訂正版revisionを人工CSVで確認。
+- dry-runで書き込まないこと、事前検証の失敗で0件、適用時の並行revision競合で全件rollbackすることを確認。
+- 日本時間の朝にUTC基準で期限超過が遅れる既存判定を修正し、レビュー対応タスク試験を再確認。
+- 新規試験: 5 passed。Windows全体回帰: 702 passed、19 skipped、Linux専用1件deselected。
+- `ruff check .`、`check_lint.py`、`make_release.py --check`、`git diff --check`: 成功。
+- 実データ受入と実PostgreSQL接続は本工程では未実施。Shadow画面・週次reviewは次工程。

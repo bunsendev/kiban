@@ -1,5 +1,11 @@
 # v2.9 修正記録
 
+## Phase 3T Shadow後日実績CSV取込
+
+- 既存reference caseに対し、CASE単位の後日実績CSVを原本SHA・source version・known_at付きで追記する取込境界を追加。
+- 空欄と確定ゼロ、訂正版revisionを区別し、全行事前検証と原子的batch適用、dry-run CLIを追加。
+- 現場の期限超過判定が日本時間の朝に1日ずれる既存不具合を修正。
+
 ## Phase 3T-B 賞味期限別FEFO
 
 - 承認済みPilot snapshot・確定POINT予測を用い、期限の早いbucketから14日分の需要を消化するShadow計算を追加。

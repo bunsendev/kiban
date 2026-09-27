@@ -160,6 +160,33 @@ class SqliteFieldLearningStore:
             ).fetchall()
         return [_actual(row) for row in rows]
 
+    def append_actual_outcomes_batch(
+        self, events: tuple[FieldActualOutcomeEvent, ...]
+    ) -> tuple[FieldActualOutcomeEvent, ...]:
+        """全caseのrevisionを同一transactionで検査し、全件または0件を追記する。"""
+
+        if not events or len({item.case_id for item in events}) != len(events):
+            raise ValueError("batchは空にできず、case_idは一意です")
+        ordered = tuple(sorted(events, key=lambda item: item.case_id))
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            for event in ordered:
+                self._require_case(db, event.case_id)
+                current = self._latest_revision(db, "field_actual_outcome_events", event.case_id)
+                if event.revision != current + 1:
+                    raise FieldLearningConflict("ほかの処理が先に実績を記録しました")
+            for event in ordered:
+                db.execute(
+                    "INSERT INTO field_actual_outcome_events VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        event.actual_event_id, event.case_id, event.revision,
+                        event.source_version, event.source_sha256,
+                        *_optional_quantities(event), event.known_at.isoformat(),
+                        event.recorded_at.isoformat(), event.content_sha256,
+                    ),
+                )
+        return ordered
+
     def _require_case(self, db, case_id: str) -> None:
         row = db.execute(
             f"SELECT case_id FROM field_reference_cases WHERE case_id=?{self.lock_clause}",
