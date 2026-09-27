@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS forecast_runs (
   model_name TEXT NOT NULL, seed BIGINT NOT NULL,
   status TEXT NOT NULL CHECK (status IN
     ('QUEUED','RUNNING','SUCCEEDED','PARTIAL','FAILED','CANCELLED')),
-  cancellation_requested INTEGER NOT NULL DEFAULT 0
+  cancellation_requested INTEGER NOT NULL DEFAULT 0,
+  finished_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS ix_forecast_runs_runnable_provider
   ON forecast_runs(provider_id, status, cancellation_requested, run_id);

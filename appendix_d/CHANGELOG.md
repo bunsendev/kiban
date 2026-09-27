@@ -1,5 +1,12 @@
 # v2.9 修正記録
 
+## Phase 3T-A 倉庫在庫Projection
+
+- 業務APPROVED済みPilot在庫と確定POINT予測から、JAN×倉庫の14日日別gross在庫と不足を決定的に算出。
+- 予測run完了時刻を追加し、旧runの履歴as-ofへの後知恵混入を防止。
+- 対象origin・Pilot seriesだけを読むStore境界、Shadow JSON CLI、人工台帳E2Eを追加。
+- FEFO、補充、工場供給、輸送は未算出と明示。
+
 ## Phase 3T-A-1
 
 - 確認済みScope・予測identity・原本値対応CSVを版付き台帳へ登録するCLIを追加。

@@ -111,6 +111,19 @@ class RunStore(Protocol):
 
     def get_run(self, run_id: str) -> RunSnapshot | None: ...
 
+    def get_run_finished_at(self, run_id: str) -> datetime | None: ...
+
+    def get_origin_status(self, run_id: str, origin_date: date) -> dict | None: ...
+
+    def list_point_values_for_origin(
+        self,
+        run_id: str,
+        origin_date: date,
+        unique_ids: tuple[str, ...],
+        target_from: date,
+        target_to: date,
+    ) -> list[dict]: ...
+
     def list_runs(
         self, *, limit: int = 100, status: RunStatus | None = None
     ) -> list[RunSnapshot]: ...

@@ -83,6 +83,10 @@ class _Connection:
 class PostgresRunStore(SqliteRunStore):
     """PostgreSQL実装。claimはSKIP LOCKEDで複数Workerを競合させない。"""
 
+    @staticmethod
+    def _date_param(value: date):
+        return value
+
     def __init__(self, dsn: str) -> None:
         self.dsn = dsn
         self.path = Path(".")
@@ -105,6 +109,11 @@ class PostgresRunStore(SqliteRunStore):
             for statement in migration.read_text(encoding="utf-8").split(";"):
                 if statement.strip():
                     db.execute(statement)
+            db.execute("ALTER TABLE forecast_runs ADD COLUMN IF NOT EXISTS finished_at TIMESTAMPTZ")
+            db.execute(
+                "UPDATE forecast_runs SET finished_at=CURRENT_TIMESTAMP "
+                "WHERE finished_at IS NULL AND status='SUCCEEDED'"
+            )
 
     def claim_next_origin(
         self, run_id: str, worker_id: str, lease_seconds: int
