@@ -4,6 +4,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 ActionType = Literal[
     "RETEST",
@@ -151,7 +152,7 @@ def validate_action_transition(previous_status: str | None, status: str) -> None
 
 
 def is_overdue(event: ReviewActionEvent, today: date | None = None) -> bool:
-    reference = today or datetime.now(UTC).date()
+    reference = today or datetime.now(ZoneInfo("Asia/Tokyo")).date()
     return event.status not in TERMINAL_STATUSES and date.fromisoformat(event.due_date) < reference
 
 
