@@ -32,6 +32,10 @@ CREATE TABLE IF NOT EXISTS inbox_files (
 CREATE INDEX IF NOT EXISTS ix_inbox_hash ON inbox_files(sha256);
 CREATE INDEX IF NOT EXISTS ix_inbox_required
     ON inbox_files(kind, location_id, target_date, processed_at);
+CREATE TABLE IF NOT EXISTS inbox_formal_jobs (
+    stage_id TEXT PRIMARY KEY,
+    job_id TEXT NOT NULL
+);
 """
 
 
@@ -83,6 +87,7 @@ class InboxLedger:
         self, *, stage_id: str, sha256: str, source_name_sha256: str,
         size_bytes: int, status: str, reason: str, classification: Classification,
         policy_version: str, archive_reference: str, received_at: str,
+        formal_job_id: str | None = None,
     ) -> None:
         with self._connect() as db:
             db.execute(
@@ -98,6 +103,50 @@ class InboxLedger:
                     received_at, datetime.now(UTC).isoformat(),
                 ),
             )
+            if formal_job_id is not None:
+                db.execute(
+                    "INSERT INTO inbox_formal_jobs(stage_id,job_id) VALUES (?,?)",
+                    (stage_id, formal_job_id),
+                )
+
+    def recent_formal_jobs(self, policy_version: str, target_date: str,
+                           *, limit: int = 20) -> list[dict]:
+        if not 1 <= limit <= 100:
+            raise ValueError("FORMAL_JOB_LIMIT_INVALID")
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT f.job_id,i.kind,i.location_id,i.sha256,i.mapping_version,"
+                "i.processed_at "
+                "FROM inbox_formal_jobs f JOIN inbox_files i ON i.stage_id=f.stage_id "
+                "WHERE i.policy_version=? AND i.target_date=? "
+                "ORDER BY i.processed_at DESC,i.stage_id DESC LIMIT ?",
+                (policy_version, target_date, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def formal_job(self, job_id: str) -> dict | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT f.job_id,i.kind,i.location_id,i.sha256,i.mapping_version "
+                "FROM inbox_formal_jobs f JOIN inbox_files i ON i.stage_id=f.stage_id "
+                "WHERE f.job_id=? LIMIT 1", (job_id,),
+            ).fetchone()
+        return None if row is None else dict(row)
+
+    def is_latest_formal_job(self, job_id: str) -> bool:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT newer.job_id FROM inbox_formal_jobs selected "
+                "JOIN inbox_files target ON target.stage_id=selected.stage_id "
+                "JOIN inbox_files candidate ON candidate.policy_version=target.policy_version "
+                "AND candidate.target_date=target.target_date "
+                "AND candidate.kind=target.kind AND candidate.location_id=target.location_id "
+                "JOIN inbox_formal_jobs newer ON newer.stage_id=candidate.stage_id "
+                "WHERE selected.job_id=? "
+                "ORDER BY candidate.processed_at DESC,candidate.stage_id DESC LIMIT 1",
+                (job_id,),
+            ).fetchone()
+        return row is not None and row["job_id"] == job_id
 
     def summary(self, policy: InboxPolicy, target_date: str) -> dict:
         day_start = datetime.fromisoformat(target_date).replace(

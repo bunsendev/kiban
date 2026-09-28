@@ -67,6 +67,20 @@ async function load() {
       }
       contracts.append(li);
     }
+    const formalJobs = el("formal-jobs");
+    formalJobs.replaceChildren();
+    for (const job of data.formal_jobs || []) {
+      const li = document.createElement("li");
+      li.textContent = `${job.kind} / ${job.location_id} / ${job.status} / 採用候補 ${job.accepted_row_count} 行 / 隔離 ${job.quarantined_row_count} 行 / 原本数量 ${job.source_quantity_cases ?? "確認中"} 箱 / 正規化数量 ${job.normalized_quantity_cases ?? "確認中"} 箱 / 照合 ${job.reconciliation_matched ? "一致" : "未確認"}`;
+      if (job.status === "APPROVAL_REQUIRED" && job.quarantined_row_count === 0 && job.reconciliation_matched) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = "照合して正式在庫を承認";
+        button.addEventListener("click", () => approveFormal(job.job_id));
+        li.append(" ", button);
+      }
+      formalJobs.append(li);
+    }
     const events = el("events");
     events.replaceChildren();
     for (const event of data.events) {
@@ -77,6 +91,24 @@ async function load() {
     el("status").textContent = "候補と履歴を表示しました。";
   } catch {
     el("status").textContent = "管理用コードまたは接続を確認してください。";
+  }
+}
+
+async function approveFormal(jobId) {
+  const actor = el("actor").value.trim();
+  const reason = el("formal-reason").value.trim();
+  if (!actor || !reason) { el("status").textContent = "担当者名と承認理由を入力してください。"; return; }
+  if (!window.confirm("隔離行がなく、原本と照合結果を確認しましたか？")) return;
+  try {
+    const response = await fetch(`/api/field-pilot/admin/formal-jobs/${encodeURIComponent(jobId)}/approve`, {
+      method: "POST", headers: headers(),
+      body: JSON.stringify({ actor, reason, expected_revision: 0 }),
+    });
+    if (!response.ok) throw new Error("approval failed");
+    await load();
+    el("status").textContent = "正式在庫の判断を保存しました。予測Runの状態を別途確認してください。";
+  } catch {
+    el("status").textContent = "承認できません。検証結果、隔離行、現在版を再確認してください。";
   }
 }
 

@@ -48,6 +48,12 @@
       <button id="reject" type="button">候補を却下する</button>
     </section>
     <section class="inbox"><h2>承認済み版</h2><ul id="contracts"></ul></section>
+    <section class="inbox">
+      <h2>正式在庫の検証</h2>
+      <p>行数と隔離行数を原本・照合結果と確認してから承認します。承認後も予測Runがそろうまで結果は更新されません。</p>
+      <label>承認理由 <input id="formal-reason" maxlength="200" placeholder="原本と照合結果を確認"></label>
+      <ul id="formal-jobs"></ul>
+    </section>
     <section class="inbox"><h2>判断履歴</h2><ul id="events"></ul></section>
   </main>
 </body>

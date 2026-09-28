@@ -84,7 +84,18 @@ async function loadInbox() {
         : "不足または確認待ちがあります。詳細を管理担当者へご確認ください。";
     const counts = byId("inbox-counts");
     counts.hidden = false;
-    counts.textContent = `確認済み ${data.processed_count} 件 / 受付 ${data.received_count} 件 / 確認待ち ${data.review_count} 件 / 重複 ${data.duplicate_count} 件`;
+    const approved = data.approved_count || 0;
+    counts.textContent = `確認済み ${data.processed_count + approved} 件 / 受付 ${Math.max(0, data.received_count - approved)} 件 / 確認待ち ${data.review_count} 件 / 重複 ${data.duplicate_count} 件`;
+    const formal = data.formal_jobs || [];
+    const formalLabels = {
+      QUEUED: "正式検証の順番待ち", RUNNING: "正式検証中",
+      FAILED: "正式検証に失敗", VALIDATION_REJECTED: "データ検証で要確認",
+      APPROVAL_REQUIRED: "管理者の承認待ち", APPROVED: "正式在庫として承認済み",
+      REJECTED: "管理者が不採用",
+    };
+    byId("formal-status").textContent = formal.length
+      ? `直近の正式在庫検証: ${formal.map((item) => formalLabels[item.status] || "要確認").join(" / ")}`
+      : "正式在庫の検証ジョブはありません。";
     const labels = {
       VALID: "確認済み", RECEIVED: "受付済み・管理者確認待ち",
       MISSING: "未投入", INVALID: "内容を確認してください",

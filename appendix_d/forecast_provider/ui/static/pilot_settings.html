@@ -19,6 +19,13 @@
       <p>管理用コードはこの画面に保存しません。</p>
     </section>
     <section class="inbox">
+      <h2>未確定の商品</h2>
+      <p>投入済み在庫CSVから、JAN未確認の商品コードを表示します。原本と照合してから登録してください。ここで登録しても正式なPilot対象には自動採用されません。</p>
+      <button id="load-unresolved" type="button">未確定商品を確認</button>
+      <p id="unresolved-status" role="status"></p>
+      <ul id="unresolved-products"></ul>
+    </section>
+    <section class="inbox">
       <h2>設定の種類と対象</h2>
       <div class="admin-fields">
         <label>種類 <select id="type"><option value="JAN_MAPPING">商品コードとJAN</option><option value="INVENTORY_TIME_POLICY">倉庫在庫の基準時刻</option></select></label>

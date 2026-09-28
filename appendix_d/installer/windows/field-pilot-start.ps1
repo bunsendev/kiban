@@ -16,9 +16,10 @@ try {
     Write-FieldPilotLog $install.DataRoot "start" "requested"
     if (-not (Test-FieldPilotReady $install)) {
         Start-DockerDesktop
-        Invoke-FieldPilotCompose $install @("up", "-d", "postgres", "api")
+        Invoke-FieldPilotCompose $install @("up", "-d", "postgres", "api", "pilot-inventory-worker")
         Wait-FieldPilotReady $install
     }
+    Invoke-FieldPilotCompose $install @("up", "-d", "pilot-inventory-worker")
     $today = (Get-Date).ToUniversalTime().ToString("yyyyMMdd")
     $backupDirectory = Join-Path $install.DataRoot "Backup"
     $daily = @(Get-ChildItem -LiteralPath $backupDirectory -File `

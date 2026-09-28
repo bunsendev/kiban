@@ -10,6 +10,34 @@ const status = (message) => { $("status").textContent = message; };
 const type = () => $("type").value;
 const target = () => type() === "INVENTORY_TIME_POLICY" ? "WAREHOUSE" : $("target").value.trim();
 
+async function loadUnresolved() {
+  if (!$("token").value) { status("管理用コードを入力してください。"); return; }
+  const response = await fetch("/api/field-pilot/admin/unresolved-products", {
+    headers: headers(), cache: "no-store",
+  });
+  if (!response.ok) { $("unresolved-status").textContent = "一覧を確認できません。管理用コードを確認してください。"; return; }
+  const data = await response.json();
+  const list = $("unresolved-products");
+  list.replaceChildren();
+  for (const item of data.items) {
+    const line = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = `${item.product_code} / ${item.product_name || "商品名なし"} を確認`;
+    button.addEventListener("click", () => {
+      $("type").value = "JAN_MAPPING";
+      showType();
+      $("target").value = item.product_code;
+      $("product-name").value = item.product_name;
+      void load();
+    });
+    line.append(button);
+    list.append(line);
+  }
+  $("unresolved-status").textContent = `未確定 ${data.unresolved_count} 商品 / 対象CSV ${data.file_count} 件` +
+    (data.complete ? "" : ` / 読取できないCSV ${data.skipped_file_count} 件。管理担当者へ確認してください。`);
+}
+
 function showType() {
   const time = type() === "INVENTORY_TIME_POLICY";
   $("jan-fields").hidden = time;
@@ -95,6 +123,7 @@ async function rollback(version) {
 $("type").addEventListener("change", showType);
 $("targets").addEventListener("change", () => { $("target").value = $("targets").value; load(); });
 $("load").addEventListener("click", load);
+$("load-unresolved").addEventListener("click", loadUnresolved);
 $("save").addEventListener("click", save);
 $("effective").value = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 showType();

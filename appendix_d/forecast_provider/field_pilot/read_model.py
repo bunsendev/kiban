@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 from ..expiry_simulation import ExpirySimulationBlocked
 from ..feedback_sync.policy import FeedbackStore
+from ..inventory_foundation.read_service import InventorySnapshotReadService
 from ..warehouse_projection import ProjectionBlocked
 from .freshness import FreshnessPolicy
 from .improvement_events import ImprovementEventLedger
@@ -20,6 +21,7 @@ from .inbox_policy import InboxPolicy, InboxPolicyError, load_inbox_policy
 from .learning_service import LearningService
 from .local_setting_service import LocalSettingService
 from .local_setting_store import LocalSettingStore
+from .product_review import unresolved_products
 
 logger = logging.getLogger("kiban.field_pilot")
 MAX_CONFIG_BYTES = 65_536
@@ -37,6 +39,7 @@ class FieldPilotReadService:
         learning_operator_id: str = "FIELD_PILOT_OPERATOR",
         local_settings_dir: Path | None = None,
         local_backup_dir: Path | None = None,
+        inventory_store=None,
     ):
         self.shadow_service = shadow_service
         self.config_path = config_path
@@ -46,6 +49,7 @@ class FieldPilotReadService:
         self.learning_operator_id = learning_operator_id
         self.local_settings_dir = local_settings_dir or config_path.parent
         self.local_backup_dir = local_backup_dir
+        self.inventory_store = inventory_store
         self._local_settings = None
         self._feedback_store = None
         self.learning = (
@@ -96,6 +100,12 @@ class FieldPilotReadService:
             "pending_count": 0, "candidates": [],
         }
 
+    def unresolved_products_view(self) -> dict:
+        if self.inbox_root is None:
+            return {"items": [], "unresolved_count": 0, "file_count": 0,
+                    "skipped_file_count": 0, "complete": False}
+        return unresolved_products(self.inbox_root, self.local_settings.store)
+
     def inbox_view(self) -> dict:
         if self.inbox_policy_path is None or self.inbox_root is None:
             return {"status": "NOT_CONFIGURED", "message": "投入先を準備中です。"}
@@ -124,6 +134,8 @@ class FieldPilotReadService:
                     "duplicate_count": 0, "last_updated_at": None,
                 }
             summary = InboxLedger(self.inbox_root / "inbox.sqlite3").summary(policy, target_date)
+            if self.inventory_store is not None and not setup_required:
+                self._formal_inventory_status(summary)
             if setup_required:
                 summary["status"] = "SETUP_REQUIRED"
                 summary["message"] = (
@@ -137,6 +149,94 @@ class FieldPilotReadService:
                 "status": "SETUP_REQUIRED",
                 "message": "投入先の設定を管理担当者へご確認ください。",
             }
+
+    def _formal_inventory_status(self, summary: dict) -> None:
+        ledger = InboxLedger(self.inbox_root / "inbox.sqlite3")
+        jobs = []
+        latest_by_key = {}
+        for entry in ledger.recent_formal_jobs(
+            summary["policy_version"], summary["target_date"], limit=100,
+        ):
+            job = self.inventory_store.get_job(entry["job_id"])
+            if (job is None or job.source_sha256 != entry["sha256"]
+                    or job.mapping_version != entry["mapping_version"]):
+                continue
+            state = str(job.status)
+            snapshot_id = None
+            reconciliation = None
+            if state == "SUCCEEDED":
+                reconciliation = self.inventory_store.get_reconciliation(entry["job_id"])
+                snapshots = self.inventory_store.list_snapshots(entry["job_id"])
+                if not snapshots:
+                    state = "VALIDATION_REJECTED"
+                else:
+                    snapshot_id = snapshots[-1]["snapshot_id"]
+                    decision = self.inventory_store.get_latest_snapshot_decision(
+                        snapshot_id
+                    )
+                    state = "APPROVED" if decision and decision["decision"] == "APPROVED" else (
+                        "REJECTED" if decision and decision["decision"] == "REJECTED"
+                        else "APPROVAL_REQUIRED"
+                    )
+            key = (entry["kind"], entry["location_id"])
+            latest_by_key.setdefault(key, state)
+            jobs.append({"job_id": entry["job_id"], "kind": entry["kind"],
+                         "location_id": entry["location_id"], "status": state,
+                         "snapshot_id": snapshot_id,
+                         "reconciliation_matched": bool(
+                             reconciliation and reconciliation["reconciled"]
+                         ),
+                         "source_quantity_cases": (
+                             str(reconciliation["source_quantity_cases"])
+                             if reconciliation else None
+                         ),
+                         "normalized_quantity_cases": (
+                             str(reconciliation["normalized_quantity_cases"])
+                             if reconciliation else None
+                         ),
+                         "accepted_row_count": job.accepted_row_count,
+                         "quarantined_row_count": job.quarantined_row_count})
+        summary["formal_jobs"] = jobs
+        summary["approved_count"] = sum(
+            state == "APPROVED" for state in latest_by_key.values()
+        )
+        for item in summary["required"]:
+            key = (item["kind"], item["location_id"])
+            if key in latest_by_key:
+                item["status"] = (
+                    "VALID" if latest_by_key[key] == "APPROVED" else "RECEIVED"
+                )
+                item["freshness"] = (
+                    "FRESH" if latest_by_key[key] == "APPROVED" else "REVIEW_REQUIRED"
+                )
+        if summary["required"] and all(
+            item["status"] == "VALID" for item in summary["required"]
+        ) and summary["review_count"] == 0:
+            summary["status"] = "READY"
+
+    def approve_formal_inventory(self, job_id: str, *, actor: str, reason: str,
+                                 expected_revision: int) -> dict:
+        if (self.inbox_root is None or self.inventory_store is None
+                or not actor.strip() or not reason.strip()):
+            raise ValueError("FORMAL_APPROVAL_INVALID")
+        ledger = InboxLedger(self.inbox_root / "inbox.sqlite3")
+        entry = ledger.formal_job(job_id)
+        job = self.inventory_store.get_job(job_id) if entry else None
+        if (entry is None or job is None or str(job.status) != "SUCCEEDED"
+                or not ledger.is_latest_formal_job(job_id)
+                or job.source_sha256 != entry["sha256"]
+                or job.mapping_version != entry["mapping_version"]
+                or job.quarantined_row_count != 0):
+            raise ValueError("FORMAL_APPROVAL_NOT_READY")
+        snapshots = self.inventory_store.list_snapshots(job_id)
+        reconciliation = self.inventory_store.get_reconciliation(job_id)
+        if len(snapshots) != 1 or reconciliation is None or not reconciliation["reconciled"]:
+            raise ValueError("FORMAL_APPROVAL_NOT_READY")
+        return InventorySnapshotReadService(self.inventory_store).append_decision(
+            snapshot_id=snapshots[0]["snapshot_id"], decision="APPROVED",
+            reason=reason, expected_revision=expected_revision,
+            decided_by=actor,
+        )
 
     def _settings(self) -> dict:
         if not self.config_path.is_file() or self.config_path.is_symlink():

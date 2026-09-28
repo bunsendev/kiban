@@ -246,6 +246,7 @@ def from_environment():
             if os.environ.get("KIBAN_FIELD_PILOT_SETTINGS_DIR") else None,
             Path(os.environ["KIBAN_FIELD_PILOT_BACKUP_DIR"])
             if os.environ.get("KIBAN_FIELD_PILOT_BACKUP_DIR") else None,
+            inventory_foundation,
         ) if pilot_mode else None
     )
     return create_app(
