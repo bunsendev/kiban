@@ -25,7 +25,9 @@ def _source(tmp_path):
     (data / "Config" / "inbox-policy.json").write_text('{"required":[]}', encoding="utf-8")
     (data / "Config" / "pilot.env").write_text("PASSWORD=do-not-export", encoding="utf-8")
     (data / "Inbox" / "raw.csv").write_text("private,row", encoding="utf-8")
-    for relative in ("LocalSettings/field-settings.sqlite3", "Inbox/inbox.sqlite3"):
+    for relative in ("LocalSettings/field-settings.sqlite3",
+                     "LocalSettings/formal-shipment-drafts.sqlite3",
+                     "Inbox/inbox.sqlite3"):
         with sqlite3.connect(data / relative) as db:
             db.execute("CREATE TABLE setting_version (version TEXT)")
             db.execute("INSERT INTO setting_version VALUES ('v1')")
@@ -53,10 +55,12 @@ def test_settings_bundle_excludes_credentials_raw_and_postgres(tmp_path):
         assert "database/postgres.dump" not in names
         assert "learning/raw.csv" not in names
         assert "settings/field-settings.sqlite3" in names
+        assert "settings/formal-shipment-drafts.sqlite3" in names
     stage = tmp_path / "staged"
     assert stage_bundle(bundle, stage) == result
     assert json.loads((stage / "manifest.json").read_text(encoding="utf-8")) == result
     assert (stage / "learning" / "inbox.sqlite3").is_file()
+    assert (stage / "settings" / "formal-shipment-drafts.sqlite3").is_file()
     assert not (stage / "config" / "pilot.env").exists()
 
 

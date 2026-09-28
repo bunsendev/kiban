@@ -53,6 +53,7 @@ def trial_forecast(inbox_root: Path, settings_store, product_code: str) -> dict:
     root = archive.resolve(strict=True)
     totals: dict[tuple[str, date], Decimal] = defaultdict(Decimal)
     covered_days: set[date] = set()
+    source_files = []
     rows_seen = invalid_rows = 0
     for path in paths:
         if (path.is_symlink() or path.parent.is_symlink() or path.parent.parent.is_symlink()
@@ -64,6 +65,13 @@ def trial_forecast(inbox_root: Path, settings_store, product_code: str) -> dict:
                 reader = csv.DictReader(source, strict=True)
                 if not SHIPMENT_HEADERS.issubset(reader.fieldnames or ()):
                     continue
+                with path.open("rb") as binary:
+                    source_files.append({
+                        "path_sha256": hashlib.sha256(
+                            path.resolve(strict=True).relative_to(root).as_posix().encode("utf-8")
+                        ).hexdigest(),
+                        "content_sha256": hashlib.file_digest(binary, "sha256").hexdigest(),
+                    })
                 for row in reader:
                     rows_seen += 1
                     if rows_seen > MAX_ROWS:
@@ -136,12 +144,27 @@ def trial_forecast(inbox_root: Path, settings_store, product_code: str) -> dict:
             "used_days_in_window": available_days,
             "status": "TRIAL_READY" if predictions else "HISTORY_INSUFFICIENT",
             "days": predictions,
+            "history": [
+                {
+                    "date": day.isoformat(),
+                    "quantity": str(observed[day]) if day in observed else
+                    "0" if (policy["missing_day"] == "ZERO_WHEN_DAILY_FILE_PRESENT"
+                            and day in covered_days) else None,
+                    "state": "OBSERVED" if day in observed else
+                    "ZERO_BY_CONFIRMED_POLICY" if (
+                        policy["missing_day"] == "ZERO_WHEN_DAILY_FILE_PRESENT"
+                        and day in covered_days
+                    ) else "MISSING",
+                }
+                for day in window
+            ],
         })
     fingerprint = hashlib.sha256(json.dumps(
         {"jan": selected["jan"], "policy_version": policy_record["version"],
          "observations": sorted((warehouse, day.isoformat(), str(quantity))
                                 for (warehouse, day), quantity in totals.items()),
-         "coverage": sorted(day.isoformat() for day in covered_days)},
+         "coverage": sorted(day.isoformat() for day in covered_days),
+         "source_files": source_files},
         ensure_ascii=False, sort_keys=True, separators=(",", ":"),
     ).encode("utf-8")).hexdigest()
     return {

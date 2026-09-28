@@ -124,6 +124,7 @@ async function checkForecastPreparation() {
   $("forecast-preparation-status").textContent = "原本・確認履歴・承認済み在庫を照合しています。";
   const list = $("forecast-preparation-result");
   list.replaceChildren();
+  $("draft-status").textContent = "";
   try {
     const response = await fetch("/api/field-pilot/admin/forecast-preparation", {
       method: "POST", headers: headers(), body: JSON.stringify({ product_code: productCode }),
@@ -142,7 +143,14 @@ async function checkForecastPreparation() {
     };
     for (const item of data.series) {
       const row = document.createElement("li");
-      row.textContent = `倉庫 ${item.warehouse_code} / 最終出荷日 ${item.last_observed_day} / ${item.preparation_candidate ? "次工程へ渡す候補" : item.blocking_reasons.map((reason) => labels[reason] || reason).join("、")} / 在庫Snapshot ${item.inventory_snapshot_id || "なし"}`;
+      row.textContent = `倉庫 ${item.warehouse_code} / 最終出荷日 ${item.last_observed_day} / ${item.preparation_candidate ? "次工程へ渡す候補" : item.blocking_reasons.map((reason) => labels[reason] || reason).join("、")} / 原本数量 ${data.shipment_unit || "不明"} / ゼロ扱い ${item.zero_policy_dates?.length ? item.zero_policy_dates.join("・") : "なし"} / 在庫Snapshot ${item.inventory_snapshot_id || "なし"}`;
+      if (item.preparation_candidate) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = "箱単位・出荷ゼロ日を確認して日次入力候補を保存";
+        button.addEventListener("click", () => void approveShipmentDraft(data, item));
+        row.append(" ", button);
+      }
       list.append(row);
     }
     $("forecast-preparation-status").textContent = `候補 ${data.preparation_candidate_count} 系列。正式出荷日次データの取込・予測Runとの接続は未完了です。この結果だけで正式予測を開始しません。`;
@@ -153,6 +161,33 @@ async function checkForecastPreparation() {
     }
   } catch {
     $("forecast-preparation-status").textContent = "準備状況を確認できません。原本と確認履歴を再確認してください。";
+  }
+}
+
+async function approveShipmentDraft(preparation, item) {
+  const actor = $("actor").value.trim();
+  const reason = $("draft-reason").value.trim();
+  if (!actor || !reason || !$("token").value) {
+    $("draft-status").textContent = "管理担当者ID・管理用コード・原本確認理由を入力してください。";
+    return;
+  }
+  $("draft-status").textContent = "最新の原本と判断版を再照合しています。";
+  try {
+    const response = await fetch("/api/field-pilot/admin/formal-shipment-drafts", {
+      method: "POST", headers: headers(), body: JSON.stringify({
+        product_code: preparation.product_code,
+        warehouse_code: item.warehouse_code,
+        source_fingerprint: preparation.source_fingerprint,
+        policy_version: preparation.trial_policy_version,
+        inventory_snapshot_id: item.inventory_snapshot_id,
+        actor, reason,
+      }),
+    });
+    if (!response.ok) throw new Error("draft failed");
+    const draft = await response.json();
+    $("draft-status").textContent = `倉庫 ${item.warehouse_code} の28日日次入力候補を保存しました（${draft.draft_id}）。予測Runへの登録は未接続です。`;
+  } catch {
+    $("draft-status").textContent = "保存できません。原本・単位・ゼロ日・在庫を再確認してから不足項目を再表示してください。";
   }
 }
 
