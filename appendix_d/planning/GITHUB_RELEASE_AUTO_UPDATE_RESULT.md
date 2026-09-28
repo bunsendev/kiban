@@ -32,7 +32,7 @@
 
 ## 8. Updater
 
-Release一覧、署名Manifest、パッケージURLを匿名で取得するGitHub adapter、版比較、再開可能なRange download、サイズ/SHA-256照合、失敗ファイル隔離を実装した。更新確認結果をローカルSQLiteへ追記するserviceは6時間cacheし、明示的な手動確認では再取得できる。GitHub通信・公開鍵未設定時の状態は業務処理を止めない。管理画面・起動/終業時の実呼出しと適用UIは未接続。
+Release一覧、署名Manifest、パッケージURLを匿名で取得するGitHub adapter、版比較、再開可能なRange download、サイズ/SHA-256照合、失敗ファイル隔離を実装した。更新確認結果をローカルSQLiteへ追記するserviceは6時間cacheし、明示的な手動確認では再取得できる。現場管理画面から認証付きで状態表示・手動再確認できる。署名公開鍵未設定時は外部通信せず未設定と表示し、GitHub通信失敗も業務処理を止めない。公開鍵は現場Configの`release-update-public.pem`に配置する契約としたが、鍵の発行・現場配備は未実施。起動/終業時の実呼出しと適用UIは未接続。
 
 ## 9. Backup
 

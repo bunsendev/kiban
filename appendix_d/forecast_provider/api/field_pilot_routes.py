@@ -126,6 +126,7 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         "/api/field-pilot/inbox",
         "/api/field-pilot/learning", "/api/field-pilot/admin",
         "/api/field-pilot/admin/unresolved-products",
+        "/api/field-pilot/admin/update",
         "/ui/pilot/admin", "/ui/pilot/admin/",
         "/ui/pilot/settings", "/ui/pilot/settings/",
         "/api/field-pilot/settings",
@@ -143,6 +144,8 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         if request.url.hostname not in {"127.0.0.1", "localhost"}:
             return JSONResponse({"message": "現場PC内からのみ利用できます"}, status_code=403)
         if (path in {"/api/field-pilot/admin",
+                     "/api/field-pilot/admin/update",
+                     "/api/field-pilot/admin/update/check",
                      "/api/field-pilot/admin/product-mapping/publish",
                      "/api/field-pilot/admin/shipment-trial",
                      "/api/field-pilot/admin/shipment-trial/feedback"}
@@ -159,6 +162,7 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
                     or ADMIN_ACTION.fullmatch(path)
                     or FORMAL_APPROVAL.fullmatch(path)
                     or path in {"/api/field-pilot/admin/product-mapping/publish",
+                                "/api/field-pilot/admin/update/check",
                                 "/api/field-pilot/admin/shipment-trial",
                                 "/api/field-pilot/admin/shipment-trial/feedback",
                                 "/api/field-pilot/settings/change",
@@ -422,6 +426,26 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         request.state.audit_operation = "FIELD_PILOT_LEARNING_ADMIN_VIEW"
         return {**service.learning.admin_view(),
                 "formal_jobs": service.inbox_view().get("formal_jobs", [])}
+
+    @app.get("/api/field-pilot/admin/update", include_in_schema=False)
+    def admin_update_status(request: Request):
+        if not require_admin(request):
+            return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
+        request.state.audit_operation = "FIELD_PILOT_UPDATE_STATUS"
+        try:
+            return service.update_service.status()
+        except (ValueError, OSError, sqlite3.DatabaseError):
+            return JSONResponse({"message": "更新設定を確認してください"}, status_code=409)
+
+    @app.post("/api/field-pilot/admin/update/check", include_in_schema=False)
+    def admin_update_check(request: Request):
+        if not require_admin(request):
+            return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
+        request.state.audit_operation = "FIELD_PILOT_UPDATE_CHECK"
+        try:
+            return service.update_service.check(trigger="MANUAL", force=True)
+        except (ValueError, OSError, sqlite3.DatabaseError):
+            return JSONResponse({"message": "更新確認を実行できません"}, status_code=409)
 
     @app.post("/api/field-pilot/admin/approve/{candidate_id}", include_in_schema=False)
     def admin_approve(candidate_id: str, decision: AdminDecision, request: Request):

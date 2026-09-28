@@ -1,3 +1,9 @@
+# Field Pilot 更新確認管理画面（2026-09-28 JST）
+
+- 管理者認証付きの現在版・署名鍵設定状態・更新確認履歴表示と手動確認を追加。署名鍵がない場合は外部通信しない。更新適用は未実装。
+- 対象テスト7 passed。配布ハッシュ更新後のWindows全体回帰は796 passed / 20 skipped / Linux専用RSS計測1件deselected。`ruff check .`とJavaScript構文検査に成功。`make_release.py --field-pilot`と`--check`で配布ファイルを照合した。
+- 現場PC実機の公開Release疎通・適用・復旧は未実施。
+
 # Field Pilot ローカル設定・変更履歴（2026-09-28 JST）
 
 - 管理者画面とAPIでJAN対応、在庫基準時刻policyを版保存し、旧版への復帰を追記履歴として検証。変更前SQLite Backup、SHA-256 manifest、Backup失敗時の変更停止、競合版・不正JAN・架空の正確時刻の拒否を人工データで確認。

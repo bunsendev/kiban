@@ -49,6 +49,12 @@
     </section>
     <section class="inbox"><h2>承認済み版</h2><ul id="contracts"></ul></section>
     <section class="inbox">
+      <h2>アプリの更新確認</h2>
+      <p>公開済みの署名付き更新があるか確認します。この画面から更新を適用することはできません。候補が見つかったら管理担当者が配布手順を確認します。</p>
+      <p id="update-status" role="status" aria-live="polite">管理用コードを入力して候補を確認してください。</p>
+      <button id="check-update" type="button">更新を確認する</button>
+    </section>
+    <section class="inbox">
       <h2>正式在庫の検証</h2>
       <p>行数と隔離行数を原本・照合結果と確認してから承認します。承認後も予測Runがそろうまで結果は更新されません。</p>
       <label>承認理由 <input id="formal-reason" maxlength="200" placeholder="原本と照合結果を確認"></label>

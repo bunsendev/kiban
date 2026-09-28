@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 from ..expiry_simulation import ExpirySimulationBlocked
 from ..feedback_sync.policy import FeedbackStore
 from ..inventory_foundation.read_service import InventorySnapshotReadService
+from ..update_service.check_service import UpdateCheckService, UpdateCheckStore
 from ..warehouse_projection import ProjectionBlocked
 from .formal_product_mapping import publish_confirmed_product_mapping
 from .freshness import FreshnessPolicy
@@ -55,6 +56,7 @@ class FieldPilotReadService:
         self.inventory_store = inventory_store
         self._local_settings = None
         self._feedback_store = None
+        self._update_service = None
         self.learning = (
             LearningService(inbox_root, inbox_policy_path)
             if inbox_root is not None and inbox_policy_path is not None else None
@@ -63,6 +65,20 @@ class FieldPilotReadService:
             ImprovementEventLedger(inbox_root / "improvement-events.sqlite3")
             if inbox_root is not None else None
         )
+
+    @property
+    def update_service(self) -> UpdateCheckService:
+        if self._update_service is None:
+            current_version = os.environ.get("KIBAN_FIELD_PILOT_VERSION")
+            if not current_version:
+                raise ValueError("UPDATE_VERSION_NOT_CONFIGURED")
+            self._update_service = UpdateCheckService(
+                store=UpdateCheckStore(self.local_settings_dir / "update-checks.sqlite3"),
+                current_version=current_version,
+                channel="pilot",
+                public_key_path=self.config_path.parent / "release-update-public.pem",
+            )
+        return self._update_service
 
     @property
     def feedback_store(self) -> FeedbackStore:
