@@ -59,7 +59,7 @@ if (Test-Path -LiteralPath $folderShortcut) {
         Remove-Item -LiteralPath $folderShortcut
     }
 }
-foreach ($scheme in @("bunsen-pilot-finish", "bunsen-pilot-connect")) {
+foreach ($scheme in @("bunsen-pilot-finish", "bunsen-pilot-connect", "bunsen-pilot-scan")) {
     $key = "HKCU:\Software\Classes\$scheme"
     if (Test-Path -LiteralPath $key) {
         $commandKey = Join-Path $key "shell\open\command"

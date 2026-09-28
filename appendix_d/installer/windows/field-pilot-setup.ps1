@@ -131,7 +131,8 @@ function Register-FieldPilotProtocol([string]$AppRoot, [string]$DataRoot) {
     $powershell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
     foreach ($item in @(
         @{ Scheme = "bunsen-pilot-finish"; Script = "field-pilot-finish.ps1"; Browser = $true },
-        @{ Scheme = "bunsen-pilot-connect"; Script = "field-pilot-feedback-test.ps1"; Browser = $false }
+        @{ Scheme = "bunsen-pilot-connect"; Script = "field-pilot-feedback-test.ps1"; Browser = $false },
+        @{ Scheme = "bunsen-pilot-scan"; Script = "field-pilot-start.ps1"; Browser = $false }
     )) {
         $key = "HKCU:\Software\Classes\$($item.Scheme)"
         New-Item -Path (Join-Path $key "shell\open\command") -Force | Out-Null
