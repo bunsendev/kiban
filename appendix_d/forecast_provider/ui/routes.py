@@ -158,3 +158,12 @@ def install_ui_routes(app) -> None:
             media_type="text/html; charset=utf-8",
             headers=SECURITY_HEADERS,
         )
+
+    @app.get("/ui/pilot/settings", include_in_schema=False)
+    @app.get("/ui/pilot/settings/", include_in_schema=False)
+    def pilot_settings_ui():
+        return FileResponse(
+            STATIC_ROOT / "pilot_settings.html",
+            media_type="text/html; charset=utf-8",
+            headers=SECURITY_HEADERS,
+        )

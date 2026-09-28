@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ブンセン 現場設定</title>
+  <link rel="stylesheet" href="/ui/assets/pilot.css">
+  <script type="module" src="/ui/assets/pilot_settings.js"></script>
+</head>
+<body>
+  <header class="topbar"><div><span class="eyebrow">ブンセン 管理担当者</span><h1>現場設定</h1></div></header>
+  <main>
+    <p><a href="/ui/pilot">試験運用画面へ戻る</a></p>
+    <div class="warning" role="note"><strong>設定の確認</strong><span>ここで保存した内容は確認用の版付き記録です。正式取込・予測・出荷指示には自動適用されません。</span></div>
+    <section class="inbox">
+      <h2>管理者認証</h2>
+      <label>管理担当者ID <input id="actor" autocomplete="username" required></label>
+      <label>管理用コード <input id="token" type="password" autocomplete="off" required></label>
+      <p>管理用コードはこの画面に保存しません。</p>
+    </section>
+    <section class="inbox">
+      <h2>設定の種類と対象</h2>
+      <div class="admin-fields">
+        <label>種類 <select id="type"><option value="JAN_MAPPING">商品コードとJAN</option><option value="INVENTORY_TIME_POLICY">倉庫在庫の基準時刻</option></select></label>
+        <label>対象の商品コード <input id="target" placeholder="例: ITEM-1"></label>
+        <label>登録済み対象 <select id="targets"><option value="">選択してください</option></select></label>
+      </div>
+      <button id="load" type="button">現在の設定と履歴を確認</button>
+      <p id="current" role="status">未確認</p>
+    </section>
+    <section class="inbox">
+      <h2>新しい版を保存</h2>
+      <p>原本と照合してから入力してください。過去の日付への変更はできません。</p>
+      <div id="jan-fields" class="admin-fields">
+        <label>JANコード <input id="jan" inputmode="numeric" maxlength="13"></label>
+        <label>商品名 <input id="product-name" maxlength="120"></label>
+      </div>
+      <div id="time-fields" class="admin-fields" hidden>
+        <label>時刻の根拠 <select id="source"><option value="DAILY_CLOSE">日次締め</option><option value="MORNING">朝時点</option><option value="PREVIOUS_CLOSE">前日締め</option><option value="FILE_CREATED">ファイル作成</option><option value="SPECIFIED">確認済み指定時刻</option><option value="OTHER">その他</option></select></label>
+        <label>時刻の精度 <select id="precision"><option value="BUSINESS_DAY">日付のみ</option><option value="END_OF_DAY">当日末</option><option value="START_OF_DAY">当日初め</option><option value="EXACT_TIME">確認済みの正確な時刻</option></select></label>
+        <label>確認済み時刻（正確な時刻のみ） <input id="local-time" type="time"></label>
+      </div>
+      <div class="admin-fields">
+        <label>適用開始日 <input id="effective" type="date" required></label>
+        <label>変更理由 <select id="reason"><option value="INITIAL_CONFIRMATION">初回確認</option><option value="CORRECTION">訂正</option><option value="BUSINESS_RULE_CHANGE">業務条件の変更</option></select></label>
+        <label>メモ（任意） <input id="comment" maxlength="500"></label>
+      </div>
+      <button id="save" type="button">原本を確認して新版を保存</button>
+    </section>
+    <section class="inbox">
+      <h2>変更履歴と復帰</h2>
+      <p>復帰も新しい版として記録します。元の履歴は消えません。</p>
+      <ul id="history"></ul>
+    </section>
+    <p id="status" role="status" aria-live="polite"></p>
+  </main>
+</body>
+</html>

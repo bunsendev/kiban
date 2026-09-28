@@ -48,9 +48,17 @@ function New-FieldPilotEnvironment([string]$DataRoot) {
     $config = Join-Path $DataRoot "Config"
     $path = Join-Path $config "pilot.env"
     $inboxMount = (Join-Path $DataRoot "Inbox").Replace("\", "/")
+    $settingsMount = (Join-Path $DataRoot "LocalSettings").Replace("\", "/")
+    $backupMount = (Join-Path $DataRoot "Backup").Replace("\", "/")
     if (Test-Path -LiteralPath $path -PathType Leaf) {
         if (-not (Select-String -LiteralPath $path -Pattern '^KIBAN_FIELD_PILOT_INBOX_DIR=' -Quiet)) {
             Add-Content -LiteralPath $path -Value "KIBAN_FIELD_PILOT_INBOX_DIR=$inboxMount" -Encoding ascii
+        }
+        if (-not (Select-String -LiteralPath $path -Pattern '^KIBAN_FIELD_PILOT_SETTINGS_DIR=' -Quiet)) {
+            Add-Content -LiteralPath $path -Value "KIBAN_FIELD_PILOT_SETTINGS_DIR=$settingsMount" -Encoding ascii
+        }
+        if (-not (Select-String -LiteralPath $path -Pattern '^KIBAN_FIELD_PILOT_BACKUP_DIR=' -Quiet)) {
+            Add-Content -LiteralPath $path -Value "KIBAN_FIELD_PILOT_BACKUP_DIR=$backupMount" -Encoding ascii
         }
         if (-not (Select-String -LiteralPath $path -Pattern '^KIBAN_FIELD_PILOT_LEARNING_ADMIN_TOKEN=' -Quiet)) {
             Add-Content -LiteralPath $path -Value "KIBAN_FIELD_PILOT_LEARNING_ADMIN_TOKEN=$(New-LocalToken)" -Encoding ascii
@@ -80,6 +88,8 @@ function New-FieldPilotEnvironment([string]$DataRoot) {
         "KIBAN_IMPORT_DIR=$imports"
         "KIBAN_FIELD_PILOT_CONFIG_DIR=$configMount"
         "KIBAN_FIELD_PILOT_INBOX_DIR=$inboxMount"
+        "KIBAN_FIELD_PILOT_SETTINGS_DIR=$settingsMount"
+        "KIBAN_FIELD_PILOT_BACKUP_DIR=$backupMount"
         "KIBAN_FIELD_PILOT_LEARNING_ADMIN_TOKEN=$(New-LocalToken)"
         "KIBAN_FIELD_PILOT_OPERATOR_ID=WINDOWS:$(($env:USERNAME -replace '[^A-Za-z0-9_.-]', '_'))"
     ) | Set-Content -LiteralPath $path -Encoding ascii
@@ -141,6 +151,7 @@ try {
     foreach ($path in @($appBase, $dataRoot, (Join-Path $dataRoot "Config"),
         (Join-Path $dataRoot "Input"), (Join-Path $dataRoot "Reports"),
         (Join-Path $dataRoot "Mapping"), (Join-Path $dataRoot "Import"),
+        (Join-Path $dataRoot "LocalSettings"), (Join-Path $dataRoot "Backup"),
         (Join-Path $dataRoot "Logs"), (Join-Path $dataRoot "Tools"),
         (Join-Path $dataRoot "Inbox\Drop"), (Join-Path $dataRoot "Inbox\Staged"),
         (Join-Path $dataRoot "Inbox\Archive"), (Join-Path $dataRoot "Inbox\Observed"))) {

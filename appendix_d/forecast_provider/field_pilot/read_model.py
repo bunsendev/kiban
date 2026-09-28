@@ -6,6 +6,7 @@ import json
 import logging
 import sqlite3
 from datetime import UTC, datetime
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -16,6 +17,8 @@ from .improvement_events import ImprovementEventLedger
 from .inbox_ledger import InboxLedger
 from .inbox_policy import InboxPolicyError, load_inbox_policy
 from .learning_service import LearningService
+from .local_setting_service import LocalSettingService
+from .local_setting_store import LocalSettingStore
 
 logger = logging.getLogger("kiban.field_pilot")
 MAX_CONFIG_BYTES = 65_536
@@ -31,6 +34,8 @@ class FieldPilotReadService:
         inbox_policy_path: Path | None = None, inbox_root: Path | None = None,
         learning_admin_token: str | None = None,
         learning_operator_id: str = "FIELD_PILOT_OPERATOR",
+        local_settings_dir: Path | None = None,
+        local_backup_dir: Path | None = None,
     ):
         self.shadow_service = shadow_service
         self.config_path = config_path
@@ -38,6 +43,9 @@ class FieldPilotReadService:
         self.inbox_root = inbox_root
         self.learning_admin_token = learning_admin_token
         self.learning_operator_id = learning_operator_id
+        self.local_settings_dir = local_settings_dir or config_path.parent
+        self.local_backup_dir = local_backup_dir
+        self._local_settings = None
         self.learning = (
             LearningService(inbox_root, inbox_policy_path)
             if inbox_root is not None and inbox_policy_path is not None else None
@@ -46,6 +54,19 @@ class FieldPilotReadService:
             ImprovementEventLedger(inbox_root / "improvement-events.sqlite3")
             if inbox_root is not None else None
         )
+
+    @property
+    def local_settings(self) -> LocalSettingService:
+        if self._local_settings is None:
+            try:
+                application_version = version("bunsen-forecast-provider")
+            except PackageNotFoundError:
+                application_version = "unpackaged"
+            store = LocalSettingStore(self.local_settings_dir / "field-settings.sqlite3")
+            self._local_settings = LocalSettingService(
+                store, application_version, backup_root=self.local_backup_dir,
+            )
+        return self._local_settings
 
     def _observe(self, event_type: str, outcome: str, *, error_code: str | None = None,
                  metrics: dict | None = None, **identifiers) -> None:

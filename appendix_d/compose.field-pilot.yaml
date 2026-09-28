@@ -12,6 +12,8 @@ services:
       KIBAN_FIELD_PILOT_CONFIG: /var/lib/kiban/pilot/pilot-settings.json
       KIBAN_FIELD_PILOT_INBOX_POLICY: /var/lib/kiban/pilot/inbox-policy.json
       KIBAN_FIELD_PILOT_INBOX_ROOT: /var/lib/kiban/pilot-inbox
+      KIBAN_FIELD_PILOT_SETTINGS_DIR: /var/lib/kiban/pilot-settings
+      KIBAN_FIELD_PILOT_BACKUP_DIR: /var/lib/kiban/pilot-backup
       KIBAN_FIELD_PILOT_LEARNING_ADMIN_TOKEN: ${KIBAN_FIELD_PILOT_LEARNING_ADMIN_TOKEN:?Learning admin token is required}
       KIBAN_FIELD_PILOT_OPERATOR_ID: ${KIBAN_FIELD_PILOT_OPERATOR_ID:-FIELD_PILOT_OPERATOR}
       KIBAN_API_SUBJECT: field-pilot-local-admin
@@ -19,3 +21,5 @@ services:
     volumes:
       - ${KIBAN_FIELD_PILOT_CONFIG_DIR:?Field Pilot config dir is required}:/var/lib/kiban/pilot:ro
       - ${KIBAN_FIELD_PILOT_INBOX_DIR:?Field Pilot inbox dir is required}:/var/lib/kiban/pilot-inbox
+      - ${KIBAN_FIELD_PILOT_SETTINGS_DIR:?Field Pilot settings dir is required}:/var/lib/kiban/pilot-settings
+      - ${KIBAN_FIELD_PILOT_BACKUP_DIR:?Field Pilot backup dir is required}:/var/lib/kiban/pilot-backup
