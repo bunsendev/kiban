@@ -33,6 +33,9 @@
       <button id="run-trial" type="button">参考予測を開始</button>
       <p id="trial-status" role="status" aria-live="polite"></p>
       <div id="trial-result"></div>
+      <button id="check-forecast-preparation" type="button">正式予測に進むための不足項目を確認</button>
+      <p id="forecast-preparation-status" role="status" aria-live="polite"></p>
+      <ul id="forecast-preparation-result"></ul>
       <div id="trial-feedback" hidden>
         <label>試算へのフィードバック <select id="trial-issue"><option value="USEFUL">参考になった</option><option value="UNIT_WRONG">単位の解釈が違う</option><option value="MISSING_DAY_WRONG">出荷ゼロ日の扱いが違う</option><option value="FORECAST_HIGH">予測が多すぎる</option><option value="FORECAST_LOW">予測が少なすぎる</option><option value="OTHER">その他・再確認が必要</option></select></label>
         <button id="send-trial-feedback" type="button">フィードバックを記録</button>
