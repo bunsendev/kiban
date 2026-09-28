@@ -12,6 +12,8 @@ services:
       KIBAN_FIELD_PILOT_CONFIG: /var/lib/kiban/pilot/pilot-settings.json
       KIBAN_FIELD_PILOT_INBOX_POLICY: /var/lib/kiban/pilot/inbox-policy.json
       KIBAN_FIELD_PILOT_INBOX_ROOT: /var/lib/kiban/pilot-inbox
+      KIBAN_FIELD_PILOT_LEARNING_ADMIN_TOKEN: ${KIBAN_FIELD_PILOT_LEARNING_ADMIN_TOKEN:?Learning admin token is required}
+      KIBAN_FIELD_PILOT_OPERATOR_ID: ${KIBAN_FIELD_PILOT_OPERATOR_ID:-FIELD_PILOT_OPERATOR}
       KIBAN_API_SUBJECT: field-pilot-local-admin
       KIBAN_ALLOWED_HOSTS: 127.0.0.1,localhost
     volumes:

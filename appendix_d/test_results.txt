@@ -1,3 +1,12 @@
+# Field Pilot 承認型学習・習慣化画面（2026-09-28 JST）
+
+- 対象テスト: `tests/test_field_pilot_approved_learning.py` 4 passed。未知候補、担当者承認、重要変更の管理者境界、全行構造検証、無効化と再承認、PC再起動相当の台帳読込、HTTP制限を確認。
+- `tests/test_field_pilot_unified_inbox.py`と`tests/test_field_pilot_release.py`を含む対象テストは追加前13 passed。追加後は全体回帰に含める。
+- `ruff check .`、JavaScript `node --check`、Windows PowerShell parserに成功。
+- Windowsの全体pytest初回は710 passed、20 skipped、2 failed。失敗はLinux専用peak RSS計測と配布ハッシュ未更新。追加テストを含めた再実行（Linux専用1件除外）は配布ハッシュ更新前に711 passed、20 skipped、1 deselected、1 failed。最後の失敗は検査中の編集によるハッシュ差分であり、成果物確定後に再検査する。
+- 最終コード・文書を固定したWindows全体回帰は712 passed、20 skipped、Linux専用RSS計測1件deselected。`make_release.py --field-pilot`と`make_release.py --check`で786/786ファイル一致、ZIP内の日本語ファイル名UTF-8 flagを確認した。
+- 現場PCでの新配布版インストール、実データ正式取込と自動Forecast/Projectionは未検証・未接続。SHADOW / READ ONLYを維持。
+
 # v2.9 Phase 3S-3 監査・実PostgreSQL検証記録
 
 Date: 2026-09-24 JST

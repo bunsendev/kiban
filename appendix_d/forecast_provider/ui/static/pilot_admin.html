@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ブンセン 学習候補の管理</title>
+  <link rel="stylesheet" href="/ui/assets/pilot.css">
+  <script type="module" src="/ui/assets/pilot_admin.js"></script>
+</head>
+<body>
+  <header class="topbar"><div><span class="eyebrow">ブンセン 管理担当者</span><h1>学習候補の管理</h1></div></header>
+  <main>
+    <p>構造を覚える承認と、今回の数値を正式採用する判断は別です。この画面の承認だけで予測は更新されません。</p>
+    <section class="inbox">
+      <h2>管理者認証</h2>
+      <label>管理担当者名 <input id="actor" autocomplete="name"></label>
+      <label>管理用コード <input id="token" type="password" autocomplete="off"></label>
+      <button id="load" type="button">候補を確認</button>
+      <p id="status" role="status" aria-live="polite"></p>
+    </section>
+    <section class="inbox">
+      <h2>学習候補</h2>
+      <label>候補 <select id="candidate"></select></label>
+      <p id="candidate-detail"></p>
+      <div class="admin-fields">
+        <label>種類 <select id="kind">
+          <option value="WAREHOUSE_INVENTORY">倉庫在庫</option>
+          <option value="SHIPMENT_ACTUAL">出荷実績</option>
+          <option value="FACTORY_INVENTORY">工場在庫</option>
+          <option value="PRODUCTION_SCHEDULE">生産予定</option>
+        </select></label>
+        <label>拠点ID <input id="location_id"></label>
+        <label>日付列 <input id="date_column"></label>
+        <label>日付形式 <select id="date_format"><option value="%Y-%m-%d">2026-09-28</option><option value="%Y/%m/%d">2026/09/28</option></select></label>
+        <label>数量列 <input id="quantity_column"></label>
+        <label>拠点列 <input id="location_column"></label>
+        <label>JAN列 <input id="jan_column"></label>
+        <label>賞味期限列 <input id="expiry_column"></label>
+        <label>原本数量単位 <input id="source_unit"></label>
+        <label>正規化単位 <select id="normalized_unit"><option value="CASE">CASE（箱）</option></select></label>
+        <label>正式mapping版（任意） <input id="mapping_version"></label>
+      </div>
+      <p>商品・数量・賞味期限の意味を原本と照合し、必須入力policyの拠点と一致する場合だけ承認してください。</p>
+      <p>現在の処理状態: 形式の分類と承認まで。正式取込・予測更新は管理者による既存手順が必要です。</p>
+      <button id="approve" type="button">構造を承認する</button>
+      <button id="reject" type="button">候補を却下する</button>
+    </section>
+    <section class="inbox"><h2>承認済み版</h2><ul id="contracts"></ul></section>
+    <section class="inbox"><h2>判断履歴</h2><ul id="events"></ul></section>
+  </main>
+</body>
+</html>

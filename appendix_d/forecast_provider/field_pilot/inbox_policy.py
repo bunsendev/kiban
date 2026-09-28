@@ -9,7 +9,7 @@ from pathlib import Path
 MAX_POLICY_BYTES = 65_536
 KINDS = frozenset({
     "SHIPMENT_ACTUAL", "WAREHOUSE_INVENTORY", "FACTORY_INVENTORY",
-    "PRODUCTION_PLAN",
+    "PRODUCTION_PLAN", "PRODUCTION_SCHEDULE",
 })
 
 
@@ -38,6 +38,10 @@ class SchemaRule:
     mapping_version: str | None
     pilot_scope_version: str | None
     pilot_intake_version: str | None
+    jan_column: str | None = None
+    expiry_column: str | None = None
+    source_unit: str | None = None
+    normalized_unit: str | None = None
 
     @property
     def key(self) -> tuple[str, str]:
@@ -95,6 +99,10 @@ def load_inbox_policy(path: Path) -> InboxPolicy:
                 _optional(item.get("mapping_version")),
                 _optional(item.get("pilot_scope_version")),
                 _optional(item.get("pilot_intake_version")),
+                _optional(item.get("jan_column")),
+                _optional(item.get("expiry_column")),
+                _optional(item.get("source_unit")),
+                _optional(item.get("normalized_unit")),
             )
             for item in raw_rules
         )
@@ -120,6 +128,9 @@ def load_inbox_policy(path: Path) -> InboxPolicy:
         or rule.date_column not in rule.required_columns
         or (rule.quantity_column and rule.quantity_column not in rule.required_columns)
         or (rule.location_column and rule.location_column not in rule.required_columns)
+        or (rule.jan_column and rule.jan_column not in rule.required_columns)
+        or (rule.expiry_column and rule.expiry_column not in rule.required_columns)
+        or (rule.normalized_unit and rule.normalized_unit != "CASE")
         or (rule.pilot_scope_version is None) != (rule.pilot_intake_version is None)
         for rule in rules
     ):

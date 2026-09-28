@@ -17,6 +17,7 @@ from .inbox_policy import InboxPolicy
 MAX_META_BYTES = 4_096
 MAX_FILE_BYTES = 2_000_000_000
 ValidatedImport = Callable[[Classification, Path, str, str], bool]
+ReviewObserver = Callable[[Classification, Path, str], str | None]
 
 
 def _sha256(path: Path) -> str:
@@ -31,11 +32,13 @@ class InboxProcessor:
     def __init__(
         self, root: Path, policy: InboxPolicy, ledger: InboxLedger,
         validated_import: ValidatedImport | None = None,
+        review_observer: ReviewObserver | None = None,
     ):
         self.root = root.resolve(strict=True)
         self.policy = policy
         self.ledger = ledger
         self.validated_import = validated_import
+        self.review_observer = review_observer
         archive = self.root / "Archive"
         if archive.is_symlink():
             raise ValueError("ARCHIVE_PATH_INVALID")
@@ -102,6 +105,11 @@ class InboxProcessor:
                         status, reason = "REVIEW_REQUIRED", "STRICT_VALIDATION_NOT_READY"
                 except Exception:
                     status, reason = "REVIEW_REQUIRED", "STRICT_VALIDATION_FAILED"
+        elif status in {"UNKNOWN", "REVIEW_REQUIRED"} and self.review_observer:
+            try:
+                self.review_observer(classification, archive, reference)
+            except (OSError, ValueError):
+                reason = "LEARNING_CANDIDATE_UNAVAILABLE"
         self.ledger.record(
             stage_id=stage_id, sha256=digest,
             source_name_sha256=hashlib.sha256(name.encode("utf-8")).hexdigest(),

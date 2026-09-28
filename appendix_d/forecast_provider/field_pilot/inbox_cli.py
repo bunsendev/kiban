@@ -8,8 +8,8 @@ import sqlite3
 from pathlib import Path
 
 from .inbox_ledger import InboxLedger
-from .inbox_policy import InboxPolicyError, load_inbox_policy
 from .inbox_processor import InboxProcessor
+from .learning_service import LearningService
 
 logger = logging.getLogger("kiban.field_pilot.inbox")
 
@@ -20,18 +20,19 @@ def main() -> int:
     parser.add_argument("--policy", type=Path, required=True)
     options = parser.parse_args()
     try:
-        policy = load_inbox_policy(options.policy)
-    except InboxPolicyError:
-        print("INBOX_POLICY_SETUP_REQUIRED")
-        return 0
-    try:
+        learning = LearningService(options.inbox_root, options.policy)
+        policy = learning.recognition_policy()
         ledger = InboxLedger(options.inbox_root / "inbox.sqlite3")
-        count = InboxProcessor(options.inbox_root, policy, ledger).scan()
+        count = InboxProcessor(
+            options.inbox_root, policy, ledger, review_observer=learning.consider,
+        ).scan()
     except (OSError, ValueError, sqlite3.DatabaseError) as exc:
         logger.error("inbox scan unavailable: %s", type(exc).__name__)
         print("INBOX_SCAN_FAILED")
         return 1
     print(f"INBOX_SCANNED={count}")
+    if not policy.required:
+        print("INBOX_POLICY_SETUP_REQUIRED")
     return 0
 
 

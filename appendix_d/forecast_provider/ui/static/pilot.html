@@ -16,14 +16,41 @@
   </header>
   <main id="main">
     <div class="warning" role="note"><strong>試験運用中</strong><span>現在の業務判断を変更せず、参考情報として確認してください。正式な出荷指示ではありません。</span></div>
-    <section class="inbox" aria-label="本日のデータ投入状況">
-      <h2>本日のデータ投入状況</h2>
+    <section class="inbox" aria-label="今日やること">
+      <h2>今日やること</h2>
+      <ol class="daily-steps">
+        <li id="step-upload">データを入れる</li>
+        <li id="step-check">データを確認する</li>
+        <li id="step-attention">注意商品を見る</li>
+      </ol>
       <p>デスクトップの「ブンセン データ投入」にCSVまたはPDFを入れ、出荷予測を開き直してください。</p>
       <p id="inbox-status" role="status" aria-live="polite">投入状況を確認しています。</p>
       <div id="inbox-counts" class="inbox-counts" hidden></div>
       <ul id="inbox-required"></ul>
       <p id="inbox-updated"></p>
     </section>
+    <section id="learning" class="inbox" aria-label="新しいファイルの確認" hidden>
+      <h2>新しいファイルを見つけました</h2>
+      <p id="learning-message"></p>
+      <p id="learning-columns"></p>
+      <div id="learning-actions">
+        <button id="learn-accept" type="button">この内容で覚える</button>
+        <button id="learn-disagree" type="button">違う</button>
+      </div>
+      <div id="learning-correction" hidden>
+        <label for="learning-kind">正しい種類</label>
+        <select id="learning-kind">
+          <option value="WAREHOUSE_INVENTORY">倉庫在庫</option>
+          <option value="SHIPMENT_ACTUAL">出荷実績</option>
+          <option value="FACTORY_INVENTORY">工場在庫</option>
+          <option value="PRODUCTION_SCHEDULE">生産予定</option>
+          <option value="OTHER">その他・不明</option>
+        </select>
+        <button id="learning-send-correction" type="button">管理担当者へ伝える</button>
+      </div>
+      <p id="learning-status" role="status" aria-live="polite"></p>
+    </section>
+    <p id="daily-complete" class="complete" hidden>本日の確認は完了しました。次回は明日のデータ更新時にご確認ください。</p>
     <section class="today" aria-label="本日の確認">
       <div><span>本日の確認</span><strong id="today">—</strong></div>
       <div><span>データ更新日時</span><strong id="updated">—</strong></div>
@@ -52,7 +79,6 @@
           <tbody id="expiry-rows"></tbody>
         </table></div>
       </section>
-      <details class="admin"><summary>管理担当者向けの計算情報</summary><dl id="admin-details"></dl></details>
     </section>
     <p class="help">表示できない場合は、画面の状態を管理担当者に伝えてください。操作をやり直しても業務データは変更されません。</p>
   </main>

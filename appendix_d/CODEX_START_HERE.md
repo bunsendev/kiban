@@ -1,6 +1,7 @@
 # Codex開始ガイド v2.9
 
 Field Pilot現場PC配布は[管理者導入運用](docs/FieldPilot_管理者導入運用.md)、[現場担当者1ページ手順](docs/FieldPilot_現場担当者_1ページ.md)、[検証・導入判定](planning/FIELD_PILOT_RELEASE_RESULT.md)を参照する。配布は`python make_release.py --field-pilot`で生成する。
+承認型の形式学習と「今日やること」画面は[実装・未接続範囲](planning/FIELD_PILOT_APPROVED_LEARNING_RESULT.md)を参照する。構造の承認と正式データ採用は別であり、投入から予測更新までの自動接続は未実装である。
 
 README → docs/統合仕様_v2.9.md → docs/実装仕様書_v2.2_完全版.mdの順で読む。
 これは予測・比較コアの修正完成パッケージ。基盤全体の本番完成ではない。

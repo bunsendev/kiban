@@ -57,7 +57,9 @@ class InboxLedger:
     def has_hash(self, sha256: str, policy_version: str) -> bool:
         with self._connect() as db:
             return db.execute(
-                "SELECT 1 FROM inbox_files WHERE sha256=? AND policy_version=? LIMIT 1",
+                "SELECT 1 FROM inbox_files WHERE sha256=? AND policy_version=? "
+                "AND status IN ('PROCESSED','RECEIVED','REVISION_CANDIDATE','DUPLICATE') "
+                "LIMIT 1",
                 (sha256, policy_version),
             ).fetchone() is not None
 
@@ -96,17 +98,27 @@ class InboxLedger:
             tzinfo=ZoneInfo("Asia/Tokyo")
         ).astimezone(UTC)
         day_end = day_start + timedelta(days=1)
+        latest = (
+            "WITH ranked AS (SELECT *,ROW_NUMBER() OVER ("
+            "PARTITION BY sha256 ORDER BY processed_at DESC,stage_id DESC) AS rn "
+            "FROM inbox_files WHERE policy_version=? AND status!='DUPLICATE') "
+        )
         with self._connect() as db:
             rows = db.execute(
-                "SELECT kind,location_id,status,processed_at FROM inbox_files "
-                "WHERE target_date=? AND policy_version=? ORDER BY processed_at",
-                (target_date, policy.version),
+                latest + "SELECT kind,location_id,status,processed_at FROM ranked "
+                "WHERE rn=1 AND target_date=? ORDER BY processed_at",
+                (policy.version, target_date),
             ).fetchall()
             counts = db.execute(
-                "SELECT status,count(*) FROM inbox_files WHERE processed_at>=? "
-                "AND processed_at<? AND policy_version=? GROUP BY status",
-                (day_start.isoformat(), day_end.isoformat(), policy.version),
+                latest + "SELECT status,count(*) FROM ranked WHERE rn=1 "
+                "AND processed_at>=? AND processed_at<? GROUP BY status",
+                (policy.version, day_start.isoformat(), day_end.isoformat()),
             ).fetchall()
+            duplicates = db.execute(
+                "SELECT count(*) FROM inbox_files WHERE policy_version=? "
+                "AND status='DUPLICATE' AND processed_at>=? AND processed_at<?",
+                (policy.version, day_start.isoformat(), day_end.isoformat()),
+            ).fetchone()[0]
             updated = db.execute(
                 "SELECT max(processed_at) FROM inbox_files WHERE policy_version=?",
                 (policy.version,),
@@ -140,10 +152,10 @@ class InboxLedger:
             "policy_version": policy.version,
             "target_date": target_date,
             "required": required,
-            "checked_count": sum(total.values()),
+            "checked_count": sum(total.values()) + duplicates,
             "processed_count": total.get("PROCESSED", 0),
             "received_count": total.get("RECEIVED", 0),
             "review_count": review_count,
-            "duplicate_count": total.get("DUPLICATE", 0),
+            "duplicate_count": duplicates,
             "last_updated_at": updated,
         }
