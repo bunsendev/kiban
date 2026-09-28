@@ -1636,3 +1636,8 @@ OS: Windows 11
 - 最終の全体回帰: 773 passed、19 skipped、Linux専用RSS計測1件deselected。対象試験32 passed。`ruff check .`、JavaScript構文、Windows PowerShell構文と5.1 module importに成功。
 - 共有PHP Endpointへの実POSTはToken未設定のため未実施。ブラウザのカスタムURI起動実機試験は自動承認レビューが一時スクリプトの起動を拒否したため未実施。現場PCでの新配布版導入、署名済みUpdate適用も未実施。
 - 判定は`planning/END_OF_DAY_SECURE_SYNC_RESULT.md`。実在庫CSV/PDF、Token、秘密鍵はRepositoryと配布物へ含めない。
+
+# Field Pilot 初回Token設定案内（2026-09-28 JST）
+
+- インストール後に接続設定またはDPAPI資格情報がない場合、管理担当者へ非表示Token入力を含む既存設定画面を案内する。見送り時もローカル画面は起動する。
+- PowerShell構文、同期関連32 passed、`ruff check .`、`git diff --check`に成功。共有サーバーへの実POSTはこのPCのToken未設定のため行っていない。利用者から疎通テスト完了の報告を受けている。

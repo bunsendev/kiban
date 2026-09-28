@@ -6,6 +6,6 @@
 
 管理者は`/ui/pilot/feedback`でアプリ版、送信先、Client ID、Policy版、最終送信、未送信、拒否件数、更新確認日時を見ます。Tokenは表示しません。「Feedback Server 接続テスト」は業務値を入れない暗号化Packageだけを送り、結果を認証・Client ID・回線・Policy・Serverに分類します。画面から起動できないPCでは、デスクトップの「ブンセン Feedback Server 接続テスト」を使います。
 
-導入時、管理担当者が「ブンセン 改善データ接続設定」で公開鍵PEMとTokenを設定します。Endpoint候補は`https://bun.stock-tools.tech/upload.php`、Client ID候補は`BUNSEN-PILOT-01`です。これらは添付指示書が示す値であり、Tokenは本PCに未設定です。共有Policyはクライアント合意後に管理画面で明示設定してください。更新確認を使う場合は署名ManifestのHTTPS URLとEd25519公開鍵を同時に設定します。更新Packageの適用は行いません。
+導入時に接続設定がなければ、セットアップが管理担当者へTokenと公開鍵の設定を案内します。`y`を選ぶと、このPC上で「ブンセン 改善データ接続設定」が開きます。Tokenは非表示で入力し、そのWindowsユーザーのDPAPIで保存します。コマンド引数・ログ・配布ZIPには入れません。次回以降の通常起動で再入力は不要です。設定を見送ってもローカル機能は使え、後からデスクトップの同名ショートカットで設定できます。別ユーザー・PC交換時、Token失効時は管理担当者が再設定してください。Endpoint候補は`https://bun.stock-tools.tech/upload.php`、Client ID候補は`BUNSEN-PILOT-01`です。共有Policyはクライアント合意後に管理画面で明示設定してください。更新確認を使う場合は署名ManifestのHTTPS URLとEd25519公開鍵を同時に設定します。更新Packageの適用は行いません。
 
-共有サーバーの応答には`ok=true`、`status=RECEIVED`または`DUPLICATE`、送信時と同じ`request_id`が必要です。`sha256`が返る場合はBodyのハッシュと照合します。応答にIDがない場合は送信済みにせず再送待ちとします。Privacy Headerの具体形式と、共有サーバーがID/SHAを返すことはToken設定後に実確認してください。実確認前にオンライン運用を開始しないでください。
+共有サーバーの応答には`ok=true`、`status=RECEIVED`または`DUPLICATE`、送信時と同じ`request_id`が必要です。`sha256`が返る場合はBodyのハッシュと照合します。応答にIDがない場合は送信済みにせず再送待ちとします。共有サーバーの疎通は利用者側で完了済みです。今回の実装から、このPCのTokenを用いた送信・ACK照合までは未実施なので、初回設定後に管理担当者が結果を確認してください。

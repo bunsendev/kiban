@@ -2,6 +2,7 @@
 $ErrorActionPreference = "Stop"
 Import-Module (Join-Path $PSScriptRoot "Kiban.Local.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "Kiban.FieldPilot.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "Kiban.FieldPilot.Feedback.psm1") -Force
 
 function Assert-UnderDirectory([string]$Path, [string]$Directory) {
     $root = [System.IO.Path]::GetFullPath($Directory).TrimEnd("\") + "\"
@@ -226,6 +227,25 @@ try {
     Invoke-FieldPilotCompose $install @("up", "-d", "--build", "postgres", "api")
     Wait-FieldPilotReady $install
     Invoke-FieldPilotInboxScan $install
+    $feedbackConfig = Join-Path $install.DataRoot "Config\feedback-client.json"
+    $credentialReady = $false
+    try { $credentialReady = [bool](Get-FeedbackCredentials $install) } catch { }
+    if (-not (Test-Path -LiteralPath $feedbackConfig -PathType Leaf) -or
+        -not $credentialReady) {
+        Write-Host "改善データの共有は未設定です。設定しなくてもローカル機能は使えます。"
+        $answer = (Read-Host "このPCで管理者が送信用Tokenと公開鍵を設定しますか？［y/N］").Trim()
+        if ($answer -match '^[yY]$') {
+            $powershell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+            $configure = Join-Path $install.AppRoot "installer\windows\field-pilot-feedback-configure.ps1"
+            $setupResult = Start-Process -FilePath $powershell -WindowStyle Normal -Wait -PassThru `
+                -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                    ('"' + $configure + '"'), "-DataRoot", ('"' + $install.DataRoot + '"'))
+            if ($setupResult.ExitCode -ne 0) {
+                Write-Host "改善データの接続設定は未完了です。後からデスクトップの接続設定を開けます。" `
+                    -ForegroundColor Yellow
+            }
+        }
+    }
     Write-Host "[6/6] 現場画面を開きます..."
     Open-FieldPilot $install
     $view = Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/field-pilot/view" -TimeoutSec 5
