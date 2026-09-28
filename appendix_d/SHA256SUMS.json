@@ -300,8 +300,13 @@
   "forecast_provider/field_pilot/local_setting_store.py": "ed2fa2eb220cbc2772cae9f0b2bf91a577ff0eb60684efe5f3837b4628afaa49",
   "forecast_provider/field_pilot/operator_feedback.py": "fd15fb6797189ee019a388978c76fc762725ad09161a0aef14f3549d06f22dc6",
   "forecast_provider/field_pilot/product_review.py": "84ab464ee56763b12b5a67a359f7242591104997befcb6211bef04ce43833111",
+<<<<<<< HEAD
   "forecast_provider/field_pilot/read_model.py": "2ade10933dcbfb8ab04c847fe2862e9edbf37464674bc35351ed508756a42357",
   "forecast_provider/field_pilot/recovery_bundle.py": "690510021631c77f1bd1b46074e0e8d1aa96cf092a2a914dd4e7ed6a59436355",
+=======
+  "forecast_provider/field_pilot/read_model.py": "4a2c7f852bc14ae4f8c58d08ccd8ad4fb826f9fa1bcd9f4d272680fccc801c2b",
+  "forecast_provider/field_pilot/recovery_bundle.py": "d18e9c6bd70d88c70a8c7008dc486871bccd57f41606d95204b0566e357bd949",
+>>>>>>> 98c50d6 (更新前バックアップと更新履歴の復旧を追加)
   "forecast_provider/field_pilot/shipment_trial.py": "20b82dafd8a4768c2d293bd35a9efc0883558a4689cb603f7b5dfe6d655dbf4d",
   "forecast_provider/field_ui/__init__.py": "9929c03349b066c91fda2d6ba7ed5d02f4d88e07a2679f993832693cba04edd8",
   "forecast_provider/field_ui/read_model.py": "e430675966c6dde13c0f3e67a08a91dbf0a21e72f58b892f10599d2a3ad4014e",
@@ -653,7 +658,7 @@
   "forecast_provider/worker_status/store.py": "494ea9a614c5f5a03c71facdb3fad9a936bd410a73f00d1f6d0f9642895d9f28",
   "installer/windows/Kiban.Analysis.psm1": "3e5a35f42c7e5df6611c2e70e13544255ceb2f538f7f52420f4f1775adf07ad0",
   "installer/windows/Kiban.FieldPilot.Feedback.psm1": "6c999d9ed49b8b07324707b97e1240f347be4d5e92abd184f9788742d9ab2811",
-  "installer/windows/Kiban.FieldPilot.Recovery.psm1": "3d3d06152327bcec3c3af5d5d6b72c10b4d9f7b0ca8fcb6778988409af6f3a38",
+  "installer/windows/Kiban.FieldPilot.Recovery.psm1": "95e3baeba40337c598b2b704ff862d035ec48f3c31b1418c6c248477244a4c59",
   "installer/windows/Kiban.FieldPilot.psm1": "cb4e58939dfb20a3f8285fa5cde446e97cc2b9832cbab5d6972940b3f8c46acb",
   "installer/windows/Kiban.Local.psm1": "182e751d443a8e86342e669175348c976d8c2869b3520e859b94a2ed5a1e31e2",
   "installer/windows/analysis-start.ps1": "0e8513355675bb659f456518a369491e8d7b20f9ddb2b421e4833bb34eca3769",
@@ -671,9 +676,10 @@
   "installer/windows/field-pilot-stop.ps1": "3aea3e7203e8fdff476bcda9775b9882e058f199863318b59423e3ef1314946f",
   "installer/windows/field-pilot-support-send.ps1": "dcaad611dc19624168e8ea8a3b9e9e8e1bbb6fa3d48a410c75a58e987eb47208",
   "installer/windows/field-pilot-uninstall.ps1": "b8876832ee824e35a3eca65c271e8d8c11515ccf1908342a8d1646749efdaa32",
+  "installer/windows/field-pilot-update-backup.ps1": "746c12bb822910265a89504ce8aa4ce36e92eb7bf8220afd60693d9e70787c1f",
   "installer/windows/inbox-policy.example.json": "0275ceeb6b9def3714c23b80276893316b153ddd5a3ee107b111b01676dcd25a",
   "installer/windows/pilot-settings.example.json": "0ea6cb9622428a8caba8dbf1c15c27f4ed51cc17b881191e5493de365eea7209",
-  "installer/windows/recovery-policy.example.json": "b920f5c77493f695d000a6b084d0e912f66ecb86a830c44231fa51793cb4277e",
+  "installer/windows/recovery-policy.example.json": "c1d5d6bb8776048e62c83263d7085c71e3fd2f958d40c71039707e17b6325e34",
   "installer/windows/setup.ps1": "10c9a3a91b40cc7f92f3bfad65613df991782596b008d05a3637a5087bdb5a72",
   "installer/windows/start.ps1": "2a23a9d59791c3d9a64a01ea8284bcf5a253e9dee9351d1635d2ed54fee5c7cf",
   "installer/windows/status.ps1": "8f178c5cb37a8767e4e12befed44222e83c39f1d2dc356300e99d1ff19edb2ec",
@@ -690,7 +696,11 @@
   "planning/FIELD_PILOT_RECOVERY_RESULT.md": "933729dff63f123440a7cbcafa674d923a31b7d11113b7991425e9c889f21389",
   "planning/FIELD_PILOT_RELEASE_RESULT.md": "44643d6d8b78ad52cf210ddf35a0fc678fc8f1293dff43dfcdf9403f6b100fc5",
   "planning/FIELD_PILOT_UNIFIED_INBOX_RESULT.md": "3bb2fc5dbafda6f1680a5465ca67164a96a47202d14ed8527d2e2c7ad573ca30",
+<<<<<<< HEAD
   "planning/GITHUB_RELEASE_AUTO_UPDATE_RESULT.md": "b1ef46132528bf516675fda7c17183dd3d324ba92c2130d0385a853864d2bb0a",
+=======
+  "planning/GITHUB_RELEASE_AUTO_UPDATE_RESULT.md": "9ce58d434e626cca59d50394b33660ff846d82bd9ec754246f6d1ef7dffd1dd7",
+>>>>>>> 98c50d6 (更新前バックアップと更新履歴の復旧を追加)
   "planning/PHASE1S_PLAN.md": "2fde717c24a5e3e5f5a3faa3fd30d2790032d63a96b354fc453ca715bccf316e",
   "planning/PHASE1T_PLAN.md": "aa13afd0afebb6a0ef3f2c986d48a5ce5c48f2c9e4b972bf9e1f48045713faa8",
   "planning/PHASE1U_PLAN.md": "f2a27b3c3d98bbf2ab410d8ef2433d7183f16e1ece710fc23b5ea94fc46669ce",
@@ -733,7 +743,11 @@
   "scripts/manual/capture_easy_manual.cjs": "4a205c62da0a131a9e9f5916c06a42201f1a71e9e7db5ce544433a9acbd7448c",
   "scripts/manual/render_easy_manual.py": "dd006dccfa93c6ebd093c034b8ea011b897f00bb9922e66576bd963481b88881",
   "scripts/manual/render_easy_narration.ps1": "39560d01c0226a62d0072a3dfd8c472a3befcae67332e370066fa2d0380c3566",
+<<<<<<< HEAD
   "test_results.txt": "7c0315de03da7d10853b1a7f1534108e2c861ef0334a5e8330b1c7795b4a1784",
+=======
+  "test_results.txt": "b5f801a51a6bee29c02e79d003e709f35bc6f95e161f2b49e596e8f51b9ecc01",
+>>>>>>> 98c50d6 (更新前バックアップと更新履歴の復旧を追加)
   "tests/__init__.py": "aced5d4628664e605cac89be5ea20e022f0c5ec6d342c046b14646a424daff69",
   "tests/acceptance_support.py": "1f0c33e6053bc41309ad175582ebcce29cfce08b5fddb76d81def05f4b0cee27",
   "tests/conftest.py": "1d25aeaa8bc10cf8fe2d54e5b82dcba1e318e2a8a83e2071e6e9d39aba6ec3b0",
@@ -764,7 +778,7 @@
   "tests/test_field_pilot_passive_observability.py": "b1b51f08e2895fcfdf58dbf11c0ccf9c5a7c862b5476f3f4aa9ecb769e264574",
   "tests/test_field_pilot_product_publication.py": "5749f812bf791ceade74d03c2aedf9959a1294098c6dc1bce81a5508392a7dc3",
   "tests/test_field_pilot_product_review.py": "ab26bbe08ec7739b1650c071b6a40cf94d46741e9336ac4a52eb34d50eda4123",
-  "tests/test_field_pilot_recovery_bundle.py": "d045a0cdfe1f09e668f6918582d65c75f1b5c57260a091f51d1585ca7a6adfab",
+  "tests/test_field_pilot_recovery_bundle.py": "ec0eff9b046310b20da39a46a76a5aefb9bb48e26e234993672879282c574dfa",
   "tests/test_field_pilot_release.py": "caa2d394d8a63bf5ff68447b71d6b158f087a323f1f0c9aacc3ad79221f8ce58",
   "tests/test_field_pilot_shipment_trial.py": "51fa4f95dcae2247dd617cc4363256c5a1c5a2374b17c4052505306021ba37fd",
   "tests/test_field_pilot_unified_inbox.py": "28581d5fd7ceb0f1d12232dd7ce4bd24e016065cb7a62829fd20f975ed292d72",

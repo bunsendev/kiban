@@ -31,13 +31,21 @@ function Get-RecoveryPolicy($Install) {
     if (Test-Path -LiteralPath $path) {
         $policy = Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json
     } else {
-        $policy = [pscustomobject]@{ daily_keep = 30; manual_keep = 30; pre_restore_keep = 5 }
+        $policy = [pscustomobject]@{
+            daily_keep = 30; manual_keep = 30; pre_restore_keep = 5; pre_update_keep = 5
+        }
     }
     foreach ($key in @("daily_keep", "manual_keep", "pre_restore_keep")) {
         $value = $policy.$key
         if ($null -eq $value -or [int]$value -lt 1 -or [int]$value -gt 365) {
             throw "Backup保持設定が不正です。"
         }
+    }
+    if ($null -eq $policy.PSObject.Properties["pre_update_keep"]) {
+        $policy | Add-Member -NotePropertyName pre_update_keep -NotePropertyValue 5
+    }
+    if ([int]$policy.pre_update_keep -lt 1 -or [int]$policy.pre_update_keep -gt 365) {
+        throw "Backup保持設定が不正です。"
     }
     return $policy
 }
@@ -54,7 +62,7 @@ function Invoke-RecoveryPython($Install, [string[]]$Arguments) {
     ) + $Arguments + @("--release-fingerprint", $fingerprint)) | Out-Null
 }
 
-function New-FieldPilotBackup($Install, [ValidateSet("daily", "manual", "pre-restore")]
+function New-FieldPilotBackup($Install, [ValidateSet("daily", "manual", "pre-restore", "pre-update")]
     [string]$Trigger = "manual", [switch]$SettingsOnly) {
     $root = Get-RecoveryRoot $Install
     $policy = Get-RecoveryPolicy $Install
@@ -173,7 +181,9 @@ function Apply-FieldPilotFiles($Install, [string]$Stage, [switch]$Exact) {
         "config/feedback-client.json" = "Config/feedback-client.json"
         "config/feedback-server-public.pem" = "Config/feedback-server-public.pem"
         "config/feedback-update-public.pem" = "Config/feedback-update-public.pem"
+        "config/release-update-public.pem" = "Config/release-update-public.pem"
         "settings/field-settings.sqlite3" = "LocalSettings/field-settings.sqlite3"
+        "settings/update-checks.sqlite3" = "LocalSettings/update-checks.sqlite3"
         "learning/inbox.sqlite3" = "Inbox/inbox.sqlite3"
         "learning/improvement-events.sqlite3" = "Inbox/improvement-events.sqlite3"
         "learning/feedback.sqlite3" = "Inbox/feedback.sqlite3"
