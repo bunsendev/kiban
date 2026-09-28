@@ -1574,3 +1574,12 @@ OS: Windows 11
 - 全体`pytest -q`: 700 passed、20 skipped、2 failed。Linux専用peak RSS計測はWindows非対応。これを除外した回帰では700 passed、20 skipped、1 deselected、1 failed。残る1件はテスト中にソースを更新して配布マニフェストが一時的に不一致となったもの。最終版で対象14件がすべて成功し、配布照合は770/770件一致。
 - `ruff check .`、新規PowerShell構文検査は成功。
 - 現場利用は正式Pilotデータ、業務条件、PC再起動後の試験、担当者承認が未完了のためNO-GO。
+
+# Field Pilot Unified Inbox（2026-09-28 JST）
+
+- Windows PowerShell 5.1でCSVのstage、二重scan、同じサイズ・mtimeで内容だけ変えた訂正検知を検証。
+- 人工CSV/PDFで既知schema、未知schema、変更header、SHA重複、訂正候補、必須不足、Shadow表示停止を確認。
+- Windows全体回帰: 704 passed、20 skipped、2 deselected（Linux専用計測、変更中の配布照合）。追加後の対象10件と配布照合の単独試験は成功。
+- `ruff check .`、PowerShell Parser、`git diff --check`は成功。
+- Windowsセットアップ再導入・専用Docker起動・投入先ショートカット・read-only APIを確認。管理者policy未設定のためInboxは`SETUP_REQUIRED`で安全に停止。
+- 正式mapping / snapshot / 予測Worker / PDF抽出は未接続。投入から結果までの現場運用はNO-GO。

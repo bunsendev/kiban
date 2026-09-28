@@ -11,13 +11,19 @@ from forecast_provider.api import create_app
 from forecast_provider.catalog import SqliteCatalogStore
 from forecast_provider.expiry_simulation import ExpirySimulationService
 from forecast_provider.field_pilot import FieldPilotReadService
+from forecast_provider.field_pilot.inbox_ledger import InboxLedger
+from forecast_provider.field_pilot.inbox_processor import InboxProcessor
 from forecast_provider.field_ui import FieldShadowPreviewService
 from forecast_provider.jobs import SqliteRunStore
+from tests.test_field_pilot_unified_inbox import _policy, _stage
 from tests.test_phase3ta1_pilot_intake import NOW, _jan
 from tests.test_phase3ta2_warehouse_projection import _ready
 
 
-def _client(tmp_path: Path):
+def _client(
+    tmp_path: Path, inbox_policy_path: Path | None = None,
+    inbox_root: Path | None = None,
+):
     projection, scope, bridge, _inventory, _snapshot = _ready(tmp_path)
     config = tmp_path / "pilot-settings.json"
     config.write_text(json.dumps({
@@ -31,7 +37,7 @@ def _client(tmp_path: Path):
         "warehouse_labels": {"warehouse-east": "東倉庫"},
     }, ensure_ascii=False), encoding="utf-8")
     shadow = FieldShadowPreviewService(ExpirySimulationService(projection))
-    pilot = FieldPilotReadService(shadow, config)
+    pilot = FieldPilotReadService(shadow, config, inbox_policy_path, inbox_root)
     path = tmp_path / "pilot.sqlite3"
     app = create_app(
         SqliteRunStore(path), SqliteCatalogStore(path), "admin-secret",
@@ -87,3 +93,18 @@ def test_field_pilot_forecast_not_ready_does_not_show_traceback(tmp_path):
     assert response.status_code == 200
     assert response.json()["status"] == "DATA_NOT_READY"
     assert "Traceback" not in response.text
+
+
+def test_field_pilot_inbox_gate_blocks_shadow_until_strict_import(tmp_path):
+    policy, day = _policy(tmp_path)
+    root = tmp_path / "Inbox"
+    root.mkdir()
+    client, _config = _client(tmp_path, tmp_path / "inbox-policy.json", root)
+    assert client.get("/api/field-pilot/inbox").json()["required"][0]["status"] == "MISSING"
+    assert client.get("/api/field-pilot/view").json()["status"] == "DATA_NOT_READY"
+    ledger = InboxLedger(root / "inbox.sqlite3")
+    _stage(root, "input.csv", f"day,warehouse,cases\n{day},EAST,4\n".encode())
+    InboxProcessor(root, policy, ledger).scan()
+    assert client.get("/api/field-pilot/inbox").json()["required"][0]["status"] == "RECEIVED"
+    assert client.get("/api/field-pilot/view").json()["status"] == "DATA_NOT_READY"
+    assert client.post("/api/field-pilot/inbox").status_code == 405

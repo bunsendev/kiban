@@ -235,7 +235,13 @@ def from_environment():
     pilot_config = os.environ.get("KIBAN_FIELD_PILOT_CONFIG")
     if pilot_mode and not pilot_config:
         raise RuntimeError("Field Pilotの設定ファイルを指定してください")
-    field_pilot = FieldPilotReadService(field_shadow, Path(pilot_config)) if pilot_mode else None
+    field_pilot = (
+        FieldPilotReadService(
+            field_shadow, Path(pilot_config),
+            Path(os.environ["KIBAN_FIELD_PILOT_INBOX_POLICY"]),
+            Path(os.environ["KIBAN_FIELD_PILOT_INBOX_ROOT"]),
+        ) if pilot_mode else None
+    )
     return create_app(
         runs,
         catalog,

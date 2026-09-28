@@ -45,6 +45,14 @@ foreach ($name in @("ブンセン 出荷予測", "ブンセン 出荷予測を�
         }
     }
 }
+$folderShortcut = Join-Path $desktop "ブンセン データ投入.lnk"
+if (Test-Path -LiteralPath $folderShortcut) {
+    $item = $shell.CreateShortcut($folderShortcut)
+    $expected = [System.IO.Path]::GetFullPath((Join-Path $dataRoot "Inbox\Drop"))
+    if ([System.IO.Path]::GetFullPath($item.TargetPath) -eq $expected) {
+        Remove-Item -LiteralPath $folderShortcut
+    }
+}
 if (Test-Path -LiteralPath $appFull) {
     # 再帰削除は専用Appの絶対pathだけに限定し、DataとDocker volumeは保持する。
     if (-not $appFull.StartsWith($basePrefix, [StringComparison]::OrdinalIgnoreCase)) {

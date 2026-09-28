@@ -16,6 +16,14 @@
   </header>
   <main id="main">
     <div class="warning" role="note"><strong>試験運用中</strong><span>現在の業務判断を変更せず、参考情報として確認してください。正式な出荷指示ではありません。</span></div>
+    <section class="inbox" aria-label="本日のデータ投入状況">
+      <h2>本日のデータ投入状況</h2>
+      <p>デスクトップの「ブンセン データ投入」にCSVまたはPDFを入れ、出荷予測を開き直してください。</p>
+      <p id="inbox-status" role="status" aria-live="polite">投入状況を確認しています。</p>
+      <div id="inbox-counts" class="inbox-counts" hidden></div>
+      <ul id="inbox-required"></ul>
+      <p id="inbox-updated"></p>
+    </section>
     <section class="today" aria-label="本日の確認">
       <div><span>本日の確認</span><strong id="today">—</strong></div>
       <div><span>データ更新日時</span><strong id="updated">—</strong></div>

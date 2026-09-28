@@ -47,7 +47,13 @@ function Copy-FieldPilotPackage([string]$SourceRoot, [string]$AppBase) {
 function New-FieldPilotEnvironment([string]$DataRoot) {
     $config = Join-Path $DataRoot "Config"
     $path = Join-Path $config "pilot.env"
-    if (Test-Path -LiteralPath $path -PathType Leaf) { return }
+    $inboxMount = (Join-Path $DataRoot "Inbox").Replace("\", "/")
+    if (Test-Path -LiteralPath $path -PathType Leaf) {
+        if (-not (Select-String -LiteralPath $path -Pattern '^KIBAN_FIELD_PILOT_INBOX_DIR=' -Quiet)) {
+            Add-Content -LiteralPath $path -Value "KIBAN_FIELD_PILOT_INBOX_DIR=$inboxMount" -Encoding ascii
+        }
+        return
+    }
     $httpPort = @(48130..48159) | Where-Object { Test-KibanTcpPort $_ } | Select-Object -First 1
     $databasePort = @(55440..55469) | Where-Object { Test-KibanTcpPort $_ } | Select-Object -First 1
     if (-not $httpPort -or -not $databasePort) { throw "ローカル通信portを確保できません。" }
@@ -66,6 +72,7 @@ function New-FieldPilotEnvironment([string]$DataRoot) {
         "KIBAN_MAPPING_DRY_RUN_DIR=$mapping"
         "KIBAN_IMPORT_DIR=$imports"
         "KIBAN_FIELD_PILOT_CONFIG_DIR=$configMount"
+        "KIBAN_FIELD_PILOT_INBOX_DIR=$inboxMount"
     ) | Set-Content -LiteralPath $path -Encoding ascii
 }
 
@@ -86,6 +93,9 @@ function Install-FieldPilotShortcuts([string]$AppRoot, [string]$DataRoot) {
         $shortcut.WorkingDirectory = $AppRoot
         $shortcut.Save()
     }
+    $folder = $shell.CreateShortcut((Join-Path $desktop "ブンセン データ投入.lnk"))
+    $folder.TargetPath = Join-Path $DataRoot "Inbox\Drop"
+    $folder.Save()
 }
 
 try {
@@ -122,7 +132,9 @@ try {
     foreach ($path in @($appBase, $dataRoot, (Join-Path $dataRoot "Config"),
         (Join-Path $dataRoot "Input"), (Join-Path $dataRoot "Reports"),
         (Join-Path $dataRoot "Mapping"), (Join-Path $dataRoot "Import"),
-        (Join-Path $dataRoot "Logs"), (Join-Path $dataRoot "Tools"))) {
+        (Join-Path $dataRoot "Logs"), (Join-Path $dataRoot "Tools"),
+        (Join-Path $dataRoot "Inbox\Drop"), (Join-Path $dataRoot "Inbox\Staged"),
+        (Join-Path $dataRoot "Inbox\Archive"), (Join-Path $dataRoot "Inbox\Observed"))) {
         New-Item -ItemType Directory -Force -Path $path | Out-Null
     }
     $appRoot = Copy-FieldPilotPackage $sourceRoot $appBase
@@ -130,6 +142,11 @@ try {
     if (-not (Test-Path -LiteralPath $settings)) {
         Copy-Item -LiteralPath (Join-Path $appRoot "installer\windows\pilot-settings.example.json") `
             -Destination $settings
+    }
+    $inboxPolicy = Join-Path $dataRoot "Config\inbox-policy.json"
+    if (-not (Test-Path -LiteralPath $inboxPolicy)) {
+        Copy-Item -LiteralPath (Join-Path $appRoot "installer\windows\inbox-policy.example.json") `
+            -Destination $inboxPolicy
     }
     New-FieldPilotEnvironment $dataRoot
     Copy-Item -LiteralPath (Join-Path $appRoot "installer\windows\field-pilot-uninstall.ps1") `
@@ -152,6 +169,7 @@ try {
     Write-Host "[5/6] Field Pilotを起動しています..."
     Invoke-FieldPilotCompose $install @("up", "-d", "--build", "postgres", "api")
     Wait-FieldPilotReady $install
+    Invoke-FieldPilotInboxScan $install
     Write-Host "[6/6] 現場画面を開きます..."
     Open-FieldPilot $install
     $view = Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/field-pilot/view" -TimeoutSec 5

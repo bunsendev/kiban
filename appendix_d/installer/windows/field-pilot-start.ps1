@@ -17,6 +17,7 @@ try {
         Invoke-FieldPilotCompose $install @("up", "-d", "postgres", "api")
         Wait-FieldPilotReady $install
     }
+    Invoke-FieldPilotInboxScan $install
     Write-FieldPilotLog $install.DataRoot "start" "ready"
     Open-FieldPilot $install
     Write-FieldPilotLog $install.DataRoot "shadow_view" "opened"

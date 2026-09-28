@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 def install_field_pilot_routes(app: FastAPI, service) -> None:
     allowed_paths = {
         "/health", "/ready", "/ui/pilot", "/ui/pilot/", "/api/field-pilot/view",
+        "/api/field-pilot/inbox",
         "/ui/assets/pilot.css", "/ui/assets/pilot.js",
     }
 
@@ -25,3 +26,8 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
     def pilot_view(request: Request):
         request.state.audit_operation = "FIELD_PILOT_SHADOW_VIEW"
         return service.view()
+
+    @app.get("/api/field-pilot/inbox", include_in_schema=False)
+    def pilot_inbox(request: Request):
+        request.state.audit_operation = "FIELD_PILOT_INBOX_VIEW"
+        return service.inbox_view()

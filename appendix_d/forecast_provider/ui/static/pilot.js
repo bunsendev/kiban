@@ -41,6 +41,44 @@ function detail(item) {
   byId("detail").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+async function loadInbox() {
+  const status = byId("inbox-status");
+  const list = byId("inbox-required");
+  list.replaceChildren();
+  try {
+    const response = await fetch("/api/field-pilot/inbox", { cache: "no-store" });
+    if (!response.ok) throw new Error("request failed");
+    const data = await response.json();
+    if (!Array.isArray(data.required)) {
+      status.textContent = data.message || "投入先の設定を管理担当者へご確認ください。";
+      byId("inbox-counts").hidden = true;
+      return;
+    }
+    status.textContent = data.status === "READY"
+      ? "本日の必要データは確認済みです。"
+      : "不足または確認待ちがあります。詳細を管理担当者へご確認ください。";
+    const counts = byId("inbox-counts");
+    counts.hidden = false;
+    counts.textContent = `確認済み ${data.processed_count} 件 / 受付 ${data.received_count} 件 / 確認待ち ${data.review_count} 件 / 重複 ${data.duplicate_count} 件`;
+    const labels = {
+      VALID: "確認済み", RECEIVED: "受付済み・管理者確認待ち",
+      MISSING: "未投入", INVALID: "内容を確認してください",
+      REVIEW_REQUIRED: "管理者確認待ち",
+    };
+    for (const required of data.required) {
+      const item = document.createElement("li");
+      item.textContent = `${required.display_name}: ${labels[required.status] || "要確認"}`;
+      if (required.status !== "VALID") item.className = "needs-review";
+      list.append(item);
+    }
+    byId("inbox-updated").textContent = data.last_updated_at
+      ? `最終確認: ${dateTime(data.last_updated_at)}` : "まだファイルが確認されていません。";
+  } catch {
+    status.textContent = "投入状況を表示できません。管理担当者へご連絡ください。";
+    byId("inbox-counts").hidden = true;
+  }
+}
+
 function render(data) {
   if (data.status !== "READY") {
     byId("status").className = "status error";
@@ -89,6 +127,7 @@ function render(data) {
 }
 
 async function load() {
+  await loadInbox();
   byId("refresh").disabled = true;
   byId("status").textContent = "参考情報を読み込んでいます。";
   try {

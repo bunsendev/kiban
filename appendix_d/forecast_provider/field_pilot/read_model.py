@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import json
 import logging
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from ..expiry_simulation import ExpirySimulationBlocked
 from ..warehouse_projection import ProjectionBlocked
+from .inbox_ledger import InboxLedger
+from .inbox_policy import InboxPolicyError, load_inbox_policy
 
 logger = logging.getLogger("kiban.field_pilot")
 MAX_CONFIG_BYTES = 65_536
@@ -19,9 +23,40 @@ REQUIRED_TEXT = (
 
 
 class FieldPilotReadService:
-    def __init__(self, shadow_service, config_path: Path):
+    def __init__(
+        self, shadow_service, config_path: Path,
+        inbox_policy_path: Path | None = None, inbox_root: Path | None = None,
+    ):
         self.shadow_service = shadow_service
         self.config_path = config_path
+        self.inbox_policy_path = inbox_policy_path
+        self.inbox_root = inbox_root
+
+    def inbox_view(self) -> dict:
+        if self.inbox_policy_path is None or self.inbox_root is None:
+            return {"status": "NOT_CONFIGURED", "message": "投入先を準備中です。"}
+        try:
+            policy = load_inbox_policy(self.inbox_policy_path)
+            target_date = datetime.now(ZoneInfo("Asia/Tokyo")).date().isoformat()
+            if not (self.inbox_root / "inbox.sqlite3").is_file():
+                return {
+                    "status": "MISSING_OR_REVIEW", "target_date": target_date,
+                    "required": [
+                        {"kind": item.kind, "location_id": item.location_id,
+                         "display_name": item.display_name, "status": "MISSING"}
+                        for item in policy.required
+                    ],
+                    "checked_count": 0, "processed_count": 0,
+                    "received_count": 0, "review_count": 0,
+                    "duplicate_count": 0, "last_updated_at": None,
+                }
+            return InboxLedger(self.inbox_root / "inbox.sqlite3").summary(policy, target_date)
+        except (InboxPolicyError, OSError, ValueError, sqlite3.DatabaseError):
+            logger.warning("field pilot inbox unavailable")
+            return {
+                "status": "SETUP_REQUIRED",
+                "message": "投入先の設定を管理担当者へご確認ください。",
+            }
 
     def _settings(self) -> dict:
         if not self.config_path.is_file() or self.config_path.is_symlink():
@@ -64,6 +99,13 @@ class FieldPilotReadService:
         return True
 
     def view(self) -> dict:
+        if self.inbox_policy_path is not None:
+            inbox = self.inbox_view()
+            if inbox["status"] != "READY":
+                return {
+                    "status": "DATA_NOT_READY", "mode": "SHADOW", "read_only": True,
+                    "message": "本日の必要データが揃っていません。投入状況をご確認ください。",
+                }
         try:
             settings = self._settings()
         except (ValueError, OSError, json.JSONDecodeError) as exc:

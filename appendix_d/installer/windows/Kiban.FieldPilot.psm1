@@ -71,6 +71,17 @@ function Open-FieldPilot($Install) {
     Start-Process "http://127.0.0.1:$($Install.Port)/ui/pilot" | Out-Null
 }
 
+function Invoke-FieldPilotInboxScan($Install) {
+    & (Join-Path $Install.AppRoot "installer\windows\field-pilot-inbox-stage.ps1") `
+        -DataRoot $Install.DataRoot
+    Invoke-FieldPilotCompose $Install @(
+        "exec", "-T", "api", "python", "-m", "forecast_provider.field_pilot.inbox_cli",
+        "--inbox-root", "/var/lib/kiban/pilot-inbox",
+        "--policy", "/var/lib/kiban/pilot/inbox-policy.json"
+    )
+    Write-FieldPilotLog $Install.DataRoot "inbox_scan" "completed"
+}
+
 function Show-FieldPilotError([string]$Message) {
     Add-Type -AssemblyName System.Windows.Forms
     [System.Windows.Forms.MessageBox]::Show(
@@ -80,4 +91,4 @@ function Show-FieldPilotError([string]$Message) {
 
 Export-ModuleMember -Function Get-FieldPilotBase, Get-FieldPilotInstall, `
     Write-FieldPilotLog, Invoke-FieldPilotCompose, Test-FieldPilotReady, `
-    Wait-FieldPilotReady, Open-FieldPilot, Show-FieldPilotError
+    Wait-FieldPilotReady, Open-FieldPilot, Show-FieldPilotError, Invoke-FieldPilotInboxScan
