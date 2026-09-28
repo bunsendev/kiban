@@ -3,6 +3,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 Import-Module (Join-Path $PSScriptRoot "Kiban.Local.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "Kiban.FieldPilot.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "Kiban.FieldPilot.Recovery.psm1") -Force
 
 $mutex = [System.Threading.Mutex]::new($false, "Local\BunsenFieldPilotStart")
 $locked = $false
@@ -16,6 +17,13 @@ try {
         Start-DockerDesktop
         Invoke-FieldPilotCompose $install @("up", "-d", "postgres", "api")
         Wait-FieldPilotReady $install
+    }
+    $today = (Get-Date).ToUniversalTime().ToString("yyyyMMdd")
+    $backupDirectory = Join-Path $install.DataRoot "Backup"
+    $daily = @(Get-ChildItem -LiteralPath $backupDirectory -File `
+        -Filter "recovery-daily-$today-*.zip" -ErrorAction SilentlyContinue)
+    if ($daily.Count -eq 0) {
+        New-FieldPilotBackup $install -Trigger "daily" | Out-Null
     }
     Invoke-FieldPilotInboxScan $install
     Write-FieldPilotLog $install.DataRoot "start" "ready"

@@ -102,13 +102,18 @@ function Install-FieldPilotShortcuts([string]$AppRoot, [string]$DataRoot) {
     $items = @(
         @{ Name = "ブンセン 出荷予測"; Script = "field-pilot-start.ps1" },
         @{ Name = "ブンセン 出荷予測を終了"; Script = "field-pilot-stop.ps1" },
-        @{ Name = "ブンセン 出荷予測の状態確認"; Script = "field-pilot-status.ps1" }
+        @{ Name = "ブンセン 出荷予測の状態確認"; Script = "field-pilot-status.ps1" },
+        @{ Name = "ブンセン バックアップ作成"; Script = "field-pilot-backup.ps1"; Visible = $true },
+        @{ Name = "ブンセン バックアップから復元"; Script = "field-pilot-restore.ps1"; Visible = $true }
     )
     foreach ($item in $items) {
         $scriptPath = Join-Path $AppRoot ("installer\windows\" + $item.Script)
         $shortcut = $shell.CreateShortcut((Join-Path $desktop ($item.Name + ".lnk")))
         $shortcut.TargetPath = $powershell
-        $shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`" -DataRoot `"$DataRoot`""
+        $windowStyle = if ($item.ContainsKey("Visible")) { "Normal" } else { "Hidden" }
+        $stayOpen = if ($item.ContainsKey("Visible")) { "-NoExit " } else { "" }
+        $arguments = "-NoProfile ${stayOpen}-ExecutionPolicy Bypass -WindowStyle $windowStyle -File `"$scriptPath`" -DataRoot `"$DataRoot`""
+        $shortcut.Arguments = $arguments
         $shortcut.WorkingDirectory = $AppRoot
         $shortcut.Save()
     }
@@ -167,6 +172,11 @@ try {
     if (-not (Test-Path -LiteralPath $inboxPolicy)) {
         Copy-Item -LiteralPath (Join-Path $appRoot "installer\windows\inbox-policy.example.json") `
             -Destination $inboxPolicy
+    }
+    $recoveryPolicy = Join-Path $dataRoot "Config\recovery-policy.json"
+    if (-not (Test-Path -LiteralPath $recoveryPolicy)) {
+        Copy-Item -LiteralPath (Join-Path $appRoot "installer\windows\recovery-policy.example.json") `
+            -Destination $recoveryPolicy
     }
     New-FieldPilotEnvironment $dataRoot
     Copy-Item -LiteralPath (Join-Path $appRoot "installer\windows\field-pilot-uninstall.ps1") `

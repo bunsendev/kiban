@@ -1616,3 +1616,9 @@ OS: Windows 11
 - 同一日に501件、対象期間外に1件を置いたSQLite試験で、500件目の次ページ、501件の週次集計、期間外除外、未取得KPIのNULLを確認。対象試験6 passed。
 - Windows全体回帰: 727 passed、19 skipped、Linux専用peak RSS計測1件deselected。`ruff check .`、配布793/793ファイルのSHA-256照合、`git diff --check`に成功。
 - 実データのJAN mapping・snapshot時刻policy・正式取込は未承認・未接続で、現場PilotはNO-GOのまま。
+
+# Field Pilot 復旧基盤（2026-09-28 JST）
+
+- 人工データでZIP対象制限、資格情報除外、PostgreSQL dump必須、SHA改ざん拒否、パス逸脱拒否、アプリ版・配布指紋照合、SQLite WAL取り込み、Shadow/read-only検査を確認。対象7 passed。
+- Windows全体回帰: 760 passed、14 skipped、2 deselected（Linux専用peak RSS、更新中の配布照合）。`ruff check .`、`check_lint.py`、Windows PowerShell 5.1 module import、PowerShell構文検査、`git diff --check`は成功。
+- 稼働中の現場DBへの復元は行っていない。独立した検証環境でのDocker経路・PC交換の復元訓練が必要。実データPilotのNO-GO条件は継続。
