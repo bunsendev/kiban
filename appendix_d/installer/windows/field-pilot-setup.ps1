@@ -68,6 +68,9 @@ function New-FieldPilotEnvironment([string]$DataRoot) {
             $operator = ($env:USERNAME -replace '[^A-Za-z0-9_.-]', '_')
             Add-Content -LiteralPath $path -Value "KIBAN_FIELD_PILOT_OPERATOR_ID=WINDOWS:$operator" -Encoding ascii
         }
+        if (-not (Select-String -LiteralPath $path -Pattern '^KIBAN_FIELD_PILOT_AI_MODEL=' -Quiet)) {
+            Add-Content -LiteralPath $path -Value "KIBAN_FIELD_PILOT_AI_MODEL=" -Encoding ascii
+        }
         return
     }
     $httpPort = @(48130..48159) | Where-Object { Test-KibanTcpPort $_ } | Select-Object -First 1
@@ -93,6 +96,7 @@ function New-FieldPilotEnvironment([string]$DataRoot) {
         "KIBAN_FIELD_PILOT_BACKUP_DIR=$backupMount"
         "KIBAN_FIELD_PILOT_LEARNING_ADMIN_TOKEN=$(New-LocalToken)"
         "KIBAN_FIELD_PILOT_OPERATOR_ID=WINDOWS:$(($env:USERNAME -replace '[^A-Za-z0-9_.-]', '_'))"
+        "KIBAN_FIELD_PILOT_AI_MODEL="
     ) | Set-Content -LiteralPath $path -Encoding ascii
 }
 

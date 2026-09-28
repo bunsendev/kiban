@@ -158,7 +158,9 @@ async function suggestLearning() {
       .map(([key, value]) => `${columnLabels[key] || key} → ${value}`).join(" / ");
     const unit = data.unit_hint === "UNKNOWN" ? "単位は要確認" :
       `単位候補: ${data.unit_hint}（要確認）`;
-    result.textContent = `AI候補: ${kind}。${columns || "列は要確認"}。${unit}。確認後に選択してください。`;
+    const conflict = data.kind_conflict
+      ? "既存の判定と異なります。管理担当者に確認してください。" : "確認後に選択してください。";
+    result.textContent = `AI候補: ${kind}。${columns || "列は要確認"}。${unit}。${conflict}`;
   } catch {
     result.textContent = "AIを利用できません。上の通常の候補を確認してください。";
   } finally {

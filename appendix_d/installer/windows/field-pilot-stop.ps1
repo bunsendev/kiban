@@ -8,7 +8,8 @@ try {
     $install = Get-FieldPilotInstall $DataRoot
     Add-DockerPath
     if (Test-DockerEngine) {
-        Invoke-FieldPilotCompose $install @("stop", "pilot-inventory-worker", "api", "postgres")
+        Invoke-FieldPilotCompose $install @("--profile", "ai", "stop", `
+            "pilot-ollama", "pilot-inventory-worker", "api", "postgres")
     }
     Write-FieldPilotLog $install.DataRoot "stop" "completed"
 } catch {

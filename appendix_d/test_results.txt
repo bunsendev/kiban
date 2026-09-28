@@ -1682,5 +1682,7 @@ OS: Windows 11
 - 未知CSVの列名・値型だけをローカルAIへ渡し、ファイル種別・列役割・単位候補を表示。AI提案は正式取込、JAN・単位確定、予測可否を変更しない。
 - 対象回帰19 passed、`ruff check .`、`node --check forecast_provider/ui/static/pilot.js`に成功。
 - Windows全体回帰の初回は783 passed、20 skipped、2 failed。失敗はLinux専用`resource`試験1件と変更後の配布SHA未更新1件。配布SHA更新後にWindows対応分を再実行する。
-- このPCにOllama実行環境はなく、実モデルの応答品質・速度、現場実データでの改善効果は未検証。外部AIへ原本を送信しない。
+- 続行検証でこのPCにOllamaを導入し、提供済みCSVの原本行を送らず代表的な出荷13列・在庫160列のヘッダーだけで2モデルを試した。qwen3:1.7bは出荷4.45秒で正解、在庫8.59秒で誤分類。qwen3:4b-instructは温機後、出荷7.12秒で正解、在庫19.19秒で誤分類。初回は双方20秒の時間切れ。各1形式なので精度率は未確定。
 - 最終のWindows対応全体回帰は784 passed、20 skipped、Linux専用RSS試験1件deselected。`make_release.py --field-pilot` と `make_release.py --check` で配布対象855ファイル一致。
+- 現場PCはi5-9400・メモリ16GB・専用GPUなし。現場でのAI応答時間は未測定のため標準有効化しない。Docker Compose内の任意AIサービスと外部ポート非公開の接続を追加し、Compose構成とPowerShell構文を確認した。
+- 続行後のWindows対応全体回帰は787 passed、20 skipped、Linux専用RSS試験1件deselected。`ruff check .`、JavaScript構文、Compose構成、PowerShell構文を確認した。Docker内でのモデル推論と現場PC実測は未実施。
