@@ -116,6 +116,18 @@ class ShipmentTrialFeedback(BaseModel):
     issue: str
 
 
+class ShipmentDraftApproval(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    product_code: str
+    warehouse_code: str
+    source_fingerprint: str
+    policy_version: str
+    inventory_snapshot_id: str
+    actor: str
+    reason: str
+
+
 def install_field_pilot_routes(app: FastAPI, service) -> None:
     operator_paths = {
         "/api/field-pilot/operator-feedback",
@@ -148,6 +160,7 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
                      "/api/field-pilot/admin/update/check",
                      "/api/field-pilot/admin/product-mapping/publish",
                      "/api/field-pilot/admin/forecast-preparation",
+                     "/api/field-pilot/admin/formal-shipment-drafts",
                      "/api/field-pilot/admin/shipment-trial",
                      "/api/field-pilot/admin/shipment-trial/feedback"}
                 or ADMIN_ACTION.fullmatch(path)
@@ -164,6 +177,7 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
                     or FORMAL_APPROVAL.fullmatch(path)
                     or path in {"/api/field-pilot/admin/product-mapping/publish",
                                 "/api/field-pilot/admin/forecast-preparation",
+                                "/api/field-pilot/admin/formal-shipment-drafts",
                                 "/api/field-pilot/admin/update/check",
                                 "/api/field-pilot/admin/shipment-trial",
                                 "/api/field-pilot/admin/shipment-trial/feedback",
@@ -280,6 +294,17 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
             return service.forecast_preparation(value.product_code)
         except (AttributeError, OSError, ValueError, sqlite3.DatabaseError):
             return JSONResponse({"message": "原本・確認履歴・正式在庫を再確認してください"},
+                                status_code=409)
+
+    @app.post("/api/field-pilot/admin/formal-shipment-drafts", include_in_schema=False)
+    def approve_shipment_draft(value: ShipmentDraftApproval, request: Request):
+        request.state.audit_operation = "FIELD_PILOT_FORMAL_SHIPMENT_DRAFT_APPROVAL"
+        if not require_admin(request):
+            return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
+        try:
+            return service.approve_shipment_draft(**value.model_dump())
+        except (AttributeError, OSError, ValueError, sqlite3.DatabaseError):
+            return JSONResponse({"message": "出荷原本・単位・ゼロ日・在庫の確認結果が変わりました"},
                                 status_code=409)
 
     @app.post("/api/field-pilot/admin/shipment-trial/feedback",

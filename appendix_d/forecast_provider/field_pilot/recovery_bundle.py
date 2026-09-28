@@ -32,6 +32,7 @@ OPTIONAL_CONFIG_FILES = {
 OPTIONAL_FILES = {
     "LocalSettings/field-settings.sqlite3": "settings/field-settings.sqlite3",
     "LocalSettings/update-checks.sqlite3": "settings/update-checks.sqlite3",
+    "LocalSettings/formal-shipment-drafts.sqlite3": "settings/formal-shipment-drafts.sqlite3",
     "Inbox/inbox.sqlite3": "learning/inbox.sqlite3",
     "Inbox/improvement-events.sqlite3": "learning/improvement-events.sqlite3",
     "Inbox/feedback.sqlite3": "learning/feedback.sqlite3",
@@ -221,6 +222,7 @@ def stage_bundle(bundle: Path, destination: Path, *,
         if _hash_file(destination / name) != (expected["sha256"], expected["size"]):
             raise ValueError("RECOVERY_STAGE_HASH_MISMATCH")
     for name in ("settings/field-settings.sqlite3", "settings/update-checks.sqlite3",
+                 "settings/formal-shipment-drafts.sqlite3",
                  "learning/inbox.sqlite3",
                  "learning/improvement-events.sqlite3", "learning/feedback.sqlite3"):
         if name in manifest["files"]:

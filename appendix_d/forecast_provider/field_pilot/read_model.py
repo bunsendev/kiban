@@ -18,6 +18,7 @@ from ..update_service.check_service import UpdateCheckService, UpdateCheckStore
 from ..warehouse_projection import ProjectionBlocked
 from .forecast_handoff import forecast_handoff
 from .formal_product_mapping import publish_confirmed_product_mapping
+from .formal_shipment_draft import FormalShipmentDraftStore, make_formal_shipment_draft
 from .freshness import FreshnessPolicy
 from .improvement_events import ImprovementEventLedger
 from .inbox_ledger import InboxLedger
@@ -151,6 +152,27 @@ class FieldPilotReadService:
             review, trial, self.inventory_store,
             business_date=datetime.now(ZoneInfo("Asia/Tokyo")).date(),
         )
+
+    def approve_shipment_draft(self, *, product_code: str, warehouse_code: str,
+                               source_fingerprint: str, policy_version: str,
+                               inventory_snapshot_id: str, actor: str,
+                               reason: str) -> dict:
+        trial = self.shipment_trial(product_code)
+        review = unresolved_products(self.inbox_root, self.local_settings.store)
+        handoff = forecast_handoff(
+            review, trial, self.inventory_store,
+            business_date=datetime.now(ZoneInfo("Asia/Tokyo")).date(),
+        )
+        draft = make_formal_shipment_draft(
+            trial, handoff, warehouse_code=warehouse_code,
+            expected_source_fingerprint=source_fingerprint,
+            expected_policy_version=policy_version,
+            expected_inventory_snapshot_id=inventory_snapshot_id,
+            actor=actor, reason=reason,
+        )
+        return FormalShipmentDraftStore(
+            self.local_settings_dir / "formal-shipment-drafts.sqlite3",
+        ).put(draft)
 
     def shipment_trial_feedback(self, product_code: str, source_fingerprint: str,
                                 issue: str) -> dict:

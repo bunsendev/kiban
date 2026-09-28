@@ -99,6 +99,18 @@ def test_trial_route_requires_admin_token(tmp_path):
         assert preparation.status_code == 200
         assert preparation.json()["formal_forecast_ready"] is False
         assert preparation.json()["preparation_candidate_count"] == 0
+        draft_url = "/api/field-pilot/admin/formal-shipment-drafts"
+        draft_request = {
+            "product_code": "A1", "warehouse_code": "EAST",
+            "source_fingerprint": trial["source_fingerprint"],
+            "policy_version": trial["policy_version"],
+            "inventory_snapshot_id": "stock-1", "actor": "manager",
+            "reason": "原本を確認",
+        }
+        assert client.post(draft_url, json=draft_request).status_code == 403
+        assert client.post(draft_url, json=draft_request, headers={
+            "X-Field-Pilot-Admin-Token": "secret",
+        }).status_code == 409
         feedback_url = url + "/feedback"
         assert client.post(feedback_url, json={
             "product_code": "A1", "source_fingerprint": trial["source_fingerprint"],
@@ -131,3 +143,18 @@ def test_missing_day_policy_only_zeros_days_covered_by_a_daily_file(tmp_path):
     assert observed["series"][0]["days"][0]["source_quantity"] == 2.0
     assert zero["series"][0]["days"][0]["source_quantity"] < 2.0
     assert observed["source_fingerprint"] != zero["source_fingerprint"]
+
+
+def test_trial_fingerprint_changes_when_original_file_changes_without_quantity_change(tmp_path):
+    inbox = _source(tmp_path)
+    store = LocalSettingStore(tmp_path / "settings.sqlite3")
+    _setting(store, "JAN_MAPPING", {"jan": JAN, "product_name": "商品A"})
+    _setting(store, "SHIPMENT_TRIAL_POLICY", {
+        "unit": "CASE", "missing_day": "OBSERVED_ONLY",
+    })
+    first = trial_forecast(inbox, store, "A1")
+    source = inbox / "Archive" / "ab" / "abcdef" / "shipment.csv"
+    source.write_bytes(source.read_bytes() + b"\n")
+    second = trial_forecast(inbox, store, "A1")
+    assert second["series"] == first["series"]
+    assert second["source_fingerprint"] != first["source_fingerprint"]
