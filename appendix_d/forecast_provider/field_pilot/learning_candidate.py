@@ -11,13 +11,21 @@ from pathlib import Path
 from .inbox_classifier import Classification, _match, header_sha256
 from .inbox_policy import InboxPolicy, SchemaRule
 
-MAX_COLUMNS = 100
+# 実在庫CSVの159/160列を候補化できる上限。過大なheaderは引き続き隔離する。
+MAX_COLUMNS = 256
 MAX_SAMPLE_ROWS = 100
 ALIASES = {
-    "date": ("日付", "年月日", "基準日", "出荷日", "予定日", "date", "day"),
-    "jan": ("JAN", "商品コード", "商品CD", "product_code", "item_code"),
-    "location": ("倉庫", "工場", "拠点", "センター", "warehouse", "factory", "site"),
-    "quantity": ("数量", "バラ数", "箱数", "在庫数", "cases", "quantity", "qty"),
+    "date": ("基準日時", "基準日", "在庫日", "出荷日", "生産予定日", "date", "day"),
+    "jan": ("JAN",),
+    "product_code": ("商品コード", "商品CD", "product_code", "item_code"),
+    "location": (
+        "明細倉庫コード", "倉庫コード", "工場コード", "拠点コード",
+        "倉庫", "工場", "拠点", "センター", "warehouse", "factory", "site",
+    ),
+    "quantity": (
+        "明細バラ数", "箱数", "出荷数量", "在庫数量", "明細数量",
+        "バラ数", "在庫数", "cases", "quantity", "qty", "数量",
+    ),
     "expiry": ("賞味期限", "消費期限", "expiry", "expiration"),
     "product": ("商品名", "品名", "product_name"),
 }
@@ -74,7 +82,8 @@ def _date(value: str) -> bool:
 def _guess(headers: tuple[str, ...], key: str) -> str | None:
     for alias in ALIASES[key]:
         for column in headers:
-            if alias.casefold() in column.casefold():
+            if (column.casefold() == alias.casefold() if alias in {"date", "day"}
+                    else alias.casefold() in column.casefold()):
                 return column
     return None
 
@@ -157,5 +166,5 @@ def inspect_learning_candidate(
     return LearningCandidate(
         header_sha256(headers), headers, classification.encoding, kind,
         confidence, "MAJOR", guessed, None, None, None,
-        guessed.get("quantity"), None, len(samples), value_types,
+        None, None, len(samples), value_types,
     )

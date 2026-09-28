@@ -31,7 +31,7 @@ function showCandidate() {
   el("location_column").value = item.columns.location || "";
   el("jan_column").value = item.columns.jan || "";
   el("expiry_column").value = item.columns.expiry || "";
-  el("source_unit").value = item.columns.quantity || "";
+  el("source_unit").value = "";
 }
 
 async function load() {
