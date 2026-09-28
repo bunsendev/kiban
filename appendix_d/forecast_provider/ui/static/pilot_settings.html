@@ -27,6 +27,17 @@
       <h3>JAN確認済み商品の出荷履歴</h3>
       <p>ここでは履歴の存在とJANの矛盾を確認します。履歴の日付欠落、数量単位、正式データ採用、予測Runは別途判定が必要です。</p>
       <ul id="confirmed-products"></ul>
+      <h3>確認済み商品の参考試算</h3>
+      <p>商品ごとの試算条件を保存してから、原本数量の7日間の参考値を確認します。単位が混在・不明なら数値を出さず、不足理由を表示します。</p>
+      <label>試算する商品コード <input id="trial-product" placeholder="確認済みの商品コード"></label>
+      <button id="run-trial" type="button">参考予測を開始</button>
+      <p id="trial-status" role="status" aria-live="polite"></p>
+      <div id="trial-result"></div>
+      <div id="trial-feedback" hidden>
+        <label>試算へのフィードバック <select id="trial-issue"><option value="USEFUL">参考になった</option><option value="UNIT_WRONG">単位の解釈が違う</option><option value="MISSING_DAY_WRONG">出荷ゼロ日の扱いが違う</option><option value="FORECAST_HIGH">予測が多すぎる</option><option value="FORECAST_LOW">予測が少なすぎる</option><option value="OTHER">その他・再確認が必要</option></select></label>
+        <button id="send-trial-feedback" type="button">フィードバックを記録</button>
+        <p id="trial-feedback-status" role="status"></p>
+      </div>
       <label>正式対応表への登録理由 <input id="publish-reason" maxlength="500" placeholder="原本と確認履歴を照合"></label>
       <button id="publish-jan" type="button">確認済みJANを正式対応表に登録</button>
       <p id="publish-status" role="status"></p>
@@ -35,7 +46,7 @@
     <section class="inbox">
       <h2>設定の種類と対象</h2>
       <div class="admin-fields">
-        <label>種類 <select id="type"><option value="JAN_MAPPING">商品コードとJAN</option><option value="INVENTORY_TIME_POLICY">倉庫在庫の基準時刻</option></select></label>
+        <label>種類 <select id="type"><option value="JAN_MAPPING">商品コードとJAN</option><option value="SHIPMENT_TRIAL_POLICY">出荷数量・欠落日の参考試算条件</option><option value="INVENTORY_TIME_POLICY">倉庫在庫の基準時刻</option></select></label>
         <label>対象の商品コード <input id="target" placeholder="例: ITEM-1"></label>
         <label>登録済み対象 <select id="targets"><option value="">選択してください</option></select></label>
       </div>
@@ -54,6 +65,11 @@
         <label>時刻の精度 <select id="precision"><option value="BUSINESS_DAY">日付のみ</option><option value="END_OF_DAY">当日末</option><option value="START_OF_DAY">当日初め</option><option value="EXACT_TIME">確認済みの正確な時刻</option></select></label>
         <label>確認済み時刻（正確な時刻のみ） <input id="local-time" type="time"></label>
       </div>
+      <div id="trial-fields" class="admin-fields" hidden>
+        <label>この商品の原本数量の解釈 <select id="trial-unit"><option value="UNKNOWN">不明（判断待ち）</option><option value="CASE">箱</option><option value="BUNDLE">くくり</option><option value="PALLET">パレット</option><option value="MIXED">複数単位が混在</option></select></label>
+        <label>原本に商品行がない日 <select id="missing-day"><option value="OBSERVED_ONLY">記録のある日のみで試算</option><option value="ZERO_WHEN_DAILY_FILE_PRESENT">日次ファイルがある日に限りゼロとして試算</option></select></label>
+      </div>
+      <p>この条件は参考試算用です。単位換算や正式な出荷指示には使いません。変更履歴を残して試算し、結果を見て再確認できます。</p>
       <div class="admin-fields">
         <label>適用開始日 <input id="effective" type="date" required></label>
         <label>変更理由 <select id="reason"><option value="INITIAL_CONFIRMATION">初回確認</option><option value="CORRECTION">訂正</option><option value="BUSINESS_RULE_CHANGE">業務条件の変更</option></select></label>

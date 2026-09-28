@@ -23,6 +23,7 @@ from .learning_service import LearningService
 from .local_setting_service import LocalSettingService
 from .local_setting_store import LocalSettingStore
 from .product_review import unresolved_products
+from .shipment_trial import trial_forecast
 
 logger = logging.getLogger("kiban.field_pilot")
 MAX_CONFIG_BYTES = 65_536
@@ -114,6 +115,31 @@ class FieldPilotReadService:
             self.inbox_root, self.local_settings.store, self.inventory_store,
             actor=actor, reason=reason,
         )
+
+    def shipment_trial(self, product_code: str) -> dict:
+        if self.inbox_root is None:
+            raise ValueError("TRIAL_NOT_CONFIGURED")
+        return trial_forecast(self.inbox_root, self.local_settings.store, product_code)
+
+    def shipment_trial_feedback(self, product_code: str, source_fingerprint: str,
+                                issue: str) -> dict:
+        allowed = {"USEFUL", "UNIT_WRONG", "MISSING_DAY_WRONG",
+                   "FORECAST_HIGH", "FORECAST_LOW", "OTHER"}
+        if issue not in allowed or self.improvement_events is None:
+            raise ValueError("TRIAL_FEEDBACK_INVALID")
+        current = self.shipment_trial(product_code)
+        if (current["status"] != "TRIAL_READY"
+                or current["source_fingerprint"] != source_fingerprint):
+            raise ValueError("TRIAL_FEEDBACK_STALE")
+        event_id = self.improvement_events.append(
+            "TRIAL_FEEDBACK", outcome="REVIEW",
+            business_date=datetime.now(ZoneInfo("Asia/Tokyo")).date(),
+            forecast_run_id=f"trial-{source_fingerprint[:32]}",
+            policy_version=current["policy_version"],
+            error_code=f"TRIAL_{issue}",
+            metrics={"item_count": len(current["series"])},
+        )
+        return {"event_id": event_id, "status": "RECORDED"}
 
     def inbox_view(self) -> dict:
         if self.inbox_policy_path is None or self.inbox_root is None:

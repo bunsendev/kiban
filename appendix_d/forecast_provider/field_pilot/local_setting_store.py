@@ -10,7 +10,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-TYPES = {"JAN_MAPPING", "INVENTORY_TIME_POLICY"}
+TYPES = {"JAN_MAPPING", "INVENTORY_TIME_POLICY", "SHIPMENT_TRIAL_POLICY"}
 
 
 class LocalSettingStore:

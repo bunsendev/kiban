@@ -140,6 +140,7 @@ def unresolved_products(inbox_root: Path, settings_store) -> dict:
         if code in confirmed:
             confirmed_jan = confirmed[code]["value"]["jan"]
             days = len(observed_days_by_jan.get(confirmed_jan, set()))
+            trial_setting = settings_store.current("SHIPMENT_TRIAL_POLICY", code)
             confirmed_items.append({
                 "product_code": code,
                 "jan": confirmed_jan,
@@ -153,7 +154,9 @@ def unresolved_products(inbox_root: Path, settings_store) -> dict:
                 "readiness": product_readiness(
                     confirmed=True, jan_conflict=code in conflicts,
                     observed_days=days, source_complete=skipped == 0,
+                    trial_policy=trial_setting["value"] if trial_setting else None,
                 ),
+                "trial_policy": trial_setting["value"] if trial_setting else None,
             })
         else:
             items.append({

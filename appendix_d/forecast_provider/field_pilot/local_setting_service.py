@@ -64,6 +64,14 @@ class LocalSettingService:
                     raise ValueError("EXACT_TIME_SOURCE_REQUIRED")
             elif local_time is not None:
                 raise ValueError("INVENTORY_TIME_POLICY_INVALID")
+        elif change_type == "SHIPMENT_TRIAL_POLICY":
+            if (not PRODUCT.fullmatch(target) or not isinstance(value, dict)
+                    or set(value) != {"unit", "missing_day"}
+                    or value["unit"] not in {"CASE", "BUNDLE", "PALLET", "MIXED", "UNKNOWN"}
+                    or value["missing_day"] not in {
+                        "OBSERVED_ONLY", "ZERO_WHEN_DAILY_FILE_PRESENT",
+                    }):
+                raise ValueError("SHIPMENT_TRIAL_POLICY_INVALID")
         else:
             raise ValueError("LOCAL_SETTING_TYPE_INVALID")
 
