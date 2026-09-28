@@ -1,6 +1,7 @@
 """改善台帳・鮮度Gate・後日実績照合の境界を確認する。"""
 
 import json
+import sqlite3
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
@@ -8,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from forecast_provider.field_learning.store import SqliteFieldLearningStore
 from forecast_provider.field_pilot.freshness import FreshnessPolicy
 from forecast_provider.field_pilot.improvement_events import ImprovementEventLedger
 from forecast_provider.field_pilot.improvement_report import weekly_field_report
@@ -64,8 +66,10 @@ def test_weekly_report_joins_case_decision_actual_and_suppresses_small_gap():
                                        interwarehouse_transfer_quantity=None)]}
 
     class Store:
-        def list_reference_cases(self, *, limit):
-            return cases
+        def list_reference_cases_page(self, *, start_date, end_date, after, limit):
+            assert after is None
+            return [case for case in cases
+                    if start_date <= case.business_date <= end_date]
 
         def list_operator_decisions(self, case_id):
             return decisions[case_id]
@@ -81,6 +85,41 @@ def test_weekly_report_joins_case_decision_actual_and_suppresses_small_gap():
     assert result["business_kpis"]["expired_cases"] is None
     comparison = result["candidates"][0]["entries"][0]["comparisons"]
     assert comparison["forecast_vs_actual_demand_cases"] == "4"
+
+
+def test_weekly_report_includes_more_than_500_cases_on_same_day(tmp_path):
+    day = date(2026, 9, 28)
+    store = SqliteFieldLearningStore(tmp_path / "field-learning.sqlite3")
+    rows = []
+    for index in range(502):
+        business_date = day if index < 501 else day - timedelta(days=7)
+        rows.append((
+            f"case-{index:04d}", business_date.isoformat(), "4901234567894", "product-1",
+            "warehouse-1", "center-1", "forecast-1", "snapshot-1", "scope-1",
+            "bridge-1", "8", "10", "policy-1", "SHADOW",
+            "2026-09-28T00:00:00+00:00", "2026-09-28T00:00:00+00:00",
+            f"{index:064x}",
+        ))
+    with sqlite3.connect(store.path) as db:
+        db.executemany(
+            "INSERT INTO field_reference_cases VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows,
+        )
+
+    first = store.list_reference_cases_page(start_date=day, end_date=day, limit=500)
+    second = store.list_reference_cases_page(
+        start_date=day, end_date=day, after=(first[-1].business_date, first[-1].case_id),
+    )
+    assert len(first) == 500
+    assert [case.case_id for case in second] == ["case-0500"]
+
+    report = weekly_field_report(
+        store, day, minimum_gap_cases=Decimal("2"), repeat_days=3,
+        threshold_version="gap-v1",
+    )
+    assert report["complete"] is True
+    assert report["reference_case_count"] == 501
+    assert len(report["case_comparisons"]) == 501
+    assert report["business_kpis"]["stockout_cases"] is None
 
 
 def test_pilot_view_blocks_stale_snapshot_even_when_inbox_is_ready(tmp_path):

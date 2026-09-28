@@ -89,6 +89,27 @@ class SqliteFieldLearningStore:
             ).fetchall()
         return [_reference_case(row) for row in rows]
 
+    def list_reference_cases_page(
+        self, *, start_date: date, end_date: date,
+        after: tuple[date, str] | None = None, limit: int = 500,
+    ) -> list[FieldReferenceCase]:
+        """業務日とcase IDで順序を固定し、週次集計を漏れなくページ取得する。"""
+
+        if start_date > end_date or not 1 <= limit <= 500:
+            raise ValueError("集計期間またはlimitが不正です")
+        where = "business_date>=? AND business_date<=?"
+        params: tuple = (start_date.isoformat(), end_date.isoformat())
+        if after is not None:
+            where += " AND (business_date<? OR (business_date=? AND case_id>?))"
+            params += (after[0].isoformat(), after[0].isoformat(), after[1])
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT * FROM field_reference_cases WHERE " + where
+                + " ORDER BY business_date DESC,case_id ASC LIMIT ?",
+                (*params, limit),
+            ).fetchall()
+        return [_reference_case(row) for row in rows]
+
     def append_operator_decision(
         self, event: FieldOperatorDecisionEvent, expected_revision: int
     ) -> FieldOperatorDecisionEvent:
