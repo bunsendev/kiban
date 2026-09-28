@@ -1595,3 +1595,10 @@ OS: Windows 11
 - `ruff check .`、PowerShell Parser、`git diff --check`は成功。
 - Windowsセットアップ再導入・専用Docker起動・投入先ショートカット・read-only APIを確認。管理者policy未設定のためInboxは`SETUP_REQUIRED`で安全に停止。
 - 正式mapping / snapshot / 予測Worker / PDF抽出は未接続。投入から結果までの現場運用はNO-GO。
+
+# Field Pilot 低負担・受動学習 / 改善Observability（2026-09-28 JST）
+
+- 改善イベント台帳、Inbox/画面自動観測、版付き鮮度Gate、system/operator/actual週次比較と候補抽出を人工データで確認。
+- 対象回帰21 passed。Windows全体回帰718 passed、20 skipped、2 deselected（Linux専用peak RSS、更新中の配布照合）。
+- `ruff check .`成功。配布マニフェストは最終ファイル確定後に再生成・照合する。
+- 実データの正式JAN mappingとsnapshot時刻policyは未承認。Inbox→正式取込→Forecast/Projection/FEFO自動更新は未接続で、現場PilotはNO-GO。

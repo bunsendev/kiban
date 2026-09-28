@@ -11,6 +11,8 @@ from zoneinfo import ZoneInfo
 
 from ..expiry_simulation import ExpirySimulationBlocked
 from ..warehouse_projection import ProjectionBlocked
+from .freshness import FreshnessPolicy
+from .improvement_events import ImprovementEventLedger
 from .inbox_ledger import InboxLedger
 from .inbox_policy import InboxPolicyError, load_inbox_policy
 from .learning_service import LearningService
@@ -40,6 +42,23 @@ class FieldPilotReadService:
             LearningService(inbox_root, inbox_policy_path)
             if inbox_root is not None and inbox_policy_path is not None else None
         )
+        self.improvement_events = (
+            ImprovementEventLedger(inbox_root / "improvement-events.sqlite3")
+            if inbox_root is not None else None
+        )
+
+    def _observe(self, event_type: str, outcome: str, *, error_code: str | None = None,
+                 metrics: dict | None = None, **identifiers) -> None:
+        if self.improvement_events is None:
+            return
+        try:
+            self.improvement_events.append(
+                event_type, outcome=outcome,
+                business_date=datetime.now(ZoneInfo("Asia/Tokyo")).date(),
+                error_code=error_code, metrics=metrics, **identifiers,
+            )
+        except (OSError, ValueError, sqlite3.DatabaseError):
+            logger.warning("field pilot improvement event unavailable")
 
     def learning_view(self) -> dict:
         return self.learning.pending_view() if self.learning else {
@@ -57,7 +76,8 @@ class FieldPilotReadService:
                     "status": "MISSING_OR_REVIEW", "target_date": target_date,
                     "required": [
                         {"kind": item.kind, "location_id": item.location_id,
-                         "display_name": item.display_name, "status": "MISSING"}
+                         "display_name": item.display_name, "status": "MISSING",
+                         "freshness": "MISSING", "last_accepted_at": None}
                         for item in policy.required
                     ],
                     "checked_count": 0, "processed_count": 0,
@@ -107,7 +127,9 @@ class FieldPilotReadService:
 
     def config_ready(self) -> bool:
         try:
-            self._settings()
+            settings = self._settings()
+            if self.inbox_policy_path is not None:
+                FreshnessPolicy.from_settings(settings)
         except (ValueError, OSError, json.JSONDecodeError):
             return False
         return True
@@ -116,6 +138,7 @@ class FieldPilotReadService:
         if self.inbox_policy_path is not None:
             inbox = self.inbox_view()
             if inbox["status"] != "READY":
+                self._observe("VIEW_BLOCKED", "BLOCKED", error_code="INBOX_NOT_READY")
                 return {
                     "status": "DATA_NOT_READY", "mode": "SHADOW", "read_only": True,
                     "message": "本日の必要データが揃っていません。投入状況をご確認ください。",
@@ -124,10 +147,20 @@ class FieldPilotReadService:
             settings = self._settings()
         except (ValueError, OSError, json.JSONDecodeError) as exc:
             logger.warning("field pilot configuration unavailable: %s", type(exc).__name__)
+            self._observe("VIEW_BLOCKED", "BLOCKED", error_code="SETUP_REQUIRED")
             return {
                 "status": "SETUP_REQUIRED", "mode": "SHADOW", "read_only": True,
                 "message": "起動準備に問題があります。管理担当者へご連絡ください。",
             }
+        if self.inbox_policy_path is not None:
+            try:
+                freshness_policy = FreshnessPolicy.from_settings(settings)
+            except ValueError:
+                self._observe("VIEW_BLOCKED", "BLOCKED", error_code="FRESHNESS_POLICY_MISSING")
+                return {
+                    "status": "SETUP_REQUIRED", "mode": "SHADOW", "read_only": True,
+                    "message": "鮮度条件の設定を管理担当者へご確認ください。",
+                }
         try:
             result = self.shadow_service.preview(
                 calculation_at=datetime.now(UTC),
@@ -144,10 +177,25 @@ class FieldPilotReadService:
             logger.warning(
                 "field pilot data unavailable: %s", getattr(exc, "code", type(exc).__name__)
             )
+            self._observe("VIEW_BLOCKED", "BLOCKED", error_code="DATA_NOT_READY")
             return {
                 "status": "DATA_NOT_READY", "mode": "SHADOW", "read_only": True,
                 "message": "データを表示できません。管理担当者へご連絡ください。",
             }
+        if self.inbox_policy_path is not None:
+            freshness_error = freshness_policy.check(result.get("snapshot_at"), datetime.now(UTC))
+            if freshness_error:
+                self._observe("VIEW_BLOCKED", "BLOCKED", error_code=freshness_error,
+                              policy_version=freshness_policy.version)
+                return {
+                    "status": "DATA_NOT_READY", "mode": "SHADOW", "read_only": True,
+                    "message": "在庫データの日時を確認中です。管理担当者へご連絡ください。",
+                }
+        self._observe(
+            "VIEW_READY", "OK", metrics={"item_count": len(result["rows"])},
+            forecast_run_id=result["forecast_run_id"],
+            inventory_snapshot_id=result["inventory_snapshot_id"],
+        )
         rows = []
         for item in result["rows"]:
             rows.append({

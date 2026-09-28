@@ -130,8 +130,12 @@ class InboxLedger:
                 (policy.version,),
             ).fetchone()[0]
         by_key: dict[tuple[str, str], set[str]] = {}
+        accepted_at: dict[tuple[str, str], str] = {}
         for row in rows:
-            by_key.setdefault((row["kind"], row["location_id"]), set()).add(row["status"])
+            key = (row["kind"], row["location_id"])
+            by_key.setdefault(key, set()).add(row["status"])
+            if row["status"] == "PROCESSED":
+                accepted_at[key] = max(accepted_at.get(key, ""), row["processed_at"])
         required = []
         for item in policy.required:
             found = by_key.get(item.key, set())
@@ -146,6 +150,11 @@ class InboxLedger:
             required.append({
                 "kind": item.kind, "location_id": item.location_id,
                 "display_name": item.display_name, "status": state,
+                "freshness": (
+                    "FRESH" if state == "VALID" else
+                    "MISSING" if state == "MISSING" else "REVIEW_REQUIRED"
+                ),
+                "last_accepted_at": accepted_at.get(item.key),
             })
         total = dict(counts)
         review_count = sum(total.get(key, 0) for key in (
