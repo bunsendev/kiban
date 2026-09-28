@@ -16,6 +16,7 @@ from forecast_provider.update_service.github_release import (
     API_URL,
     GitHubReleaseUpdateProvider,
 )
+from forecast_provider.update_service.keygen_cli import generate_key_pair
 from forecast_provider.update_service.manifest import UpdateManifest, version_key
 from forecast_provider.update_service.release_cli import prepare_release
 from forecast_provider.update_service.release_preflight import inspect_public_package
@@ -63,6 +64,23 @@ def test_version_contract_and_signed_manifest(tmp_path):
     with pytest.raises(InvalidSignature):
         UpdateManifest.parse(json.dumps(changed, ensure_ascii=False).encode(),
                              (output / "manifest.sig").read_bytes(), public)
+
+
+def test_generated_encrypted_key_signs_release_and_cannot_be_overwritten(tmp_path):
+    password = b"only-for-test-passphrase"
+    private_path, public_path = generate_key_pair(tmp_path / "keys", password)
+    assert b"ENCRYPTED PRIVATE KEY" in private_path.read_bytes()
+    assert b"PRIVATE KEY" not in public_path.read_bytes()
+    with pytest.raises(FileExistsError, match="UPDATE_SIGNING_KEY_ALREADY_EXISTS"):
+        generate_key_pair(tmp_path / "keys", password)
+    package = _package(tmp_path)
+    output = tmp_path / "assets"
+    prepare_release(package, output, version="0.1.0-field-pilot.4", channel="pilot",
+                    minimum_version="0.1.0-field-pilot.3", database_migration=0,
+                    notes=[], signing_key=private_path.read_bytes(), signing_password=password,
+                    release_date="2026-09-29")
+    UpdateManifest.parse((output / "manifest.json").read_bytes(),
+                         (output / "manifest.sig").read_bytes(), public_path.read_bytes())
 
 
 def test_public_package_preflight_blocks_source_and_secret(tmp_path):

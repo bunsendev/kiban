@@ -78,7 +78,10 @@ class UpdateCheckService:
         if trigger not in {"STARTUP", "END_OF_DAY", "MANUAL"}:
             raise ValueError("UPDATE_TRIGGER_INVALID")
         latest = self.store.latest()
-        if not force and latest is not None and latest["current_version"] == self.current_version:
+        if (not force and latest is not None
+                and latest["current_version"] == self.current_version
+                and not (latest["status"] == "UNCONFIGURED"
+                         and self.public_key_path.is_file())):
             checked = datetime.fromisoformat(latest["checked_at"])
             if datetime.now(UTC) - checked < CHECK_INTERVAL:
                 return self.status()

@@ -28,6 +28,8 @@ try {
         Write-FieldPilotLog $install.DataRoot "feedback_sync" "needs_admin"
         $result = [pscustomobject]@{ status = "NEEDS_ADMIN" }
     }
+    & (Join-Path $install.AppRoot "installer\windows\field-pilot-update-check.ps1") `
+        -DataRoot $install.DataRoot -Trigger "END_OF_DAY"
     Invoke-FieldPilotCompose $install @("stop", "api", "postgres") | Out-Null
     Write-FieldPilotLog $install.DataRoot "end_of_day" "completed"
     if ($result.status -eq "SAVED_FOR_RETRY") {

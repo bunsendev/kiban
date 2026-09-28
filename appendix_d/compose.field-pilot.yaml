@@ -11,7 +11,7 @@ services:
     environment:
       KIBAN_POSTGRES_DSN: postgresql://kiban:${KIBAN_FIELD_PILOT_DB_PASSWORD:?Field Pilot DB password is required}@postgres:5432/kiban
       KIBAN_FIELD_PILOT_MODE: "1"
-      KIBAN_FIELD_PILOT_VERSION: "0.1.0-field-pilot.3"
+      KIBAN_FIELD_PILOT_VERSION: "0.1.0-field-pilot.4"
       KIBAN_FIELD_PILOT_CONFIG: /var/lib/kiban/pilot/pilot-settings.json
       KIBAN_FIELD_PILOT_INBOX_POLICY: /var/lib/kiban/pilot/inbox-policy.json
       KIBAN_FIELD_PILOT_INBOX_ROOT: /var/lib/kiban/pilot-inbox
