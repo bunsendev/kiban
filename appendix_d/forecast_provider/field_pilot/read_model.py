@@ -13,6 +13,7 @@ from ..expiry_simulation import ExpirySimulationBlocked
 from ..warehouse_projection import ProjectionBlocked
 from .inbox_ledger import InboxLedger
 from .inbox_policy import InboxPolicyError, load_inbox_policy
+from .learning_service import LearningService
 
 logger = logging.getLogger("kiban.field_pilot")
 MAX_CONFIG_BYTES = 65_536
@@ -26,11 +27,24 @@ class FieldPilotReadService:
     def __init__(
         self, shadow_service, config_path: Path,
         inbox_policy_path: Path | None = None, inbox_root: Path | None = None,
+        learning_admin_token: str | None = None,
+        learning_operator_id: str = "FIELD_PILOT_OPERATOR",
     ):
         self.shadow_service = shadow_service
         self.config_path = config_path
         self.inbox_policy_path = inbox_policy_path
         self.inbox_root = inbox_root
+        self.learning_admin_token = learning_admin_token
+        self.learning_operator_id = learning_operator_id
+        self.learning = (
+            LearningService(inbox_root, inbox_policy_path)
+            if inbox_root is not None and inbox_policy_path is not None else None
+        )
+
+    def learning_view(self) -> dict:
+        return self.learning.pending_view() if self.learning else {
+            "pending_count": 0, "candidates": [],
+        }
 
     def inbox_view(self) -> dict:
         if self.inbox_policy_path is None or self.inbox_root is None:

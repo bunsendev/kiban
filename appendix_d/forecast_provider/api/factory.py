@@ -240,6 +240,8 @@ def from_environment():
             field_shadow, Path(pilot_config),
             Path(os.environ["KIBAN_FIELD_PILOT_INBOX_POLICY"]),
             Path(os.environ["KIBAN_FIELD_PILOT_INBOX_ROOT"]),
+            os.environ.get("KIBAN_FIELD_PILOT_LEARNING_ADMIN_TOKEN"),
+            os.environ.get("KIBAN_FIELD_PILOT_OPERATOR_ID", "FIELD_PILOT_OPERATOR"),
         ) if pilot_mode else None
     )
     return create_app(

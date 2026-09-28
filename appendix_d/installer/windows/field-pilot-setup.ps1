@@ -52,6 +52,13 @@ function New-FieldPilotEnvironment([string]$DataRoot) {
         if (-not (Select-String -LiteralPath $path -Pattern '^KIBAN_FIELD_PILOT_INBOX_DIR=' -Quiet)) {
             Add-Content -LiteralPath $path -Value "KIBAN_FIELD_PILOT_INBOX_DIR=$inboxMount" -Encoding ascii
         }
+        if (-not (Select-String -LiteralPath $path -Pattern '^KIBAN_FIELD_PILOT_LEARNING_ADMIN_TOKEN=' -Quiet)) {
+            Add-Content -LiteralPath $path -Value "KIBAN_FIELD_PILOT_LEARNING_ADMIN_TOKEN=$(New-LocalToken)" -Encoding ascii
+        }
+        if (-not (Select-String -LiteralPath $path -Pattern '^KIBAN_FIELD_PILOT_OPERATOR_ID=' -Quiet)) {
+            $operator = ($env:USERNAME -replace '[^A-Za-z0-9_.-]', '_')
+            Add-Content -LiteralPath $path -Value "KIBAN_FIELD_PILOT_OPERATOR_ID=WINDOWS:$operator" -Encoding ascii
+        }
         return
     }
     $httpPort = @(48130..48159) | Where-Object { Test-KibanTcpPort $_ } | Select-Object -First 1
@@ -73,6 +80,8 @@ function New-FieldPilotEnvironment([string]$DataRoot) {
         "KIBAN_IMPORT_DIR=$imports"
         "KIBAN_FIELD_PILOT_CONFIG_DIR=$configMount"
         "KIBAN_FIELD_PILOT_INBOX_DIR=$inboxMount"
+        "KIBAN_FIELD_PILOT_LEARNING_ADMIN_TOKEN=$(New-LocalToken)"
+        "KIBAN_FIELD_PILOT_OPERATOR_ID=WINDOWS:$(($env:USERNAME -replace '[^A-Za-z0-9_.-]', '_'))"
     ) | Set-Content -LiteralPath $path -Encoding ascii
 }
 
