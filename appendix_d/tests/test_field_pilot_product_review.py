@@ -21,12 +21,12 @@ def test_unresolved_products_uses_only_local_confirmed_mapping(tmp_path):
     ).encode("cp932"))
     (archive / "shipment.csv").write_bytes((
         "出荷日,商品コード,商品名,JAN,数量\n"
-        "2026-09-01,B2,商品B,4901234567894,3\n"
+        "2026-09-01 0:00:00,,商品B,4901234567894,3\n"
     ).encode("cp932"))
     store = LocalSettingStore(tmp_path / "settings.sqlite3")
     store.append(
         change_type="JAN_MAPPING", target="A1",
-        value={"jan": "4901234567894", "product_name": "商品A"},
+        value={"jan": "4006381333931", "product_name": "商品A"},
         effective_from=date(2026, 9, 1), actor="manager",
         reason_code="INITIAL_CONFIRMATION", comment="", application_version="test",
         expected_version=None, changed_at=datetime(2026, 9, 1, tzinfo=UTC),
@@ -35,13 +35,21 @@ def test_unresolved_products_uses_only_local_confirmed_mapping(tmp_path):
     assert result["items"] == [{
         "product_code": "B2", "product_name": "商品B",
         "candidate_jans": ["4901234567894"], "candidate_status": "UNIQUE",
-        "direct_code_match": True,
+        "direct_code_match": False,
+        "readiness": {"forecast_eligible": False, "blocking_reasons": [
+            "JAN_UNCONFIRMED", "SHIPMENT_HISTORY_MISSING",
+            "SHIPMENT_UNIT_UNCONFIRMED", "MISSING_DAY_POLICY_UNCONFIRMED",
+        ]},
     }]
     assert result["unresolved_count"] == 1
     assert result["confirmed_items"] == [{
-        "product_code": "A1", "jan": "4901234567894",
+        "product_code": "A1", "jan": "4006381333931",
         "observed_shipment_days": 0,
         "evidence_status": "SHIPMENT_HISTORY_MISSING",
+        "readiness": {"forecast_eligible": False, "blocking_reasons": [
+            "SHIPMENT_HISTORY_MISSING", "SHIPMENT_UNIT_UNCONFIRMED",
+            "MISSING_DAY_POLICY_UNCONFIRMED",
+        ]},
     }]
     assert result["file_count"] == 2
     assert result["complete"] is True
@@ -89,3 +97,26 @@ def test_name_match_candidate_remains_unconfirmed(tmp_path):
     assert result["items"][0]["candidate_status"] == "UNIQUE"
     assert result["items"][0]["direct_code_match"] is False
     assert result["items"][1]["candidate_status"] == "MISSING"
+
+
+def test_confirmed_jan_finds_history_when_shipment_code_is_blank(tmp_path):
+    archive = tmp_path / "Inbox" / "Archive" / "ab" / "abcdef"
+    archive.mkdir(parents=True)
+    (archive / "stock.csv").write_bytes((
+        "商品コード,商品名,明細倉庫コード,明細バラ数\nA1,商品A,EAST,4\n"
+    ).encode("cp932"))
+    (archive / "shipment.csv").write_bytes((
+        "出荷日,商品コード,商品名,JAN,数量\n"
+        "2026/09/01 0:00:00,,商品A,4901234567894,3\n"
+    ).encode("cp932"))
+    store = LocalSettingStore(tmp_path / "settings.sqlite3")
+    store.append(
+        change_type="JAN_MAPPING", target="A1",
+        value={"jan": "4901234567894", "product_name": "商品A"},
+        effective_from=date(2026, 9, 1), actor="manager",
+        reason_code="INITIAL_CONFIRMATION", comment="", application_version="test",
+        expected_version=None, changed_at=datetime(2026, 9, 1, tzinfo=UTC),
+    )
+    result = unresolved_products(tmp_path / "Inbox", store)
+    assert result["confirmed_items"][0]["observed_shipment_days"] == 1
+    assert result["confirmed_items"][0]["evidence_status"] == "HISTORY_REVIEW_REQUIRED"

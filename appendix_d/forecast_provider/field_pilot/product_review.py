@@ -11,6 +11,7 @@ from pathlib import Path
 from ..ingestion.processor import detect_stream_encoding
 from ..inventory_foundation.domain import validate_jan
 from ..mapping_dry_run.product_jan_candidates import build_product_jan_candidates
+from .forecast_readiness import product_readiness
 
 PRODUCT_CODE = re.compile(r"^[A-Za-z0-9_.:-]{1,80}$")
 REQUIRED_HEADERS = {"商品コード", "商品名", "明細倉庫コード", "明細バラ数"}
@@ -19,6 +20,7 @@ MAX_FILE_BYTES = 100 * 1024 * 1024
 MAX_ROWS = 5_000_000
 MAX_PRODUCTS = 10_000
 SHIPMENT_HEADERS = {"商品コード", "商品名", "JAN", "出荷日", "数量"}
+SHIPMENT_DATE = re.compile(r"^\d{4}[/-]\d{2}[/-]\d{2}(?: \d{1,2}:\d{2}:\d{2})?$")
 
 
 def _encoding(path: Path) -> str:
@@ -91,8 +93,9 @@ def unresolved_products(inbox_root: Path, settings_store) -> dict:
     }
     jans_by_name: dict[str, set[str]] = defaultdict(set)
     jans_by_code: dict[str, set[str]] = defaultdict(set)
-    observed_days: dict[str, set[date]] = defaultdict(set)
+    observed_days_by_jan: dict[str, set[date]] = defaultdict(set)
     conflicts: set[str] = set()
+    confirmed_jans = {record["value"]["jan"] for record in confirmed.values()}
     for path, encoding in shipments:
         try:
             with path.open("r", encoding=encoding, errors="strict", newline="") as source:
@@ -115,13 +118,15 @@ def unresolved_products(inbox_root: Path, settings_store) -> dict:
                     if code in confirmed:
                         if jan != confirmed[code]["value"]["jan"]:
                             conflicts.add(code)
-                        else:
-                            raw_date = (row.get("出荷日") or "").strip()
-                            try:
-                                day = date.fromisoformat(raw_date.replace("/", "-"))
-                            except ValueError:
-                                continue
-                            observed_days[code].add(day)
+                    if jan in confirmed_jans:
+                        raw_date = (row.get("出荷日") or "").strip()
+                        if not SHIPMENT_DATE.fullmatch(raw_date):
+                            continue
+                        try:
+                            day = date.fromisoformat(raw_date[:10].replace("/", "-"))
+                        except ValueError:
+                            continue
+                        observed_days_by_jan[jan].add(day)
                     if name in needed_names:
                         jans_by_name[name].add(jan)
         except (OSError, UnicodeError, csv.Error):
@@ -133,16 +138,21 @@ def unresolved_products(inbox_root: Path, settings_store) -> dict:
     ):
         code = candidate.product_code
         if code in confirmed:
-            days = len(observed_days.get(code, set()))
+            confirmed_jan = confirmed[code]["value"]["jan"]
+            days = len(observed_days_by_jan.get(confirmed_jan, set()))
             confirmed_items.append({
                 "product_code": code,
-                "jan": confirmed[code]["value"]["jan"],
+                "jan": confirmed_jan,
                 "observed_shipment_days": days,
                 "evidence_status": (
                     "JAN_CONFLICT" if code in conflicts else
                     "SHIPMENT_HISTORY_MISSING" if days == 0 else
                     "HISTORY_REVIEW_REQUIRED" if days < 28 else
                     "HISTORY_PRESENT"
+                ),
+                "readiness": product_readiness(
+                    confirmed=True, jan_conflict=code in conflicts,
+                    observed_days=days, source_complete=skipped == 0,
                 ),
             })
         else:
@@ -152,6 +162,9 @@ def unresolved_products(inbox_root: Path, settings_store) -> dict:
                 "candidate_jans": list(candidate.candidate_jans),
                 "candidate_status": candidate.status.value,
                 "direct_code_match": candidate.unique_candidate_is_direct,
+                "readiness": product_readiness(
+                    confirmed=False, source_complete=skipped == 0,
+                ),
             })
     return {
         "items": items,

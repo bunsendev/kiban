@@ -50,9 +50,19 @@ async function loadUnresolved() {
     HISTORY_REVIEW_REQUIRED: "出荷日が28日未満。期間を確認",
     HISTORY_PRESENT: "出荷履歴あり。欠落日・単位の確認待ち",
   };
+  const blockerLabels = {
+    JAN_UNCONFIRMED: "JAN未確定",
+    JAN_CONFLICT: "JAN矛盾",
+    SHIPMENT_HISTORY_MISSING: "出荷履歴なし",
+    SHIPMENT_HISTORY_SHORT: "出荷履歴28日未満",
+    SOURCE_FILES_UNREADABLE: "読取不能な原本あり",
+    SHIPMENT_UNIT_UNCONFIRMED: "出荷数量の単位未確定",
+    MISSING_DAY_POLICY_UNCONFIRMED: "出荷ファイルのない日の扱い未確定",
+  };
   for (const item of data.confirmed_items || []) {
     const line = document.createElement("li");
-    line.textContent = `${item.product_code} / JAN ${item.jan} / 出荷記録 ${item.observed_shipment_days} 日 / ${evidenceLabels[item.evidence_status] || "要確認"}`;
+    const blockers = item.readiness?.blocking_reasons || [];
+    line.textContent = `${item.product_code} / JAN ${item.jan} / 出荷記録 ${item.observed_shipment_days} 日 / ${evidenceLabels[item.evidence_status] || "要確認"} / 予測判定: ${blockers.length ? blockers.map((code) => blockerLabels[code] || code).join("、") : "可能"}`;
     confirmed.append(line);
   }
 }
