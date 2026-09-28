@@ -10,7 +10,7 @@ const kindLabels = {
   PRODUCTION_PLAN: "生産予定", OTHER: "その他",
 };
 const columnLabels = {
-  date: "日付", jan: "商品", product: "商品名", location: "倉庫・拠点",
+  date: "日付", jan: "JAN", product_code: "商品コード", product: "商品名", location: "倉庫・拠点",
   quantity: "数量", expiry: "賞味期限",
 };
 let currentCandidate = null;

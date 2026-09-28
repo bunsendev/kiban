@@ -1,6 +1,9 @@
 # Field Pilot 承認型学習・習慣化画面（2026-09-28 JST）
 
-- 対象テスト: `tests/test_field_pilot_approved_learning.py` 4 passed。未知候補、担当者承認、重要変更の管理者境界、全行構造検証、無効化と再承認、PC再起動相当の台帳読込、HTTP制限を確認。
+- 実データ追加検証: 提供済みZIPのSHA-256一致。CP932 CSV 3,869/3,869で候補生成成功（出荷1,943、在庫1,926）。代表3形式を一時Inboxに投入し、3候補、3件管理者待ち、ACTIVE契約0件を確認。原本と実データはRepositoryに含めない。詳細は`planning/FIELD_PILOT_REAL_DATA_LEARNING_VALIDATION_2026-09-28.md`。
+- 倉庫在庫159/160列対応、JANと商品コードの区別、在庫基準日・数量列の誤推定防止、Windows一時SQLite接続解放を追加。対象試験は16 passed、ruffとJavaScript構文に成功。
+- 実データ修正後のWindows全体回帰は714 passed、20 skipped、Linux専用RSS計測1件deselected。配布ZIPは787ファイルで生成し、787/787ファイルのSHA-256照合に成功した。
+- 初回対象テスト: `tests/test_field_pilot_approved_learning.py` 4 passed。未知候補、担当者承認、重要変更の管理者境界、全行構造検証、無効化と再承認、PC再起動相当の台帳読込、HTTP制限を確認。実データで発見した問題を修正後、同ファイルは6 passed。
 - `tests/test_field_pilot_unified_inbox.py`と`tests/test_field_pilot_release.py`を含む対象テストは追加前13 passed。追加後は全体回帰に含める。
 - `ruff check .`、JavaScript `node --check`、Windows PowerShell parserに成功。
 - Windowsの全体pytest初回は710 passed、20 skipped、2 failed。失敗はLinux専用peak RSS計測と配布ハッシュ未更新。追加テストを含めた再実行（Linux専用1件除外）は配布ハッシュ更新前に711 passed、20 skipped、1 deselected、1 failed。最後の失敗は検査中の編集によるハッシュ差分であり、成果物確定後に再検査する。

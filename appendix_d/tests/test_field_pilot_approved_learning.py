@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from fastapi.testclient import TestClient
 
@@ -11,7 +12,9 @@ from forecast_provider.catalog import SqliteCatalogStore
 from forecast_provider.field_pilot import FieldPilotReadService
 from forecast_provider.field_pilot.inbox_classifier import classify_file
 from forecast_provider.field_pilot.inbox_ledger import InboxLedger
+from forecast_provider.field_pilot.inbox_policy import InboxPolicy
 from forecast_provider.field_pilot.inbox_processor import InboxProcessor
+from forecast_provider.field_pilot.learning_candidate import inspect_learning_candidate
 from forecast_provider.field_pilot.learning_service import LearningService
 from forecast_provider.jobs import SqliteRunStore
 from tests.test_field_pilot_unified_inbox import _policy, _stage
@@ -165,3 +168,40 @@ def test_learning_validation_reads_beyond_sample_before_activation(tmp_path):
         pass
     assert learning.store.active_rules() == ()
     assert learning.store.get_candidate(candidate["candidate_id"])["status"] == "PENDING_ADMIN"
+
+
+def test_wide_inventory_schema_can_be_reviewed_without_auto_approval(tmp_path):
+    columns = [
+        "倉庫在庫", "商品コード", "明細単価数量単位区分", "明細バラ数",
+        "ヘッダ倉庫コード", "明細倉庫コード", "製造年月日", "賞味期限",
+    ] + [
+        f"追加列{index}" for index in range(152)
+    ]
+    source = tmp_path / "inventory.csv"
+    source.write_text(
+        ",".join(columns) + "\n" + ",".join(
+            ["EAST", "ITEM", "箱", "2", "EAST", "EAST", "2026-09-01", "2026-10-01"]
+            + ["x"] * 152
+        ) + "\n", encoding="utf-8",
+    )
+    policy = InboxPolicy("UNCONFIGURED", (), ())
+    classification = classify_file(source, source.name, policy)
+    candidate = inspect_learning_candidate(source, classification, policy)
+    assert candidate is not None
+    assert len(candidate.headers) == 160
+    assert candidate.suggested_kind == "WAREHOUSE_INVENTORY"
+    assert candidate.risk == "MAJOR"
+    assert candidate.columns["quantity"] == "明細バラ数"
+    assert candidate.columns["location"] == "明細倉庫コード"
+    assert candidate.columns["product_code"] == "商品コード"
+    assert "jan" not in candidate.columns
+    assert "date" not in candidate.columns
+
+
+def test_learning_and_inbox_connections_release_temporary_database():
+    with TemporaryDirectory(prefix="kiban-learning-db-") as temporary:
+        root = Path(temporary) / "Inbox"
+        root.mkdir()
+        learning = LearningService(root, Path(temporary) / "missing-policy.json")
+        assert learning.store.list_candidates() == []
+        assert InboxLedger(root / "inbox.sqlite3").has_stage("missing") is False
