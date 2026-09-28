@@ -14,7 +14,7 @@ import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent
 ZIP = ROOT.parent / "bunsen_field_pilot_release.zip"
-VERSION = "0.1.0-field-pilot.2"
+VERSION = "0.1.0-field-pilot.3"
 NAME = f"Bunsen-FieldPilot-{VERSION}-Setup.exe"
 
 
@@ -46,7 +46,7 @@ InstallPrompt=
 DisplayLicense=
 FinishMessage=
 TargetName={target}
-FriendlyName=Bunsen Field Pilot RC2
+FriendlyName=Bunsen Field Pilot RC3
 AppLaunched=cmd.exe /c launch.cmd
 PostInstallCmd=<None>
 AdminQuietInstCmd=
