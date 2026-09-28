@@ -87,6 +87,13 @@ class FormalInventoryApproval(BaseModel):
     expected_revision: int = 0
 
 
+class ConfirmedJanPublication(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    actor: str
+    reason: str
+
+
 def install_field_pilot_routes(app: FastAPI, service) -> None:
     operator_paths = {
         "/api/field-pilot/operator-feedback",
@@ -113,7 +120,9 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         path = request.url.path
         if request.url.hostname not in {"127.0.0.1", "localhost"}:
             return JSONResponse({"message": "現場PC内からのみ利用できます"}, status_code=403)
-        if (path == "/api/field-pilot/admin" or ADMIN_ACTION.fullmatch(path)
+        if (path in {"/api/field-pilot/admin",
+                     "/api/field-pilot/admin/product-mapping/publish"}
+                or ADMIN_ACTION.fullmatch(path)
                 or FORMAL_APPROVAL.fullmatch(path)
                 or path.startswith("/api/field-pilot/settings")
                 or path.startswith("/api/field-pilot/feedback")):
@@ -124,7 +133,8 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         if request.method == "POST":
             if not (LEARNING_ACTION.fullmatch(path) or ADMIN_ACTION.fullmatch(path)
                     or FORMAL_APPROVAL.fullmatch(path)
-                    or path in {"/api/field-pilot/settings/change",
+                    or path in {"/api/field-pilot/admin/product-mapping/publish",
+                                "/api/field-pilot/settings/change",
                                 "/api/field-pilot/settings/rollback",
                                 "/api/field-pilot/feedback/change",
                                 "/api/field-pilot/feedback/support-consent"}
@@ -185,6 +195,20 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
                 InventoryReadError):
             return JSONResponse(
                 {"message": "検証結果・隔離行・版を確認してください"}, status_code=409
+            )
+
+    @app.post("/api/field-pilot/admin/product-mapping/publish",
+              include_in_schema=False)
+    def publish_confirmed_jan(value: ConfirmedJanPublication, request: Request):
+        request.state.audit_operation = "FIELD_PILOT_JAN_MAPPING_PUBLICATION"
+        if not require_admin(request):
+            return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
+        try:
+            return service.publish_confirmed_jan(**value.model_dump())
+        except (AttributeError, OSError, ValueError, sqlite3.DatabaseError):
+            return JSONResponse(
+                {"message": "原本・JAN確認履歴と出荷履歴の矛盾を確認してください"},
+                status_code=409,
             )
 
     @app.post("/api/field-pilot/operator-feedback", include_in_schema=False)
