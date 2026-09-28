@@ -153,3 +153,45 @@ def test_release_fingerprint_blocks_a_different_build(tmp_path):
     with pytest.raises(ValueError, match="RECOVERY_RELEASE_INCOMPATIBLE"):
         stage_bundle(bundle, tmp_path / "stage", release_fingerprint="release-b")
     assert not (tmp_path / "stage").exists()
+
+
+def test_update_state_and_public_key_survive_verified_backup(tmp_path):
+    data = _source(tmp_path)
+    key = b"-----BEGIN PUBLIC KEY-----\nexample\n-----END PUBLIC KEY-----\n"
+    (data / "Config" / "release-update-public.pem").write_bytes(key)
+    ledger = data / "LocalSettings" / "update-checks.sqlite3"
+    with sqlite3.connect(ledger) as db:
+        db.execute("CREATE TABLE update_checks (status TEXT NOT NULL)")
+        db.execute("INSERT INTO update_checks VALUES ('UNCONFIGURED')")
+
+    bundle = tmp_path / "pre-update.zip"
+    create_bundle(data, bundle, mode="SETTINGS")
+    stage = tmp_path / "stage"
+    manifest = stage_bundle(bundle, stage)
+    assert "config/release-update-public.pem" in manifest["files"]
+    assert "settings/update-checks.sqlite3" in manifest["files"]
+    assert (stage / "config" / "release-update-public.pem").read_bytes() == key
+    with sqlite3.connect(stage / "settings" / "update-checks.sqlite3") as db:
+        assert db.execute("SELECT status FROM update_checks").fetchone() == (
+            "UNCONFIGURED",
+        )
+
+
+def test_corrupt_update_ledger_blocks_backup(tmp_path):
+    data = _source(tmp_path)
+    (data / "LocalSettings" / "update-checks.sqlite3").write_bytes(b"not sqlite")
+    with pytest.raises(sqlite3.DatabaseError):
+        create_bundle(data, tmp_path / "bad.zip", mode="SETTINGS")
+
+
+def test_update_retention_policy_is_checked_before_restore(tmp_path):
+    data = _source(tmp_path)
+    policy = {"daily_keep": 30, "manual_keep": 30, "pre_restore_keep": 5,
+              "pre_update_keep": 0}
+    (data / "Config" / "recovery-policy.json").write_text(
+        json.dumps(policy), encoding="utf-8",
+    )
+    bundle = tmp_path / "settings.zip"
+    create_bundle(data, bundle, mode="SETTINGS")
+    with pytest.raises(ValueError, match="RECOVERY_POLICY_INVALID"):
+        stage_bundle(bundle, tmp_path / "stage")

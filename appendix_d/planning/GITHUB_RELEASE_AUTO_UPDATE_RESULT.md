@@ -36,7 +36,7 @@ Release一覧、署名Manifest、パッケージURLを匿名で取得するGitHu
 
 ## 9. Backup
 
-既存の `Kiban.FieldPilot.Recovery.psm1` がConfig、ローカル設定、学習、Inbox、PostgreSQL dumpを扱う。更新時にこの機能を必須Gateとして呼ぶ実装は未完了。更新確認SQLiteを復旧対象へ追加する作業も未完了。
+既存の `Kiban.FieldPilot.Recovery.psm1` がConfig、ローカル設定、学習、Inbox、PostgreSQL dumpを扱う。`field-pilot-update-backup.ps1`から`pre-update`のFULLバックアップを実行・検証できる。更新確認SQLiteと署名公開鍵も復旧対象に追加した。既存の復旧policyは`pre_update_keep`未指定でも既定5件として扱う。更新適用処理からこのバックアップを必須Gateとして呼ぶ接続は未完了。
 
 ## 10. Migration
 

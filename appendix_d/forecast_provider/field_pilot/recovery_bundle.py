@@ -27,9 +27,11 @@ OPTIONAL_CONFIG_FILES = {
     "Config/feedback-client.json": "config/feedback-client.json",
     "Config/feedback-server-public.pem": "config/feedback-server-public.pem",
     "Config/feedback-update-public.pem": "config/feedback-update-public.pem",
+    "Config/release-update-public.pem": "config/release-update-public.pem",
 }
 OPTIONAL_FILES = {
     "LocalSettings/field-settings.sqlite3": "settings/field-settings.sqlite3",
+    "LocalSettings/update-checks.sqlite3": "settings/update-checks.sqlite3",
     "Inbox/inbox.sqlite3": "learning/inbox.sqlite3",
     "Inbox/improvement-events.sqlite3": "learning/improvement-events.sqlite3",
     "Inbox/feedback.sqlite3": "learning/feedback.sqlite3",
@@ -218,7 +220,8 @@ def stage_bundle(bundle: Path, destination: Path, *,
     for name, expected in manifest["files"].items():
         if _hash_file(destination / name) != (expected["sha256"], expected["size"]):
             raise ValueError("RECOVERY_STAGE_HASH_MISMATCH")
-    for name in ("settings/field-settings.sqlite3", "learning/inbox.sqlite3",
+    for name in ("settings/field-settings.sqlite3", "settings/update-checks.sqlite3",
+                 "learning/inbox.sqlite3",
                  "learning/improvement-events.sqlite3", "learning/feedback.sqlite3"):
         if name in manifest["files"]:
             _check_source(destination / name, sqlite=True)
@@ -236,7 +239,10 @@ def stage_bundle(bundle: Path, destination: Path, *,
         if not isinstance(policy, dict) or any(
             not isinstance(policy.get(key), int) or not 1 <= policy[key] <= 365
             for key in ("daily_keep", "manual_keep", "pre_restore_keep")
-        ):
+        ) or ("pre_update_keep" in policy and (
+            not isinstance(policy["pre_update_keep"], int)
+            or not 1 <= policy["pre_update_keep"] <= 365
+        )):
             raise ValueError("RECOVERY_POLICY_INVALID")
     (destination / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, sort_keys=True), encoding="utf-8",
