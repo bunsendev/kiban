@@ -36,7 +36,7 @@ def test_unresolved_products_uses_only_local_confirmed_mapping(tmp_path):
         "product_code": "B2", "product_name": "商品B",
         "candidate_jans": ["4901234567894"], "candidate_status": "UNIQUE",
         "direct_code_match": False,
-        "readiness": {"forecast_eligible": False, "blocking_reasons": [
+        "readiness": {"trial_eligible": False, "blocking_reasons": [
             "JAN_UNCONFIRMED", "SHIPMENT_HISTORY_MISSING",
             "SHIPMENT_UNIT_UNCONFIRMED", "MISSING_DAY_POLICY_UNCONFIRMED",
         ]},
@@ -46,10 +46,11 @@ def test_unresolved_products_uses_only_local_confirmed_mapping(tmp_path):
         "product_code": "A1", "jan": "4006381333931",
         "observed_shipment_days": 0,
         "evidence_status": "SHIPMENT_HISTORY_MISSING",
-        "readiness": {"forecast_eligible": False, "blocking_reasons": [
+        "readiness": {"trial_eligible": False, "blocking_reasons": [
             "SHIPMENT_HISTORY_MISSING", "SHIPMENT_UNIT_UNCONFIRMED",
             "MISSING_DAY_POLICY_UNCONFIRMED",
         ]},
+        "trial_policy": None,
     }]
     assert result["file_count"] == 2
     assert result["complete"] is True

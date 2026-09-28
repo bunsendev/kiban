@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 let currentVersion = null;
 let history = [];
+let latestTrial = null;
 
 const headers = () => ({
   "Content-Type": "application/json",
@@ -63,7 +64,71 @@ async function loadUnresolved() {
     const line = document.createElement("li");
     const blockers = item.readiness?.blocking_reasons || [];
     line.textContent = `${item.product_code} / JAN ${item.jan} / 出荷記録 ${item.observed_shipment_days} 日 / ${evidenceLabels[item.evidence_status] || "要確認"} / 予測判定: ${blockers.length ? blockers.map((code) => blockerLabels[code] || code).join("、") : "可能"}`;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "この商品の試算条件を確認";
+    button.addEventListener("click", () => {
+      $("type").value = "SHIPMENT_TRIAL_POLICY";
+      showType();
+      $("target").value = item.product_code;
+      $("trial-product").value = item.product_code;
+      void load();
+    });
+    line.append(button);
     confirmed.append(line);
+  }
+}
+
+async function runTrial() {
+  const productCode = $("trial-product").value.trim();
+  if (!productCode || !$("token").value) {
+    $("trial-status").textContent = "商品コードと管理用コードを入力してください。";
+    return;
+  }
+  $("trial-status").textContent = "投入済み原本と確認履歴を照合しています。";
+  $("trial-result").replaceChildren();
+  $("trial-feedback").hidden = true;
+  latestTrial = null;
+  try {
+    const response = await fetch("/api/field-pilot/admin/shipment-trial", {
+      method: "POST", headers: headers(), body: JSON.stringify({ product_code: productCode }),
+    });
+    if (!response.ok) throw new Error("trial failed");
+    const data = await response.json();
+    if (data.status !== "TRIAL_READY") {
+      $("trial-status").textContent = `試算待ち: ${(data.reasons || []).join("、")}。確認・訂正後に再実行できます。`;
+      return;
+    }
+    latestTrial = data;
+    $("trial-feedback").hidden = false;
+    $("trial-status").textContent = `参考試算 ${data.model} / 原本数量の解釈 ${data.unit} / 条件版 ${data.policy_version}。正式な出荷指示には使用しません。`;
+    const list = document.createElement("ul");
+    for (const item of data.series) {
+      const line = document.createElement("li");
+      const values = item.days.map((day) => `${day.date}: ${day.source_quantity}`).join(" / ");
+      line.textContent = `倉庫 ${item.warehouse_code} / 最終記録 ${item.last_observed_day}${item.historical_replay ? "（過去データの再現。現在予測ではありません）" : ""} / 直近28日の使用日 ${item.used_days_in_window} / ${item.status} / ${values || "履歴不足"}`;
+      list.append(line);
+    }
+    $("trial-result").append(list);
+  } catch {
+    $("trial-status").textContent = "試算できません。JAN・原本・試算条件を確認してください。";
+  }
+}
+
+async function sendTrialFeedback() {
+  if (!latestTrial) return;
+  try {
+    const response = await fetch("/api/field-pilot/admin/shipment-trial/feedback", {
+      method: "POST", headers: headers(), body: JSON.stringify({
+        product_code: latestTrial.product_code,
+        source_fingerprint: latestTrial.source_fingerprint,
+        issue: $("trial-issue").value,
+      }),
+    });
+    if (!response.ok) throw new Error("feedback failed");
+    $("trial-feedback-status").textContent = "フィードバックを記録しました。条件を訂正した場合は再試算してください。";
+  } catch {
+    $("trial-feedback-status").textContent = "記録できません。最新の試算をやり直してください。";
   }
 }
 
@@ -89,8 +154,10 @@ async function publishJan() {
 
 function showType() {
   const time = type() === "INVENTORY_TIME_POLICY";
-  $("jan-fields").hidden = time;
+  const trial = type() === "SHIPMENT_TRIAL_POLICY";
+  $("jan-fields").hidden = time || trial;
   $("time-fields").hidden = !time;
+  $("trial-fields").hidden = !trial;
   $("target").disabled = time;
   $("targets").disabled = time;
   $("target").value = time ? "WAREHOUSE" : "";
@@ -117,6 +184,10 @@ async function load() {
     : data.latest_version
       ? `登録済みの版 ${data.latest_version} はまだ適用開始前です。履歴を確認してください。`
       : "現在の設定はありません。原本を確認して初回登録してください。";
+  if (type() === "SHIPMENT_TRIAL_POLICY" && data.current) {
+    $("trial-unit").value = data.current.value.unit;
+    $("missing-day").value = data.current.value.missing_day;
+  }
   const list = $("history");
   list.replaceChildren();
   history.forEach((item) => {
@@ -148,9 +219,12 @@ async function save() {
     status("担当者ID、適用開始日、対象を入力してください。"); return;
   }
   const time = type() === "INVENTORY_TIME_POLICY";
+  const trial = type() === "SHIPMENT_TRIAL_POLICY";
   const value = time
     ? { source: $("source").value, precision: $("precision").value, time_zone: "Asia/Tokyo" }
-    : { jan: $("jan").value.trim(), product_name: $("product-name").value.trim() };
+    : trial
+      ? { unit: $("trial-unit").value, missing_day: $("missing-day").value }
+      : { jan: $("jan").value.trim(), product_name: $("product-name").value.trim() };
   if (time && value.precision === "EXACT_TIME") value.local_time = $("local-time").value;
   if (!window.confirm("原本と照合しましたか？ 変更前にBackupを作成して新版を保存します。")) return;
   await send("/api/field-pilot/settings/change", {
@@ -174,6 +248,8 @@ $("targets").addEventListener("change", () => { $("target").value = $("targets")
 $("load").addEventListener("click", load);
 $("load-unresolved").addEventListener("click", loadUnresolved);
 $("publish-jan").addEventListener("click", publishJan);
+$("run-trial").addEventListener("click", runTrial);
+$("send-trial-feedback").addEventListener("click", sendTrialFeedback);
 $("save").addEventListener("click", save);
 $("effective").value = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 showType();

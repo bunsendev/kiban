@@ -94,6 +94,20 @@ class ConfirmedJanPublication(BaseModel):
     reason: str
 
 
+class ShipmentTrialRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    product_code: str
+
+
+class ShipmentTrialFeedback(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    product_code: str
+    source_fingerprint: str
+    issue: str
+
+
 def install_field_pilot_routes(app: FastAPI, service) -> None:
     operator_paths = {
         "/api/field-pilot/operator-feedback",
@@ -121,7 +135,9 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         if request.url.hostname not in {"127.0.0.1", "localhost"}:
             return JSONResponse({"message": "現場PC内からのみ利用できます"}, status_code=403)
         if (path in {"/api/field-pilot/admin",
-                     "/api/field-pilot/admin/product-mapping/publish"}
+                     "/api/field-pilot/admin/product-mapping/publish",
+                     "/api/field-pilot/admin/shipment-trial",
+                     "/api/field-pilot/admin/shipment-trial/feedback"}
                 or ADMIN_ACTION.fullmatch(path)
                 or FORMAL_APPROVAL.fullmatch(path)
                 or path.startswith("/api/field-pilot/settings")
@@ -134,6 +150,8 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
             if not (LEARNING_ACTION.fullmatch(path) or ADMIN_ACTION.fullmatch(path)
                     or FORMAL_APPROVAL.fullmatch(path)
                     or path in {"/api/field-pilot/admin/product-mapping/publish",
+                                "/api/field-pilot/admin/shipment-trial",
+                                "/api/field-pilot/admin/shipment-trial/feedback",
                                 "/api/field-pilot/settings/change",
                                 "/api/field-pilot/settings/rollback",
                                 "/api/field-pilot/feedback/change",
@@ -210,6 +228,29 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
                 {"message": "原本・JAN確認履歴と出荷履歴の矛盾を確認してください"},
                 status_code=409,
             )
+
+    @app.post("/api/field-pilot/admin/shipment-trial", include_in_schema=False)
+    def shipment_trial(value: ShipmentTrialRequest, request: Request):
+        request.state.audit_operation = "FIELD_PILOT_SHIPMENT_TRIAL"
+        if not require_admin(request):
+            return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
+        try:
+            return service.shipment_trial(value.product_code)
+        except (AttributeError, OSError, ValueError, sqlite3.DatabaseError):
+            return JSONResponse({"message": "JAN・原本・試算条件を確認してください"},
+                                status_code=409)
+
+    @app.post("/api/field-pilot/admin/shipment-trial/feedback",
+              include_in_schema=False)
+    def shipment_trial_feedback(value: ShipmentTrialFeedback, request: Request):
+        request.state.audit_operation = "FIELD_PILOT_SHIPMENT_TRIAL_FEEDBACK"
+        if not require_admin(request):
+            return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
+        try:
+            return service.shipment_trial_feedback(**value.model_dump())
+        except (AttributeError, OSError, ValueError, sqlite3.DatabaseError):
+            return JSONResponse({"message": "現在の試算結果を再確認してください"},
+                                status_code=409)
 
     @app.post("/api/field-pilot/operator-feedback", include_in_schema=False)
     def operator_feedback(value: OperatorFeedback, request: Request):

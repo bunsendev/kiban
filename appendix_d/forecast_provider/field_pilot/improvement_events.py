@@ -13,7 +13,7 @@ EVENT_TYPES = frozenset({
     "INBOX_CLASSIFIED", "INBOX_VALIDATED", "INBOX_REVIEW", "INBOX_DUPLICATE",
     "VIEW_READY", "VIEW_BLOCKED", "DETAIL_OPENED", "VIEW_COMPLETED",
     "FORECAST_READY", "PROJECTION_READY", "FEFO_READY", "RETRY",
-    "OPERATOR_FEEDBACK", "OPERATOR_ACTION",
+    "OPERATOR_FEEDBACK", "OPERATOR_ACTION", "TRIAL_FEEDBACK",
 })
 METRIC_KEYS = frozenset({
     "size_bytes", "duration_ms", "row_count", "item_count", "shortage_count",
@@ -38,6 +38,10 @@ ERROR_CODES = frozenset({
 ) | frozenset(
     f"ACTION_{action}"
     for action in ("REFRESH", "SCAN_REQUESTED", "DETAIL_OPENED", "FINISH_REQUESTED")
+) | frozenset(
+    f"TRIAL_{issue}"
+    for issue in ("USEFUL", "UNIT_WRONG", "MISSING_DAY_WRONG", "FORECAST_HIGH",
+                  "FORECAST_LOW", "OTHER")
 )
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS improvement_events (
