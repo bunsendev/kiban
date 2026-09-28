@@ -2,6 +2,8 @@ services:
   postgres:
     environment:
       POSTGRES_PASSWORD: ${KIBAN_FIELD_PILOT_DB_PASSWORD:?Field Pilot DB password is required}
+    volumes:
+      - ${KIBAN_FIELD_PILOT_BACKUP_DIR:?Field Pilot backup dir is required}:/var/lib/kiban/pilot-backup
   api:
     build:
       context: .
