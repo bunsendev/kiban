@@ -119,3 +119,21 @@ class FormalShipmentDraftStore:
                 "approved_by": row[2], "approval_reason": row[3],
                 "approved_at": row[4], "daily_build_ready": False,
                 "next_gate": "FORMAL_NORMALIZATION_IDENTITY_AND_DAILY_BUILD_REQUIRED"}
+
+    def get(self, draft_id: str) -> dict | None:
+        if not re.fullmatch(r"shipment-draft-[0-9a-f]{64}", draft_id):
+            raise ValueError("FORMAL_SHIPMENT_DRAFT_ID_INVALID")
+        with sqlite3.connect(self.path) as db:
+            row = db.execute(
+                "SELECT * FROM formal_shipment_drafts WHERE draft_id=?", (draft_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        content = json.loads(row[1])
+        canonical = json.dumps(content, ensure_ascii=False, sort_keys=True,
+                               separators=(",", ":"))
+        if f"shipment-draft-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}" != row[0]:
+            raise ValueError("FORMAL_SHIPMENT_DRAFT_CORRUPT")
+        return {"draft_id": row[0], "content": content,
+                "approved_by": row[2], "approval_reason": row[3],
+                "approved_at": row[4]}

@@ -26,7 +26,8 @@ from .product_review import (
 )
 
 
-def trial_forecast(inbox_root: Path, settings_store, product_code: str) -> dict:
+def trial_forecast(inbox_root: Path, settings_store, product_code: str, *,
+                   include_full_history: bool = False) -> dict:
     review = unresolved_products(inbox_root, settings_store)
     selected = next((item for item in review["confirmed_items"]
                      if item["product_code"] == product_code), None)
@@ -136,7 +137,7 @@ def trial_forecast(inbox_root: Path, settings_store, product_code: str) -> dict:
                     "date": target.date().isoformat(),
                     "source_quantity": round(value, 3) if value is not None else None,
                 })
-        series.append({
+        item = {
             "warehouse_code": warehouse, "last_observed_day": latest.isoformat(),
             "historical_replay": latest < datetime.now(ZoneInfo("Asia/Tokyo")).date()
             - timedelta(days=7),
@@ -158,7 +159,27 @@ def trial_forecast(inbox_root: Path, settings_store, product_code: str) -> dict:
                 }
                 for day in window
             ],
-        })
+        }
+        if include_full_history:
+            first = min(observed)
+            if (latest - first).days > 3650:
+                raise ValueError("TRIAL_HISTORY_SPAN_LIMIT")
+            item["full_history"] = [
+                {
+                    "date": day.isoformat(),
+                    "quantity": str(observed[day]) if day in observed else
+                    "0" if (policy["missing_day"] == "ZERO_WHEN_DAILY_FILE_PRESENT"
+                            and day in covered_days) else None,
+                    "state": "OBSERVED" if day in observed else
+                    "ZERO_BY_CONFIRMED_POLICY" if (
+                        policy["missing_day"] == "ZERO_WHEN_DAILY_FILE_PRESENT"
+                        and day in covered_days
+                    ) else "MISSING",
+                }
+                for day in (first + timedelta(days=offset)
+                            for offset in range((latest - first).days + 1))
+            ]
+        series.append(item)
     fingerprint = hashlib.sha256(json.dumps(
         {"jan": selected["jan"], "policy_version": policy_record["version"],
          "observations": sorted((warehouse, day.isoformat(), str(quantity))

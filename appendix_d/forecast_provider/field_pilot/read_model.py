@@ -19,6 +19,7 @@ from ..warehouse_projection import ProjectionBlocked
 from .forecast_handoff import forecast_handoff
 from .formal_product_mapping import publish_confirmed_product_mapping
 from .formal_shipment_draft import FormalShipmentDraftStore, make_formal_shipment_draft
+from .formal_shipment_history import FormalShipmentHistoryStore, materialize_history
 from .freshness import FreshnessPolicy
 from .improvement_events import ImprovementEventLedger
 from .inbox_ledger import InboxLedger
@@ -173,6 +174,24 @@ class FieldPilotReadService:
         return FormalShipmentDraftStore(
             self.local_settings_dir / "formal-shipment-drafts.sqlite3",
         ).put(draft)
+
+    def materialize_shipment_history(self, draft_id: str) -> dict:
+        if self.inbox_root is None:
+            raise ValueError("FORMAL_HISTORY_NOT_CONFIGURED")
+        path = self.local_settings_dir / "formal-shipment-drafts.sqlite3"
+        draft = FormalShipmentDraftStore(path).get(draft_id)
+        if draft is None:
+            raise ValueError("FORMAL_HISTORY_DRAFT_NOT_FOUND")
+        product_code = draft["content"]["product_code"]
+        trial = trial_forecast(self.inbox_root, self.local_settings.store,
+                               product_code, include_full_history=True)
+        review = unresolved_products(self.inbox_root, self.local_settings.store)
+        handoff = forecast_handoff(
+            review, trial, self.inventory_store,
+            business_date=datetime.now(ZoneInfo("Asia/Tokyo")).date(),
+        )
+        history = materialize_history(draft, trial, handoff)
+        return FormalShipmentHistoryStore(path).put(history)
 
     def shipment_trial_feedback(self, product_code: str, source_fingerprint: str,
                                 issue: str) -> dict:

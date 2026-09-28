@@ -1726,3 +1726,8 @@ OS: Windows 11
 
 - 箱単位・ゼロ日判断を28日分の日次入力候補として内容アドレスで保存。原本内容の変更、条件版・在庫Snapshotの変化、欠測、履歴の古さ、未確認単位を拒否する。候補台帳は復旧ZIPの対象に追加。
 - 管理者APIの認証、候補保存と冪等性、原本変更後の409を確認。全体初回は配布ハッシュ未更新の1件のみ失敗。更新後のWindows全体回帰は816 passed / 20 skipped / Linux専用RSS 1件deselected。`ruff check .`とJavaScript構文検査に成功。配布ZIPは871ファイルで全件SHA-256一致。
+# Field Pilot 原本全期間の日次履歴照合（2026-09-29 JST）
+
+- 確認済み28日候補を原本全期間に照合し、初回観測日から最終観測日までの欠測をnull、確認済み条件のゼロを別状態で保存。内容アドレスによる冪等性、原本変更後の409、管理者認証を検証。
+- 正式normalization・canonical identity・日次build・予測Runは未接続。`daily_build_ready=false`を維持する。
+- Windows全体回帰は818 passed / 20 skipped / Linux専用RSS 1件deselected。`ruff check .`、JavaScript構文検査、`git diff --check`に成功。
