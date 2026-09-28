@@ -30,7 +30,7 @@ if (Test-Path -LiteralPath $installPath) {
     if ((Test-Path -LiteralPath $envPath) -and $dockerReady) {
         & docker compose --project-name bunsen-field-pilot --env-file $envPath `
             -f (Join-Path $activeApp "compose.yaml") `
-            -f (Join-Path $activeApp "compose.field-pilot.yaml") stop api postgres
+            -f (Join-Path $activeApp "compose.field-pilot.yaml") stop pilot-inventory-worker api postgres
         if ($LASTEXITCODE -ne 0) { throw "サービスを安全に停止できませんでした。" }
     }
 }

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sqlite3
 from pathlib import Path
 
+from .formal_inventory import FormalInventorySubmission
 from .improvement_events import ImprovementEventLedger
 from .inbox_ledger import InboxLedger
 from .inbox_processor import InboxProcessor
@@ -25,8 +27,19 @@ def main() -> int:
         policy = learning.recognition_policy()
         ledger = InboxLedger(options.inbox_root / "inbox.sqlite3")
         events = ImprovementEventLedger(options.inbox_root / "improvement-events.sqlite3")
+        formal_import = None
+        dsn = os.environ.get("KIBAN_POSTGRES_DSN")
+        if dsn and policy.required:
+            from ..inventory_foundation import PostgresInventoryFoundationStore
+            from ..pilot_scope import PostgresPilotScopeStore
+
+            formal_import = FormalInventorySubmission(
+                PostgresInventoryFoundationStore(dsn), PostgresPilotScopeStore(dsn),
+                options.inbox_root / "Archive",
+            )
         count = InboxProcessor(
-            options.inbox_root, policy, ledger, review_observer=learning.consider,
+            options.inbox_root, policy, ledger, validated_import=formal_import,
+            review_observer=learning.consider,
             improvement_events=events,
         ).scan()
     except (OSError, ValueError, sqlite3.DatabaseError) as exc:

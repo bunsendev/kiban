@@ -20,6 +20,7 @@ try {
     if (-not $locked) { throw "ほかの処理が完了しませんでした。" }
     $install = Get-FieldPilotInstall $DataRoot
     Invoke-FieldPilotInboxScan $install
+    Invoke-FieldPilotCompose $install @("stop", "pilot-inventory-worker") | Out-Null
     New-FieldPilotBackup $install -Trigger "manual" | Out-Null
     try {
         $result = Invoke-FieldPilotFeedback $install "finish"

@@ -25,3 +25,23 @@ services:
       - ${KIBAN_FIELD_PILOT_INBOX_DIR:?Field Pilot inbox dir is required}:/var/lib/kiban/pilot-inbox
       - ${KIBAN_FIELD_PILOT_SETTINGS_DIR:?Field Pilot settings dir is required}:/var/lib/kiban/pilot-settings
       - ${KIBAN_FIELD_PILOT_BACKUP_DIR:?Field Pilot backup dir is required}:/var/lib/kiban/pilot-backup
+  pilot-inventory-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.field-pilot
+    command:
+      - python
+      - -m
+      - forecast_provider.inventory_snapshot_worker_process
+      - --postgres-dsn-env
+      - --source-root
+      - /var/lib/kiban/pilot-inbox/Archive
+      - --worker-id
+      - field-pilot-inventory-1
+    environment:
+      KIBAN_POSTGRES_DSN: postgresql://kiban:${KIBAN_FIELD_PILOT_DB_PASSWORD:?Field Pilot DB password is required}@postgres:5432/kiban
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${KIBAN_FIELD_PILOT_INBOX_DIR:?Field Pilot inbox dir is required}:/var/lib/kiban/pilot-inbox:ro

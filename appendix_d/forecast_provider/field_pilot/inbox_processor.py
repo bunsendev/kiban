@@ -13,6 +13,7 @@ from collections.abc import Callable
 from datetime import date
 from pathlib import Path, PureWindowsPath
 
+from .formal_inventory import QueuedInventoryJob
 from .improvement_events import ImprovementEventLedger
 from .inbox_classifier import Classification, classify_file
 from .inbox_ledger import InboxLedger
@@ -21,7 +22,7 @@ from .inbox_policy import InboxPolicy
 MAX_META_BYTES = 4_096
 MAX_FILE_BYTES = 2_000_000_000
 logger = logging.getLogger("kiban.field_pilot.inbox")
-ValidatedImport = Callable[[Classification, Path, str, str], bool]
+ValidatedImport = Callable[[Classification, Path, str, str], bool | QueuedInventoryJob]
 ReviewObserver = Callable[[Classification, Path, str], str | None]
 
 
@@ -98,6 +99,7 @@ class InboxProcessor:
         classification = classify_file(archive, name, self.policy)
         status = classification.status
         reason = classification.reason
+        formal_job_id = None
         if self.ledger.has_hash(digest, self.policy.version):
             status, reason = "DUPLICATE", "SAME_SHA256"
         elif status == "CONFIRMED" and self.ledger.has_previous(classification, digest):
@@ -106,7 +108,11 @@ class InboxProcessor:
             status, reason = "RECEIVED", "VALIDATED_IMPORT_NOT_CONFIGURED"
             if self.validated_import is not None:
                 try:
-                    if self.validated_import(classification, archive, reference, digest):
+                    result = self.validated_import(classification, archive, reference, digest)
+                    if isinstance(result, QueuedInventoryJob):
+                        status, reason = "RECEIVED", "INVENTORY_JOB_QUEUED"
+                        formal_job_id = result.job_id
+                    elif result is True:
                         status, reason = "PROCESSED", "STRICT_VALIDATION_SUCCEEDED"
                     else:
                         status, reason = "REVIEW_REQUIRED", "STRICT_VALIDATION_NOT_READY"
@@ -123,6 +129,7 @@ class InboxProcessor:
             size_bytes=size, status=status, reason=reason,
             classification=classification, policy_version=self.policy.version,
             archive_reference=reference, received_at=received_at,
+            formal_job_id=formal_job_id,
         )
         if self.improvement_events is not None:
             event_type = (

@@ -1655,3 +1655,8 @@ OS: Windows 11
 - 対象テスト20 passed。全体回帰の初回実行は774 passed、19 skipped、Linux専用RSS 1件deselected、配布ハッシュ更新前の照合1件failed。コード・動作に関する失敗はない。
 - 最終全体回帰は775 passed、19 skipped、Linux専用RSS 1件deselected。`ruff check .`、JavaScript構文、PowerShell構文、`git diff --check`、`make_release.py --check`に成功。
 - 単一フォルダからの正式取込・予測更新は未接続。新Installerの現場PC実機操作、Token付き送信は未確認。実データ・資格情報は配布物に含めない。
+# Field Pilot 在庫CSV正式検証への接続（2026-09-28 JST）
+
+- 既知の在庫CSVを受付台帳から正式Snapshotジョブへ渡し、独立Workerで検証する経路を追加。ジョブ・照合・隔離行数・承認状態を画面に表示し、管理者承認を版競合チェック付きで記録する。新しい投入がある場合、古い承認で準備完了にしない。
+- 原本在庫CSVからJAN未確認商品だけを管理者画面に表示し、現場のJAN確認記録へ誘導する。正式な商品mappingとPilot Scopeへの反映は別作業で、予測Run自動起動は未接続。
+- 対象テスト16 passed、`ruff check .`、JavaScript・PowerShell構文、Docker Compose構成検証に成功。全体回帰は配布ハッシュ検査を除いて780 passed、19 skipped、2 deselected。配布ハッシュ更新後に該当検査を行う。

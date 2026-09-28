@@ -225,7 +225,7 @@ try {
     Start-DockerDesktop
     $install = Get-FieldPilotInstall $dataRoot
     Write-Host "[5/6] Field Pilotを起動しています..."
-    Invoke-FieldPilotCompose $install @("up", "-d", "--build", "postgres", "api")
+    Invoke-FieldPilotCompose $install @("up", "-d", "--build", "postgres", "api", "pilot-inventory-worker")
     Wait-FieldPilotReady $install
     Invoke-FieldPilotInboxScan $install
     $feedbackConfig = Join-Path $install.DataRoot "Config\feedback-client.json"

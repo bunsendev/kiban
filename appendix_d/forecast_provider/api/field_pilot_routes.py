@@ -9,7 +9,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from ..field_pilot.operator_feedback import (
     OperatorAction,
@@ -17,12 +17,14 @@ from ..field_pilot.operator_feedback import (
     record_action,
     record_feedback,
 )
+from ..inventory_foundation.read_service import InventoryReadError
 
 LEARNING_ACTION = re.compile(r"^/api/field-pilot/learning/[0-9a-f]{64}/(confirm|disagree)$")
 ADMIN_ACTION = re.compile(
     r"^/api/field-pilot/admin/(approve|reject)/[0-9a-f]{64}$"
     r"|^/api/field-pilot/admin/deactivate/learned-[0-9a-f]{24}$"
 )
+FORMAL_APPROVAL = re.compile(r"^/api/field-pilot/admin/formal-jobs/[a-zA-Z0-9-]+/approve$")
 
 
 class OperatorDecision(BaseModel):
@@ -77,6 +79,14 @@ class SupportConsent(BaseModel):
     expires_at: datetime
 
 
+class FormalInventoryApproval(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    actor: str
+    reason: str
+    expected_revision: int = 0
+
+
 def install_field_pilot_routes(app: FastAPI, service) -> None:
     operator_paths = {
         "/api/field-pilot/operator-feedback",
@@ -86,6 +96,7 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         "/health", "/ready", "/ui/pilot", "/ui/pilot/", "/api/field-pilot/view",
         "/api/field-pilot/inbox",
         "/api/field-pilot/learning", "/api/field-pilot/admin",
+        "/api/field-pilot/admin/unresolved-products",
         "/ui/pilot/admin", "/ui/pilot/admin/",
         "/ui/pilot/settings", "/ui/pilot/settings/",
         "/api/field-pilot/settings",
@@ -103,6 +114,7 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         if request.url.hostname not in {"127.0.0.1", "localhost"}:
             return JSONResponse({"message": "現場PC内からのみ利用できます"}, status_code=403)
         if (path == "/api/field-pilot/admin" or ADMIN_ACTION.fullmatch(path)
+                or FORMAL_APPROVAL.fullmatch(path)
                 or path.startswith("/api/field-pilot/settings")
                 or path.startswith("/api/field-pilot/feedback")):
             configured = service.learning_admin_token
@@ -111,6 +123,7 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
                 return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
         if request.method == "POST":
             if not (LEARNING_ACTION.fullmatch(path) or ADMIN_ACTION.fullmatch(path)
+                    or FORMAL_APPROVAL.fullmatch(path)
                     or path in {"/api/field-pilot/settings/change",
                                 "/api/field-pilot/settings/rollback",
                                 "/api/field-pilot/feedback/change",
@@ -148,6 +161,31 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
     def learning_view(request: Request):
         request.state.audit_operation = "FIELD_PILOT_LEARNING_VIEW"
         return service.learning_view()
+
+    @app.get("/api/field-pilot/admin/unresolved-products", include_in_schema=False)
+    def unresolved_products_view(request: Request):
+        request.state.audit_operation = "FIELD_PILOT_UNRESOLVED_PRODUCTS_VIEW"
+        if not require_admin(request):
+            return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
+        try:
+            return service.unresolved_products_view()
+        except (AttributeError, OSError, ValueError, sqlite3.DatabaseError):
+            return JSONResponse({"message": "未確定商品を確認できませんでした"}, status_code=503)
+
+    @app.post("/api/field-pilot/admin/formal-jobs/{job_id}/approve",
+              include_in_schema=False)
+    def approve_formal_inventory(job_id: str, value: FormalInventoryApproval,
+                                 request: Request):
+        request.state.audit_operation = "FIELD_PILOT_FORMAL_INVENTORY_APPROVAL"
+        if not require_admin(request):
+            return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
+        try:
+            return service.approve_formal_inventory(job_id, **value.model_dump())
+        except (AttributeError, OSError, ValueError, sqlite3.DatabaseError,
+                InventoryReadError):
+            return JSONResponse(
+                {"message": "検証結果・隔離行・版を確認してください"}, status_code=409
+            )
 
     @app.post("/api/field-pilot/operator-feedback", include_in_schema=False)
     def operator_feedback(value: OperatorFeedback, request: Request):
@@ -292,7 +330,8 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         if not require_admin(request):
             return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
         request.state.audit_operation = "FIELD_PILOT_LEARNING_ADMIN_VIEW"
-        return service.learning.admin_view()
+        return {**service.learning.admin_view(),
+                "formal_jobs": service.inbox_view().get("formal_jobs", [])}
 
     @app.post("/api/field-pilot/admin/approve/{candidate_id}", include_in_schema=False)
     def admin_approve(candidate_id: str, decision: AdminDecision, request: Request):

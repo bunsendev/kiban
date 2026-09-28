@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import time
 import uuid
 from pathlib import Path
@@ -18,6 +19,7 @@ def _parser() -> argparse.ArgumentParser:
     database = parser.add_mutually_exclusive_group(required=True)
     database.add_argument("--sqlite", type=Path)
     database.add_argument("--postgres-dsn")
+    database.add_argument("--postgres-dsn-env", action="store_true")
     parser.add_argument("--source-root", type=Path, required=True)
     parser.add_argument("--worker-id", default=f"inventory-snapshot-{uuid.uuid4().hex[:12]}")
     parser.add_argument("--lease-seconds", type=int, default=300)
@@ -27,13 +29,17 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+    parser = _parser()
+    args = parser.parse_args(argv)
     if args.lease_seconds < 1 or args.poll_seconds <= 0:
         raise SystemExit("lease-secondsとpoll-secondsは正数です")
+    dsn = os.environ.get("KIBAN_POSTGRES_DSN") if args.postgres_dsn_env else args.postgres_dsn
+    if args.postgres_dsn_env and not dsn:
+        parser.error("KIBAN_POSTGRES_DSNを設定してください")
     store = (
         SqliteInventoryFoundationStore(args.sqlite)
         if args.sqlite is not None
-        else PostgresInventoryFoundationStore(args.postgres_dsn)
+        else PostgresInventoryFoundationStore(dsn)
     )
     worker = InventorySnapshotWorker(
         store,
