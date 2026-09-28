@@ -1,3 +1,9 @@
+# Field Pilot 更新前バックアップ・復旧対象（2026-09-29 JST）
+
+- 更新確認SQLiteと署名公開鍵をバックアップ・復旧対象へ追加。`pre-update` FULLバックアップ用PowerShell入口と保持件数policyを追加し、旧policyは既定5件で互換。
+- 復旧ZIPの作成・照合・ステージ、SQLite履歴保持、破損SQLiteの拒否、不正保持policyの拒否を対象10テストで確認。Windows全体回帰は798 passed / 20 skipped / Linux専用RSS計測1件deselected。`ruff check .`に成功。
+- 更新適用との必須Gate接続、公開配布物、現場PC実機での復旧は未実施。
+
 # Field Pilot ローカル設定・変更履歴（2026-09-28 JST）
 
 - 管理者画面とAPIでJAN対応、在庫基準時刻policyを版保存し、旧版への復帰を追記履歴として検証。変更前SQLite Backup、SHA-256 manifest、Backup失敗時の変更停止、競合版・不正JAN・架空の正確時刻の拒否を人工データで確認。

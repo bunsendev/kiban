@@ -1,5 +1,6 @@
 {
   "daily_keep": 30,
   "manual_keep": 30,
-  "pre_restore_keep": 5
+  "pre_restore_keep": 5,
+  "pre_update_keep": 5
 }
