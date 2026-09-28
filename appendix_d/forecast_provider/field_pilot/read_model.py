@@ -16,7 +16,7 @@ from ..warehouse_projection import ProjectionBlocked
 from .freshness import FreshnessPolicy
 from .improvement_events import ImprovementEventLedger
 from .inbox_ledger import InboxLedger
-from .inbox_policy import InboxPolicyError, load_inbox_policy
+from .inbox_policy import InboxPolicy, InboxPolicyError, load_inbox_policy
 from .learning_service import LearningService
 from .local_setting_service import LocalSettingService
 from .local_setting_store import LocalSettingStore
@@ -100,11 +100,19 @@ class FieldPilotReadService:
         if self.inbox_policy_path is None or self.inbox_root is None:
             return {"status": "NOT_CONFIGURED", "message": "投入先を準備中です。"}
         try:
-            policy = load_inbox_policy(self.inbox_policy_path)
+            try:
+                policy = load_inbox_policy(self.inbox_policy_path)
+                setup_required = not policy.required
+            except InboxPolicyError:
+                policy = InboxPolicy("UNCONFIGURED", (), ())
+                setup_required = True
             target_date = datetime.now(ZoneInfo("Asia/Tokyo")).date().isoformat()
             if not (self.inbox_root / "inbox.sqlite3").is_file():
                 return {
-                    "status": "MISSING_OR_REVIEW", "target_date": target_date,
+                    "status": "SETUP_REQUIRED" if setup_required else "MISSING_OR_REVIEW",
+                    "message": "投入ルールを管理担当者が設定中です。"
+                    if setup_required else None,
+                    "target_date": target_date,
                     "required": [
                         {"kind": item.kind, "location_id": item.location_id,
                          "display_name": item.display_name, "status": "MISSING",
@@ -115,7 +123,14 @@ class FieldPilotReadService:
                     "received_count": 0, "review_count": 0,
                     "duplicate_count": 0, "last_updated_at": None,
                 }
-            return InboxLedger(self.inbox_root / "inbox.sqlite3").summary(policy, target_date)
+            summary = InboxLedger(self.inbox_root / "inbox.sqlite3").summary(policy, target_date)
+            if setup_required:
+                summary["status"] = "SETUP_REQUIRED"
+                summary["message"] = (
+                    "ファイルの受付数は確認できます。"
+                    "正式な投入ルールは管理担当者が設定中です。"
+                )
+            return summary
         except (InboxPolicyError, OSError, ValueError, sqlite3.DatabaseError):
             logger.warning("field pilot inbox unavailable")
             return {

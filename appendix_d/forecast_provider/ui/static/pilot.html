@@ -23,7 +23,9 @@
         <li id="step-check">データを確認する</li>
         <li id="step-attention">注意商品を見る</li>
       </ol>
-      <p>デスクトップの「ブンセン データ投入」にCSVまたはPDFを入れ、出荷予測を開き直してください。</p>
+      <p>デスクトップの「ブンセン データ投入」にCSVまたはPDFを入れ、「投入したファイルを確認」を押してください。</p>
+      <button id="scan-files" type="button">投入したファイルを確認</button>
+      <p id="scan-status" role="status" aria-live="polite"></p>
       <p id="inbox-status" role="status" aria-live="polite">投入状況を確認しています。</p>
       <div id="inbox-counts" class="inbox-counts" hidden></div>
       <ul id="inbox-required"></ul>
@@ -50,6 +52,31 @@
       </div>
       <p id="learning-status" role="status" aria-live="polite"></p>
     </section>
+    <section class="inbox" aria-label="使ってみた感想">
+      <h2>使ってみて困ったこと</h2>
+      <p>結果がまだ表示されない場合も記録できます。商品名・ファイル名・自由記述は入力しません。記録はこのPCに保存され、管理者が許可した範囲だけ終業時に共有されます。</p>
+      <div class="admin-fields">
+        <label>どの操作ですか
+          <select id="feedback-step">
+            <option value="UPLOAD">ファイルを入れる</option>
+            <option value="CHECK">投入結果を確認する</option>
+            <option value="RESULT">予測結果を見る</option>
+            <option value="FINISH">本日の作業を終える</option>
+          </select>
+        </label>
+        <label>何に困りましたか
+          <select id="feedback-issue">
+            <option value="UNCLEAR">手順が分かりにくい</option>
+            <option value="BLOCKED">先へ進めない</option>
+            <option value="NOT_UPDATED">入れた内容が反映されない</option>
+            <option value="WRONG_RESULT">表示が期待と違う</option>
+            <option value="OTHER">その他</option>
+          </select>
+        </label>
+      </div>
+      <button id="send-feedback" type="button">困ったことを記録</button>
+      <p id="feedback-status" role="status" aria-live="polite"></p>
+    </section>
     <p id="daily-complete" class="complete" hidden>本日の確認は完了しました。次回は明日のデータ更新時にご確認ください。</p>
     <section class="inbox" aria-label="本日の作業を完了">
       <h2>本日の作業を終える</h2>
@@ -65,6 +92,7 @@
       <div><span>賞味期限注意</span><strong id="expiry-count">—</strong></div>
     </section>
     <p id="status" class="status" role="status" aria-live="polite">参考情報を読み込んでいます。</p>
+    <p id="next-action" role="status"></p>
     <section id="results" hidden>
       <h2>商品と倉庫の一覧</h2>
       <p class="hint">数量の単位は箱です。注意は予測による見込みで、確定した欠品・廃棄ではありません。</p>

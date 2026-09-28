@@ -11,6 +11,13 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from ..field_pilot.operator_feedback import (
+    OperatorAction,
+    OperatorFeedback,
+    record_action,
+    record_feedback,
+)
+
 LEARNING_ACTION = re.compile(r"^/api/field-pilot/learning/[0-9a-f]{64}/(confirm|disagree)$")
 ADMIN_ACTION = re.compile(
     r"^/api/field-pilot/admin/(approve|reject)/[0-9a-f]{64}$"
@@ -71,6 +78,10 @@ class SupportConsent(BaseModel):
 
 
 def install_field_pilot_routes(app: FastAPI, service) -> None:
+    operator_paths = {
+        "/api/field-pilot/operator-feedback",
+        "/api/field-pilot/operator-action",
+    }
     allowed_paths = {
         "/health", "/ready", "/ui/pilot", "/ui/pilot/", "/api/field-pilot/view",
         "/api/field-pilot/inbox",
@@ -103,11 +114,17 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
                     or path in {"/api/field-pilot/settings/change",
                                 "/api/field-pilot/settings/rollback",
                                 "/api/field-pilot/feedback/change",
-                                "/api/field-pilot/feedback/support-consent"}):
+                                "/api/field-pilot/feedback/support-consent"}
+                    or path in operator_paths):
                 return JSONResponse({"message": "試験運用は読み取り専用です"}, status_code=405)
             if not request.headers.get("content-type", "").startswith("application/json"):
                 return JSONResponse({"message": "要求形式を確認してください"}, status_code=415)
             origin = request.headers.get("origin")
+            if path in operator_paths:
+                length = request.headers.get("content-length", "")
+                if (request.headers.get("x-field-pilot-operator") != "1"
+                        or not length.isdigit() or int(length) > 1024):
+                    return JSONResponse({"message": "要求形式を確認してください"}, status_code=403)
             if origin and origin != f"http://{request.headers.get('host')}":
                 return JSONResponse({"message": "現場PC内からのみ利用できます"}, status_code=403)
             return await call_next(request)
@@ -131,6 +148,24 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
     def learning_view(request: Request):
         request.state.audit_operation = "FIELD_PILOT_LEARNING_VIEW"
         return service.learning_view()
+
+    @app.post("/api/field-pilot/operator-feedback", include_in_schema=False)
+    def operator_feedback(value: OperatorFeedback, request: Request):
+        request.state.audit_operation = "FIELD_PILOT_OPERATOR_FEEDBACK"
+        try:
+            record_feedback(service.improvement_events, value)
+            return {"status": "RECORDED"}
+        except (AttributeError, OSError, ValueError, sqlite3.DatabaseError):
+            return JSONResponse({"message": "記録できませんでした"}, status_code=503)
+
+    @app.post("/api/field-pilot/operator-action", include_in_schema=False)
+    def operator_action(value: OperatorAction, request: Request):
+        request.state.audit_operation = "FIELD_PILOT_OPERATOR_ACTION"
+        try:
+            record_action(service.improvement_events, value)
+            return {"status": "RECORDED"}
+        except (AttributeError, OSError, ValueError, sqlite3.DatabaseError):
+            return JSONResponse({"message": "記録できませんでした"}, status_code=503)
 
     @app.post("/api/field-pilot/learning/{candidate_id}/confirm", include_in_schema=False)
     def operator_confirm(candidate_id: str, decision: OperatorDecision, request: Request):
