@@ -16,6 +16,7 @@ from ..feedback_sync.policy import FeedbackStore
 from ..inventory_foundation.read_service import InventorySnapshotReadService
 from ..update_service.check_service import UpdateCheckService, UpdateCheckStore
 from ..warehouse_projection import ProjectionBlocked
+from .forecast_handoff import forecast_handoff
 from .formal_product_mapping import publish_confirmed_product_mapping
 from .freshness import FreshnessPolicy
 from .improvement_events import ImprovementEventLedger
@@ -140,6 +141,16 @@ class FieldPilotReadService:
         if self.inbox_root is None:
             raise ValueError("TRIAL_NOT_CONFIGURED")
         return trial_forecast(self.inbox_root, self.local_settings.store, product_code)
+
+    def forecast_preparation(self, product_code: str) -> dict:
+        if self.inbox_root is None:
+            raise ValueError("HANDOFF_NOT_CONFIGURED")
+        review = unresolved_products(self.inbox_root, self.local_settings.store)
+        trial = trial_forecast(self.inbox_root, self.local_settings.store, product_code)
+        return forecast_handoff(
+            review, trial, self.inventory_store,
+            business_date=datetime.now(ZoneInfo("Asia/Tokyo")).date(),
+        )
 
     def shipment_trial_feedback(self, product_code: str, source_fingerprint: str,
                                 issue: str) -> dict:

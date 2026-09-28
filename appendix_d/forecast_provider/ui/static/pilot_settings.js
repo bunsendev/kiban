@@ -63,7 +63,7 @@ async function loadUnresolved() {
   for (const item of data.confirmed_items || []) {
     const line = document.createElement("li");
     const blockers = item.readiness?.blocking_reasons || [];
-    line.textContent = `${item.product_code} / JAN ${item.jan} / 出荷記録 ${item.observed_shipment_days} 日 / ${evidenceLabels[item.evidence_status] || "要確認"} / 予測判定: ${blockers.length ? blockers.map((code) => blockerLabels[code] || code).join("、") : "可能"}`;
+    line.textContent = `${item.product_code} / JAN ${item.jan} / 出荷記録 ${item.observed_shipment_days} 日 / ${evidenceLabels[item.evidence_status] || "要確認"} / 参考試算条件: ${blockers.length ? blockers.map((code) => blockerLabels[code] || code).join("、") : "確認済み"}`;
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = "この商品の試算条件を確認";
@@ -112,6 +112,47 @@ async function runTrial() {
     $("trial-result").append(list);
   } catch {
     $("trial-status").textContent = "試算できません。JAN・原本・試算条件を確認してください。";
+  }
+}
+
+async function checkForecastPreparation() {
+  const productCode = $("trial-product").value.trim();
+  if (!productCode || !$("token").value) {
+    $("forecast-preparation-status").textContent = "商品コードと管理用コードを入力してください。";
+    return;
+  }
+  $("forecast-preparation-status").textContent = "原本・確認履歴・承認済み在庫を照合しています。";
+  const list = $("forecast-preparation-result");
+  list.replaceChildren();
+  try {
+    const response = await fetch("/api/field-pilot/admin/forecast-preparation", {
+      method: "POST", headers: headers(), body: JSON.stringify({ product_code: productCode }),
+    });
+    if (!response.ok) throw new Error("preparation failed");
+    const data = await response.json();
+    const labels = {
+      SOURCE_FILES_UNREADABLE: "読み取れない原本がある",
+      JAN_CONFLICT: "出荷履歴と確認済みJANが矛盾",
+      SOURCE_UNIT_NOT_SINGLE: "数量単位が混在・不明",
+      SHIPMENT_CASE_UNIT_NOT_CONFIRMED: "出荷数量が箱単位と確認されていない",
+      DAILY_COVERAGE_INCOMPLETE: "直近28日の出荷日・ゼロ日が揃っていない",
+      SHIPMENT_HISTORY_OLD: "出荷実績が古く、現在予測には使用できない",
+      APPROVED_CASE_INVENTORY_MISSING: "この倉庫・JANの承認済み箱単位在庫がない",
+      SHIPMENT_SERIES_MISSING: "該当する出荷系列がない",
+    };
+    for (const item of data.series) {
+      const row = document.createElement("li");
+      row.textContent = `倉庫 ${item.warehouse_code} / 最終出荷日 ${item.last_observed_day} / ${item.preparation_candidate ? "次工程へ渡す候補" : item.blocking_reasons.map((reason) => labels[reason] || reason).join("、")} / 在庫Snapshot ${item.inventory_snapshot_id || "なし"}`;
+      list.append(row);
+    }
+    $("forecast-preparation-status").textContent = `候補 ${data.preparation_candidate_count} 系列。正式出荷日次データの取込・予測Runとの接続は未完了です。この結果だけで正式予測を開始しません。`;
+    if (!data.series.length) {
+      const row = document.createElement("li");
+      row.textContent = data.blocking_reasons.map((reason) => labels[reason] || reason).join("、");
+      list.append(row);
+    }
+  } catch {
+    $("forecast-preparation-status").textContent = "準備状況を確認できません。原本と確認履歴を再確認してください。";
   }
 }
 
@@ -249,6 +290,7 @@ $("load").addEventListener("click", load);
 $("load-unresolved").addEventListener("click", loadUnresolved);
 $("publish-jan").addEventListener("click", publishJan);
 $("run-trial").addEventListener("click", runTrial);
+$("check-forecast-preparation").addEventListener("click", checkForecastPreparation);
 $("send-trial-feedback").addEventListener("click", sendTrialFeedback);
 $("save").addEventListener("click", save);
 $("effective").value = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });

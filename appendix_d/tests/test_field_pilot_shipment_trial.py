@@ -91,6 +91,14 @@ def test_trial_route_requires_admin_token(tmp_path):
         assert response.status_code == 200
         trial = response.json()
         assert trial["status"] == "TRIAL_READY"
+        preparation_url = "/api/field-pilot/admin/forecast-preparation"
+        assert client.post(preparation_url, json={"product_code": "A1"}).status_code == 403
+        preparation = client.post(preparation_url, json={"product_code": "A1"}, headers={
+            "X-Field-Pilot-Admin-Token": "secret",
+        })
+        assert preparation.status_code == 200
+        assert preparation.json()["formal_forecast_ready"] is False
+        assert preparation.json()["preparation_candidate_count"] == 0
         feedback_url = url + "/feedback"
         assert client.post(feedback_url, json={
             "product_code": "A1", "source_fingerprint": trial["source_fingerprint"],
