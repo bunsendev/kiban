@@ -11,6 +11,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from ..expiry_simulation import ExpirySimulationBlocked
+from ..feedback_sync.policy import FeedbackStore
 from ..warehouse_projection import ProjectionBlocked
 from .freshness import FreshnessPolicy
 from .improvement_events import ImprovementEventLedger
@@ -46,6 +47,7 @@ class FieldPilotReadService:
         self.local_settings_dir = local_settings_dir or config_path.parent
         self.local_backup_dir = local_backup_dir
         self._local_settings = None
+        self._feedback_store = None
         self.learning = (
             LearningService(inbox_root, inbox_policy_path)
             if inbox_root is not None and inbox_policy_path is not None else None
@@ -54,6 +56,14 @@ class FieldPilotReadService:
             ImprovementEventLedger(inbox_root / "improvement-events.sqlite3")
             if inbox_root is not None else None
         )
+
+    @property
+    def feedback_store(self) -> FeedbackStore:
+        if self.inbox_root is None:
+            raise ValueError("FEEDBACK_NOT_CONFIGURED")
+        if self._feedback_store is None:
+            self._feedback_store = FeedbackStore(self.inbox_root / "feedback.sqlite3")
+        return self._feedback_store
 
     @property
     def local_settings(self) -> LocalSettingService:

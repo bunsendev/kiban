@@ -104,7 +104,10 @@ function Install-FieldPilotShortcuts([string]$AppRoot, [string]$DataRoot) {
         @{ Name = "ブンセン 出荷予測を終了"; Script = "field-pilot-stop.ps1" },
         @{ Name = "ブンセン 出荷予測の状態確認"; Script = "field-pilot-status.ps1" },
         @{ Name = "ブンセン バックアップ作成"; Script = "field-pilot-backup.ps1"; Visible = $true },
-        @{ Name = "ブンセン バックアップから復元"; Script = "field-pilot-restore.ps1"; Visible = $true }
+        @{ Name = "ブンセン バックアップから復元"; Script = "field-pilot-restore.ps1"; Visible = $true },
+        @{ Name = "ブンセン 本日の作業を完了"; Script = "field-pilot-finish.ps1"; Visible = $true },
+        @{ Name = "ブンセン 改善データ接続設定"; Script = "field-pilot-feedback-configure.ps1"; Visible = $true },
+        @{ Name = "ブンセン 個別サポート送信"; Script = "field-pilot-support-send.ps1"; Visible = $true }
     )
     foreach ($item in $items) {
         $scriptPath = Join-Path $AppRoot ("installer\windows\" + $item.Script)
@@ -157,6 +160,7 @@ try {
         (Join-Path $dataRoot "Input"), (Join-Path $dataRoot "Reports"),
         (Join-Path $dataRoot "Mapping"), (Join-Path $dataRoot "Import"),
         (Join-Path $dataRoot "LocalSettings"), (Join-Path $dataRoot "Backup"),
+        (Join-Path $dataRoot "Secrets"),
         (Join-Path $dataRoot "Logs"), (Join-Path $dataRoot "Tools"),
         (Join-Path $dataRoot "Inbox\Drop"), (Join-Path $dataRoot "Inbox\Staged"),
         (Join-Path $dataRoot "Inbox\Archive"), (Join-Path $dataRoot "Inbox\Observed"))) {

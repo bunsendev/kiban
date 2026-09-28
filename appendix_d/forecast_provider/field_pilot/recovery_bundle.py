@@ -22,11 +22,16 @@ CONFIG_FILES = {
     "Config/pilot-settings.json": "config/pilot-settings.json",
     "Config/inbox-policy.json": "config/inbox-policy.json",
 }
-OPTIONAL_CONFIG_FILES = {"Config/recovery-policy.json": "config/recovery-policy.json"}
+OPTIONAL_CONFIG_FILES = {
+    "Config/recovery-policy.json": "config/recovery-policy.json",
+    "Config/feedback-client.json": "config/feedback-client.json",
+    "Config/feedback-server-public.pem": "config/feedback-server-public.pem",
+}
 OPTIONAL_FILES = {
     "LocalSettings/field-settings.sqlite3": "settings/field-settings.sqlite3",
     "Inbox/inbox.sqlite3": "learning/inbox.sqlite3",
     "Inbox/improvement-events.sqlite3": "learning/improvement-events.sqlite3",
+    "Inbox/feedback.sqlite3": "learning/feedback.sqlite3",
 }
 DB_FILE = "database/postgres.dump"
 ALLOWED = (set(CONFIG_FILES.values()) | set(OPTIONAL_CONFIG_FILES.values())
@@ -213,7 +218,7 @@ def stage_bundle(bundle: Path, destination: Path, *,
         if _hash_file(destination / name) != (expected["sha256"], expected["size"]):
             raise ValueError("RECOVERY_STAGE_HASH_MISMATCH")
     for name in ("settings/field-settings.sqlite3", "learning/inbox.sqlite3",
-                 "learning/improvement-events.sqlite3"):
+                 "learning/improvement-events.sqlite3", "learning/feedback.sqlite3"):
         if name in manifest["files"]:
             _check_source(destination / name, sqlite=True)
     settings = json.loads((destination / "config/pilot-settings.json").read_text(encoding="utf-8"))

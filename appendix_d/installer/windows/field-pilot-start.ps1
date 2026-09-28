@@ -4,6 +4,7 @@ $ErrorActionPreference = "Stop"
 Import-Module (Join-Path $PSScriptRoot "Kiban.Local.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "Kiban.FieldPilot.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "Kiban.FieldPilot.Recovery.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "Kiban.FieldPilot.Feedback.psm1") -Force
 
 $mutex = [System.Threading.Mutex]::new($false, "Local\BunsenFieldPilotStart")
 $locked = $false
@@ -26,6 +27,11 @@ try {
         New-FieldPilotBackup $install -Trigger "daily" | Out-Null
     }
     Invoke-FieldPilotInboxScan $install
+    try {
+        Invoke-FieldPilotFeedback $install "retry" | Out-Null
+    } catch {
+        Write-FieldPilotLog $install.DataRoot "feedback_retry" "failed"
+    }
     Write-FieldPilotLog $install.DataRoot "start" "ready"
     Open-FieldPilot $install
     Write-FieldPilotLog $install.DataRoot "shadow_view" "opened"

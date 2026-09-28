@@ -170,9 +170,12 @@ function Apply-FieldPilotFiles($Install, [string]$Stage, [switch]$Exact) {
         "config/pilot-settings.json" = "Config/pilot-settings.json"
         "config/inbox-policy.json" = "Config/inbox-policy.json"
         "config/recovery-policy.json" = "Config/recovery-policy.json"
+        "config/feedback-client.json" = "Config/feedback-client.json"
+        "config/feedback-server-public.pem" = "Config/feedback-server-public.pem"
         "settings/field-settings.sqlite3" = "LocalSettings/field-settings.sqlite3"
         "learning/inbox.sqlite3" = "Inbox/inbox.sqlite3"
         "learning/improvement-events.sqlite3" = "Inbox/improvement-events.sqlite3"
+        "learning/feedback.sqlite3" = "Inbox/feedback.sqlite3"
     }
     foreach ($entry in $files.GetEnumerator()) {
         $source = Join-Path $Stage $entry.Key

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ブンセン 改善データの送信設定</title>
+  <link rel="stylesheet" href="/ui/assets/pilot.css">
+  <script type="module" src="/ui/assets/pilot_feedback.js"></script>
+</head>
+<body>
+  <header class="topbar"><div><span class="eyebrow">ブンセン 管理担当者</span><h1>改善データの送信設定</h1></div></header>
+  <main>
+    <p><a href="/ui/pilot/admin">管理画面へ戻る</a></p>
+    <p>現場PCでの予測と在庫確認は、オンライン送信を停止しても続けられます。共有範囲は管理担当者が決めます。</p>
+    <section class="inbox">
+      <h2>管理者確認</h2>
+      <label>管理用コード <input id="token" type="password" autocomplete="off"></label>
+      <button id="load" type="button">現在の設定を確認</button>
+      <p id="status" role="status" aria-live="polite"></p>
+    </section>
+    <section class="inbox">
+      <h2>共有レベル</h2>
+      <label><input type="radio" name="level" value="0" checked>送信しない</label>
+      <label><input type="radio" name="level" value="1">診断のみ</label>
+      <label><input type="radio" name="level" value="2">匿名の改善集計</label>
+      <label><input type="radio" name="level" value="3">疑似ID付きの詳細</label>
+      <details><summary>送信する情報を細かく選ぶ</summary>
+        <label><input type="checkbox" data-flag="diagnostics">診断・固定エラーコード</label>
+        <label><input type="checkbox" data-flag="forecast_metrics">処理時間などの集計指標</label>
+        <label><input type="checkbox" data-flag="operator_corrections" disabled>担当者修正の集計（現在は収集対象外）</label>
+        <label><input type="checkbox" data-flag="business_kpis" disabled>欠品等の業務指標（現在は収集対象外）</label>
+        <label><input type="checkbox" data-flag="pseudonymous_products">疑似化した商品ID</label>
+        <label><input type="checkbox" data-flag="pseudonymous_warehouses">疑似化した倉庫ID</label>
+        <label><input type="checkbox" data-flag="absolute_quantities">詳細の数量</label>
+        <label><input type="checkbox" data-flag="expiry_dates" disabled>賞味期限（現在は収集対象外）</label>
+      </details>
+      <h3>送信前プレビュー</h3>
+      <p id="preview"></p>
+      <p>通常送信に原本CSV/PDF、商品名、取引先名、資格情報は含めません。中央側の許可範囲を超える送信は拒否されます。</p>
+      <label>変更者 <input id="actor" autocomplete="name"></label>
+      <label>変更理由 <input id="reason"></label>
+      <button id="save" type="button">この共有範囲を保存</button>
+      <p id="version"></p>
+    </section>
+    <section class="inbox">
+      <h2>サポート依頼時の個別許可</h2>
+      <p>原本は通常送信されません。送る場合は中央管理者の個別承認を得てから、PCの「サポート資料を送信」操作が別途必要です。</p>
+      <label>対象データ <input id="support-target"></label>
+      <label>送信目的 <input id="support-purpose"></label>
+      <label>送信先 <input id="support-destination"></label>
+      <label>有効期限 <input id="support-expires" type="datetime-local"></label>
+      <button id="support-consent" type="button">今回だけ許可を記録</button>
+      <p id="support-result" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+</body>
+</html>

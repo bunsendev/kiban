@@ -1622,3 +1622,10 @@ OS: Windows 11
 - 人工データでZIP対象制限、資格情報除外、PostgreSQL dump必須、SHA改ざん拒否、パス逸脱拒否、アプリ版・配布指紋照合、SQLite WAL取り込み、Shadow/read-only検査を確認。対象7 passed。
 - Windows全体回帰: 760 passed、14 skipped、2 deselected（Linux専用peak RSS、更新中の配布照合）。`ruff check .`、`check_lint.py`、Windows PowerShell 5.1 module import、PowerShell構文検査、`git diff --check`は成功。
 - 稼働中の現場DBへの復元は行っていない。独立した検証環境でのDocker経路・PC交換の復元訓練が必要。実データPilotのNO-GO条件は継続。
+# 安全な改善データ同期（2026-09-28 JST）
+
+- 人工データによる対象試験: `tests/test_feedback_sync.py` 12 passed。初期OFF、Policy版、HMAC疑似ID、通常送信の最小化、AES-GCM改ざん検知、中央拒否、再送・冪等ACK、個別サポート許可、署名済み更新Manifest、人工イベント台帳から中央受信まで確認。
+- Windows全体回帰の初回: 750 passed、19 skipped、2 failed。失敗はWindowsに`resource`がないLinux専用RSS計測1件と、配布ハッシュ更新前の照合1件。修正後、前者をdeselectし配布生成・照合を再実行する。
+- 最終コードの全体回帰: 753 passed、19 skipped、Linux専用RSS計測1件deselected。対象12/12 passed。配布ZIP生成と830/830ファイルのSHA-256照合に成功。
+- `ruff check .`、Windows PowerShell構文・module import、JavaScript構文を確認。オンラインの実送信・現場PC導入・TLS proxy実配備は未実施。
+- 本番URL、公開鍵、Token、共有合意がないため送信OFFを維持。実データ・資格情報はRepositoryへ含めない。

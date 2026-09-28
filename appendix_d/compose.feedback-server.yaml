@@ -1,0 +1,14 @@
+services:
+  feedback-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.feedback-server
+    environment:
+      KIBAN_FEEDBACK_DB: /var/lib/kiban-feedback/feedback.sqlite3
+      KIBAN_FEEDBACK_PRIVATE_KEY_FILE: /run/secrets/feedback-private.pem
+      FORWARDED_ALLOW_IPS: ${KIBAN_FEEDBACK_TRUSTED_PROXY_IPS:?Trusted proxy IPs are required}
+    volumes:
+      - ${KIBAN_FEEDBACK_SERVER_DATA:?Server data dir is required}:/var/lib/kiban-feedback
+      - ${KIBAN_FEEDBACK_SERVER_PRIVATE_KEY:?Server private key is required}:/run/secrets/feedback-private.pem:ro
+    ports:
+      - "127.0.0.1:${KIBAN_FEEDBACK_SERVER_PORT:-48200}:8000"
