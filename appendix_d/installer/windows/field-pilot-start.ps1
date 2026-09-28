@@ -48,6 +48,12 @@ try {
         "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
         ('"' + $retryScript + '"'), "-DataRoot", ('"' + $install.DataRoot + '"')
     ) | Out-Null
+    $updateCheck = Join-Path $install.AppRoot "installer\windows\field-pilot-update-check.ps1"
+    Start-Process -FilePath $powershell -WindowStyle Hidden -ArgumentList @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+        ('"' + $updateCheck + '"'), "-DataRoot", ('"' + $install.DataRoot + '"'),
+        "-Trigger", "STARTUP"
+    ) | Out-Null
     Write-FieldPilotLog $install.DataRoot "shadow_view" "opened"
 } catch {
     try { Write-FieldPilotLog $DataRoot "start" "failed" } catch { }

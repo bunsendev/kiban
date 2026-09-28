@@ -16,7 +16,7 @@
 
 ## 4. Version Policy
 
-配布版は `0.1.0-field-pilot.N` と通常の `MAJOR.MINOR.PATCH` を解析・比較する。Python package版 `2.9.0` は配布版ではない。`pilot` と `stable` のchannelを区別し、Manifestの `minimum_version` より古ければ手動対応とする。現在のインストーラー配布版は `0.1.0-field-pilot.3`。
+配布版は `0.1.0-field-pilot.N` と通常の `MAJOR.MINOR.PATCH` を解析・比較する。Python package版 `2.9.0` は配布版ではない。`pilot` と `stable` のchannelを区別し、Manifestの `minimum_version` より古ければ手動対応とする。RC4のインストーラー配布版は `0.1.0-field-pilot.4`。RC4の状態は `FIELD_PILOT_RC4_INSTALLER_AND_UPDATE_STATUS.md` に記録する。
 
 ## 5. Manifest
 

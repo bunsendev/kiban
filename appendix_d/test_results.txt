@@ -1731,3 +1731,12 @@ OS: Windows 11
 - 確認済み28日候補を原本全期間に照合し、初回観測日から最終観測日までの欠測をnull、確認済み条件のゼロを別状態で保存。内容アドレスによる冪等性、原本変更後の409、管理者認証を検証。
 - 正式normalization・canonical identity・日次build・予測Runは未接続。`daily_build_ready=false`を維持する。
 - Windows全体回帰は818 passed / 20 skipped / Linux専用RSS 1件deselected。`ruff check .`、JavaScript構文検査、`git diff --check`に成功。
+
+# Field Pilot RC4 インストーラーと更新確認接続（2026-09-29 JST）
+
+- 起動時・終業時に更新確認CLIを呼ぶ。通信失敗は業務を止めず台帳へ保存し、公開鍵を後から導入した場合は直ちに再確認する。
+- インストーラービルダーは任意のEd25519公開鍵を同梱でき、既存Configの異なる鍵を上書きしない。配布識別子は `0.1.0-field-pilot.4`。
+- 対象テスト9 passed、`ruff check .` と `git diff --check` に成功。全体初回は819 passed / 20 skipped / Linux専用RSS 1件deselected / 配布SHA未更新による1件失敗。配布SHA更新後に再実行する。
+- 公開Release用のソース非同梱配布物、更新適用・migration・smoke・rollback、署名鍵・公開Repo、現場PC導入試験は未完了。自動更新完了とは判定しない。
+- `make_release.py --field-pilot` と `--check` は876/876ファイル一致。IExpressでRC4 EXEを生成し、自己展開したZIPのSHA-256一致を確認した。DockerエンジンがこのPCで利用できず、実際のセットアップ起動・Compose稼働は未検証。
+- 配布SHA更新後のWindows対応全体回帰は820 passed / 20 skipped / Linux専用RSS 1件deselected。`ruff check .`と変更したPowerShell 3ファイルの構文検査も成功。
