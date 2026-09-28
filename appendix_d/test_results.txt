@@ -1,3 +1,10 @@
+# Field Pilot ローカル設定・変更履歴（2026-09-28 JST）
+
+- 管理者画面とAPIでJAN対応、在庫基準時刻policyを版保存し、旧版への復帰を追記履歴として検証。変更前SQLite Backup、SHA-256 manifest、Backup失敗時の変更停止、競合版・不正JAN・架空の正確時刻の拒否を人工データで確認。
+- Windows全体回帰は初回753 passed、14 skipped、Linux専用RSS試験1件deselected、配布ハッシュ更新前の検査1件failed。配布生成後に該当検査を再実行する。
+- `ruff check .`、JavaScript構文、PowerShell構文、Docker Compose構成検証に成功。現場PC実機の新構成起動、PC交換、正式取込、Updaterは未検証・未実装。
+- 指示書全体の実装状況は`planning/FIELD_PILOT_LOCAL_AUTONOMY_RESULT.md`に明記した。実データ・資格情報はRepositoryに含めない。
+
 # Field Pilot 承認型学習・習慣化画面（2026-09-28 JST）
 
 - 実データ追加検証: 提供済みZIPのSHA-256一致。CP932 CSV 3,869/3,869で候補生成成功（出荷1,943、在庫1,926）。代表3形式を一時Inboxに投入し、3候補、3件管理者待ち、ACTIVE契約0件を確認。原本と実データはRepositoryに含めない。詳細は`planning/FIELD_PILOT_REAL_DATA_LEARNING_VALIDATION_2026-09-28.md`。

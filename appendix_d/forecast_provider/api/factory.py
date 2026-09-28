@@ -242,6 +242,10 @@ def from_environment():
             Path(os.environ["KIBAN_FIELD_PILOT_INBOX_ROOT"]),
             os.environ.get("KIBAN_FIELD_PILOT_LEARNING_ADMIN_TOKEN"),
             os.environ.get("KIBAN_FIELD_PILOT_OPERATOR_ID", "FIELD_PILOT_OPERATOR"),
+            Path(os.environ["KIBAN_FIELD_PILOT_SETTINGS_DIR"])
+            if os.environ.get("KIBAN_FIELD_PILOT_SETTINGS_DIR") else None,
+            Path(os.environ["KIBAN_FIELD_PILOT_BACKUP_DIR"])
+            if os.environ.get("KIBAN_FIELD_PILOT_BACKUP_DIR") else None,
         ) if pilot_mode else None
     )
     return create_app(

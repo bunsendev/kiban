@@ -3,6 +3,7 @@
 import hmac
 import re
 import sqlite3
+from datetime import date
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -34,14 +35,35 @@ class AdminDecision(BaseModel):
     mapping_version: str | None = None
 
 
+class SettingChange(BaseModel):
+    change_type: str
+    target: str
+    value: dict
+    effective_from: date
+    actor: str
+    reason_code: str
+    comment: str = ""
+    expected_version: str | None = None
+
+
+class SettingRollback(BaseModel):
+    version: str
+    actor: str
+    expected_version: str
+    comment: str = ""
+
+
 def install_field_pilot_routes(app: FastAPI, service) -> None:
     allowed_paths = {
         "/health", "/ready", "/ui/pilot", "/ui/pilot/", "/api/field-pilot/view",
         "/api/field-pilot/inbox",
         "/api/field-pilot/learning", "/api/field-pilot/admin",
         "/ui/pilot/admin", "/ui/pilot/admin/",
+        "/ui/pilot/settings", "/ui/pilot/settings/",
+        "/api/field-pilot/settings",
         "/ui/assets/pilot.css", "/ui/assets/pilot.js",
         "/ui/assets/pilot_admin.js",
+        "/ui/assets/pilot_settings.js",
     }
 
     @app.middleware("http")
@@ -49,13 +71,16 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         path = request.url.path
         if request.url.hostname not in {"127.0.0.1", "localhost"}:
             return JSONResponse({"message": "現場PC内からのみ利用できます"}, status_code=403)
-        if path == "/api/field-pilot/admin" or ADMIN_ACTION.fullmatch(path):
+        if (path == "/api/field-pilot/admin" or ADMIN_ACTION.fullmatch(path)
+                or path.startswith("/api/field-pilot/settings")):
             configured = service.learning_admin_token
             supplied = request.headers.get("x-field-pilot-admin-token", "")
             if not (configured and supplied) or not hmac.compare_digest(configured, supplied):
                 return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
         if request.method == "POST":
-            if not (LEARNING_ACTION.fullmatch(path) or ADMIN_ACTION.fullmatch(path)):
+            if not (LEARNING_ACTION.fullmatch(path) or ADMIN_ACTION.fullmatch(path)
+                    or path in {"/api/field-pilot/settings/change",
+                                "/api/field-pilot/settings/rollback"}):
                 return JSONResponse({"message": "試験運用は読み取り専用です"}, status_code=405)
             if not request.headers.get("content-type", "").startswith("application/json"):
                 return JSONResponse({"message": "要求形式を確認してください"}, status_code=415)
@@ -109,6 +134,48 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         configured = service.learning_admin_token
         supplied = request.headers.get("x-field-pilot-admin-token", "")
         return bool(configured and supplied) and hmac.compare_digest(configured, supplied)
+
+    @app.get("/api/field-pilot/settings", include_in_schema=False)
+    def settings_view(request: Request, change_type: str = "JAN_MAPPING", target: str = ""):
+        if not require_admin(request):
+            return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
+        request.state.audit_operation = "FIELD_PILOT_SETTINGS_VIEW"
+        try:
+            store = service.local_settings.store
+            targets = store.targets(change_type)
+            if target:
+                history = store.history(change_type, target)
+                return {"targets": targets, "current": store.current(change_type, target),
+                        "latest_version": history[0]["version"] if history else None,
+                        "history": history}
+            return {"targets": targets, "current": None, "latest_version": None,
+                    "history": []}
+        except (AttributeError, ValueError, OSError, sqlite3.DatabaseError):
+            return JSONResponse({"message": "設定を確認できません"}, status_code=409)
+
+    @app.post("/api/field-pilot/settings/change", include_in_schema=False)
+    def settings_change(decision: SettingChange, request: Request):
+        if not require_admin(request):
+            return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
+        request.state.audit_operation = "FIELD_PILOT_SETTINGS_CHANGE"
+        try:
+            return service.local_settings.change(**decision.model_dump())
+        except (AttributeError, ValueError, OSError, sqlite3.DatabaseError):
+            return JSONResponse(
+                {"message": "入力内容・版・Backupを確認してください"}, status_code=409,
+            )
+
+    @app.post("/api/field-pilot/settings/rollback", include_in_schema=False)
+    def settings_rollback(decision: SettingRollback, request: Request):
+        if not require_admin(request):
+            return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
+        request.state.audit_operation = "FIELD_PILOT_SETTINGS_ROLLBACK"
+        try:
+            return service.local_settings.restore_previous(**decision.model_dump())
+        except (AttributeError, ValueError, OSError, sqlite3.DatabaseError):
+            return JSONResponse(
+                {"message": "復帰先・現在版・Backupを確認してください"}, status_code=409,
+            )
 
     @app.get("/api/field-pilot/admin", include_in_schema=False)
     def admin_view(request: Request):

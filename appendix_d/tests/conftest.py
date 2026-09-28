@@ -1,6 +1,11 @@
 """Phase 1Aの統合試験用。全系列・全originを持つ小さな人工データ。"""
 
+import sys
 from dataclasses import replace
+from pathlib import Path
+
+# 既存の裸のtest_*補助importと、tests.* importの両方をWindowsでも解決する。
+sys.path.insert(0, str(Path(__file__).parent))
 
 import pandas as pd
 import pytest
