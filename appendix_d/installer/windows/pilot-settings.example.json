@@ -10,6 +10,10 @@
   "policy_confirmed_by": "",
   "policy_reason": "",
   "policy_confirmed_at": "",
+  "freshness_policy": {
+    "version": "",
+    "max_snapshot_age_hours": null
+  },
   "product_labels": {},
   "warehouse_labels": {}
 }

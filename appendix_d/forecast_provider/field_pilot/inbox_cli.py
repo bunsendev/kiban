@@ -7,6 +7,7 @@ import logging
 import sqlite3
 from pathlib import Path
 
+from .improvement_events import ImprovementEventLedger
 from .inbox_ledger import InboxLedger
 from .inbox_processor import InboxProcessor
 from .learning_service import LearningService
@@ -23,8 +24,10 @@ def main() -> int:
         learning = LearningService(options.inbox_root, options.policy)
         policy = learning.recognition_policy()
         ledger = InboxLedger(options.inbox_root / "inbox.sqlite3")
+        events = ImprovementEventLedger(options.inbox_root / "improvement-events.sqlite3")
         count = InboxProcessor(
             options.inbox_root, policy, ledger, review_observer=learning.consider,
+            improvement_events=events,
         ).scan()
     except (OSError, ValueError, sqlite3.DatabaseError) as exc:
         logger.error("inbox scan unavailable: %s", type(exc).__name__)

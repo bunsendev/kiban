@@ -4,18 +4,23 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import shutil
+import sqlite3
 import uuid
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path, PureWindowsPath
 
+from .improvement_events import ImprovementEventLedger
 from .inbox_classifier import Classification, classify_file
 from .inbox_ledger import InboxLedger
 from .inbox_policy import InboxPolicy
 
 MAX_META_BYTES = 4_096
 MAX_FILE_BYTES = 2_000_000_000
+logger = logging.getLogger("kiban.field_pilot.inbox")
 ValidatedImport = Callable[[Classification, Path, str, str], bool]
 ReviewObserver = Callable[[Classification, Path, str], str | None]
 
@@ -33,12 +38,14 @@ class InboxProcessor:
         self, root: Path, policy: InboxPolicy, ledger: InboxLedger,
         validated_import: ValidatedImport | None = None,
         review_observer: ReviewObserver | None = None,
+        improvement_events: ImprovementEventLedger | None = None,
     ):
         self.root = root.resolve(strict=True)
         self.policy = policy
         self.ledger = ledger
         self.validated_import = validated_import
         self.review_observer = review_observer
+        self.improvement_events = improvement_events
         archive = self.root / "Archive"
         if archive.is_symlink():
             raise ValueError("ARCHIVE_PATH_INVALID")
@@ -117,6 +124,30 @@ class InboxProcessor:
             classification=classification, policy_version=self.policy.version,
             archive_reference=reference, received_at=received_at,
         )
+        if self.improvement_events is not None:
+            event_type = (
+                "INBOX_DUPLICATE" if status == "DUPLICATE"
+                else "INBOX_VALIDATED" if status == "PROCESSED"
+                else "INBOX_REVIEW" if status in {
+                    "REVIEW_REQUIRED", "REVISION_CANDIDATE", "UNKNOWN", "REJECTED"
+                }
+                else "INBOX_CLASSIFIED"
+            )
+            try:
+                self.improvement_events.append(
+                    event_type,
+                    outcome="OK" if status in {"PROCESSED", "RECEIVED", "DUPLICATE"}
+                    else "REVIEW",
+                    business_date=date.fromisoformat(classification.target_date)
+                    if classification.target_date else None,
+                    location_id=classification.location_id,
+                    policy_version=self.policy.version,
+                    schema_version=classification.schema_id,
+                    metrics={"size_bytes": size},
+                    error_code=reason,
+                )
+            except (OSError, ValueError, sqlite3.DatabaseError):
+                logger.warning("field pilot improvement event unavailable")
         source.unlink(missing_ok=True)
         manifest.unlink(missing_ok=True)
 
