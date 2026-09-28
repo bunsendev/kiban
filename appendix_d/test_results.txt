@@ -1676,3 +1676,11 @@ OS: Windows 11
 - 確認済みJANを既存の出荷CSVへ照合し、倉庫別の原本数量について28日移動平均の7日参考試算を実行。日次ファイルがある日に限るゼロ仮定と観測日のみの条件差をテストし、原本数量を箱へ勝手に換算しない。試算への選択式フィードバックは入力系列指紋・条件版に紐付け、古い試算への記録を拒否する。
 - 対象試験13 passed、全体回帰787 passed、19 skipped、Linux専用RSS試験と配布ハッシュ試験を除外。配布物再生成後にハッシュ照合を行う。現在の正式予測Run・在庫接続・単位換算は対象外。
 - 最終対象試験14 passed。配布ZIPは852/852件一致、ハッシュ試験1 passed、Ruff・JavaScript構文検査に成功。提供済み実CSV 3,869件を使った廃棄可能な技術試験では、試験用の一意候補1件について倉庫2系列の参考試算が完了し、両系列を過去データ再現と判定。正式確認・現在予測の受入ではない。
+
+## 2026-09-28 GitHub Releases 更新基盤（基礎実装、公開未実施）
+- 新規 `forecast_provider/update_service` に署名Manifest/版比較、匿名GitHub Release参照、中断再開ダウンロードとSHA-256照合、公開パッケージpreflight、確認履歴SQLiteを実装。
+- 人工データの新規テスト: `pytest -q tests/test_update_service.py` = 6 passed。
+- `ruff check .` = All checks passed。`make_release.py --field-pilot` = 861 files、`make_release.py --check` = 861/861一致。
+- 既存Field Pilot ZIPへの公開preflight = `PUBLIC_PACKAGE_FORBIDDEN_CONTENT`（期待どおり拒否）。実公開・現場更新は未実施。
+- Windowsでの全体テスト初回: 794 passed, 19 skipped, 1 failed。失敗はLinux専用 `test_linux_probe_reports_process_peak_rss`（Windowsに `resource` moduleなし）。
+- Linux専用テスト除外の全体テスト: 793 passed, 19 skipped, 1 deselected, 1 failed。失敗は既存 `test_major_change_requires_admin_and_validation` の履歴順序期待。単独再実行では1 passed。今回の更新コードとは別領域であり、全体再実行での再現性は未確認。
