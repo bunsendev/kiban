@@ -105,8 +105,9 @@ def check_sums() -> int:
     return 1 if bad else 0
 
 
-def build_zip(files: list[pathlib.Path]) -> pathlib.Path:
-    dest = ROOT.parent / "yosoku_kiban_codex_ready_v2.9.zip"
+def build_zip(files: list[pathlib.Path], *, field_pilot: bool = False) -> pathlib.Path:
+    name = "bunsen_field_pilot_release.zip" if field_pilot else "yosoku_kiban_codex_ready_v2.9.zip"
+    dest = ROOT.parent / name
     with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
         for p in [*files, ROOT / SUMS]:
             # arcname は str。zipfile は非ASCII名に自動で UTF-8 フラグを立てる。
@@ -124,7 +125,7 @@ def main(argv: list[str]) -> int:
         return check_sums()
     files = release_files()
     sums = write_sums(files)
-    dest = build_zip(files)
+    dest = build_zip(files, field_pilot="--field-pilot" in argv)
     print(f"{dest}  files={len(sums)}  UTF-8 flag verified")
     return 0
 

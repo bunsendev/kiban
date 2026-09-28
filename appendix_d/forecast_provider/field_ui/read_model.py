@@ -73,6 +73,17 @@ class FieldShadowPreviewService:
                 "projection_id": projection.projection_id,
                 "simulation_id": simulation.simulation_id,
                 "days": days,
+                "expiry_buckets": [
+                    {
+                        "expiry_date": bucket.expiry_date.isoformat(),
+                        "opening_cases": canonical_decimal(bucket.opening_cases),
+                        "consumed_cases": canonical_decimal(bucket.consumed_cases),
+                        "unconsumed_by_cutoff_cases": canonical_decimal(
+                            bucket.unconsumed_by_cutoff_cases
+                        ),
+                    }
+                    for bucket in simulation.buckets
+                ],
             })
         return {
             "mode": "SHADOW",

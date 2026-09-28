@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: kiban
       POSTGRES_PASSWORD: local-development-only
     ports:
-      - "127.0.0.1:55432:5432"
+      - "127.0.0.1:${KIBAN_POSTGRES_PORT:-55432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U kiban -d kiban"]
       interval: 2s

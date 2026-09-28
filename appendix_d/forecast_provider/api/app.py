@@ -22,6 +22,7 @@ from .core_routes import install_core_routes
 from .daily_routes import install_daily_routes
 from .error_responses import install_error_handlers
 from .evaluation_routes import install_evaluation_routes
+from .field_pilot_routes import install_field_pilot_routes
 from .field_shadow_routes import install_field_shadow_routes
 from .idempotency import IdempotencyStore, InMemoryIdempotencyStore, idempotent_route_class
 from .ingestion_routes import install_ingestion_routes
@@ -86,6 +87,7 @@ def create_app(
     operation_event_retention_days: int = 180,
     inventory_foundation=None,
     field_shadow=None,
+    field_pilot=None,
 ) -> FastAPI:
     if isinstance(api_token, str) and not api_token:
         raise ValueError("api_tokenは空にできません")
@@ -100,15 +102,17 @@ def create_app(
     app = FastAPI(
         title="Yosoku Kiban API",
         version="2.9",
-        docs_url=None if settings.production else "/docs",
-        redoc_url=None if settings.production else "/redoc",
-        openapi_url=None if settings.production else "/openapi.json",
+        docs_url=None if settings.production or field_pilot is not None else "/docs",
+        redoc_url=None if settings.production or field_pilot is not None else "/redoc",
+        openapi_url=None if settings.production or field_pilot is not None else "/openapi.json",
     )
     app.router.route_class = idempotent_route_class(
         idempotency_store or InMemoryIdempotencyStore()
     )
     install_error_handlers(app)
     install_security_boundary(app, settings)
+    if field_pilot is not None:
+        install_field_pilot_routes(app, field_pilot)
     install_ui_routes(app)
     install_oidc_login_routes(app, oidc_login_settings)
     service = ApplicationService(store, catalog, snapshot_root)
