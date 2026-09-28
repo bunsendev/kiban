@@ -71,6 +71,7 @@ class UpdateCheckService:
 
     def status(self) -> dict:
         return {"current_version": self.current_version, "channel": self.channel,
+                "public_key_configured": self.public_key_path.is_file(),
                 "last_check": self.store.latest()}
 
     def check(self, *, trigger: str, force: bool = False) -> dict:
