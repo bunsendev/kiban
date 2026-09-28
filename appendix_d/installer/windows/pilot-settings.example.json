@@ -1,0 +1,15 @@
+{
+  "environment": "FIELD_PILOT",
+  "mode": "SHADOW",
+  "read_only": true,
+  "pilot_scope_version": "",
+  "identity_bridge_version": "",
+  "forecast_run_id": "",
+  "minimum_remaining_days": null,
+  "attention_days": null,
+  "policy_confirmed_by": "",
+  "policy_reason": "",
+  "policy_confirmed_at": "",
+  "product_labels": {},
+  "warehouse_labels": {}
+}

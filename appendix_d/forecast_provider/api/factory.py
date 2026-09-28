@@ -11,6 +11,7 @@ from ..comparison_campaign import PostgresComparisonCampaignStore
 from ..daily import PostgresDailyStore
 from ..evaluation_registry import PostgresEvaluationRegistryStore
 from ..expiry_simulation import ExpirySimulationService
+from ..field_pilot import FieldPilotReadService
 from ..field_ui import FieldShadowPreviewService
 from ..ingestion import PostgresIngestionStore
 from ..inventory_forecast_bridge import PostgresInventoryForecastBridgeStore
@@ -230,6 +231,11 @@ def from_environment():
             PostgresInventoryForecastBridgeStore(dsn), runs,
         )
     ))
+    pilot_mode = os.environ.get("KIBAN_FIELD_PILOT_MODE") == "1"
+    pilot_config = os.environ.get("KIBAN_FIELD_PILOT_CONFIG")
+    if pilot_mode and not pilot_config:
+        raise RuntimeError("Field Pilotの設定ファイルを指定してください")
+    field_pilot = FieldPilotReadService(field_shadow, Path(pilot_config)) if pilot_mode else None
     return create_app(
         runs,
         catalog,
@@ -267,4 +273,5 @@ def from_environment():
         ),
         inventory_foundation=inventory_foundation,
         field_shadow=field_shadow,
+        field_pilot=field_pilot,
     )

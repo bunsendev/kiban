@@ -1565,3 +1565,12 @@ OS: Windows 11
 - 新規試験: 3 passed。Windows全体回帰: 705 passed、19 skipped、Linux専用1件deselected。
 - `ruff check .`、`check_lint.py`、JS構文検査、配布ハッシュ照合、`git diff --check`: 成功。
 - 実データ業務受入・実PostgreSQL接続・補充量policy確定は本工程では未実施。
+
+# Field Pilot Release（2026-09-28 JST）
+
+- 人工10件の現場read modelテスト: 3 passed。設定欠落時の安全表示、SHADOW/READ ONLY、書き込み拒否、期限別一覧を確認。
+- Windows PowerShell 5.1: 配布ZIPの現場用CMDからの初回導入、同版再導入、Docker/PostgreSQL/API起動、終了・再起動・二重起動、アンインストールとデータ/volume保持を確認。
+- 画面`/ui/pilot`はHTTP 200、`/api/field-pilot/view`は未設定状態で`SETUP_REQUIRED`、POSTはHTTP 405。実データは投入していない。
+- 全体`pytest -q`: 700 passed、20 skipped、2 failed。Linux専用peak RSS計測はWindows非対応。これを除外した回帰では700 passed、20 skipped、1 deselected、1 failed。残る1件はテスト中にソースを更新して配布マニフェストが一時的に不一致となったもの。最終版で対象14件がすべて成功し、配布照合は770/770件一致。
+- `ruff check .`、新規PowerShell構文検査は成功。
+- 現場利用は正式Pilotデータ、業務条件、PC再起動後の試験、担当者承認が未完了のためNO-GO。
