@@ -1693,3 +1693,15 @@ OS: Windows 11
 - API応答は既存ヘッダーと単位の根拠で再検証し、正式採用は引き続き担当者確認と管理者承認が必要。API失敗時は通常の確認を継続。
 - 対象テスト8 passed。OpenAI API実疎通・実データ精度・料金はAPIキー未設定のため未検証。
 - 全体試験は配布ハッシュ更新後に789 passed、20 skipped、Linux専用RSS試験1件deselected。`ruff check .`、JavaScript構文、配布ZIP生成とSHA-256照合に成功した。
+
+## 2026-09-28 GitHub Releases 更新基盤（基礎実装、公開未実施）
+- 新規 `forecast_provider/update_service` に署名Manifest/版比較、匿名GitHub Release参照、中断再開ダウンロードとSHA-256照合、公開パッケージpreflight、確認履歴SQLiteを実装。
+- 人工データの新規テスト: `pytest -q tests/test_update_service.py` = 6 passed。
+- `ruff check .` = All checks passed。`make_release.py --field-pilot` = 861 files、`make_release.py --check` = 861/861一致。
+- 既存Field Pilot ZIPへの公開preflight = `PUBLIC_PACKAGE_FORBIDDEN_CONTENT`（期待どおり拒否）。実公開・現場更新は未実施。
+- Windowsでの全体テスト初回: 794 passed, 19 skipped, 1 failed。失敗はLinux専用 `test_linux_probe_reports_process_peak_rss`（Windowsに `resource` moduleなし）。
+- Linux専用テスト除外の全体テスト: 793 passed, 19 skipped, 1 deselected, 1 failed。失敗は既存 `test_major_change_requires_admin_and_validation` の履歴順序期待。単独再実行では1 passed。今回の更新コードとは別領域であり、全体再実行での再現性は未確認。
+
+## 2026-09-28 API候補分析とGitHub Releases基盤の結合検証
+- `origin/main` のGitHub Releases更新基盤を取り込み、配布ハッシュとテスト履歴の競合を両方の記録を残して解消した。
+- Windows対応全体テスト: 795 passed、20 skipped、Linux専用RSS試験1件deselected。配布ZIPは865ファイルを含み、全件のSHA-256が一致した。
