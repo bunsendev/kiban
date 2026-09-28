@@ -1641,3 +1641,11 @@ OS: Windows 11
 
 - インストール後に接続設定またはDPAPI資格情報がない場合、管理担当者へ非表示Token入力を含む既存設定画面を案内する。見送り時もローカル画面は起動する。
 - PowerShell構文、同期関連32 passed、`ruff check .`、`git diff --check`に成功。共有サーバーへの実POSTはこのPCのToken未設定のため行っていない。利用者から疎通テスト完了の報告を受けている。
+
+# Field Pilot RC1 Acceptance（2026-09-28 JST）
+
+- 最初の全体回帰は772 passed、19 skipped、1 deselected、1 failed。失敗は新Installer builderを追加した後、配布SHA一覧の更新前に実行した配布照合1件。最終ファイル確定後に再生成・再実行する。
+- Docker client/server 29.8.0。稼働中の旧Field Pilot API/PostgreSQLとローカルviewを読取り確認したところ`DATA_NOT_READY`。RC1 Clean Installではない。
+- IExpress EXEを生成し、インストールを起動しない`/C`展開で内包ZIPのSHAを照合。Windows PowerShell Expand-Archiveで日本語セットアップ名を確認。RC1実機の設置、Token入力、接続、再起動、オフライン再送は未実施。
+- 正式Pipelineの起動経路は未接続。RC1現場配布はNO-GO。詳細は`planning/FIELD_PILOT_RC_ACCEPTANCE_RESULT.md`。
+- 配布一覧を更新した最終全体回帰は773 passed、19 skipped、Linux専用peak RSS計測1件deselected。`ruff check .`、Windows PowerShellの24ファイル構文検査、IExpress `/C`展開と内包ZIP SHA照合に成功。RC1のClean Installや実Token送信を検証した意味ではない。

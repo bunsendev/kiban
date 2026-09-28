@@ -49,6 +49,10 @@ EXCLUDE_DIRS = {
 }
 EXCLUDE_SUFFIX = {".egg-info"}
 SUMS = "SHA256SUMS.json"
+EXCLUDE_FILES = {
+    "build_field_pilot_installer.py",  # 配布先では使わないビルダー
+    "planning/FIELD_PILOT_RC_ACCEPTANCE_RESULT.md",  # Installer SHAとの循環を避ける
+}
 
 
 def release_files() -> list[pathlib.Path]:
@@ -62,6 +66,8 @@ def release_files() -> list[pathlib.Path]:
         directory = pathlib.Path(current)
         for name in sorted(names):
             p = directory / name
+            if p.relative_to(ROOT).as_posix() in EXCLUDE_FILES:
+                continue
             if p.suffix == ".zip" or p.name == ".env":
                 continue
             if p.name == SUMS:
