@@ -19,6 +19,10 @@ def test_unresolved_products_uses_only_local_confirmed_mapping(tmp_path):
         "商品コード,商品名,明細倉庫コード,明細バラ数\n"
         "A1,商品A,EAST,4\nB2,商品B,EAST,5\n"
     ).encode("cp932"))
+    (archive / "shipment.csv").write_bytes((
+        "出荷日,商品コード,商品名,JAN,数量\n"
+        "2026-09-01,B2,商品B,4901234567894,3\n"
+    ).encode("cp932"))
     store = LocalSettingStore(tmp_path / "settings.sqlite3")
     store.append(
         change_type="JAN_MAPPING", target="A1",
@@ -28,8 +32,18 @@ def test_unresolved_products_uses_only_local_confirmed_mapping(tmp_path):
         expected_version=None, changed_at=datetime(2026, 9, 1, tzinfo=UTC),
     )
     result = unresolved_products(tmp_path / "Inbox", store)
-    assert result["items"] == [{"product_code": "B2", "product_name": "商品B"}]
+    assert result["items"] == [{
+        "product_code": "B2", "product_name": "商品B",
+        "candidate_jans": ["4901234567894"], "candidate_status": "UNIQUE",
+        "direct_code_match": True,
+    }]
     assert result["unresolved_count"] == 1
+    assert result["confirmed_items"] == [{
+        "product_code": "A1", "jan": "4901234567894",
+        "observed_shipment_days": 0,
+        "evidence_status": "SHIPMENT_HISTORY_MISSING",
+    }]
+    assert result["file_count"] == 2
     assert result["complete"] is True
 
 
@@ -47,3 +61,31 @@ def test_unresolved_products_requires_admin_token(tmp_path):
         allowed = client.get(path, headers={"X-Field-Pilot-Admin-Token": "admin-secret"})
         assert allowed.status_code == 200
         assert allowed.json()["items"] == []
+        publish = "/api/field-pilot/admin/product-mapping/publish"
+        denied = client.post(publish, json={"actor": "manager", "reason": "確認済み"})
+        assert denied.status_code == 403
+        response = client.post(
+            publish, json={"actor": "manager", "reason": "確認済み"},
+            headers={"X-Field-Pilot-Admin-Token": "admin-secret"},
+        )
+        assert response.status_code == 409
+
+
+def test_name_match_candidate_remains_unconfirmed(tmp_path):
+    archive = tmp_path / "Inbox" / "Archive" / "ab" / "abcdef"
+    archive.mkdir(parents=True)
+    (archive / "stock.csv").write_bytes((
+        "商品コード,商品名,明細倉庫コード,明細バラ数\n"
+        "A1,同名商品,EAST,4\nB2,候補なし,EAST,5\n"
+    ).encode("cp932"))
+    (archive / "shipment.csv").write_bytes((
+        "出荷日,商品コード,商品名,JAN,数量\n"
+        "2026-09-01,DIFFERENT,同名商品,4901234567894,3\n"
+    ).encode("cp932"))
+    result = unresolved_products(
+        tmp_path / "Inbox", LocalSettingStore(tmp_path / "settings.sqlite3"),
+    )
+    assert result["confirmed_count"] == 0
+    assert result["items"][0]["candidate_status"] == "UNIQUE"
+    assert result["items"][0]["direct_code_match"] is False
+    assert result["items"][1]["candidate_status"] == "MISSING"

@@ -14,6 +14,7 @@ from ..expiry_simulation import ExpirySimulationBlocked
 from ..feedback_sync.policy import FeedbackStore
 from ..inventory_foundation.read_service import InventorySnapshotReadService
 from ..warehouse_projection import ProjectionBlocked
+from .formal_product_mapping import publish_confirmed_product_mapping
 from .freshness import FreshnessPolicy
 from .improvement_events import ImprovementEventLedger
 from .inbox_ledger import InboxLedger
@@ -105,6 +106,14 @@ class FieldPilotReadService:
             return {"items": [], "unresolved_count": 0, "file_count": 0,
                     "skipped_file_count": 0, "complete": False}
         return unresolved_products(self.inbox_root, self.local_settings.store)
+
+    def publish_confirmed_jan(self, *, actor: str, reason: str) -> dict:
+        if self.inbox_root is None or self.inventory_store is None:
+            raise ValueError("PRODUCT_MAPPING_NOT_CONFIGURED")
+        return publish_confirmed_product_mapping(
+            self.inbox_root, self.local_settings.store, self.inventory_store,
+            actor=actor, reason=reason,
+        )
 
     def inbox_view(self) -> dict:
         if self.inbox_policy_path is None or self.inbox_root is None:

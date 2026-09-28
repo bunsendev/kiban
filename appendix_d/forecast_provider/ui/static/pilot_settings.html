@@ -20,10 +20,17 @@
     </section>
     <section class="inbox">
       <h2>未確定の商品</h2>
-      <p>投入済み在庫CSVから、JAN未確認の商品コードを表示します。原本と照合してから登録してください。ここで登録しても正式なPilot対象には自動採用されません。</p>
+      <p>投入済みの在庫・出荷CSVを照合し、JAN未確認の商品と候補を表示します。商品コード一致・商品名一致は確認の手がかりです。原本と照合してから登録してください。ここで登録しても正式なPilot対象には自動採用されません。</p>
       <button id="load-unresolved" type="button">未確定商品を確認</button>
       <p id="unresolved-status" role="status"></p>
       <ul id="unresolved-products"></ul>
+      <h3>JAN確認済み商品の出荷履歴</h3>
+      <p>ここでは履歴の存在とJANの矛盾を確認します。履歴の日付欠落、数量単位、正式データ採用、予測Runは別途判定が必要です。</p>
+      <ul id="confirmed-products"></ul>
+      <label>正式対応表への登録理由 <input id="publish-reason" maxlength="500" placeholder="原本と確認履歴を照合"></label>
+      <button id="publish-jan" type="button">確認済みJANを正式対応表に登録</button>
+      <p id="publish-status" role="status"></p>
+      <p>出荷履歴とJANが矛盾する商品は登録しません。正式対応表への登録後も、在庫入力mapping、Pilot対象、出荷履歴の単位・欠落日、予測実行の判定が必要です。</p>
     </section>
     <section class="inbox">
       <h2>設定の種類と対象</h2>

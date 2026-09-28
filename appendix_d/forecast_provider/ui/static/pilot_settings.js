@@ -23,12 +23,18 @@ async function loadUnresolved() {
     const line = document.createElement("li");
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = `${item.product_code} / ${item.product_name || "商品名なし"} を確認`;
+    const candidate = item.candidate_status === "UNIQUE"
+      ? `JAN候補 ${item.candidate_jans[0]}（${item.direct_code_match ? "商品コード一致" : "商品名一致"}・要確認）`
+      : item.candidate_status === "AMBIGUOUS"
+        ? `複数候補 ${item.candidate_jans.join(" / ")}（要確認）`
+        : "JAN候補なし（別資料で確認）";
+    button.textContent = `${item.product_code} / ${item.product_name || "商品名なし"} / ${candidate}`;
     button.addEventListener("click", () => {
       $("type").value = "JAN_MAPPING";
       showType();
       $("target").value = item.product_code;
       $("product-name").value = item.product_name;
+      $("jan").value = item.candidate_status === "UNIQUE" ? item.candidate_jans[0] : "";
       void load();
     });
     line.append(button);
@@ -36,6 +42,39 @@ async function loadUnresolved() {
   }
   $("unresolved-status").textContent = `未確定 ${data.unresolved_count} 商品 / 対象CSV ${data.file_count} 件` +
     (data.complete ? "" : ` / 読取できないCSV ${data.skipped_file_count} 件。管理担当者へ確認してください。`);
+  const confirmed = $("confirmed-products");
+  confirmed.replaceChildren();
+  const evidenceLabels = {
+    JAN_CONFLICT: "出荷履歴のJANと確認値が不一致",
+    SHIPMENT_HISTORY_MISSING: "一致する出荷履歴なし",
+    HISTORY_REVIEW_REQUIRED: "出荷日が28日未満。期間を確認",
+    HISTORY_PRESENT: "出荷履歴あり。欠落日・単位の確認待ち",
+  };
+  for (const item of data.confirmed_items || []) {
+    const line = document.createElement("li");
+    line.textContent = `${item.product_code} / JAN ${item.jan} / 出荷記録 ${item.observed_shipment_days} 日 / ${evidenceLabels[item.evidence_status] || "要確認"}`;
+    confirmed.append(line);
+  }
+}
+
+async function publishJan() {
+  const actor = $("actor").value.trim();
+  const reason = $("publish-reason").value.trim();
+  if (!actor || !reason || !$("token").value) {
+    $("publish-status").textContent = "管理担当者ID、管理用コード、登録理由を入力してください。";
+    return;
+  }
+  if (!window.confirm("JAN確認済みの商品だけを版付き正式対応表へ登録しますか？")) return;
+  try {
+    const response = await fetch("/api/field-pilot/admin/product-mapping/publish", {
+      method: "POST", headers: headers(), body: JSON.stringify({ actor, reason }),
+    });
+    if (!response.ok) throw new Error("publication failed");
+    const data = await response.json();
+    $("publish-status").textContent = `正式対応表 ${data.product_mapping_version} に ${data.published_count} 商品を登録しました。未確定 ${data.unresolved_count} 件、JAN矛盾 ${data.conflict_count} 件は対象外です。`;
+  } catch {
+    $("publish-status").textContent = "登録できません。原本、確認履歴、JAN矛盾を確認してください。";
+  }
 }
 
 function showType() {
@@ -124,6 +163,7 @@ $("type").addEventListener("change", showType);
 $("targets").addEventListener("change", () => { $("target").value = $("targets").value; load(); });
 $("load").addEventListener("click", load);
 $("load-unresolved").addEventListener("click", loadUnresolved);
+$("publish-jan").addEventListener("click", publishJan);
 $("save").addEventListener("click", save);
 $("effective").value = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 showType();
