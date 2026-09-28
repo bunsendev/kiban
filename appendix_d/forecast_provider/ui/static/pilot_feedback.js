@@ -13,7 +13,9 @@ function preview() {
   document.querySelectorAll("[data-flag]").forEach((box) => {
     const detailed = ["pseudonymous_products", "pseudonymous_warehouses", "absolute_quantities", "expiry_dates"];
     const unavailable = ["operator_corrections", "business_kpis", "expiry_dates"];
+    const aggregated = ["data_freshness", "learning_summary", "change_summary"];
     box.disabled = current === 0 || unavailable.includes(box.dataset.flag)
+      || (current < 2 && aggregated.includes(box.dataset.flag))
       || (current < 3 && detailed.includes(box.dataset.flag));
     if (box.disabled) box.checked = false;
   });
@@ -32,6 +34,19 @@ async function load() {
     box.checked = data.policy.flags[box.dataset.flag] === true;
   });
   $("version").textContent = version ? `設定版: ${version}` : "未設定です。初期状態は送信OFFです。";
+  const sync = data.sync || {};
+  const connection = data.connection || {};
+  $("sync-summary").textContent = [
+    `アプリ版: ${data.application_version || "不明"}`,
+    `送信先: ${connection.endpoint || "未設定"}`,
+    `Client ID: ${connection.client_id || "未設定"}`,
+    `Policy版: ${version || "送信OFF"}`,
+    `最終送信: ${sync.last_sync || "未実施"}`,
+    `未送信: ${sync.pending_outbox ?? 0} 件`,
+    `管理者確認: ${sync.rejected_package ?? 0} 件`,
+    `更新確認: ${sync.last_update_check?.checked_at || "未実施"}`,
+    `利用可能版: ${sync.last_update_check?.available_version || "なし"}`,
+  ].join(" / ");
   $("status").textContent = "現在の設定を読み込みました。";
   preview();
 }
@@ -71,5 +86,9 @@ async function consent() {
 $("load").addEventListener("click", load);
 $("save").addEventListener("click", save);
 $("support-consent").addEventListener("click", consent);
+$("connection-test").addEventListener("click", () => {
+  if (!window.confirm("業務データを含まない接続テストをWindowsで実行しますか？")) return;
+  window.location.href = "bunsen-pilot-connect://run";
+});
 document.querySelectorAll('input[name="level"], [data-flag]').forEach((item) => item.addEventListener("change", preview));
 preview();

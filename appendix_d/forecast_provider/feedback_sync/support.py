@@ -15,7 +15,8 @@ MAX_SUPPORT_BYTES = 5_000_000
 
 
 def queue_support(store: FeedbackStore, *, consent_id: str, source: Path,
-                  client_id: str, destination: str, public_key: bytes) -> str:
+                  client_id: str, destination: str, public_key: bytes,
+                  transport_kind: str = "api") -> str:
     if (source.is_symlink() or not source.is_file()
             or source.suffix.lower() not in {".csv", ".pdf"}
             or not 0 < source.stat().st_size <= MAX_SUPPORT_BYTES):
@@ -45,7 +46,8 @@ def queue_support(store: FeedbackStore, *, consent_id: str, source: Path,
     }
     envelope = encrypt_package(package, public_key, package_id=package_id,
                                client_id=client_id)
-    store.queue(package_id, f"support:{consent_id}", envelope)
+    store.queue(package_id, f"support:{consent_id}", envelope,
+                destination_url=destination, transport_kind=transport_kind)
     return package_id
 
 

@@ -18,6 +18,12 @@
       <p id="status" role="status" aria-live="polite"></p>
     </section>
     <section class="inbox">
+      <h2>接続と送信状況</h2>
+      <p id="sync-summary">管理用コードを入力して現在の状態を確認してください。</p>
+      <button id="connection-test" type="button">Feedback Server 接続テスト</button>
+      <p>接続テストでは人工の暗号化Packageだけを送ります。ブラウザの確認画面が出たら、Windowsの操作を許可してください。業務データは送信しません。</p>
+    </section>
+    <section class="inbox">
       <h2>共有レベル</h2>
       <label><input type="radio" name="level" value="0" checked>送信しない</label>
       <label><input type="radio" name="level" value="1">診断のみ</label>
@@ -26,6 +32,9 @@
       <details><summary>送信する情報を細かく選ぶ</summary>
         <label><input type="checkbox" data-flag="diagnostics">診断・固定エラーコード</label>
         <label><input type="checkbox" data-flag="forecast_metrics">処理時間などの集計指標</label>
+        <label><input type="checkbox" data-flag="data_freshness">データ鮮度の区分</label>
+        <label><input type="checkbox" data-flag="learning_summary">学習候補の判断件数</label>
+        <label><input type="checkbox" data-flag="change_summary">設定変更の種類別件数</label>
         <label><input type="checkbox" data-flag="operator_corrections" disabled>担当者修正の集計（現在は収集対象外）</label>
         <label><input type="checkbox" data-flag="business_kpis" disabled>欠品等の業務指標（現在は収集対象外）</label>
         <label><input type="checkbox" data-flag="pseudonymous_products">疑似化した商品ID</label>

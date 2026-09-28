@@ -221,6 +221,12 @@ def create_server(store: FeedbackServerStore, private_pem: bytes, *,
             if ((package["payload"]["event_counts"] and not flags["diagnostics"])
                     or (package["payload"]["details"] and not flags["diagnostics"])
                     or (package["payload"]["metric_summary"] and not flags["forecast_metrics"])
+                    or (package["payload"].get("learning_summary")
+                        and not flags["learning_summary"])
+                    or (package["payload"].get("change_summary")
+                        and not flags["change_summary"])
+                    or (package["payload"].get("data_freshness")
+                        and not flags["data_freshness"])
                     or (any(set(item["metrics"]) & SAFE_METRICS
                             for item in package["payload"]["details"])
                         and not flags["forecast_metrics"])

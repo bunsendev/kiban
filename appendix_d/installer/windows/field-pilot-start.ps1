@@ -27,13 +27,14 @@ try {
         New-FieldPilotBackup $install -Trigger "daily" | Out-Null
     }
     Invoke-FieldPilotInboxScan $install
-    try {
-        Invoke-FieldPilotFeedback $install "retry" | Out-Null
-    } catch {
-        Write-FieldPilotLog $install.DataRoot "feedback_retry" "failed"
-    }
     Write-FieldPilotLog $install.DataRoot "start" "ready"
     Open-FieldPilot $install
+    $retryScript = Join-Path $install.AppRoot "installer\windows\field-pilot-feedback-retry.ps1"
+    $powershell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+    Start-Process -FilePath $powershell -WindowStyle Hidden -ArgumentList @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+        ('"' + $retryScript + '"'), "-DataRoot", ('"' + $install.DataRoot + '"')
+    ) | Out-Null
     Write-FieldPilotLog $install.DataRoot "shadow_view" "opened"
 } catch {
     try { Write-FieldPilotLog $DataRoot "start" "failed" } catch { }

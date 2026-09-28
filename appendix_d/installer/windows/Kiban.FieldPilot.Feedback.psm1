@@ -12,7 +12,7 @@ function Get-FeedbackCredentials($Install) {
     return $credential.GetNetworkCredential().Password
 }
 
-function Invoke-FieldPilotFeedback($Install, [ValidateSet("finish", "retry", "support")]
+function Invoke-FieldPilotFeedback($Install, [ValidateSet("finish", "retry", "support", "connection-test")]
     [string]$Action, [string]$SupportFile = "", [string]$ConsentId = "") {
     $configPath = Join-Path $Install.DataRoot "Config\feedback-client.json"
     $credentials = Get-FeedbackCredentials $Install
@@ -28,6 +28,7 @@ function Invoke-FieldPilotFeedback($Install, [ValidateSet("finish", "retry", "su
         "run", "--rm", "-T", "--no-deps", "api", "python", "-m",
         "forecast_provider.feedback_sync.client", "--inbox-root", "/var/lib/kiban/pilot-inbox",
         "--client-config", "/var/lib/kiban/pilot/feedback-client.json",
+        "--settings-root", "/var/lib/kiban/pilot-settings",
         "--action", $Action
     )
     if ($Action -eq "support") {

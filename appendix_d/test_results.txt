@@ -1629,3 +1629,10 @@ OS: Windows 11
 - 最終コードの全体回帰: 753 passed、19 skipped、Linux専用RSS計測1件deselected。対象12/12 passed。配布ZIP生成と830/830ファイルのSHA-256照合に成功。
 - `ruff check .`、Windows PowerShell構文・module import、JavaScript構文を確認。オンラインの実送信・現場PC導入・TLS proxy実配備は未実施。
 - 本番URL、公開鍵、Token、共有合意がないため送信OFFを維持。実データ・資格情報はRepositoryへ含めない。
+
+# End-of-Day Secure Sync / SharedServer Adapter（2026-09-28 JST）
+
+- 人工データの対象試験: `tests/test_feedback_sync.py`と`tests/test_end_of_day_shared_transport.py`で32 passed。octet-stream Header、厳格なACK、HTTP 401/403/404/429/500、二重Request、Outbox Backoff、再起動相当の再送、送信先変更時の拒否、接続テスト、学習・設定変更の匿名集計、既存Outbox migrationを確認。
+- 最終の全体回帰: 773 passed、19 skipped、Linux専用RSS計測1件deselected。対象試験32 passed。`ruff check .`、JavaScript構文、Windows PowerShell構文と5.1 module importに成功。
+- 共有PHP Endpointへの実POSTはToken未設定のため未実施。ブラウザのカスタムURI起動実機試験は自動承認レビューが一時スクリプトの起動を拒否したため未実施。現場PCでの新配布版導入、署名済みUpdate適用も未実施。
+- 判定は`planning/END_OF_DAY_SECURE_SYNC_RESULT.md`。実在庫CSV/PDF、Token、秘密鍵はRepositoryと配布物へ含めない。

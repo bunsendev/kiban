@@ -26,6 +26,7 @@ OPTIONAL_CONFIG_FILES = {
     "Config/recovery-policy.json": "config/recovery-policy.json",
     "Config/feedback-client.json": "config/feedback-client.json",
     "Config/feedback-server-public.pem": "config/feedback-server-public.pem",
+    "Config/feedback-update-public.pem": "config/feedback-update-public.pem",
 }
 OPTIONAL_FILES = {
     "LocalSettings/field-settings.sqlite3": "settings/field-settings.sqlite3",

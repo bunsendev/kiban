@@ -8,11 +8,13 @@ import json
 import re
 import sqlite3
 from collections import Counter, defaultdict
+from contextlib import closing
 from datetime import UTC, date, datetime
 from pathlib import Path
 
 from ..field_pilot.improvement_events import ERROR_CODES, EVENT_TYPES, METRIC_KEYS, OUTCOMES
 from .policy import validate_policy
+from .signals import CHANGE_TYPES, LEARNING_ACTIONS
 
 SAFE_METRICS = METRIC_KEYS - {"row_count", "item_count", "shortage_count",
                              "expiry_attention_count", "size_bytes"}
@@ -34,7 +36,7 @@ def pseudonym(secret: bytes, client_id: str, kind: str, value: str) -> str:
 def collect_events(path: Path, day: date) -> list[dict]:
     if not path.is_file() or path.is_symlink():
         return []
-    with sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True) as db:
+    with closing(sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)) as db:
         db.row_factory = sqlite3.Row
         rows = db.execute(
             "SELECT event_type,outcome,error_code,metrics_json,jan,location_id "
@@ -45,7 +47,7 @@ def collect_events(path: Path, day: date) -> list[dict]:
 
 
 def minimize(rows: list[dict], policy: dict, *, client_id: str,
-             secret: bytes | None = None) -> dict:
+             secret: bytes | None = None, context: dict | None = None) -> dict:
     value = validate_policy(policy)
     level, flags = value["level"], value["flags"]
     if level == 0:
@@ -96,7 +98,25 @@ def minimize(rows: list[dict], policy: dict, *, client_id: str,
                           for (event, key), numbers in sorted(metrics.items())]
     if level < 3:
         details = []
-    return {"event_counts": summary, "metric_summary": metric_summary, "details": details}
+    payload = {"event_counts": summary, "metric_summary": metric_summary, "details": details}
+    if level >= 2:
+        context = context or {}
+        if flags["learning_summary"]:
+            payload["learning_summary"] = context.get("learning_summary", [])
+        if flags["change_summary"]:
+            payload["change_summary"] = context.get("change_summary", [])
+        if flags["data_freshness"]:
+            errors = {row.get("error_code") for row in rows}
+            if any(row.get("event_type") == "FORECAST_READY" and row.get("outcome") == "OK"
+                   for row in rows):
+                payload["data_freshness"] = "FRESH"
+            elif errors & {"SNAPSHOT_TOO_OLD", "SNAPSHOT_BUSINESS_DATE_MISMATCH"}:
+                payload["data_freshness"] = "STALE"
+            elif errors & {"DATA_NOT_READY", "INBOX_NOT_READY"}:
+                payload["data_freshness"] = "MISSING"
+            elif errors & {"PDF_HUMAN_REVIEW_REQUIRED", "SCHEMA_AMBIGUOUS"}:
+                payload["data_freshness"] = "REVIEW_REQUIRED"
+    return payload
 
 
 def manifest(payload: dict, *, policy_version: str, application_version: str) -> dict:
@@ -121,8 +141,12 @@ def validate_package(package: dict, *, max_level: int) -> None:
             or set(manifest_value) != set(MANIFEST_FIELDS) | {
                 "policy_version", "application_version", "created_at",
             }
-            or set(payload) != {"event_counts", "metric_summary", "details"}
-            or any(not isinstance(payload[name], list) for name in payload)
+            or not {"event_counts", "metric_summary", "details"} <= set(payload)
+            or set(payload) - {"event_counts", "metric_summary", "details",
+                               "learning_summary", "change_summary", "data_freshness"}
+            or any(not isinstance(payload[name], list) for name in (
+                "event_counts", "metric_summary", "details",
+            ))
             or any(manifest_value.get(name) is not False for name in MANIFEST_FIELDS
                    if name not in {"contains_pseudonymous_product_id",
                                    "contains_absolute_inventory"})
@@ -135,6 +159,23 @@ def validate_package(package: dict, *, max_level: int) -> None:
             or len(manifest_value["created_at"]) > 50):
         raise ValueError("FEEDBACK_PACKAGE_POLICY_REJECTED")
     if package["level"] < 3 and payload["details"]:
+        raise ValueError("FEEDBACK_PACKAGE_POLICY_REJECTED")
+    if package["level"] < 2 and set(payload) & {
+        "learning_summary", "change_summary", "data_freshness",
+    }:
+        raise ValueError("FEEDBACK_PACKAGE_POLICY_REJECTED")
+    for name, allowed in (("learning_summary", LEARNING_ACTIONS),
+                          ("change_summary", CHANGE_TYPES)):
+        value = payload.get(name, [])
+        if not isinstance(value, list) or any(
+            not isinstance(item, dict) or set(item) != {"kind", "count"}
+            or item["kind"] not in allowed or type(item["count"]) is not int
+            or not 0 < item["count"] <= 10000 for item in value
+        ):
+            raise ValueError("FEEDBACK_PACKAGE_POLICY_REJECTED")
+    if payload.get("data_freshness") not in {
+        None, "FRESH", "STALE", "MISSING", "REVIEW_REQUIRED",
+    }:
         raise ValueError("FEEDBACK_PACKAGE_POLICY_REJECTED")
     if len(json.dumps(package, ensure_ascii=False)) > 1_000_000:
         raise ValueError("FEEDBACK_PACKAGE_TOO_LARGE")

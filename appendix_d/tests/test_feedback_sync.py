@@ -205,6 +205,11 @@ def test_outbox_retries_and_duplicate_ack(tmp_path, keys):
                        sender=sender)
     assert first["status"] == "SAVED_FOR_RETRY"
     assert len(store.pending()) == 1
+    assert store.pending(force=False) == []
+    with sqlite3.connect(store.path) as db:
+        db.execute("UPDATE outbox SET next_attempt_at=?", (
+            (datetime.now(UTC) - timedelta(seconds=1)).isoformat(),
+        ))
     second = finish_day(store, improvement_db=tmp_path / "missing.sqlite3", client=client,
                         hmac_secret=b"x" * 32, token="t" * 40, public_key=public,
                         sender=sender)
@@ -224,10 +229,16 @@ def test_admin_ui_requires_token_and_uses_versioned_settings(tmp_path):
                      field_pilot=service)
     with TestClient(app, base_url="http://127.0.0.1") as http:
         assert http.get("/ui/pilot/feedback").status_code == 200
+        assert "Feedback Server 接続テスト" in http.get(
+            "/ui/pilot/feedback",
+        ).text
+        assert "本日の作業を完了" in http.get("/ui/pilot").text
         assert http.get("/api/field-pilot/feedback").status_code == 403
         headers = {"X-Field-Pilot-Admin-Token": "admin-secret"}
         current = http.get("/api/field-pilot/feedback", headers=headers).json()
         assert current["policy"]["level"] == 0
+        assert current["sync"]["pending_outbox"] == 0
+        assert current["connection"] is None
         change = {"policy": _policy(2, diagnostics=True), "expected_version": None,
                   "actor": "admin", "reason": "client approval"}
         assert http.post("/api/field-pilot/feedback/change", json=change).status_code == 403
@@ -301,6 +312,8 @@ def test_update_manifest_requires_signature_and_https():
     raw = json.dumps(document).encode()
     assert check_update("https://updates.example/manifest", public, "2.9.0",
                         fetcher=lambda _: raw)["available"] is True
+    assert check_update("https://updates.example/manifest", public, "2.10.0",
+                        fetcher=lambda _: raw)["available"] is False
     with pytest.raises(ValueError, match="UPDATE_TLS_REQUIRED"):
         check_update("http://updates.example/manifest", public, "2.9.0",
                      fetcher=lambda _: raw)
@@ -308,6 +321,12 @@ def test_update_manifest_requires_signature_and_https():
     with pytest.raises(InvalidSignature):
         check_update("https://updates.example/manifest", public, "2.9.0",
                      fetcher=lambda _: json.dumps(document).encode())
+    def offline(_):
+        raise urllib.error.URLError("offline")
+
+    with pytest.raises(urllib.error.URLError):
+        check_update("https://updates.example/manifest", public, "2.9.0",
+                     fetcher=offline)
 
 
 def test_synthetic_improvement_ledger_to_central_receiver(tmp_path, keys):

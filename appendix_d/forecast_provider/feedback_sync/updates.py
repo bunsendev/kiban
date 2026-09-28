@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import ssl
 import urllib.request
 from urllib.parse import urlparse
 
@@ -29,7 +30,11 @@ def check_update(url: str, public_pem: bytes, current_version: str, *, fetcher=N
         raise ValueError("UPDATE_TLS_REQUIRED")
     if fetcher is None:
         def fetcher(address):
-            opener = urllib.request.build_opener(_NoRedirect)
+            context = ssl.create_default_context()
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
+            opener = urllib.request.build_opener(
+                _NoRedirect, urllib.request.HTTPSHandler(context=context),
+            )
             with opener.open(address, timeout=10) as response:
                 return response.read(65_537)
     raw = fetcher(url)

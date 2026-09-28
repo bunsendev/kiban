@@ -107,6 +107,7 @@ function Install-FieldPilotShortcuts([string]$AppRoot, [string]$DataRoot) {
         @{ Name = "ブンセン バックアップから復元"; Script = "field-pilot-restore.ps1"; Visible = $true },
         @{ Name = "ブンセン 本日の作業を完了"; Script = "field-pilot-finish.ps1"; Visible = $true },
         @{ Name = "ブンセン 改善データ接続設定"; Script = "field-pilot-feedback-configure.ps1"; Visible = $true },
+        @{ Name = "ブンセン Feedback Server 接続テスト"; Script = "field-pilot-feedback-test.ps1"; Visible = $true },
         @{ Name = "ブンセン 個別サポート送信"; Script = "field-pilot-support-send.ps1"; Visible = $true }
     )
     foreach ($item in $items) {
@@ -123,6 +124,26 @@ function Install-FieldPilotShortcuts([string]$AppRoot, [string]$DataRoot) {
     $folder = $shell.CreateShortcut((Join-Path $desktop "ブンセン データ投入.lnk"))
     $folder.TargetPath = Join-Path $DataRoot "Inbox\Drop"
     $folder.Save()
+}
+
+function Register-FieldPilotProtocol([string]$AppRoot, [string]$DataRoot) {
+    $powershell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+    foreach ($item in @(
+        @{ Scheme = "bunsen-pilot-finish"; Script = "field-pilot-finish.ps1"; Browser = $true },
+        @{ Scheme = "bunsen-pilot-connect"; Script = "field-pilot-feedback-test.ps1"; Browser = $false }
+    )) {
+        $key = "HKCU:\Software\Classes\$($item.Scheme)"
+        New-Item -Path (Join-Path $key "shell\open\command") -Force | Out-Null
+        Set-Item -Path $key -Value "URL:ブンセン Field Pilot"
+        New-ItemProperty -Path $key -Name "URL Protocol" -Value "" -PropertyType String `
+            -Force | Out-Null
+        $script = Join-Path $AppRoot ("installer\windows\" + $item.Script)
+        $command = '"' + $powershell + '" -NoProfile -ExecutionPolicy Bypass ' +
+            '-WindowStyle Normal -File "' + $script + '" -DataRoot "' + $DataRoot + '"'
+        if ($item.Browser) { $command += " -FromBrowser" }
+        # URL自体は引数に渡さない。外部ページの入力をコマンドへ混ぜない。
+        Set-Item -Path (Join-Path $key "shell\open\command") -Value $command
+    }
 }
 
 try {
@@ -196,6 +217,7 @@ try {
         installedAt = (Get-Date).ToUniversalTime().ToString("o")
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $dataRoot "install.json") -Encoding utf8
     Install-FieldPilotShortcuts $appRoot $dataRoot
+    Register-FieldPilotProtocol $appRoot $dataRoot
     Write-FieldPilotLog $dataRoot "install" "completed"
     Write-Host "[4/6] Docker Desktopを起動しています..."
     Start-DockerDesktop

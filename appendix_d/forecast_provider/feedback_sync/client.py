@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import sys
+import uuid
 from datetime import UTC, datetime, timedelta
 from importlib.metadata import version
 from pathlib import Path
@@ -13,27 +14,29 @@ from pathlib import Path
 from .crypto import encrypt_package
 from .policy import FeedbackStore
 from .privacy import collect_events, manifest, minimize, validate_package
+from .signals import collect_context
 from .support import queue_support
-from .transport import send_pending
+from .transport import classify_connection_error, send_pending, transport_for
 from .updates import check_update
 
 
 def _client_config(path: Path) -> dict:
     value = json.loads(path.read_text(encoding="utf-8-sig"))
     required = {"client_id", "endpoint", "public_key_file"}
-    optional = {"update_manifest_url", "update_signing_key_file"}
+    optional = {"update_manifest_url", "update_signing_key_file", "transport"}
     if (not required <= set(value) or not set(value) <= required | optional
             or ("update_manifest_url" in value) != ("update_signing_key_file" in value)
             or not value["client_id"].isascii()
             or not value["client_id"].replace("-", "").replace("_", "").isalnum()
-            or not 1 <= len(value["client_id"]) <= 80):
+            or not 1 <= len(value["client_id"]) <= 80
+            or value.get("transport", "api") not in {"api", "shared_php"}):
         raise ValueError("FEEDBACK_CLIENT_CONFIG_INVALID")
     return value
 
 
 def finish_day(store: FeedbackStore, *, improvement_db: Path, client: dict,
                hmac_secret: bytes, token: str, public_key: bytes,
-               day=None, sender=None) -> dict:
+               day=None, sender=None, context: dict | None = None) -> dict:
     # 現場の業務日付は日本時間。UTCの午後に翌日へずらさない。
     day = day or (datetime.now(UTC) + timedelta(hours=9)).date()
     current = store.current()
@@ -47,26 +50,54 @@ def finish_day(store: FeedbackStore, *, improvement_db: Path, client: dict,
         exists = db.execute("SELECT 1 FROM outbox WHERE package_id=?", (package_id,)).fetchone()
     if exists is None:
         payload = minimize(collect_events(improvement_db, day), policy,
-                           client_id=client["client_id"], secret=hmac_secret)
+                           client_id=client["client_id"], secret=hmac_secret,
+                           context=context)
         package = {"level": policy["level"], "payload": payload,
                    "manifest": manifest(payload, policy_version=current["version"],
                                         application_version=version("bunsen-forecast-provider"))}
         validate_package(package, max_level=policy["level"])
         envelope = encrypt_package(package, public_key, package_id=package_id,
                                    client_id=client["client_id"])
-        store.queue(package_id, current["version"], envelope)
+        store.queue(package_id, current["version"], envelope,
+                    destination_url=client["endpoint"],
+                    transport_kind=client.get("transport", "api"))
     result = send_pending(store, url=client["endpoint"], token=token,
-                          **({"sender": sender} if sender else {}))
+                          **({"sender": sender} if sender else
+                             {"transport": transport_for(client)}))
     status = ("NEEDS_ADMIN" if result["rejected"] else "SAVED_FOR_RETRY"
-              if result["retryable"] else "COMPLETED")
+              if result["retryable"] or result["deferred"] else "COMPLETED")
     return {"status": status, **result}
+
+
+def connection_test(client: dict, token: str, public_key: bytes, *, transport=None) -> dict:
+    """業務データを含まない暗号化Packageだけで接続を確かめる。"""
+    if client.get("transport") != "shared_php":
+        return {"status": "UNSUPPORTED"}
+    package_id = uuid.uuid4().hex
+    package = {"category": "CONNECTION_TEST", "payload": {},
+               "manifest": {"contains_raw_files": False,
+                            "created_at": datetime.now(UTC).isoformat()}}
+    envelope = encrypt_package(package, public_key, package_id=package_id,
+                               client_id=client["client_id"])
+    item = {"package_id": package_id, "envelope": envelope,
+            "sha256": hashlib.sha256(envelope).hexdigest(),
+            "policy_version": "CONNECTION_TEST"}
+    try:
+        response = (transport or transport_for(client)).send(item, token)
+        return {"status": "CONNECTED" if response["status"] in {
+            "ACCEPTED", "DUPLICATE",
+        } else "SERVER"}
+    except Exception as exc:
+        return {"status": classify_connection_error(exc)}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Field Pilot secure feedback sync")
     parser.add_argument("--inbox-root", type=Path, required=True)
     parser.add_argument("--client-config", type=Path, required=True)
-    parser.add_argument("--action", choices=["finish", "retry", "support"], required=True)
+    parser.add_argument("--settings-root", type=Path)
+    parser.add_argument("--action", choices=["finish", "retry", "support", "connection-test"],
+                        required=True)
     parser.add_argument("--support-file", type=Path)
     parser.add_argument("--consent-id")
     args = parser.parse_args()
@@ -80,11 +111,19 @@ def main() -> int:
     store = FeedbackStore(args.inbox_root / "feedback.sqlite3")
     store.prune_outbox()
     if args.action == "finish":
-        result = finish_day(
-            store, improvement_db=args.inbox_root / "improvement-events.sqlite3",
-            client=client, hmac_secret=secret, token=token,
-            public_key=Path(client["public_key_file"]).read_bytes(),
-        )
+        try:
+            business_day = (datetime.now(UTC) + timedelta(hours=9)).date()
+            result = finish_day(
+                store, improvement_db=args.inbox_root / "improvement-events.sqlite3",
+                client=client, hmac_secret=secret, token=token,
+                public_key=Path(client["public_key_file"]).read_bytes(),
+                day=business_day, context=collect_context(
+                    args.inbox_root, args.settings_root or args.inbox_root,
+                    business_day,
+                ),
+            )
+        except (OSError, ValueError):
+            result = {"status": "NEEDS_ADMIN", "sent": 0, "retryable": 0, "rejected": 0}
     elif args.action == "support":
         if args.support_file is None or not args.consent_id:
             raise ValueError("SUPPORT_INPUT_REQUIRED")
@@ -92,11 +131,16 @@ def main() -> int:
             store, consent_id=args.consent_id, source=args.support_file,
             client_id=client["client_id"], destination=client["endpoint"],
             public_key=Path(client["public_key_file"]).read_bytes(),
+            transport_kind=client.get("transport", "api"),
         )
-        result = send_pending(store, url=client["endpoint"], token=token)
+        result = send_pending(store, url=client["endpoint"], token=token,
+                              transport=transport_for(client))
         result["package_id"] = package_id
+    elif args.action == "connection-test":
+        result = connection_test(client, token, Path(client["public_key_file"]).read_bytes())
     else:
-        result = send_pending(store, url=client["endpoint"], token=token)
+        result = send_pending(store, url=client["endpoint"], token=token,
+                              transport=transport_for(client))
     if args.action == "finish" and "update_manifest_url" in client:
         try:
             result["update"] = check_update(
@@ -104,8 +148,11 @@ def main() -> int:
                 Path(client["update_signing_key_file"]).read_bytes(),
                 version("bunsen-forecast-provider"),
             )
+            store.record_update_check("AVAILABLE" if result["update"]["available"]
+                                      else "CURRENT", result["update"]["version"])
         except Exception:  # 更新確認障害は終業処理・ローカル運用を妨げない。
             result["update"] = {"status": "UNAVAILABLE"}
+            store.record_update_check("UNAVAILABLE")
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     return 0
 

@@ -172,6 +172,7 @@ function Apply-FieldPilotFiles($Install, [string]$Stage, [switch]$Exact) {
         "config/recovery-policy.json" = "Config/recovery-policy.json"
         "config/feedback-client.json" = "Config/feedback-client.json"
         "config/feedback-server-public.pem" = "Config/feedback-server-public.pem"
+        "config/feedback-update-public.pem" = "Config/feedback-update-public.pem"
         "settings/field-settings.sqlite3" = "LocalSettings/field-settings.sqlite3"
         "learning/inbox.sqlite3" = "Inbox/inbox.sqlite3"
         "learning/improvement-events.sqlite3" = "Inbox/improvement-events.sqlite3"

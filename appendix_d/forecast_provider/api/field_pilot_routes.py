@@ -1,9 +1,11 @@
 """Field Pilot専用のloopback Shadow境界と限定された学習メタデータ操作。"""
 
 import hmac
+import json
 import re
 import sqlite3
 from datetime import date, datetime
+from importlib.metadata import PackageNotFoundError, version
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -161,7 +163,23 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         if not require_admin(request):
             return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
         current = service.feedback_store.current()
-        return {**current, "preview": {
+        config = None
+        config_path = service.config_path.parent / "feedback-client.json"
+        try:
+            if config_path.is_file() and not config_path.is_symlink() and (
+                config_path.stat().st_size <= 4096
+            ):
+                source = json.loads(config_path.read_text(encoding="utf-8-sig"))
+                config = {"endpoint": source.get("endpoint"),
+                          "client_id": source.get("client_id")}
+        except (OSError, ValueError, TypeError):
+            config = None
+        try:
+            app_version = version("bunsen-forecast-provider")
+        except PackageNotFoundError:
+            app_version = "unpackaged"
+        return {**current, "application_version": app_version, "connection": config,
+                "sync": service.feedback_store.status(), "preview": {
             "sends": (["診断・処理状態"] if current["policy"]["flags"]["diagnostics"] else [])
             + (["集計した処理時間・改善指標"]
                if current["policy"]["flags"]["forecast_metrics"] else [])
