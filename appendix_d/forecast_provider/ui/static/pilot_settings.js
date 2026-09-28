@@ -185,9 +185,28 @@ async function approveShipmentDraft(preparation, item) {
     });
     if (!response.ok) throw new Error("draft failed");
     const draft = await response.json();
-    $("draft-status").textContent = `倉庫 ${item.warehouse_code} の28日日次入力候補を保存しました（${draft.draft_id}）。予測Runへの登録は未接続です。`;
+    $("draft-status").textContent = `倉庫 ${item.warehouse_code} の28日日次入力候補を保存しました。`;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "原本全期間の日次履歴を確認・保存";
+    button.addEventListener("click", () => void materializeShipmentHistory(draft.draft_id));
+    $("draft-status").append(" ", button);
   } catch {
     $("draft-status").textContent = "保存できません。原本・単位・ゼロ日・在庫を再確認してから不足項目を再表示してください。";
+  }
+}
+
+async function materializeShipmentHistory(draftId) {
+  $("draft-status").textContent = "原本全期間の欠測日と確認済みゼロ日を照合しています。";
+  try {
+    const response = await fetch("/api/field-pilot/admin/formal-shipment-history", {
+      method: "POST", headers: headers(), body: JSON.stringify({ draft_id: draftId }),
+    });
+    if (!response.ok) throw new Error("history failed");
+    const history = await response.json();
+    $("draft-status").textContent = `初回観測日～最終観測日 ${history.first_day}～${history.last_day}（${history.day_count}日）の履歴を保存しました。欠測 ${history.missing_day_count}日、確認済み条件でゼロ扱い ${history.zero_by_policy_day_count}日。正式日次build・予測Runは未接続です。`;
+  } catch {
+    $("draft-status").textContent = "原本全期間を保存できません。原本の変更、欠測、判断版、在庫を確認してください。";
   }
 }
 

@@ -12,6 +12,10 @@ from forecast_provider.field_pilot.formal_shipment_draft import (
     FormalShipmentDraftStore,
     make_formal_shipment_draft,
 )
+from forecast_provider.field_pilot.formal_shipment_history import (
+    FormalShipmentHistoryStore,
+    materialize_history,
+)
 from forecast_provider.field_pilot.read_model import FieldPilotReadService
 from forecast_provider.jobs import SqliteRunStore
 from tests.test_field_pilot_forecast_handoff import Inventory
@@ -68,6 +72,41 @@ def test_draft_freezes_exact_daily_rows_and_is_idempotent(tmp_path):
     assert store.put(draft) == store.put(_approve(trial, handoff, actor="second"))
     trial["series"][0]["history"][0]["quantity"] = "3"
     assert _approve(trial, handoff)["draft_id"] != draft["draft_id"]
+
+
+def test_full_history_preserves_missing_and_confirmed_zero(tmp_path):
+    trial, handoff = _evidence()
+    draft = _approve(trial, handoff)
+    trial["series"][0]["full_history"] = [
+        {"date": "2026-08-30", "quantity": "3", "state": "OBSERVED"},
+        {"date": "2026-08-31", "quantity": None, "state": "MISSING"},
+    ] + trial["series"][0]["history"]
+    result = materialize_history(draft, trial, handoff)
+    assert result["day_count"] == 30
+    assert result["missing_day_count"] == 1
+    assert result["zero_by_policy_day_count"] == 1
+    assert result["content"]["daily_rows"][1]["quantity_case"] is None
+    assert result["daily_build_ready"] is False
+    assert "FULL_HISTORY_MISSING_DAYS" in result["blocking_reasons"]
+    store = FormalShipmentHistoryStore(tmp_path / "drafts.sqlite3")
+    assert store.put(result) == store.put(result)
+    assert store.get(result["history_id"]) == result["content"]
+
+
+def test_full_history_rejects_changed_source_or_recent_rows():
+    trial, handoff = _evidence()
+    draft = _approve(trial, handoff)
+    trial["series"][0]["full_history"] = list(trial["series"][0]["history"])
+    trial["source_fingerprint"] = "b" * 64
+    with pytest.raises(ValueError, match="FORMAL_HISTORY_EVIDENCE_CHANGED"):
+        materialize_history(draft, trial, handoff)
+    trial["source_fingerprint"] = "a" * 64
+    trial["series"][0]["full_history"][0] = {
+        "date": trial["series"][0]["full_history"][0]["date"],
+        "quantity": "9", "state": "OBSERVED",
+    }
+    with pytest.raises(ValueError, match="FORMAL_HISTORY_DRAFT_MISMATCH"):
+        materialize_history(draft, trial, handoff)
 
 
 @pytest.mark.parametrize("change", [
@@ -137,6 +176,15 @@ def test_admin_can_freeze_ready_series_but_stale_source_is_rejected(tmp_path):
         assert saved.json()["content"]["daily_rows"][0]["quantity_case"] == "2"
         again = client.post(url, json=body, headers=headers)
         assert again.json()["draft_id"] == saved.json()["draft_id"]
+        history_url = "/api/field-pilot/admin/formal-shipment-history"
+        history_request = {"draft_id": saved.json()["draft_id"]}
+        assert client.post(history_url, json=history_request).status_code == 403
+        history_response = client.post(history_url, json=history_request, headers=headers)
+        assert history_response.status_code == 200
+        assert history_response.json()["day_count"] == 28
+        assert history_response.json()["daily_build_ready"] is False
         source = inbox / "Archive" / "ab" / "abcdef" / "shipment.csv"
         source.write_bytes(source.read_bytes() + b"\n")
         assert client.post(url, json=body, headers=headers).status_code == 409
+        assert client.post(history_url, json=history_request,
+                           headers=headers).status_code == 409
