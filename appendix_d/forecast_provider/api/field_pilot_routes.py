@@ -11,6 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
+from ..field_pilot.ai_intake import AiSuggestionUnavailable
 from ..field_pilot.operator_feedback import (
     OperatorAction,
     OperatorFeedback,
@@ -20,6 +21,7 @@ from ..field_pilot.operator_feedback import (
 from ..inventory_foundation.read_service import InventoryReadError
 
 LEARNING_ACTION = re.compile(r"^/api/field-pilot/learning/[0-9a-f]{64}/(confirm|disagree)$")
+AI_ACTION = re.compile(r"^/api/field-pilot/learning/[0-9a-f]{64}/suggest$")
 ADMIN_ACTION = re.compile(
     r"^/api/field-pilot/admin/(approve|reject)/[0-9a-f]{64}$"
     r"|^/api/field-pilot/admin/deactivate/learned-[0-9a-f]{24}$"
@@ -147,7 +149,8 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
             if not (configured and supplied) or not hmac.compare_digest(configured, supplied):
                 return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
         if request.method == "POST":
-            if not (LEARNING_ACTION.fullmatch(path) or ADMIN_ACTION.fullmatch(path)
+            if not (LEARNING_ACTION.fullmatch(path) or AI_ACTION.fullmatch(path)
+                    or ADMIN_ACTION.fullmatch(path)
                     or FORMAL_APPROVAL.fullmatch(path)
                     or path in {"/api/field-pilot/admin/product-mapping/publish",
                                 "/api/field-pilot/admin/shipment-trial",
@@ -189,6 +192,21 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
     def learning_view(request: Request):
         request.state.audit_operation = "FIELD_PILOT_LEARNING_VIEW"
         return service.learning_view()
+
+    @app.post("/api/field-pilot/learning/{candidate_id}/suggest", include_in_schema=False)
+    def learning_ai_suggest(candidate_id: str, request: Request):
+        request.state.audit_operation = "FIELD_PILOT_AI_SUGGESTION"
+        if not re.fullmatch(r"[0-9a-f]{64}", candidate_id):
+            return JSONResponse({"message": "候補を確認してください"}, status_code=404)
+        try:
+            return service.learning.ai_suggest(candidate_id)
+        except AiSuggestionUnavailable:
+            return JSONResponse(
+                {"message": "このPCのAIを利用できません。通常の確認を続けてください。"},
+                status_code=503,
+            )
+        except (AttributeError, ValueError, OSError, sqlite3.DatabaseError):
+            return JSONResponse({"message": "候補を再確認してください"}, status_code=409)
 
     @app.get("/api/field-pilot/admin/unresolved-products", include_in_schema=False)
     def unresolved_products_view(request: Request):

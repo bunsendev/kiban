@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sqlite3
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
@@ -98,9 +99,12 @@ class FieldPilotReadService:
             logger.warning("field pilot improvement event unavailable")
 
     def learning_view(self) -> dict:
-        return self.learning.pending_view() if self.learning else {
+        view = self.learning.pending_view() if self.learning else {
             "pending_count": 0, "candidates": [],
         }
+        return {**view, "ai_available": bool(
+            self.learning and os.environ.get("KIBAN_FIELD_PILOT_AI_MODEL", "").strip()
+        )}
 
     def unresolved_products_view(self) -> dict:
         if self.inbox_root is None:

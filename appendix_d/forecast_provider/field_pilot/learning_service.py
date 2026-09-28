@@ -5,11 +5,13 @@ from __future__ import annotations
 import csv
 import hashlib
 import logging
+import os
 import uuid
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .ai_intake import AiSuggestionUnavailable, suggest_structure
 from .inbox_classifier import Classification, _match, classify_file
 from .inbox_ledger import InboxLedger
 from .inbox_policy import KINDS, InboxPolicy, InboxPolicyError, SchemaRule, load_inbox_policy
@@ -75,6 +77,15 @@ class LearningService:
             if item["status"] == "PENDING_OPERATOR"
         ]
         return {"pending_count": len(pending), "candidates": pending}
+
+    def ai_suggest(self, candidate_id: str) -> dict:
+        model = os.environ.get("KIBAN_FIELD_PILOT_AI_MODEL", "").strip()
+        if not model:
+            raise AiSuggestionUnavailable("AI_NOT_CONFIGURED")
+        candidate = self.store.get_candidate(candidate_id)
+        if candidate is None or candidate["status"] != "PENDING_OPERATOR":
+            raise ValueError("LEARNING_CANDIDATE_NOT_PENDING")
+        return suggest_structure(candidate["structure"], model)
 
     def admin_view(self) -> dict:
         return {
