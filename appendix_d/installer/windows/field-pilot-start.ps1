@@ -14,12 +14,24 @@ try {
     if (-not $locked) { throw "起動処理が完了しませんでした。" }
     $install = Get-FieldPilotInstall $DataRoot
     Write-FieldPilotLog $install.DataRoot "start" "requested"
+    $envPath = Join-Path $install.DataRoot "Config\pilot.env"
+    $aiEnabled = Select-String -LiteralPath $envPath `
+        -Pattern '^KIBAN_FIELD_PILOT_AI_MODEL=[A-Za-z0-9_.:-]+$' -Quiet
+    $services = @("postgres", "api", "pilot-inventory-worker")
+    $aiProfileArgs = @()
+    if ($aiEnabled) {
+        $services += "pilot-ollama"
+        $aiProfileArgs = @("--profile", "ai")
+    }
     if (-not (Test-FieldPilotReady $install)) {
         Start-DockerDesktop
-        Invoke-FieldPilotCompose $install @("up", "-d", "postgres", "api", "pilot-inventory-worker")
+        Invoke-FieldPilotCompose $install ($aiProfileArgs + @("up", "-d") + $services)
         Wait-FieldPilotReady $install
     }
-    Invoke-FieldPilotCompose $install @("up", "-d", "pilot-inventory-worker")
+    Invoke-FieldPilotCompose $install ($aiProfileArgs + @("up", "-d") + $services)
+    if (-not $aiEnabled) {
+        Invoke-FieldPilotCompose $install @("--profile", "ai", "stop", "pilot-ollama")
+    }
     $today = (Get-Date).ToUniversalTime().ToString("yyyyMMdd")
     $backupDirectory = Join-Path $install.DataRoot "Backup"
     $daily = @(Get-ChildItem -LiteralPath $backupDirectory -File `

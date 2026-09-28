@@ -121,6 +121,8 @@ function renderLearning(data) {
   currentCandidate = data.candidates?.[0] || null;
   const section = byId("learning");
   section.hidden = !currentCandidate;
+  byId("learning-ai").hidden = false;
+  byId("learning-local-ai").hidden = !data.ai_available;
   if (!currentCandidate) return;
   const kind = kindLabels[currentCandidate.suggested_kind] || "種類不明";
   byId("learning-message").textContent = currentCandidate.confidence === "LOW"
@@ -135,6 +137,45 @@ function renderLearning(data) {
   byId("learning-correction").hidden = true;
   byId("learning-actions").hidden = false;
   byId("learning-status").textContent = "";
+  byId("learning-ai-result").textContent = "";
+  byId("learning-ai").disabled = false;
+}
+
+async function suggestLearning(useLocal = false) {
+  if (!currentCandidate) return;
+  const button = byId(useLocal ? "learning-local-ai" : "learning-ai");
+  const result = byId("learning-ai-result");
+  const apiKey = useLocal ? "" : byId("learning-api-key").value.trim();
+  if (!useLocal && !apiKey) {
+    result.textContent = "OpenAI APIキーを入力してください。入力しなくても通常の確認は続けられます。";
+    byId("learning-api-key").focus();
+    return;
+  }
+  button.disabled = true;
+  result.textContent = useLocal ? "このPCのAIが候補を調べています。" : "APIが分類候補を調べています。";
+  try {
+    const response = await fetch(
+      `/api/field-pilot/learning/${currentCandidate.candidate_id}/suggest`,
+      { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(useLocal ? {} : { api_key: apiKey }) },
+    );
+    if (!response.ok) throw new Error("AI unavailable");
+    const data = await response.json();
+    const kind = kindLabels[data.kind] || "不明";
+    const columns = Object.entries(data.columns || {})
+      .map(([key, value]) => `${columnLabels[key] || key} → ${value}`).join(" / ");
+    const unit = data.unit_hint === "UNKNOWN" ? "単位は要確認" :
+      `単位候補: ${data.unit_hint}（要確認）`;
+    const conflict = data.kind_conflict
+      ? "既存の判定と異なります。管理担当者に確認してください。" : "確認後に選択してください。";
+    result.textContent = `AI候補: ${kind}。${columns || "列は要確認"}。${unit}。${conflict}`;
+  } catch {
+    result.textContent = useLocal
+      ? "このPCのAIを利用できません。通常の候補を確認してください。"
+      : "APIを利用できません。キーや通信状態を確認してください。通常の候補でも進められます。";
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function loadLearning() {
@@ -280,6 +321,8 @@ byId("refresh").addEventListener("click", () => {
   void recordAction("REFRESH");
   void load();
 });
+byId("learning-ai").addEventListener("click", () => suggestLearning());
+byId("learning-local-ai").addEventListener("click", () => suggestLearning(true));
 byId("scan-files").addEventListener("click", async () => {
   await recordAction("SCAN_REQUESTED");
   byId("scan-status").textContent = "Windowsの確認画面で続行してください。確認画面が出ない場合は、デスクトップの「ブンセン 出荷予測」をもう一度開いてください。";

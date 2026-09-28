@@ -18,6 +18,8 @@ services:
       KIBAN_FIELD_PILOT_BACKUP_DIR: /var/lib/kiban/pilot-backup
       KIBAN_FIELD_PILOT_LEARNING_ADMIN_TOKEN: ${KIBAN_FIELD_PILOT_LEARNING_ADMIN_TOKEN:?Learning admin token is required}
       KIBAN_FIELD_PILOT_OPERATOR_ID: ${KIBAN_FIELD_PILOT_OPERATOR_ID:-FIELD_PILOT_OPERATOR}
+      KIBAN_FIELD_PILOT_AI_MODEL: ${KIBAN_FIELD_PILOT_AI_MODEL:-}
+      KIBAN_FIELD_PILOT_AI_ENDPOINT: http://pilot-ollama:11434/api/generate
       KIBAN_API_SUBJECT: field-pilot-local-admin
       KIBAN_ALLOWED_HOSTS: 127.0.0.1,localhost
     volumes:
@@ -25,6 +27,13 @@ services:
       - ${KIBAN_FIELD_PILOT_INBOX_DIR:?Field Pilot inbox dir is required}:/var/lib/kiban/pilot-inbox
       - ${KIBAN_FIELD_PILOT_SETTINGS_DIR:?Field Pilot settings dir is required}:/var/lib/kiban/pilot-settings
       - ${KIBAN_FIELD_PILOT_BACKUP_DIR:?Field Pilot backup dir is required}:/var/lib/kiban/pilot-backup
+  pilot-ollama:
+    profiles: ["ai"]
+    image: ollama/ollama:0.34.4
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+    volumes:
+      - pilot-ollama-models:/root/.ollama
   pilot-inventory-worker:
     build:
       context: .
@@ -45,3 +54,5 @@ services:
         condition: service_healthy
     volumes:
       - ${KIBAN_FIELD_PILOT_INBOX_DIR:?Field Pilot inbox dir is required}:/var/lib/kiban/pilot-inbox:ro
+volumes:
+  pilot-ollama-models:
