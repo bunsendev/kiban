@@ -1602,3 +1602,10 @@ OS: Windows 11
 - 対象回帰21 passed。Windows全体回帰718 passed、20 skipped、2 deselected（Linux専用peak RSS、更新中の配布照合）。
 - `ruff check .`成功。配布マニフェストは最終ファイル確定後に再生成・照合する。
 - 実データの正式JAN mappingとsnapshot時刻policyは未承認。Inbox→正式取込→Forecast/Projection/FEFO自動更新は未接続で、現場PilotはNO-GO。
+
+# Field Pilot 週次改善レポートの全件集計（2026-09-28 JST）
+
+- JAN×倉庫×業務日のreference caseを業務日・case ID順にページ取得し、週500件超でも対象期間を全件集計する。
+- 同一日に501件、対象期間外に1件を置いたSQLite試験で、500件目の次ページ、501件の週次集計、期間外除外、未取得KPIのNULLを確認。対象試験6 passed。
+- Windows全体回帰: 727 passed、19 skipped、Linux専用peak RSS計測1件deselected。`ruff check .`、配布793/793ファイルのSHA-256照合、`git diff --check`に成功。
+- 実データのJAN mapping・snapshot時刻policy・正式取込は未承認・未接続で、現場PilotはNO-GOのまま。

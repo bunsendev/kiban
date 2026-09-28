@@ -12,7 +12,7 @@
 | Data Freshness | 実装 | 必須入力ごとの確認状態と最終採用時刻をInbox集計に追加。管理者設定の版付き許容時間と在庫snapshotの日本時間業務日を照合。未設定、前日、未来、許容超過では表示を止める。予測runのorigin日がsnapshot日と一致する既存Projection Gateも維持。 |
 | system/operator/actual比較 | 一部 | 既存Field Learning台帳のcase IDで同一JAN×倉庫×業務日を結合。system対operator、forecast対actual demand、operator対actual shipment、3つの業務KPIを週次集計。実績欠損は`null`。ending inventoryは既存actual契約に無いため未比較。 |
 | 差異候補 | 一部 | 承認版付き最小差・反復日数で小差を抑制し、OBSERVED / REPEATED / QUESTION_READYを管理者レポートに表示。原因推定や自動改善は行わない。CONFIRMED以降の専用永続stateは未実装。 |
-| 週次レポート | 一部 | 管理者CLIでイベント件数と現場検証台帳の比較・KPI取得率をJSON出力。500 case上限に達した場合`complete=false`とし、全件集計を装わない。 |
+| 週次レポート | 一部 | 管理者CLIでイベント件数と現場検証台帳の比較・KPI取得率をJSON出力。週次対象caseは業務日・case ID順のページ取得で全件集計する。後日実績のending inventory比較は未対応。 |
 | 保持期限 | 実装 | 管理者指定のタイムゾーン付きcutoffより古い改善イベントだけを削除するCLI。既存監査・操作ログを削除しない。自動実行スケジュールは未設定。 |
 
 ## 現場運用のGateと未接続部分
@@ -27,7 +27,7 @@
 
 1. 実データのJAN対応とsnapshot日時policyを承認し、CSV正式取込callbackをUnified Inboxへ接続する。RECEIVEDとPROCESSEDを区別し、異常値を隔離する。
 2. 正式取込完了からSnapshot・Forecast・Projection・FEFOを安全に更新し、各段階の業務日・版・成否・所要時間を台帳へ記録する。失敗時は前日結果を当日結果として表示しない。
-3. 後日実績のending inventory等を契約に追加し、業務KPIの欠損率と観測対象範囲を明示する。週500 case超をページングで集計する。
+3. 後日実績のending inventory等を契約に追加し、業務KPIの欠損率と観測対象範囲を明示する。週500 case超のページング集計は追加済み。
 4. 繰り返し差異の原因確認を既存の承認画面へ接続し、候補stateを永続化する。質問は例外時のみ、原則一日0〜1件とする。
 5. 観測の保存期間を業務承認し、定期retentionと週次レポートをスケジュール化する。画面操作の詳細イベントはプライバシー上の目的・最小化条件を定めてから追加する。
 

@@ -14,9 +14,16 @@ def weekly_field_report(field_store, end_date: date, *, minimum_gap_cases: Decim
             or not threshold_version.strip()):
         raise ValueError("IMPROVEMENT_THRESHOLD_INVALID")
     start_date = end_date - timedelta(days=6)
-    listed = field_store.list_reference_cases(limit=500)
-    cases = [case for case in listed
-             if start_date <= case.business_date <= end_date]
+    cases = []
+    after = None
+    while True:
+        page = field_store.list_reference_cases_page(
+            start_date=start_date, end_date=end_date, after=after, limit=500,
+        )
+        cases.extend(page)
+        if len(page) < 500:
+            break
+        after = (page[-1].business_date, page[-1].case_id)
     by_key = defaultdict(list)
     case_comparisons = []
     totals = {"stockout_cases": Decimal(0), "expired_cases": Decimal(0),
@@ -77,7 +84,7 @@ def weekly_field_report(field_store, end_date: date, *, minimum_gap_cases: Decim
     return {
         "start_date": start_date.isoformat(), "end_date": end_date.isoformat(),
         "reference_case_count": len(cases),
-        "complete": len(listed) < 500,
+        "complete": True,
         "threshold": {"version": threshold_version,
                       "minimum_gap_cases": str(minimum_gap_cases),
                       "repeat_days": repeat_days},

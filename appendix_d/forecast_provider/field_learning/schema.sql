@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS field_reference_cases (
 );
 CREATE INDEX IF NOT EXISTS field_reference_cases_daily_idx
   ON field_reference_cases(business_date,pilot_scope_version,warehouse_id,jan);
+CREATE INDEX IF NOT EXISTS field_reference_cases_report_page_idx
+  ON field_reference_cases(business_date DESC,case_id);
 
 CREATE TABLE IF NOT EXISTS field_operator_decision_events (
   decision_event_id TEXT PRIMARY KEY,
