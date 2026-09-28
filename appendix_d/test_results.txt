@@ -1731,3 +1731,8 @@ OS: Windows 11
 - 確認済み28日候補を原本全期間に照合し、初回観測日から最終観測日までの欠測をnull、確認済み条件のゼロを別状態で保存。内容アドレスによる冪等性、原本変更後の409、管理者認証を検証。
 - 正式normalization・canonical identity・日次build・予測Runは未接続。`daily_build_ready=false`を維持する。
 - Windows全体回帰は818 passed / 20 skipped / Linux専用RSS 1件deselected。`ruff check .`、JavaScript構文検査、`git diff --check`に成功。
+
+# Field Pilot 凍結履歴と正式日次buildの接続Gate（2026-09-29 JST）
+
+- 保存履歴の内容ハッシュを再検証し、採用済み原本・正規化・JAN対応・予定完全性・取扱期間から得た正式日次値と全日付の数量/状態を照合。一致時のみ日次buildを登録し、欠測と確認済みゼロの入れ替えを拒否する。
+- 対象テスト4件成功。全体回帰初回は819 passed / 20 skipped / Linux専用RSS 1件deselected / 2 failed。失敗1件は配布ハッシュ未更新、もう1件は既存の学習イベント順序試験で単独再実行成功。配布更新後の全体再実行は822 passed / 20 skipped / 1 deselected。`ruff check .`と配布874ファイルのSHA-256照合に成功。

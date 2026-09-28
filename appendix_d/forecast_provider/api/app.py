@@ -112,7 +112,7 @@ def create_app(
     install_error_handlers(app)
     install_security_boundary(app, settings)
     if field_pilot is not None:
-        install_field_pilot_routes(app, field_pilot)
+        install_field_pilot_routes(app, field_pilot, daily)
     install_ui_routes(app)
     install_oidc_login_routes(app, oidc_login_settings)
     service = ApplicationService(store, catalog, snapshot_root)
