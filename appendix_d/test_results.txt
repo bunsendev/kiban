@@ -1649,3 +1649,9 @@ OS: Windows 11
 - IExpress EXEを生成し、インストールを起動しない`/C`展開で内包ZIPのSHAを照合。Windows PowerShell Expand-Archiveで日本語セットアップ名を確認。RC1実機の設置、Token入力、接続、再起動、オフライン再送は未実施。
 - 正式Pipelineの起動経路は未接続。RC1現場配布はNO-GO。詳細は`planning/FIELD_PILOT_RC_ACCEPTANCE_RESULT.md`。
 - 配布一覧を更新した最終全体回帰は773 passed、19 skipped、Linux専用peak RSS計測1件deselected。`ruff check .`、Windows PowerShellの24ファイル構文検査、IExpress `/C`展開と内包ZIP SHA照合に成功。RC1のClean Installや実Token送信を検証した意味ではない。
+# Field Pilot RC2 体験運用（2026-09-28 JST）
+
+- ファイル追加後の再確認操作、ルール未設定時の安全な受付件数表示、担当者の選択式フィードバックと操作イベントを追加。既定の外部共有は無効で、管理者のPrivacy Policyに従う。
+- 対象テスト20 passed。全体回帰の初回実行は774 passed、19 skipped、Linux専用RSS 1件deselected、配布ハッシュ更新前の照合1件failed。コード・動作に関する失敗はない。
+- 最終全体回帰は775 passed、19 skipped、Linux専用RSS 1件deselected。`ruff check .`、JavaScript構文、PowerShell構文、`git diff --check`、`make_release.py --check`に成功。
+- 単一フォルダからの正式取込・予測更新は未接続。新Installerの現場PC実機操作、Token付き送信は未確認。実データ・資格情報は配布物に含めない。

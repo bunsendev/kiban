@@ -15,6 +15,18 @@ const columnLabels = {
 };
 let currentCandidate = null;
 
+async function recordAction(action) {
+  try {
+    await fetch("/api/field-pilot/operator-action", {
+      method: "POST", headers: { "Content-Type": "application/json",
+        "X-Field-Pilot-Operator": "1" },
+      body: JSON.stringify({ action }),
+    });
+  } catch {
+    // 操作記録の障害で担当者の操作を止めない。
+  }
+}
+
 function cell(line, value, tone = "") {
   const element = document.createElement("td");
   element.textContent = value;
@@ -49,6 +61,7 @@ function detail(item) {
     expiry.append(line);
   }
   byId("detail").scrollIntoView({ behavior: "smooth", block: "start" });
+  void recordAction("DETAIL_OPENED");
 }
 
 async function loadInbox() {
@@ -66,7 +79,9 @@ async function loadInbox() {
     }
     status.textContent = data.status === "READY"
       ? "本日の必要データは確認済みです。"
-      : "不足または確認待ちがあります。詳細を管理担当者へご確認ください。";
+      : data.status === "SETUP_REQUIRED"
+        ? data.message
+        : "不足または確認待ちがあります。詳細を管理担当者へご確認ください。";
     const counts = byId("inbox-counts");
     counts.hidden = false;
     counts.textContent = `確認済み ${data.processed_count} 件 / 受付 ${data.received_count} 件 / 確認待ち ${data.review_count} 件 / 重複 ${data.duplicate_count} 件`;
@@ -210,6 +225,21 @@ function render(data) {
   }
 }
 
+function showNextAction(inbox, shadowReady) {
+  const target = byId("next-action");
+  if (shadowReady) {
+    target.textContent = "今日の参考結果を確認できます。表示日時と元資料を照合してください。";
+  } else if (!inbox || !Array.isArray(inbox.required)) {
+    target.textContent = "管理担当者に投入ルールの設定を確認してください。画面操作と困ったことの記録は試せます。";
+  } else if (inbox.status === "SETUP_REQUIRED") {
+    target.textContent = "ファイルの受付と形式の確認は試せます。正式な投入ルールは管理担当者が設定します。";
+  } else if (inbox.required.some((item) => item.status === "MISSING")) {
+    target.textContent = "不足しているファイルを入れ、「投入したファイルを確認」を押してください。";
+  } else {
+    target.textContent = "ファイルの受付と正式な予測更新は別です。結果が出るまで管理担当者へ確認を依頼してください。";
+  }
+}
+
 async function load() {
   const [inbox, learning] = await Promise.all([loadInbox(), loadLearning()]);
   byId("refresh").disabled = true;
@@ -220,11 +250,13 @@ async function load() {
     const data = await response.json();
     render(data);
     updateSteps(inbox, learning, data.status === "READY");
+    showNextAction(inbox, data.status === "READY");
   } catch {
     byId("status").className = "status error";
     byId("status").textContent = "データの読み込みに失敗しました。管理担当者へご連絡ください。";
     byId("results").hidden = true;
     updateSteps(inbox, learning, false);
+    showNextAction(inbox, false);
   } finally {
     byId("refresh").disabled = false;
   }
@@ -233,11 +265,41 @@ async function load() {
 byId("today").textContent = new Intl.DateTimeFormat("ja-JP", {
   timeZone: "Asia/Tokyo", year: "numeric", month: "numeric", day: "numeric",
 }).format(new Date());
-byId("refresh").addEventListener("click", load);
-byId("finish-day").addEventListener("click", () => {
+byId("refresh").addEventListener("click", () => {
+  void recordAction("REFRESH");
+  void load();
+});
+byId("scan-files").addEventListener("click", async () => {
+  await recordAction("SCAN_REQUESTED");
+  byId("scan-status").textContent = "Windowsの確認画面で続行してください。確認画面が出ない場合は、デスクトップの「ブンセン 出荷予測」をもう一度開いてください。";
+  window.location.href = "bunsen-pilot-scan://run";
+});
+byId("finish-day").addEventListener("click", async () => {
   if (!window.confirm("本日の作業を完了し、バックアップを作成しますか？")) return;
+  await recordAction("FINISH_REQUESTED");
   byId("finish-day-status").textContent = "Windowsの確認画面で続行してください。画面が出ない場合は、デスクトップの「ブンセン 本日の作業を完了」を使用してください。";
   window.location.href = "bunsen-pilot-finish://run";
+});
+byId("send-feedback").addEventListener("click", async () => {
+  const button = byId("send-feedback");
+  button.disabled = true;
+  byId("feedback-status").textContent = "記録しています。";
+  try {
+    const response = await fetch("/api/field-pilot/operator-feedback", {
+      method: "POST", headers: { "Content-Type": "application/json",
+        "X-Field-Pilot-Operator": "1" },
+      body: JSON.stringify({
+        step: byId("feedback-step").value,
+        issue: byId("feedback-issue").value,
+      }),
+    });
+    if (!response.ok) throw new Error("feedback failed");
+    byId("feedback-status").textContent = "このPCに記録しました。ご協力ありがとうございます。";
+  } catch {
+    byId("feedback-status").textContent = "記録できませんでした。管理担当者へお伝えください。";
+  } finally {
+    button.disabled = false;
+  }
 });
 byId("learn-accept").addEventListener("click", () => {
   decideLearning("confirm", currentCandidate.suggested_kind);
