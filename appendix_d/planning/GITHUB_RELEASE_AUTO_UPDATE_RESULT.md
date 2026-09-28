@@ -83,9 +83,10 @@ GitHub通信はHTTPSで、配布先URLとredirect先を制限する。署名公�
 
 ## 19. Ed25519署名鍵の生成と保管
 
-公開鍵は秘密鍵から生成する。開発Repository直下や配布Repository内に秘密鍵を作らない。Windows PowerShellで`appendix_d`に移動し、Python環境へ`cryptography`を導入したうえで次を実行する。
+公開鍵は秘密鍵から生成する。開発Repository直下や配布Repository内に秘密鍵を作らない。Windows PowerShellで`appendix_d`に移動し、次を実行する。
 
 ```powershell
+python -m pip install cryptography
 python -m forecast_provider.update_service.keygen_cli --output-dir "$env:LOCALAPPDATA\Bunsen\ReleaseSigning"
 ```
 
