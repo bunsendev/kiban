@@ -1622,3 +1622,22 @@ OS: Windows 11
 - 人工データでZIP対象制限、資格情報除外、PostgreSQL dump必須、SHA改ざん拒否、パス逸脱拒否、アプリ版・配布指紋照合、SQLite WAL取り込み、Shadow/read-only検査を確認。対象7 passed。
 - Windows全体回帰: 760 passed、14 skipped、2 deselected（Linux専用peak RSS、更新中の配布照合）。`ruff check .`、`check_lint.py`、Windows PowerShell 5.1 module import、PowerShell構文検査、`git diff --check`は成功。
 - 稼働中の現場DBへの復元は行っていない。独立した検証環境でのDocker経路・PC交換の復元訓練が必要。実データPilotのNO-GO条件は継続。
+# 安全な改善データ同期（2026-09-28 JST）
+
+- 人工データによる対象試験: `tests/test_feedback_sync.py` 12 passed。初期OFF、Policy版、HMAC疑似ID、通常送信の最小化、AES-GCM改ざん検知、中央拒否、再送・冪等ACK、個別サポート許可、署名済み更新Manifest、人工イベント台帳から中央受信まで確認。
+- Windows全体回帰の初回: 750 passed、19 skipped、2 failed。失敗はWindowsに`resource`がないLinux専用RSS計測1件と、配布ハッシュ更新前の照合1件。修正後、前者をdeselectし配布生成・照合を再実行する。
+- 最終コードの全体回帰: 753 passed、19 skipped、Linux専用RSS計測1件deselected。対象12/12 passed。配布ZIP生成と830/830ファイルのSHA-256照合に成功。
+- `ruff check .`、Windows PowerShell構文・module import、JavaScript構文を確認。オンラインの実送信・現場PC導入・TLS proxy実配備は未実施。
+- 本番URL、公開鍵、Token、共有合意がないため送信OFFを維持。実データ・資格情報はRepositoryへ含めない。
+
+# End-of-Day Secure Sync / SharedServer Adapter（2026-09-28 JST）
+
+- 人工データの対象試験: `tests/test_feedback_sync.py`と`tests/test_end_of_day_shared_transport.py`で32 passed。octet-stream Header、厳格なACK、HTTP 401/403/404/429/500、二重Request、Outbox Backoff、再起動相当の再送、送信先変更時の拒否、接続テスト、学習・設定変更の匿名集計、既存Outbox migrationを確認。
+- 最終の全体回帰: 773 passed、19 skipped、Linux専用RSS計測1件deselected。対象試験32 passed。`ruff check .`、JavaScript構文、Windows PowerShell構文と5.1 module importに成功。
+- 共有PHP Endpointへの実POSTはToken未設定のため未実施。ブラウザのカスタムURI起動実機試験は自動承認レビューが一時スクリプトの起動を拒否したため未実施。現場PCでの新配布版導入、署名済みUpdate適用も未実施。
+- 判定は`planning/END_OF_DAY_SECURE_SYNC_RESULT.md`。実在庫CSV/PDF、Token、秘密鍵はRepositoryと配布物へ含めない。
+
+# Field Pilot 初回Token設定案内（2026-09-28 JST）
+
+- インストール後に接続設定またはDPAPI資格情報がない場合、管理担当者へ非表示Token入力を含む既存設定画面を案内する。見送り時もローカル画面は起動する。
+- PowerShell構文、同期関連32 passed、`ruff check .`、`git diff --check`に成功。共有サーバーへの実POSTはこのPCのToken未設定のため行っていない。利用者から疎通テスト完了の報告を受けている。

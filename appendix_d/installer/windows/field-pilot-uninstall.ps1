@@ -11,6 +11,7 @@ if (-not $appFull.StartsWith($basePrefix, [StringComparison]::OrdinalIgnoreCase)
     throw "アプリ削除先を安全に確認できませんでした。"
 }
 $installPath = Join-Path $dataRoot "install.json"
+$activeApp = $null
 if (Test-Path -LiteralPath $installPath) {
     $install = Get-Content -LiteralPath $installPath -Raw -Encoding utf8 | ConvertFrom-Json
     $activeApp = [System.IO.Path]::GetFullPath([string]$install.appRoot)
@@ -35,7 +36,12 @@ if (Test-Path -LiteralPath $installPath) {
 }
 $desktop = [Environment]::GetFolderPath("Desktop")
 $shell = New-Object -ComObject WScript.Shell
-foreach ($name in @("ブンセン 出荷予測", "ブンセン 出荷予測を終了", "ブンセン 出荷予測の状態確認")) {
+foreach ($name in @(
+    "ブンセン 出荷予測", "ブンセン 出荷予測を終了", "ブンセン 出荷予測の状態確認",
+    "ブンセン バックアップ作成", "ブンセン バックアップから復元",
+    "ブンセン 本日の作業を完了", "ブンセン 改善データ接続設定",
+    "ブンセン Feedback Server 接続テスト", "ブンセン 個別サポート送信"
+)) {
     $shortcut = Join-Path $desktop ($name + ".lnk")
     if (Test-Path -LiteralPath $shortcut) {
         $item = $shell.CreateShortcut($shortcut)
@@ -51,6 +57,18 @@ if (Test-Path -LiteralPath $folderShortcut) {
     $expected = [System.IO.Path]::GetFullPath((Join-Path $dataRoot "Inbox\Drop"))
     if ([System.IO.Path]::GetFullPath($item.TargetPath) -eq $expected) {
         Remove-Item -LiteralPath $folderShortcut
+    }
+}
+foreach ($scheme in @("bunsen-pilot-finish", "bunsen-pilot-connect")) {
+    $key = "HKCU:\Software\Classes\$scheme"
+    if (Test-Path -LiteralPath $key) {
+        $commandKey = Join-Path $key "shell\open\command"
+        $command = if (Test-Path -LiteralPath $commandKey) {
+            (Get-Item -LiteralPath $commandKey).GetValue("")
+        } else { "" }
+        if ($activeApp -and $command -and $command.Contains($activeApp)) {
+            Remove-Item -LiteralPath $key -Recurse -Force
+        }
     }
 }
 if (Test-Path -LiteralPath $appFull) {

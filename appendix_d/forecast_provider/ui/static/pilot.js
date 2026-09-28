@@ -234,6 +234,11 @@ byId("today").textContent = new Intl.DateTimeFormat("ja-JP", {
   timeZone: "Asia/Tokyo", year: "numeric", month: "numeric", day: "numeric",
 }).format(new Date());
 byId("refresh").addEventListener("click", load);
+byId("finish-day").addEventListener("click", () => {
+  if (!window.confirm("本日の作業を完了し、バックアップを作成しますか？")) return;
+  byId("finish-day-status").textContent = "Windowsの確認画面で続行してください。画面が出ない場合は、デスクトップの「ブンセン 本日の作業を完了」を使用してください。";
+  window.location.href = "bunsen-pilot-finish://run";
+});
 byId("learn-accept").addEventListener("click", () => {
   decideLearning("confirm", currentCandidate.suggested_kind);
 });

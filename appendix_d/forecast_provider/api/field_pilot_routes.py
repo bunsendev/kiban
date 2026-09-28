@@ -1,9 +1,11 @@
 """Field Pilot専用のloopback Shadow境界と限定された学習メタデータ操作。"""
 
 import hmac
+import json
 import re
 import sqlite3
-from datetime import date
+from datetime import date, datetime
+from importlib.metadata import PackageNotFoundError, version
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -53,6 +55,21 @@ class SettingRollback(BaseModel):
     comment: str = ""
 
 
+class FeedbackPolicyChange(BaseModel):
+    policy: dict
+    expected_version: str | None = None
+    actor: str
+    reason: str
+
+
+class SupportConsent(BaseModel):
+    target: str
+    purpose: str
+    destination: str
+    actor: str
+    expires_at: datetime
+
+
 def install_field_pilot_routes(app: FastAPI, service) -> None:
     allowed_paths = {
         "/health", "/ready", "/ui/pilot", "/ui/pilot/", "/api/field-pilot/view",
@@ -61,9 +78,12 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         "/ui/pilot/admin", "/ui/pilot/admin/",
         "/ui/pilot/settings", "/ui/pilot/settings/",
         "/api/field-pilot/settings",
+        "/api/field-pilot/feedback",
+        "/ui/pilot/feedback", "/ui/pilot/feedback/",
         "/ui/assets/pilot.css", "/ui/assets/pilot.js",
         "/ui/assets/pilot_admin.js",
         "/ui/assets/pilot_settings.js",
+        "/ui/assets/pilot_feedback.js",
     }
 
     @app.middleware("http")
@@ -72,7 +92,8 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         if request.url.hostname not in {"127.0.0.1", "localhost"}:
             return JSONResponse({"message": "現場PC内からのみ利用できます"}, status_code=403)
         if (path == "/api/field-pilot/admin" or ADMIN_ACTION.fullmatch(path)
-                or path.startswith("/api/field-pilot/settings")):
+                or path.startswith("/api/field-pilot/settings")
+                or path.startswith("/api/field-pilot/feedback")):
             configured = service.learning_admin_token
             supplied = request.headers.get("x-field-pilot-admin-token", "")
             if not (configured and supplied) or not hmac.compare_digest(configured, supplied):
@@ -80,7 +101,9 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         if request.method == "POST":
             if not (LEARNING_ACTION.fullmatch(path) or ADMIN_ACTION.fullmatch(path)
                     or path in {"/api/field-pilot/settings/change",
-                                "/api/field-pilot/settings/rollback"}):
+                                "/api/field-pilot/settings/rollback",
+                                "/api/field-pilot/feedback/change",
+                                "/api/field-pilot/feedback/support-consent"}):
                 return JSONResponse({"message": "試験運用は読み取り専用です"}, status_code=405)
             if not request.headers.get("content-type", "").startswith("application/json"):
                 return JSONResponse({"message": "要求形式を確認してください"}, status_code=415)
@@ -134,6 +157,58 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         configured = service.learning_admin_token
         supplied = request.headers.get("x-field-pilot-admin-token", "")
         return bool(configured and supplied) and hmac.compare_digest(configured, supplied)
+
+    @app.get("/api/field-pilot/feedback", include_in_schema=False)
+    def feedback_view(request: Request):
+        if not require_admin(request):
+            return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
+        current = service.feedback_store.current()
+        config = None
+        config_path = service.config_path.parent / "feedback-client.json"
+        try:
+            if config_path.is_file() and not config_path.is_symlink() and (
+                config_path.stat().st_size <= 4096
+            ):
+                source = json.loads(config_path.read_text(encoding="utf-8-sig"))
+                config = {"endpoint": source.get("endpoint"),
+                          "client_id": source.get("client_id")}
+        except (OSError, ValueError, TypeError):
+            config = None
+        try:
+            app_version = version("bunsen-forecast-provider")
+        except PackageNotFoundError:
+            app_version = "unpackaged"
+        return {**current, "application_version": app_version, "connection": config,
+                "sync": service.feedback_store.status(), "preview": {
+            "sends": (["診断・処理状態"] if current["policy"]["flags"]["diagnostics"] else [])
+            + (["集計した処理時間・改善指標"]
+               if current["policy"]["flags"]["forecast_metrics"] else [])
+            + (["疑似IDを付けた詳細"] if current["policy"]["level"] == 3 else []),
+            "never_in_regular_sync": ["原本CSV/PDF", "商品名", "取引先名", "資格情報"],
+            "status": "送信OFF" if current["policy"]["level"] == 0 else "中央側の同意確認が必要",
+        }}
+
+    @app.post("/api/field-pilot/feedback/change", include_in_schema=False)
+    def feedback_change(decision: FeedbackPolicyChange, request: Request):
+        if not require_admin(request):
+            return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
+        try:
+            return service.feedback_store.change(
+                decision.policy, expected_version=decision.expected_version,
+                actor=decision.actor, reason=decision.reason,
+            )
+        except (ValueError, OSError, sqlite3.DatabaseError):
+            return JSONResponse({"message": "共有範囲・版を確認してください"}, status_code=409)
+
+    @app.post("/api/field-pilot/feedback/support-consent", include_in_schema=False)
+    def feedback_support_consent(decision: SupportConsent, request: Request):
+        if not require_admin(request):
+            return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
+        try:
+            consent_id = service.feedback_store.consent(**decision.model_dump())
+            return {"consent_id": consent_id, "status": "ONE_TIME"}
+        except (ValueError, OSError, sqlite3.DatabaseError):
+            return JSONResponse({"message": "対象と期限を確認してください"}, status_code=409)
 
     @app.get("/api/field-pilot/settings", include_in_schema=False)
     def settings_view(request: Request, change_type: str = "JAN_MAPPING", target: str = ""):

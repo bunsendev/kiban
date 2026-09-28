@@ -2,6 +2,7 @@
 $ErrorActionPreference = "Stop"
 Import-Module (Join-Path $PSScriptRoot "Kiban.Local.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "Kiban.FieldPilot.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "Kiban.FieldPilot.Feedback.psm1") -Force
 
 function Assert-UnderDirectory([string]$Path, [string]$Directory) {
     $root = [System.IO.Path]::GetFullPath($Directory).TrimEnd("\") + "\"
@@ -104,7 +105,11 @@ function Install-FieldPilotShortcuts([string]$AppRoot, [string]$DataRoot) {
         @{ Name = "ブンセン 出荷予測を終了"; Script = "field-pilot-stop.ps1" },
         @{ Name = "ブンセン 出荷予測の状態確認"; Script = "field-pilot-status.ps1" },
         @{ Name = "ブンセン バックアップ作成"; Script = "field-pilot-backup.ps1"; Visible = $true },
-        @{ Name = "ブンセン バックアップから復元"; Script = "field-pilot-restore.ps1"; Visible = $true }
+        @{ Name = "ブンセン バックアップから復元"; Script = "field-pilot-restore.ps1"; Visible = $true },
+        @{ Name = "ブンセン 本日の作業を完了"; Script = "field-pilot-finish.ps1"; Visible = $true },
+        @{ Name = "ブンセン 改善データ接続設定"; Script = "field-pilot-feedback-configure.ps1"; Visible = $true },
+        @{ Name = "ブンセン Feedback Server 接続テスト"; Script = "field-pilot-feedback-test.ps1"; Visible = $true },
+        @{ Name = "ブンセン 個別サポート送信"; Script = "field-pilot-support-send.ps1"; Visible = $true }
     )
     foreach ($item in $items) {
         $scriptPath = Join-Path $AppRoot ("installer\windows\" + $item.Script)
@@ -120,6 +125,26 @@ function Install-FieldPilotShortcuts([string]$AppRoot, [string]$DataRoot) {
     $folder = $shell.CreateShortcut((Join-Path $desktop "ブンセン データ投入.lnk"))
     $folder.TargetPath = Join-Path $DataRoot "Inbox\Drop"
     $folder.Save()
+}
+
+function Register-FieldPilotProtocol([string]$AppRoot, [string]$DataRoot) {
+    $powershell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+    foreach ($item in @(
+        @{ Scheme = "bunsen-pilot-finish"; Script = "field-pilot-finish.ps1"; Browser = $true },
+        @{ Scheme = "bunsen-pilot-connect"; Script = "field-pilot-feedback-test.ps1"; Browser = $false }
+    )) {
+        $key = "HKCU:\Software\Classes\$($item.Scheme)"
+        New-Item -Path (Join-Path $key "shell\open\command") -Force | Out-Null
+        Set-Item -Path $key -Value "URL:ブンセン Field Pilot"
+        New-ItemProperty -Path $key -Name "URL Protocol" -Value "" -PropertyType String `
+            -Force | Out-Null
+        $script = Join-Path $AppRoot ("installer\windows\" + $item.Script)
+        $command = '"' + $powershell + '" -NoProfile -ExecutionPolicy Bypass ' +
+            '-WindowStyle Normal -File "' + $script + '" -DataRoot "' + $DataRoot + '"'
+        if ($item.Browser) { $command += " -FromBrowser" }
+        # URL自体は引数に渡さない。外部ページの入力をコマンドへ混ぜない。
+        Set-Item -Path (Join-Path $key "shell\open\command") -Value $command
+    }
 }
 
 try {
@@ -157,6 +182,7 @@ try {
         (Join-Path $dataRoot "Input"), (Join-Path $dataRoot "Reports"),
         (Join-Path $dataRoot "Mapping"), (Join-Path $dataRoot "Import"),
         (Join-Path $dataRoot "LocalSettings"), (Join-Path $dataRoot "Backup"),
+        (Join-Path $dataRoot "Secrets"),
         (Join-Path $dataRoot "Logs"), (Join-Path $dataRoot "Tools"),
         (Join-Path $dataRoot "Inbox\Drop"), (Join-Path $dataRoot "Inbox\Staged"),
         (Join-Path $dataRoot "Inbox\Archive"), (Join-Path $dataRoot "Inbox\Observed"))) {
@@ -192,6 +218,7 @@ try {
         installedAt = (Get-Date).ToUniversalTime().ToString("o")
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $dataRoot "install.json") -Encoding utf8
     Install-FieldPilotShortcuts $appRoot $dataRoot
+    Register-FieldPilotProtocol $appRoot $dataRoot
     Write-FieldPilotLog $dataRoot "install" "completed"
     Write-Host "[4/6] Docker Desktopを起動しています..."
     Start-DockerDesktop
@@ -200,6 +227,25 @@ try {
     Invoke-FieldPilotCompose $install @("up", "-d", "--build", "postgres", "api")
     Wait-FieldPilotReady $install
     Invoke-FieldPilotInboxScan $install
+    $feedbackConfig = Join-Path $install.DataRoot "Config\feedback-client.json"
+    $credentialReady = $false
+    try { $credentialReady = [bool](Get-FeedbackCredentials $install) } catch { }
+    if (-not (Test-Path -LiteralPath $feedbackConfig -PathType Leaf) -or
+        -not $credentialReady) {
+        Write-Host "改善データの共有は未設定です。設定しなくてもローカル機能は使えます。"
+        $answer = (Read-Host "このPCで管理者が送信用Tokenと公開鍵を設定しますか？［y/N］").Trim()
+        if ($answer -match '^[yY]$') {
+            $powershell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+            $configure = Join-Path $install.AppRoot "installer\windows\field-pilot-feedback-configure.ps1"
+            $setupResult = Start-Process -FilePath $powershell -WindowStyle Normal -Wait -PassThru `
+                -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                    ('"' + $configure + '"'), "-DataRoot", ('"' + $install.DataRoot + '"'))
+            if ($setupResult.ExitCode -ne 0) {
+                Write-Host "改善データの接続設定は未完了です。後からデスクトップの接続設定を開けます。" `
+                    -ForegroundColor Yellow
+            }
+        }
+    }
     Write-Host "[6/6] 現場画面を開きます..."
     Open-FieldPilot $install
     $view = Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/field-pilot/view" -TimeoutSec 5
