@@ -1,4 +1,4 @@
-"""Local-only AI suggestions for an unconfirmed CSV structure.
+"""Constrained AI suggestions for an unconfirmed CSV structure.
 
 The model sees column names and inferred value types, never source rows. Its
 answer is advisory and cannot activate a schema or change forecast readiness.
@@ -68,14 +68,13 @@ def _supported_unit(unit: str, headers: list[str]) -> str:
     ) else "UNKNOWN"
 
 
-def suggest_structure(structure: dict, model: str, *, opener=None) -> dict:
-    """Ask a loopback Ollama model and strictly constrain its returned references."""
+def prepare_suggestion(structure: dict) -> tuple[list[str], str, str]:
+    """Prepare metadata only; original rows and values never leave this boundary."""
     headers = structure.get("headers")
-    if (not model or not isinstance(headers, list) or not 0 < len(headers) <= 256
+    if (not isinstance(headers, list) or not 0 < len(headers) <= 256
             or any(not isinstance(h, str) or len(h) > 120 for h in headers)):
         raise AiSuggestionUnavailable("AI_INPUT_INVALID")
     relevant = _relevant_headers(headers)
-    schema = _schema(relevant)
     rule_kind, _ = _kind(tuple(headers))
     prompt = json.dumps({
         "instruction": (
@@ -95,9 +94,37 @@ def suggest_structure(structure: dict, model: str, *, opener=None) -> dict:
             if key in relevant
         },
     }, ensure_ascii=False)
+    return relevant, rule_kind, prompt
+
+
+def validate_suggestion(result: dict, relevant: list[str], headers: list[str],
+                        rule_kind: str, source: str) -> dict:
+    """Reject invented columns, unsupported units and unreviewed adoption."""
+    if not isinstance(result, dict) or result.get("kind") not in KINDS | {"OTHER"}:
+        raise AiSuggestionUnavailable("AI_RESPONSE_INVALID")
+    columns = result.get("columns")
+    if (not isinstance(columns, dict) or set(columns) - FIELDS
+            or any(value not in [*relevant, ""] for value in columns.values())
+            or result.get("unit_hint") not in UNITS):
+        raise AiSuggestionUnavailable("AI_RESPONSE_INVALID")
+    return {
+        "source": source, "kind": result["kind"],
+        "rule_candidate": rule_kind,
+        "kind_conflict": rule_kind != "OTHER" and result["kind"] != rule_kind,
+        "columns": {key: value for key, value in columns.items() if value},
+        "unit_hint": _supported_unit(result["unit_hint"], headers),
+        "needs_review": True,
+    }
+
+
+def suggest_structure(structure: dict, model: str, *, opener=None) -> dict:
+    """Ask a loopback Ollama model and strictly constrain its returned references."""
+    if not model:
+        raise AiSuggestionUnavailable("AI_INPUT_INVALID")
+    relevant, rule_kind, prompt = prepare_suggestion(structure)
     payload = json.dumps({
         "model": model, "prompt": prompt, "stream": False, "think": False,
-        "format": schema,
+        "format": _schema(relevant),
         "options": {"temperature": 0, "num_predict": 256, "num_ctx": 4096},
     }, ensure_ascii=False).encode("utf-8")
     endpoint = os.environ.get("KIBAN_FIELD_PILOT_AI_ENDPOINT", ENDPOINT)
@@ -113,18 +140,4 @@ def suggest_structure(structure: dict, model: str, *, opener=None) -> dict:
         result = json.loads(json.loads(raw)["response"])
     except (HTTPError, URLError, OSError, ValueError, KeyError, TypeError) as exc:
         raise AiSuggestionUnavailable("AI_UNAVAILABLE") from exc
-    if not isinstance(result, dict) or result.get("kind") not in KINDS | {"OTHER"}:
-        raise AiSuggestionUnavailable("AI_RESPONSE_INVALID")
-    columns = result.get("columns")
-    if (not isinstance(columns, dict) or set(columns) - FIELDS
-            or any(value not in [*relevant, ""] for value in columns.values())
-            or result.get("unit_hint") not in UNITS):
-        raise AiSuggestionUnavailable("AI_RESPONSE_INVALID")
-    return {
-        "source": "LOCAL_AI", "kind": result["kind"],
-        "rule_candidate": rule_kind,
-        "kind_conflict": rule_kind != "OTHER" and result["kind"] != rule_kind,
-        "columns": {key: value for key, value in columns.items() if value},
-        "unit_hint": _supported_unit(result["unit_hint"], headers),
-        "needs_review": True,
-    }
+    return validate_suggestion(result, relevant, structure["headers"], rule_kind, "LOCAL_AI")

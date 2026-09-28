@@ -1,4 +1,4 @@
-"""AI suggestions stay local, advisory, and separate from formal ingestion."""
+"""AI suggestions remain advisory and separate from formal ingestion."""
 
 import json
 
@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from forecast_provider.api import create_app
 from forecast_provider.catalog import SqliteCatalogStore
 from forecast_provider.field_pilot import FieldPilotReadService
+from forecast_provider.field_pilot.ai_cloud import suggest_cloud_structure
 from forecast_provider.field_pilot.ai_intake import (
     AiSuggestionUnavailable,
     _relevant_headers,
@@ -105,6 +106,53 @@ def test_ai_destination_is_limited_to_local_process_or_compose_service(monkeypat
         "source"] == "LOCAL_AI"
 
 
+def test_cloud_api_sends_only_structure_and_keeps_key_out_of_payload():
+    answer = {"kind": "WAREHOUSE_INVENTORY", "columns": {
+        "date": "", "jan": "", "product_code": "", "location": "倉庫",
+        "quantity": "箱数", "expiry": "賞味期限", "product": "",
+    }, "unit_hint": "CASE"}
+
+    def open_cloud(request, timeout):
+        assert request.full_url == "https://api.openai.com/v1/responses"
+        assert request.get_header("Authorization") == "Bearer sk-test-secret"
+        assert timeout <= 20
+        payload = json.loads(request.data)
+        assert payload["store"] is False
+        assert payload["text"]["format"]["strict"] is True
+        assert "sk-test-secret" not in json.dumps(payload)
+        assert "秘密の行の値" not in json.dumps(payload, ensure_ascii=False)
+        assert "箱数" in payload["input"][1]["content"]
+        return _CloudResponse(answer)
+
+    result = suggest_cloud_structure(
+        {"headers": ["倉庫", "箱数", "賞味期限"],
+         "value_types": {"箱数": "NUMBER"}},
+        "sk-test-secret", opener=open_cloud,
+    )
+    assert result["source"] == "CLOUD_AI"
+    assert result["needs_review"] is True
+    assert result["unit_hint"] == "CASE"
+
+
+class _CloudResponse(_Response):
+    def read(self, _size):
+        return json.dumps({"output": [{"type": "message", "content": [
+            {"type": "output_text", "text": json.dumps(self.answer)}]}]}).encode()
+
+
+def test_cloud_api_rejects_invented_columns_and_invalid_key():
+    with pytest.raises(AiSuggestionUnavailable, match="AI_KEY_INVALID"):
+        suggest_cloud_structure({"headers": ["箱数"]}, "key\nwith-newline")
+    with pytest.raises(AiSuggestionUnavailable, match="AI_RESPONSE_INVALID"):
+        suggest_cloud_structure(
+            {"headers": ["箱数"]}, "sk-test-secret",
+            opener=lambda *_args, **_kwargs: _CloudResponse({
+                "kind": "SHIPMENT_ACTUAL", "columns": {"jan": "架空JAN"},
+                "unit_hint": "UNKNOWN",
+            }),
+        )
+
+
 def test_pilot_ai_endpoint_is_optional_and_does_not_change_candidate(tmp_path, monkeypatch):
     _policy(tmp_path)
     root = tmp_path / "Inbox"
@@ -131,5 +179,10 @@ def test_pilot_ai_endpoint_is_optional_and_does_not_change_candidate(tmp_path, m
     blocked = client.post(url, json={}, headers={"Origin": "https://elsewhere.test"})
     assert blocked.status_code == 403
     assert client.post(url, json={}).json()["needs_review"] is True
+    monkeypatch.setattr("forecast_provider.field_pilot.learning_service.suggest_cloud_structure",
+                        lambda structure, api_key: {"source": "CLOUD_AI", "kind": "OTHER",
+                                                    "columns": {}, "unit_hint": "UNKNOWN",
+                                                    "needs_review": True})
+    assert client.post(url, json={"api_key": "sk-test-secret"}).json()["source"] == "CLOUD_AI"
     assert service.learning.pending_view()["candidates"][0]["status"] == "PENDING_OPERATOR"
     assert service.learning.store.active_rules() == ()

@@ -33,6 +33,12 @@ class OperatorDecision(BaseModel):
     kind: str
 
 
+class AiSuggestionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    api_key: str | None = None
+
+
 class AdminDecision(BaseModel):
     kind: str
     actor: str
@@ -194,15 +200,16 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         return service.learning_view()
 
     @app.post("/api/field-pilot/learning/{candidate_id}/suggest", include_in_schema=False)
-    def learning_ai_suggest(candidate_id: str, request: Request):
+    def learning_ai_suggest(candidate_id: str, decision: AiSuggestionRequest,
+                            request: Request):
         request.state.audit_operation = "FIELD_PILOT_AI_SUGGESTION"
         if not re.fullmatch(r"[0-9a-f]{64}", candidate_id):
             return JSONResponse({"message": "候補を確認してください"}, status_code=404)
         try:
-            return service.learning.ai_suggest(candidate_id)
+            return service.learning.ai_suggest(candidate_id, api_key=decision.api_key)
         except AiSuggestionUnavailable:
             return JSONResponse(
-                {"message": "このPCのAIを利用できません。通常の確認を続けてください。"},
+                {"message": "AI候補を取得できません。通常の確認を続けてください。"},
                 status_code=503,
             )
         except (AttributeError, ValueError, OSError, sqlite3.DatabaseError):

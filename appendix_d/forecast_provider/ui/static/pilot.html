@@ -37,7 +37,12 @@
       <h2>新しいファイルを見つけました</h2>
       <p id="learning-message"></p>
       <p id="learning-columns"></p>
-      <button id="learning-ai" type="button">AIに分類候補を聞く</button>
+      <label for="learning-api-key">OpenAI APIキー（この画面を閉じると消えます）</label>
+      <input id="learning-api-key" type="password" autocomplete="off" spellcheck="false"
+        placeholder="APIキーを入力" aria-describedby="learning-api-note">
+      <p id="learning-api-note" class="hint">APIには列名と値の種類だけを送ります。元ファイルの行・商品名の値・JAN値・数量値は送りません。キーは保存しません。</p>
+      <button id="learning-ai" type="button">APIで分類候補を調べる</button>
+      <button id="learning-local-ai" type="button" hidden>このPCのAIで調べる</button>
       <p id="learning-ai-result" role="status" aria-live="polite"></p>
       <p class="hint">AIの回答は候補です。JAN・数量単位・正式データは自動確定しません。</p>
       <div id="learning-actions">
