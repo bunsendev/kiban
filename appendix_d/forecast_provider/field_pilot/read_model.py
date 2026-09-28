@@ -16,6 +16,7 @@ from ..feedback_sync.policy import FeedbackStore
 from ..inventory_foundation.read_service import InventorySnapshotReadService
 from ..update_service.check_service import UpdateCheckService, UpdateCheckStore
 from ..warehouse_projection import ProjectionBlocked
+from .daily_handoff import validate_daily_handoff
 from .forecast_handoff import forecast_handoff
 from .formal_product_mapping import publish_confirmed_product_mapping
 from .formal_shipment_draft import FormalShipmentDraftStore, make_formal_shipment_draft
@@ -192,6 +193,22 @@ class FieldPilotReadService:
         )
         history = materialize_history(draft, trial, handoff)
         return FormalShipmentHistoryStore(path).put(history)
+
+    def create_daily_handoff(self, history_id: str, definition: dict, daily) -> dict:
+        """凍結履歴と正式上流を照合してから日次buildを登録する。"""
+        if daily is None:
+            raise ValueError("DAILY_HANDOFF_NOT_CONFIGURED")
+        from ..daily import make_daily_build
+
+        history = FormalShipmentHistoryStore(
+            self.local_settings_dir / "formal-shipment-drafts.sqlite3",
+        ).get(history_id)
+        if history is None:
+            raise ValueError("DAILY_HANDOFF_HISTORY_NOT_FOUND")
+        job = make_daily_build(definition)
+        result = validate_daily_handoff(history, job, daily)
+        daily.put_job(job)
+        return result
 
     def shipment_trial_feedback(self, product_code: str, source_fingerprint: str,
                                 issue: str) -> dict:

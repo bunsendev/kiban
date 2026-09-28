@@ -19,6 +19,7 @@ from ..field_pilot.operator_feedback import (
     record_feedback,
 )
 from ..inventory_foundation.read_service import InventoryReadError
+from .daily_schemas import DailyBuildCreate
 
 LEARNING_ACTION = re.compile(r"^/api/field-pilot/learning/[0-9a-f]{64}/(confirm|disagree)$")
 AI_ACTION = re.compile(r"^/api/field-pilot/learning/[0-9a-f]{64}/suggest$")
@@ -134,7 +135,14 @@ class ShipmentHistoryRequest(BaseModel):
     draft_id: str
 
 
-def install_field_pilot_routes(app: FastAPI, service) -> None:
+class DailyHandoffRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    history_id: str
+    daily_build: DailyBuildCreate
+
+
+def install_field_pilot_routes(app: FastAPI, service, daily=None) -> None:
     operator_paths = {
         "/api/field-pilot/operator-feedback",
         "/api/field-pilot/operator-action",
@@ -167,7 +175,8 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
                      "/api/field-pilot/admin/product-mapping/publish",
                      "/api/field-pilot/admin/forecast-preparation",
                      "/api/field-pilot/admin/formal-shipment-drafts",
-        "/api/field-pilot/admin/formal-shipment-history",
+                     "/api/field-pilot/admin/formal-shipment-history",
+                     "/api/field-pilot/admin/daily-handoff",
                      "/api/field-pilot/admin/shipment-trial",
                      "/api/field-pilot/admin/shipment-trial/feedback"}
                 or ADMIN_ACTION.fullmatch(path)
@@ -185,7 +194,8 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
                     or path in {"/api/field-pilot/admin/product-mapping/publish",
                                 "/api/field-pilot/admin/forecast-preparation",
                                 "/api/field-pilot/admin/formal-shipment-drafts",
-            "/api/field-pilot/admin/formal-shipment-history",
+                                "/api/field-pilot/admin/formal-shipment-history",
+                                "/api/field-pilot/admin/daily-handoff",
                                 "/api/field-pilot/admin/update/check",
                                 "/api/field-pilot/admin/shipment-trial",
                                 "/api/field-pilot/admin/shipment-trial/feedback",
@@ -326,6 +336,22 @@ def install_field_pilot_routes(app: FastAPI, service) -> None:
         except (AttributeError, OSError, ValueError, sqlite3.DatabaseError):
             return JSONResponse({"message": "原本全期間・判断版・在庫を再確認してください"},
                                 status_code=409)
+
+    @app.post("/api/field-pilot/admin/daily-handoff", include_in_schema=False)
+    def create_daily_handoff(value: DailyHandoffRequest, request: Request):
+        request.state.audit_operation = "FIELD_PILOT_DAILY_HANDOFF"
+        if not require_admin(request):
+            return JSONResponse({"message": "管理者確認が必要です"}, status_code=403)
+        try:
+            return service.create_daily_handoff(
+                value.history_id, value.daily_build.model_dump(mode="json"), daily,
+            )
+        except (AttributeError, OSError, ValueError, sqlite3.DatabaseError) as exc:
+            reason = str(exc)
+            if not reason.startswith("DAILY_HANDOFF_"):
+                reason = "DAILY_HANDOFF_FORMAL_INPUT_INVALID"
+            return JSONResponse({"message": "正式日次入力と凍結履歴の照合に失敗しました",
+                                 "reason": reason}, status_code=409)
 
     @app.post("/api/field-pilot/admin/shipment-trial/feedback",
               include_in_schema=False)

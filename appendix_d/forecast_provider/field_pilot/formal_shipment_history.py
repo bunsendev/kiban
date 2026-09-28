@@ -119,4 +119,12 @@ class FormalShipmentHistoryStore:
         with sqlite3.connect(self.path) as db:
             row = db.execute("SELECT content_json FROM formal_shipment_histories "
                              "WHERE history_id=?", (history_id,)).fetchone()
-        return json.loads(row[0]) if row else None
+        if row is None:
+            return None
+        content = json.loads(row[0])
+        canonical = json.dumps(content, ensure_ascii=False, sort_keys=True,
+                               separators=(",", ":"))
+        digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        if "shipment-history-" + digest != history_id:
+            raise ValueError("FORMAL_HISTORY_INTEGRITY_INVALID")
+        return content
