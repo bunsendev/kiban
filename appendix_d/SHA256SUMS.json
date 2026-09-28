@@ -300,13 +300,8 @@
   "forecast_provider/field_pilot/local_setting_store.py": "ed2fa2eb220cbc2772cae9f0b2bf91a577ff0eb60684efe5f3837b4628afaa49",
   "forecast_provider/field_pilot/operator_feedback.py": "fd15fb6797189ee019a388978c76fc762725ad09161a0aef14f3549d06f22dc6",
   "forecast_provider/field_pilot/product_review.py": "84ab464ee56763b12b5a67a359f7242591104997befcb6211bef04ce43833111",
-<<<<<<< HEAD
   "forecast_provider/field_pilot/read_model.py": "2ade10933dcbfb8ab04c847fe2862e9edbf37464674bc35351ed508756a42357",
-  "forecast_provider/field_pilot/recovery_bundle.py": "690510021631c77f1bd1b46074e0e8d1aa96cf092a2a914dd4e7ed6a59436355",
-=======
-  "forecast_provider/field_pilot/read_model.py": "4a2c7f852bc14ae4f8c58d08ccd8ad4fb826f9fa1bcd9f4d272680fccc801c2b",
   "forecast_provider/field_pilot/recovery_bundle.py": "d18e9c6bd70d88c70a8c7008dc486871bccd57f41606d95204b0566e357bd949",
->>>>>>> 98c50d6 (更新前バックアップと更新履歴の復旧を追加)
   "forecast_provider/field_pilot/shipment_trial.py": "20b82dafd8a4768c2d293bd35a9efc0883558a4689cb603f7b5dfe6d655dbf4d",
   "forecast_provider/field_ui/__init__.py": "9929c03349b066c91fda2d6ba7ed5d02f4d88e07a2679f993832693cba04edd8",
   "forecast_provider/field_ui/read_model.py": "e430675966c6dde13c0f3e67a08a91dbf0a21e72f58b892f10599d2a3ad4014e",
@@ -696,11 +691,7 @@
   "planning/FIELD_PILOT_RECOVERY_RESULT.md": "933729dff63f123440a7cbcafa674d923a31b7d11113b7991425e9c889f21389",
   "planning/FIELD_PILOT_RELEASE_RESULT.md": "44643d6d8b78ad52cf210ddf35a0fc678fc8f1293dff43dfcdf9403f6b100fc5",
   "planning/FIELD_PILOT_UNIFIED_INBOX_RESULT.md": "3bb2fc5dbafda6f1680a5465ca67164a96a47202d14ed8527d2e2c7ad573ca30",
-<<<<<<< HEAD
-  "planning/GITHUB_RELEASE_AUTO_UPDATE_RESULT.md": "b1ef46132528bf516675fda7c17183dd3d324ba92c2130d0385a853864d2bb0a",
-=======
-  "planning/GITHUB_RELEASE_AUTO_UPDATE_RESULT.md": "9ce58d434e626cca59d50394b33660ff846d82bd9ec754246f6d1ef7dffd1dd7",
->>>>>>> 98c50d6 (更新前バックアップと更新履歴の復旧を追加)
+  "planning/GITHUB_RELEASE_AUTO_UPDATE_RESULT.md": "f5119ca66c6d0f59bfa0e8c57f0548494d8db30f46212359e5fb134919d288bf",
   "planning/PHASE1S_PLAN.md": "2fde717c24a5e3e5f5a3faa3fd30d2790032d63a96b354fc453ca715bccf316e",
   "planning/PHASE1T_PLAN.md": "aa13afd0afebb6a0ef3f2c986d48a5ce5c48f2c9e4b972bf9e1f48045713faa8",
   "planning/PHASE1U_PLAN.md": "f2a27b3c3d98bbf2ab410d8ef2433d7183f16e1ece710fc23b5ea94fc46669ce",
@@ -743,11 +734,7 @@
   "scripts/manual/capture_easy_manual.cjs": "4a205c62da0a131a9e9f5916c06a42201f1a71e9e7db5ce544433a9acbd7448c",
   "scripts/manual/render_easy_manual.py": "dd006dccfa93c6ebd093c034b8ea011b897f00bb9922e66576bd963481b88881",
   "scripts/manual/render_easy_narration.ps1": "39560d01c0226a62d0072a3dfd8c472a3befcae67332e370066fa2d0380c3566",
-<<<<<<< HEAD
-  "test_results.txt": "7c0315de03da7d10853b1a7f1534108e2c861ef0334a5e8330b1c7795b4a1784",
-=======
-  "test_results.txt": "b5f801a51a6bee29c02e79d003e709f35bc6f95e161f2b49e596e8f51b9ecc01",
->>>>>>> 98c50d6 (更新前バックアップと更新履歴の復旧を追加)
+  "test_results.txt": "cea689093b64c5209db2f15c6b1602bff5ba4bf1ca5f932fd37f8f0dcee7d345",
   "tests/__init__.py": "aced5d4628664e605cac89be5ea20e022f0c5ec6d342c046b14646a424daff69",
   "tests/acceptance_support.py": "1f0c33e6053bc41309ad175582ebcce29cfce08b5fddb76d81def05f4b0cee27",
   "tests/conftest.py": "1d25aeaa8bc10cf8fe2d54e5b82dcba1e318e2a8a83e2071e6e9d39aba6ec3b0",

@@ -6,6 +6,7 @@
 
 # Field Pilot 更新前バックアップ・復旧対象（2026-09-29 JST）
 
+- 更新確認画面とバックアップの統合ブランチでは799 passed / 20 skipped / Linux専用RSS計測1件deselected。配布ZIPは867ファイル。
 - 更新確認SQLiteと署名公開鍵をバックアップ・復旧対象へ追加。`pre-update` FULLバックアップ用PowerShell入口と保持件数policyを追加し、旧policyは既定5件で互換。
 - 復旧ZIPの作成・照合・ステージ、SQLite履歴保持、破損SQLiteの拒否、不正保持policyの拒否を対象10テストで確認。Windows全体回帰は798 passed / 20 skipped / Linux専用RSS計測1件deselected。`ruff check .`に成功。
 - 更新適用との必須Gate接続、公開配布物、現場PC実機での復旧は未実施。
