@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import getpass
 import hashlib
 import json
 from datetime import UTC, datetime
@@ -27,6 +28,7 @@ def _sha256(path: Path) -> str:
 def prepare_release(package: Path, output: Path, *, version: str, channel: str,
                     minimum_version: str, database_migration: int,
                     notes: list[str], signing_key: bytes | None = None,
+                    signing_password: bytes | None = None,
                     release_date: str | None = None) -> dict:
     version_key(version)
     version_key(minimum_version)
@@ -53,7 +55,7 @@ def prepare_release(package: Path, output: Path, *, version: str, channel: str,
     canonical = json.dumps(manifest, ensure_ascii=False, sort_keys=True,
                            separators=(",", ":")).encode("utf-8")
     if signing_key is not None:
-        key = serialization.load_pem_private_key(signing_key, password=None)
+        key = serialization.load_pem_private_key(signing_key, password=signing_password)
         if not isinstance(key, Ed25519PrivateKey):
             raise ValueError("UPDATE_SIGNING_KEY_INVALID")
         signature = base64.b64encode(key.sign(canonical))
@@ -83,10 +85,14 @@ def main() -> int:
     parser.add_argument("--signing-key-file", type=Path)
     args = parser.parse_args()
     key = args.signing_key_file.read_bytes() if args.signing_key_file else None
+    password = None
+    if key is not None and b"ENCRYPTED PRIVATE KEY" in key:
+        password = getpass.getpass("署名秘密鍵のパスフレーズ: ").encode("utf-8")
     result = prepare_release(
         args.package, args.output, version=args.version, channel=args.channel,
         minimum_version=args.minimum_version,
         database_migration=args.database_migration, notes=args.note, signing_key=key,
+        signing_password=password,
     )
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     return 0

@@ -1,6 +1,6 @@
 # GitHub Releases 更新基盤：実装結果と公開前Gate
 
-更新日: 2026-09-28。対象: `bunsendev/kiban` Field Pilot。これは実装・検証の実測結果であり、現場更新完了の宣言ではない。
+更新日: 2026-09-29。対象: `bunsendev/kiban` Field Pilot。これは実装・検証の実測結果であり、現場更新完了の宣言ではない。
 
 ## 1. Architecture
 
@@ -12,7 +12,7 @@
 
 ## 3. Release Repository
 
-想定先は `bunsendev/kiban-releases`。現時点で公開Repositoryとして確認できず、作成・Release発行は未実施。公開禁止物を除いた配布物がまだないため、既存ZIPを使って作成・発行しない。
+公開配布先 [bunsendev/kiban-releases](https://github.com/bunsendev/kiban-releases) を作成済み。Release immutabilityを有効化し、用途外のWiki・Issues・Projectsを無効化した。公開READMEにasset契約と禁止物を記載した。更新providerの`OWNER/REPOSITORY`はこの配布先に固定済み。Releaseは未発行。公開禁止物を除いた配布物がまだないため、既存ZIPを使って発行しない。
 
 ## 4. Version Policy
 
@@ -32,7 +32,7 @@
 
 ## 8. Updater
 
-Release一覧、署名Manifest、パッケージURLを匿名で取得するGitHub adapter、版比較、再開可能なRange download、サイズ/SHA-256照合、失敗ファイル隔離を実装した。更新確認結果をローカルSQLiteへ追記するserviceは6時間cacheし、明示的な手動確認では再取得できる。現場管理画面から認証付きで状態表示・手動再確認できる。署名公開鍵未設定時は外部通信せず未設定と表示し、GitHub通信失敗も業務処理を止めない。公開鍵は現場Configの`release-update-public.pem`に配置する契約としたが、鍵の発行・現場配備は未実施。起動/終業時の実呼出しと適用UIは未接続。
+Release一覧、署名Manifest、パッケージURLを匿名で取得するGitHub adapter、版比較、再開可能なRange download、サイズ/SHA-256照合、失敗ファイル隔離を実装した。更新確認結果をローカルSQLiteへ追記するserviceは6時間cacheし、明示的な手動確認では再取得できる。現場管理画面から認証付きで状態表示・手動再確認できる。署名公開鍵未設定時は外部通信せず未設定と表示し、GitHub通信失敗も業務処理を止めない。公開鍵は現場Configの`release-update-public.pem`に配置する契約としたが、鍵の発行・現場配備は未実施。RC4では起動/終業時の更新確認を接続済み。更新適用UIは未接続。
 
 ## 9. Backup
 
@@ -52,7 +52,7 @@ Release一覧、署名Manifest、パッケージURLを匿名で取得するGitHu
 
 ## 13. Feedback連携
 
-更新確認はFeedback Token・送信先に依存しない独立serviceとして実装した。既存のFeedback側の更新通知処理は別経路として残る。終業時の2つの処理を独立して呼び、片方の失敗で他方を止めない接続は未実装。
+更新確認はFeedback Token・送信先に依存しない独立serviceとして実装した。既存のFeedback側の更新通知処理は別経路として残る。RC4では起動/終業時の更新確認をbest-effortで呼ぶ。更新適用は未実装。
 
 ## 14. Windows Test
 
@@ -68,7 +68,7 @@ GitHub通信はHTTPSで、配布先URLとredirect先を制限する。署名公�
 
 ## 17. Known Issues
 
-開発Repositoryの公開状態、配布Repository未作成、ソース非同梱ビルド未整備、署名鍵とActions Secret未設定、更新適用・migration・smoke・rollback未実装。よって指示書の「完了条件」は未達。現行Installerを公開Repoへ再配布して回避しない。
+開発Repositoryの公開状態、ソース非同梱ビルド未整備、署名鍵とActions Secret未設定、更新適用・migration・smoke・rollback未実装。よって指示書の「完了条件」は未達。現行Installerを公開Repoへ再配布して回避しない。
 
 ## 18. Release Procedure
 
@@ -80,3 +80,15 @@ GitHub通信はHTTPSで、配布先URLとredirect先を制限する。署名公�
 6. 別環境で匿名ダウンロードを確認し、現場PCでBackup、Migration、Smoke、Rollbackと翌日起動を受け入れる。
 
 上記の未完了項目が残る間は、公開Releaseと現場自動更新を有効化しない。
+
+## 19. Ed25519署名鍵の生成と保管
+
+公開鍵は秘密鍵から生成する。開発Repository直下や配布Repository内に秘密鍵を作らない。Windows PowerShellで`appendix_d`に移動し、Python環境へ`cryptography`を導入したうえで次を実行する。
+
+```powershell
+python -m forecast_provider.update_service.keygen_cli --output-dir "$env:LOCALAPPDATA\Bunsen\ReleaseSigning"
+```
+
+画面に表示される入力欄で16文字以上のパスフレーズを2回入力する。生成される`release-update-private.pem`はパスフレーズで暗号化され、公開しない。オフラインにバックアップし、パスフレーズは別経路で保管する。`release-update-public.pem`だけを`build_field_pilot_installer.py --public-key-file`に渡し、インストーラーを通じて現場PCへ固定する。公開鍵をGitHubから直接取得して信頼させる方式は採らない。
+
+ソースを含まない正式パッケージが完成した後、`python -m forecast_provider.update_service.release_cli --package ... --output ... --version ... --channel pilot --minimum-version ... --database-migration ... --signing-key-file "$env:LOCALAPPDATA\Bunsen\ReleaseSigning\release-update-private.pem"`でManifestを署名する。パスフレーズは対話入力し、引数やRepositoryへ記録しない。署名済みの4 assetのみ配布RepositoryのReleaseへ添付する。鍵を紛失した場合、既存インストーラーの信頼を維持したまま鍵を自動交換することはできないため、現場更新の再設計と再配布が必要。
