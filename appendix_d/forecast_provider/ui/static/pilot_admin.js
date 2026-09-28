@@ -6,6 +6,35 @@ const fields = [
 ];
 let candidates = [];
 
+function renderUpdate(data) {
+  const last = data.last_check;
+  const status = el("update-status");
+  if (!data.public_key_configured) {
+    status.textContent = `現在版 ${data.current_version}。署名検証用の公開鍵が未設定です。管理担当者へ連絡してください。`;
+  } else if (!last) {
+    status.textContent = `現在版 ${data.current_version}。更新確認はまだ行っていません。`;
+  } else {
+    const labels = {
+      AVAILABLE: "新しい版があります。管理担当者へ連絡してください。",
+      CURRENT: "現在の版が最新です。",
+      NO_RELEASE: "公開済みの更新はありません。",
+      MANUAL_UPDATE_REQUIRED: "手動対応が必要です。管理担当者へ連絡してください。",
+      UNCONFIGURED: "署名検証用の公開鍵が未設定です。",
+      CHECK_FAILED: "更新情報を確認できませんでした。業務操作は続けられます。",
+    };
+    status.textContent = `現在版 ${data.current_version}。${labels[last.status] || "更新情報を確認してください。"} ${last.available_version ? `候補版 ${last.available_version}。` : ""}確認日時 ${last.checked_at}。`;
+  }
+}
+
+async function updateRequest(check = false) {
+  const response = await fetch(`/api/field-pilot/admin/update${check ? "/check" : ""}`, {
+    method: check ? "POST" : "GET", cache: "no-store", headers: headers(),
+    ...(check ? { body: "{}" } : {}),
+  });
+  if (!response.ok) throw new Error("update check failed");
+  renderUpdate(await response.json());
+}
+
 function headers() {
   return {
     "Content-Type": "application/json",
@@ -41,6 +70,11 @@ async function load() {
     });
     if (!response.ok) throw new Error("access denied");
     const data = await response.json();
+    try {
+      await updateRequest();
+    } catch {
+      el("update-status").textContent = "更新状態を取得できません。業務操作は続けられます。";
+    }
     candidates = data.candidates;
     const select = el("candidate");
     select.replaceChildren();
@@ -127,6 +161,17 @@ async function decide(url, body) {
 }
 
 el("load").addEventListener("click", load);
+el("check-update").addEventListener("click", async () => {
+  el("check-update").disabled = true;
+  el("update-status").textContent = "更新情報を確認しています。";
+  try {
+    await updateRequest(true);
+  } catch {
+    el("update-status").textContent = "更新情報を確認できませんでした。管理用コードまたは接続を確認してください。";
+  } finally {
+    el("check-update").disabled = false;
+  }
+});
 el("candidate").addEventListener("change", showCandidate);
 el("approve").addEventListener("click", () => {
   const item = selected();
