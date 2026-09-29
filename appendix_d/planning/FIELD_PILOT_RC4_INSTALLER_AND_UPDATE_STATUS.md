@@ -18,7 +18,15 @@
 
 ## 現場PCでEXEがすぐ閉じる場合
 
-2026-09-29の現場報告では、EXEをクリックすると一瞬だけ開いて終了した。原因は現場PCのログなしに断定できない。従来の`cmd /c`起動はセットアップエラーを表示し続けなかったため、診断版では失敗時にコンソールを停止し、処理段階とエラーを表示する。`%LOCALAPPDATA%\Bunsen\FieldPilot\InstallerLogs\launcher-last.txt`はbootstrap開始、`setup-last-error.txt`はPowerShell内の失敗を示す。新しい診断版を実行した後、両ファイルの有無と画面のエラーを確認する。
+2026-09-29の現場報告では、EXEをクリックすると一瞬だけ開いて終了した。最初の診断版では`launcher-last.txt`の起動時刻しか残らず、原因を判定できなかった。更新した診断版は`%LOCALAPPDATA%\Bunsen\FieldPilot\InstallerLogs`へ次のログを残す。
+
+- `launcher-last.txt`: 起動、PowerShell開始・終了、終了コード。PowerShell呼出しに到達したかを判定する。
+- `powershell-stderr-last.txt`: PowerShell自体の起動・構文エラー等の標準エラー。
+- `setup-progress-last.txt`: ZIP照合、展開、公開鍵配置、Field Pilotセットアップ、完了または失敗の時刻。
+- `setup-last-error.txt`: 失敗段階、例外種別、エラーとスクリプト位置。成功時は削除する。
+- `setup-transcript-last.txt`: インストール中に画面へ出た詳細。現場担当者の名前やPCパスが入り得るため、共有前に内容を確認し、公開IssueやPRへ添付しない。
+
+失敗時は画面を閉じずに止める。新しい診断版を実行した後、まず`launcher-last.txt`の末尾と`setup-progress-last.txt`、`setup-last-error.txt`を確認する。PowerShell開始の記録の後に終了記録がなければ、処理が継続中か強制終了した可能性がある。
 
 両ログがない場合はIExpress起動前にブロックされた可能性がある。EXEは現時点でAuthenticode未署名なので、Windows Securityの保護の履歴や会社の端末保護製品を管理者と確認する。保護機能を無効化して回避しない。Docker/WSLの失敗はPowerShell内の診断ログに出る。ビルド時にPowerShell構文検査、自己展開、内包ZIPのSHA-256、公開鍵の一致を検査する。現場での正常導入はまだ未確認。
 

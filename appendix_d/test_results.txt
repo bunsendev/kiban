@@ -1740,3 +1740,10 @@ OS: Windows 11
 - 公開Release用のソース非同梱配布物、更新適用・migration・smoke・rollback、署名鍵・公開Repo、現場PC導入試験は未完了。自動更新完了とは判定しない。
 - `make_release.py --field-pilot` と `--check` は876/876ファイル一致。IExpressでRC4 EXEを生成し、自己展開したZIPのSHA-256一致を確認した。DockerエンジンがこのPCで利用できず、実際のセットアップ起動・Compose稼働は未検証。
 - 配布SHA更新後のWindows対応全体回帰は820 passed / 20 skipped / Linux専用RSS 1件deselected。`ruff check .`と変更したPowerShell 3ファイルの構文検査も成功。
+
+# Field Pilot インストーラー診断ログ拡張（2026-09-29 JST）
+
+- IExpressの起動スクリプトとセットアップスクリプトを独立ファイルへ分離。起動、PowerShell呼出し、終了コード、標準エラー、セットアップ段階、例外、画面出力を現場PCのInstallerLogsへ記録する。
+- 公開鍵を同梱したEXEの生成、PowerShell構文検査、自己展開したZIP/公開鍵の一致に成功。
+- 隔離した一時ディレクトリでZIP欠落を模擬し、終了コード1、段階、エラー、Transcriptが残ることを確認。実際の現場PCでの導入成否は未確認。
+- ランチャーから同じ失敗を再現し、PowerShell開始・終了、終了コード1、5種類の診断ログ生成を確認。Windows対応の全体回帰は821 passed / 20 skipped / Linux専用RSS 1件deselected。`ruff check appendix_d` と配布物照合に成功。
