@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import pathlib
 import shutil
 import subprocess
@@ -17,6 +18,23 @@ ROOT = pathlib.Path(__file__).resolve().parent
 ZIP = ROOT.parent / "bunsen_field_pilot_release.zip"
 VERSION = "0.1.0-field-pilot.4"
 NAME = f"Bunsen-FieldPilot-{VERSION}-Setup.exe"
+
+
+def _verify_powershell_syntax(path: pathlib.Path) -> None:
+    command = (
+        "$tokens=$null; $errors=$null; "
+        "$source=Get-Content -LiteralPath $env:KIBAN_INSTALLER_SCRIPT -Raw; "
+        "[System.Management.Automation.Language.Parser]::ParseInput("
+        "$source,[ref]$tokens,[ref]$errors) | Out-Null; "
+        "if ($errors.Count) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }"
+    )
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-Command", command],
+        env={**os.environ, "KIBAN_INSTALLER_SCRIPT": str(path)},
+        capture_output=True, text=True, timeout=30, check=False,
+    )
+    if result.returncode:
+        raise SystemExit(f"Installer PowerShell syntax invalid: {result.stderr[-500:]}")
 
 
 def _sed(source: pathlib.Path, target: pathlib.Path, *, include_key: bool) -> str:
@@ -95,18 +113,38 @@ def main() -> None:
         if public_key is not None:
             (stage / "update-public.pem").write_bytes(public_key)
         (stage / "launch.cmd").write_text(
-            '@echo off\r\n"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" '
+            '@echo off\r\n'
+            'title Bunsen Field Pilot Setup\r\n'
+            'set "LOGDIR=%LOCALAPPDATA%\\Bunsen\\FieldPilot\\InstallerLogs"\r\n'
+            'if not exist "%LOGDIR%" mkdir "%LOGDIR%"\r\n'
+            'echo Installer launcher started at %date% %time%>"%LOGDIR%\\launcher-last.txt"\r\n'
+            '"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" '
             '-NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"\r\n'
-            'exit /b %errorlevel%\r\n', encoding="ascii",
+            'set "SETUP_CODE=%errorlevel%"\r\n'
+            'if not "%SETUP_CODE%"=="0" (\r\n'
+            '  echo.\r\n'
+            '  echo Setup failed with exit code %SETUP_CODE%.\r\n'
+            '  echo Diagnostic folder: %LOGDIR%\r\n'
+            '  echo Please take a photo of this window before closing it.\r\n'
+            '  pause\r\n'
+            ')\r\n'
+            'exit /b %SETUP_CODE%\r\n', encoding="ascii",
         )
         (stage / "install.ps1").write_text(
             "$ErrorActionPreference = 'Stop'\n"
+            "$diagnosticDir = Join-Path $env:LOCALAPPDATA 'Bunsen\\FieldPilot\\InstallerLogs'\n"
+            "New-Item -ItemType Directory -Path $diagnosticDir -Force | Out-Null\n"
+            "$diagnosticFile = Join-Path $diagnosticDir 'setup-last-error.txt'\n"
+            "$step = 'ZIP verification'\n"
+            "$setupCode = 1\n"
+            "try {\n"
             "$zip = Join-Path $PSScriptRoot 'payload.zip'\n"
             "$expected = (Get-Content -LiteralPath "
             "(Join-Path $PSScriptRoot 'sha256.txt') -Raw).Trim()\n"
             "if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256)"
             ".Hash.ToLowerInvariant() -ne $expected) "
             "{ throw 'Installer payload integrity check failed.' }\n"
+            "$step = 'ZIP extraction'\n"
             "$root = Join-Path $env:TEMP ('BunsenFieldPilot-' + [guid]::NewGuid().ToString('N'))\n"
             "New-Item -ItemType Directory -Path $root -Force | Out-Null\n"
             "try {\n"
@@ -114,6 +152,7 @@ def main() -> None:
             "    $setup = Join-Path $root 'appendix_d\\Field Pilotセットアップ.cmd'\n"
             "    if (-not (Test-Path -LiteralPath $setup -PathType Leaf)) "
             "{ throw 'Setup missing.' }\n"
+            "    $step = 'Update public key'\n"
             "    $key = Join-Path $PSScriptRoot 'update-public.pem'\n"
             "    if (Test-Path -LiteralPath $key) {\n"
             "        $targetKey = Join-Path $env:LOCALAPPDATA "
@@ -128,16 +167,30 @@ def main() -> None:
             "            Copy-Item -LiteralPath $key -Destination $targetKey\n"
             "        }\n"
             "    }\n"
+            "    $step = 'Field Pilot setup'\n"
             "    & $setup\n"
             "    $setupCode = $LASTEXITCODE\n"
+            "    if ($setupCode -ne 0) { throw \"Field Pilot setup exited: $setupCode\" }\n"
             "} finally {\n"
             "    $safeRoot = [System.IO.Path]::GetFullPath($env:TEMP).TrimEnd('\\') + '\\'\n"
             "    $safeTarget = [System.IO.Path]::GetFullPath($root)\n"
             "    if ($safeTarget.StartsWith($safeRoot, [StringComparison]::OrdinalIgnoreCase)) "
             "{ Remove-Item -LiteralPath $root -Recurse -Force }\n"
             "}\n"
+            "Remove-Item -LiteralPath $diagnosticFile -ErrorAction SilentlyContinue\n"
+            "} catch {\n"
+            "    $setupCode = 1\n"
+            "    $message = $_.Exception.Message\n"
+            "    @(\"Time: $((Get-Date).ToString('o'))\", \"Step: $step\", "
+            "\"Error: $message\") | Set-Content -LiteralPath $diagnosticFile -Encoding utf8\n"
+            "    Write-Host "
+            "\"インストールを完了できませんでした。処理: $step\" -ForegroundColor Red\n"
+            "    Write-Host \"原因: $message\" -ForegroundColor Red\n"
+            "    Write-Host \"診断ログ: $diagnosticFile\"\n"
+            "}\n"
             "exit $setupCode\n", encoding="utf-8-sig",
         )
+        _verify_powershell_syntax(stage / "install.ps1")
         target = stage / NAME
         directive = stage / "package.sed"
         directive.write_text(_sed(stage, target, include_key=public_key is not None),
