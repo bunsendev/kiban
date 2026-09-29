@@ -14,7 +14,13 @@
 
 署名Manifestの検証、版比較、公開Releaseの参照、ダウンロードの再開とハッシュ照合まで実装済み。**自動適用、DB migration、更新版のsmoke test、自動rollback、翌日起動試験は未完了。** `AVAILABLE` は更新候補の検知を示し、適用済みを意味しない。現場PCでの無人適用は有効にしない。
 
-公開Release用のソース非同梱パッケージは未生成。現行のField Pilot EXEはソースを含むZIPを内包するため、公開Releaseへアップロードしない。公開用Repository、署名鍵、公開鍵の正規配布経路も未設定であり、鍵を指定せずに作ったEXEでは更新確認は `UNCONFIGURED` となる。
+公開Release用のソース非同梱パッケージは未生成。現行のField Pilot EXEはソースを含むZIPを内包するため、公開Releaseへアップロードしない。公開用Repositoryは作成済み。ローカルで生成した公開鍵を指定したEXEでは更新確認の信頼鍵を初回導入時に配置するが、Releaseと自動適用は未完了。鍵を指定せずに作ったEXEでは更新確認は `UNCONFIGURED` となる。
+
+## 現場PCでEXEがすぐ閉じる場合
+
+2026-09-29の現場報告では、EXEをクリックすると一瞬だけ開いて終了した。原因は現場PCのログなしに断定できない。従来の`cmd /c`起動はセットアップエラーを表示し続けなかったため、診断版では失敗時にコンソールを停止し、処理段階とエラーを表示する。`%LOCALAPPDATA%\Bunsen\FieldPilot\InstallerLogs\launcher-last.txt`はbootstrap開始、`setup-last-error.txt`はPowerShell内の失敗を示す。新しい診断版を実行した後、両ファイルの有無と画面のエラーを確認する。
+
+両ログがない場合はIExpress起動前にブロックされた可能性がある。EXEは現時点でAuthenticode未署名なので、Windows Securityの保護の履歴や会社の端末保護製品を管理者と確認する。保護機能を無効化して回避しない。Docker/WSLの失敗はPowerShell内の診断ログに出る。ビルド時にPowerShell構文検査、自己展開、内包ZIPのSHA-256、公開鍵の一致を検査する。現場での正常導入はまだ未確認。
 
 ## 次の受入Gate
 
