@@ -1751,3 +1751,4 @@ OS: Windows 11
 - 子ログ追加後のWindows対応全体回帰は821 passed / 20 skipped / Linux専用RSS 1件deselected。`ruff check appendix_d`、配布ZIPの879/879ファイル照合に成功。
 - ランチャーの完了記録照合を追加。隔離した模擬成功セットアップでは終了コード0と完了記録を確認し、完了記録を作らず0で終了する模擬スクリプトでは終了コード2と診断ログを確認。外部PSModulePathがWindows組込Moduleを隠す再現条件では、起動時に標準Module検索パスへ戻すことでZIP照合が動作した。
 - 現場EXEは完了記録なしで約0.01秒でPowerShellが返った。起動前PowerShell probeとIExpress外の同等probeを追加。隔離した模擬成功セットアップでprobe markerと完了記録を確認し、スタンドアロンprobeでもmarkerと終了コード0を確認。現場の真因は未確認。
+- 現場では`-Command` probeは成功、`-File install.ps1`は実行記録なしで0を返した。IExpress内・外の無害な`-File`検査を追加。隔離した模擬成功セットアップで二つのprobe markerと完了記録を確認し、単独`-File`検査でもmarkerと終了コード0を確認。実際の現場PCでの原因判定は未完了。

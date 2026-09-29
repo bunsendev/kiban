@@ -28,6 +28,7 @@
 - `field-pilot-setup-output-last.txt`: 既存Field Pilotセットアップの出力と終了コード。ZIP展開後に止まる場合はこれを最初に確認する。
 - `setup-complete-last.txt`: 内部セットアップと後処理の完了記録。これがない場合はランチャーが終了コード0でも成功扱いにしない。
 - `powershell-probe-last.txt`と`powershell-probe-marker-last.txt`: PowerShell起動前検査の出力と実行確認。起動自体が失敗した場合はセットアップを開始しない。
+- `powershell-file-probe-last.txt`と`powershell-file-probe-marker-last.txt`: 短い無害な`.ps1`を`-File`で実行した結果。これが成功して本体だけ失敗する場合は、展開した`install.ps1`に対象を絞る。
 
 失敗時は画面を閉じずに止める。新しい診断版を実行した後、まず`launcher-last.txt`の末尾と`setup-progress-last.txt`、`setup-last-error.txt`を確認する。PowerShell開始の記録の後に終了記録がなければ、処理が継続中か強制終了した可能性がある。
 
@@ -36,6 +37,8 @@
 次の現場ログでは、ランチャーが約0.01秒で終了コード0を返した一方、同時刻のセットアップログは提出されていない。これを導入成功とは扱わない。ランチャーは毎回古い完了記録を消し、`install.ps1`の存在を確認し、子処理が`setup-complete-last.txt`を書いた場合だけ成功と判定する。開始元のPowerShellモジュール検索パスを継承せずWindows PowerShellの標準検索パスを使う。現場での原因判定には同時刻の`setup-progress-last.txt`、`field-pilot-setup-output-last.txt`、`powershell-stderr-last.txt`が必要。
 
 完了記録確認付きEXEの現場ログでもPowerShell起動が約0.01秒で終了し、完了記録は作られなかった。`install.ps1`へ到達した証拠がないため、起動前にWindows PowerShellの短いprobeを実行して独立ログ`powershell-probe-last.txt`とmarkerを残す。probe自体が失敗した場合はセットアップへ進まない。`field-pilot-powershell-check.cmd`はIExpress外で同じprobeを実行する診断用ファイルであり、両者の差からIExpress内部の実行環境と現場PCのPowerShell制約を分けて調べる。probeは資格情報を読まない。現場側の真因はprobeログで判定する。
+
+次の現場ログでは`-Command` probeのmarkerができた一方、`install.ps1`だけは実行記録がなく、約0.2秒で0を返した。さらに`-File`自体の可否を調べるため、ランチャー内で無害な一行PS1を`-File`で起動し、展開した`install.ps1`のバイト長を記録する。`field-pilot-file-execution-check.cmd`は同じ`-File`検査をIExpress外から実行する。両結果が異なる場合はIExpress展開環境を優先調査する。いずれも実インストールや資格情報読取をしない。
 
 両ログがない場合はIExpress起動前にブロックされた可能性がある。EXEは現時点でAuthenticode未署名なので、Windows Securityの保護の履歴や会社の端末保護製品を管理者と確認する。保護機能を無効化して回避しない。Docker/WSLの失敗はPowerShell内の診断ログに出る。ビルド時にPowerShell構文検査、自己展開、内包ZIPのSHA-256、公開鍵の一致を検査する。現場での正常導入はまだ未確認。
 

@@ -10,6 +10,9 @@ set "SETUP_SCRIPT=%~dp0install.ps1"
 set "COMPLETE_MARKER=%LOGDIR%\setup-complete-last.txt"
 set "PROBE_LOG=%LOGDIR%\powershell-probe-last.txt"
 set "PROBE_MARKER=%LOGDIR%\powershell-probe-marker-last.txt"
+set "FILE_PROBE_LOG=%LOGDIR%\powershell-file-probe-last.txt"
+set "FILE_PROBE_SCRIPT=%LOGDIR%\powershell-file-probe.ps1"
+set "FILE_PROBE_MARKER=%LOGDIR%\powershell-file-probe-marker-last.txt"
 >"%LAUNCHLOG%" echo Started: %date% %time%
 >>"%LAUNCHLOG%" echo Phase: launcher started
 >>"%LAUNCHLOG%" echo Installer directory: %~dp0
@@ -19,9 +22,16 @@ if exist "%LOGDIR%\setup-transcript-last.txt" del /q "%LOGDIR%\setup-transcript-
 if exist "%LOGDIR%\field-pilot-setup-output-last.txt" del /q "%LOGDIR%\field-pilot-setup-output-last.txt"
 if exist "%COMPLETE_MARKER%" del /q "%COMPLETE_MARKER%"
 if exist "%PROBE_MARKER%" del /q "%PROBE_MARKER%"
+if exist "%FILE_PROBE_MARKER%" del /q "%FILE_PROBE_MARKER%"
 if exist "%PROBE_MARKER%" (
   >>"%LAUNCHLOG%" echo Phase: could not clear previous probe marker
   echo Cannot reset PowerShell diagnostics. Diagnostic folder: %LOGDIR%
+  pause
+  exit /b 1
+)
+if exist "%FILE_PROBE_MARKER%" (
+  >>"%LAUNCHLOG%" echo Phase: could not clear previous file probe marker
+  echo Cannot reset PowerShell file diagnostics. Diagnostic folder: %LOGDIR%
   pause
   exit /b 1
 )
@@ -43,6 +53,7 @@ if not exist "%SETUP_SCRIPT%" (
   pause
   exit /b 1
 )
+for %%F in ("%SETUP_SCRIPT%") do >>"%LAUNCHLOG%" echo Setup script bytes: %%~zF
 >"%PSERROR%" echo PowerShell process stderr:
 set "PSModulePath="
 set "BUNSEN_INSTALL_PROBE_MARKER=%PROBE_MARKER%"
@@ -54,6 +65,17 @@ set "PROBE_CODE=%errorlevel%"
 if not "%PROBE_CODE%"=="0" goto probe_failed
 if not exist "%PROBE_MARKER%" goto probe_failed
 >>"%LAUNCHLOG%" echo Phase: PowerShell probe marker confirmed
+>"%FILE_PROBE_SCRIPT%" echo [IO.File]::WriteAllText^($env:BUNSEN_INSTALL_FILE_MARKER, 'FILE_OK'^)
+if not exist "%FILE_PROBE_SCRIPT%" goto file_probe_failed
+set "BUNSEN_INSTALL_FILE_MARKER=%FILE_PROBE_MARKER%"
+>>"%LAUNCHLOG%" echo Phase: starting PowerShell -File probe
+"%POWERSHELL%" -NoProfile -ExecutionPolicy Bypass -File "%FILE_PROBE_SCRIPT%" >"%FILE_PROBE_LOG%" 2>&1
+set "FILE_PROBE_CODE=%errorlevel%"
+>>"%LAUNCHLOG%" echo Phase: PowerShell -File probe returned
+>>"%LAUNCHLOG%" echo File probe exit code: %FILE_PROBE_CODE%
+if not "%FILE_PROBE_CODE%"=="0" goto file_probe_failed
+if not exist "%FILE_PROBE_MARKER%" goto file_probe_failed
+>>"%LAUNCHLOG%" echo Phase: PowerShell -File probe marker confirmed
 >>"%LAUNCHLOG%" echo Phase: starting PowerShell setup
 "%POWERSHELL%" -NoProfile -ExecutionPolicy Bypass -File "%SETUP_SCRIPT%" 2>>"%PSERROR%"
 set "SETUP_CODE=%errorlevel%"
@@ -79,3 +101,10 @@ echo Diagnostic folder: %LOGDIR%
 echo Please take a photo of this window before closing it.
 pause
 exit /b 3
+:file_probe_failed
+>>"%LAUNCHLOG%" echo Phase: PowerShell -File probe failed or marker missing
+echo PowerShell did not execute a simple script file.
+echo Diagnostic folder: %LOGDIR%
+echo Please take a photo of this window before closing it.
+pause
+exit /b 4
