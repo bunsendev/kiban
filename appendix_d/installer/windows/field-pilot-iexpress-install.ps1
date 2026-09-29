@@ -1,3 +1,8 @@
+if ($env:BUNSEN_INSTALL_ENTRY_MARKER) {
+    try {
+        [IO.File]::WriteAllText($env:BUNSEN_INSTALL_ENTRY_MARKER, 'INSTALL_SCRIPT_ENTERED')
+    } catch { }
+}
 $ErrorActionPreference = 'Stop'
 $diagnosticDir = Join-Path $env:LOCALAPPDATA 'Bunsen\FieldPilot\InstallerLogs'
 New-Item -ItemType Directory -Path $diagnosticDir -Force | Out-Null
