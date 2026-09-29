@@ -8,6 +8,8 @@ set "PSERROR=%LOGDIR%\powershell-stderr-last.txt"
 set "POWERSHELL=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
 set "SETUP_SCRIPT=%~dp0install.ps1"
 set "COMPLETE_MARKER=%LOGDIR%\setup-complete-last.txt"
+set "PROBE_LOG=%LOGDIR%\powershell-probe-last.txt"
+set "PROBE_MARKER=%LOGDIR%\powershell-probe-marker-last.txt"
 >"%LAUNCHLOG%" echo Started: %date% %time%
 >>"%LAUNCHLOG%" echo Phase: launcher started
 >>"%LAUNCHLOG%" echo Installer directory: %~dp0
@@ -16,6 +18,13 @@ if exist "%LOGDIR%\setup-progress-last.txt" del /q "%LOGDIR%\setup-progress-last
 if exist "%LOGDIR%\setup-transcript-last.txt" del /q "%LOGDIR%\setup-transcript-last.txt"
 if exist "%LOGDIR%\field-pilot-setup-output-last.txt" del /q "%LOGDIR%\field-pilot-setup-output-last.txt"
 if exist "%COMPLETE_MARKER%" del /q "%COMPLETE_MARKER%"
+if exist "%PROBE_MARKER%" del /q "%PROBE_MARKER%"
+if exist "%PROBE_MARKER%" (
+  >>"%LAUNCHLOG%" echo Phase: could not clear previous probe marker
+  echo Cannot reset PowerShell diagnostics. Diagnostic folder: %LOGDIR%
+  pause
+  exit /b 1
+)
 if exist "%COMPLETE_MARKER%" (
   >>"%LAUNCHLOG%" echo Phase: could not clear previous completion marker
   echo Cannot reset installer diagnostics. Diagnostic folder: %LOGDIR%
@@ -35,8 +44,17 @@ if not exist "%SETUP_SCRIPT%" (
   exit /b 1
 )
 >"%PSERROR%" echo PowerShell process stderr:
->>"%LAUNCHLOG%" echo Phase: starting PowerShell setup
 set "PSModulePath="
+set "BUNSEN_INSTALL_PROBE_MARKER=%PROBE_MARKER%"
+>>"%LAUNCHLOG%" echo Phase: starting PowerShell probe
+"%POWERSHELL%" -NoProfile -Command "[IO.File]::WriteAllText($env:BUNSEN_INSTALL_PROBE_MARKER, 'POWERSHELL_OK ' + $PID + ' ' + $PSVersionTable.PSVersion.ToString())" >"%PROBE_LOG%" 2>&1
+set "PROBE_CODE=%errorlevel%"
+>>"%LAUNCHLOG%" echo Phase: PowerShell probe returned
+>>"%LAUNCHLOG%" echo Probe exit code: %PROBE_CODE%
+if not "%PROBE_CODE%"=="0" goto probe_failed
+if not exist "%PROBE_MARKER%" goto probe_failed
+>>"%LAUNCHLOG%" echo Phase: PowerShell probe marker confirmed
+>>"%LAUNCHLOG%" echo Phase: starting PowerShell setup
 "%POWERSHELL%" -NoProfile -ExecutionPolicy Bypass -File "%SETUP_SCRIPT%" 2>>"%PSERROR%"
 set "SETUP_CODE=%errorlevel%"
 >>"%LAUNCHLOG%" echo Phase: PowerShell returned
@@ -54,3 +72,10 @@ if not "%SETUP_CODE%"=="0" (
   pause
 )
 exit /b %SETUP_CODE%
+:probe_failed
+>>"%LAUNCHLOG%" echo Phase: PowerShell probe failed or marker missing
+echo PowerShell did not complete its startup check.
+echo Diagnostic folder: %LOGDIR%
+echo Please take a photo of this window before closing it.
+pause
+exit /b 3
