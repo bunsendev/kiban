@@ -4,6 +4,7 @@ New-Item -ItemType Directory -Path $diagnosticDir -Force | Out-Null
 $diagnosticFile = Join-Path $diagnosticDir 'setup-last-error.txt'
 $progressFile = Join-Path $diagnosticDir 'setup-progress-last.txt'
 $transcriptFile = Join-Path $diagnosticDir 'setup-transcript-last.txt'
+$childOutputFile = Join-Path $diagnosticDir 'field-pilot-setup-output-last.txt'
 $step = 'startup'
 $setupCode = 1
 $transcriptStarted = $false
@@ -28,7 +29,7 @@ try {
     New-Item -ItemType Directory -Path $root -Force | Out-Null
     try {
         Expand-Archive -LiteralPath $zip -DestinationPath $root -Force
-        $setup = Join-Path $root 'appendix_d\Field Pilotセットアップ.cmd'
+        $setup = Join-Path $root 'appendix_d\installer\windows\field-pilot-setup.ps1'
         if (-not (Test-Path -LiteralPath $setup -PathType Leaf)) { throw 'Setup missing.' }
         Set-SetupStep 'Update public key'
         $key = Join-Path $PSScriptRoot 'update-public.pem'
@@ -45,8 +46,26 @@ try {
             }
         }
         Set-SetupStep 'Field Pilot setup'
-        & $setup
-        $setupCode = $LASTEXITCODE
+        $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        if (-not (Test-Path -LiteralPath $powershell -PathType Leaf)) {
+            throw 'Windows PowerShell was not found.'
+        }
+        Set-Content -LiteralPath $childOutputFile -Value 'Field Pilot setup output:' -Encoding utf8
+        $previousModulePath = $env:PSModulePath
+        try {
+            $env:PSModulePath = ''
+            & $powershell -NoProfile -ExecutionPolicy Bypass -File $setup 2>&1 |
+                ForEach-Object {
+                    $line = [string]$_
+                    Add-Content -LiteralPath $childOutputFile -Value $line -Encoding utf8
+                    Write-Host $line
+                }
+            $setupCode = $LASTEXITCODE
+        } finally {
+            $env:PSModulePath = $previousModulePath
+        }
+        Add-Content -LiteralPath $childOutputFile -Value "Exit code: $setupCode" -Encoding utf8
+        Set-SetupStep "Field Pilot setup returned: $setupCode"
         if ($setupCode -ne 0) { throw "Field Pilot setup exited: $setupCode" }
     } finally {
         $safeRoot = [System.IO.Path]::GetFullPath($env:TEMP).TrimEnd('\') + '\'

@@ -1747,3 +1747,5 @@ OS: Windows 11
 - 公開鍵を同梱したEXEの生成、PowerShell構文検査、自己展開したZIP/公開鍵の一致に成功。
 - 隔離した一時ディレクトリでZIP欠落を模擬し、終了コード1、段階、エラー、Transcriptが残ることを確認。実際の現場PCでの導入成否は未確認。
 - ランチャーから同じ失敗を再現し、PowerShell開始・終了、終了コード1、5種類の診断ログ生成を確認。Windows対応の全体回帰は821 passed / 20 skipped / Linux専用RSS 1件deselected。`ruff check appendix_d` と配布物照合に成功。
+- 現場ログではZIP照合・展開・公開鍵配置成功後、子セットアップ呼出しで記録停止。子PS1を直接呼んで標準出力・エラーと終了コードを記録するよう修正。隔離した模擬ZIPで子終了コード7と0の両方を確認し、成功時だけエラーログが消えることを確認。現場での失敗原因は未特定。
+- 子ログ追加後のWindows対応全体回帰は821 passed / 20 skipped / Linux専用RSS 1件deselected。`ruff check appendix_d`、配布ZIPの879/879ファイル照合に成功。

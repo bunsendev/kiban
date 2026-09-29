@@ -12,6 +12,7 @@ set "POWERSHELL=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
 if exist "%LOGDIR%\setup-last-error.txt" del /q "%LOGDIR%\setup-last-error.txt"
 if exist "%LOGDIR%\setup-progress-last.txt" del /q "%LOGDIR%\setup-progress-last.txt"
 if exist "%LOGDIR%\setup-transcript-last.txt" del /q "%LOGDIR%\setup-transcript-last.txt"
+if exist "%LOGDIR%\field-pilot-setup-output-last.txt" del /q "%LOGDIR%\field-pilot-setup-output-last.txt"
 if not exist "%POWERSHELL%" (
   >>"%LAUNCHLOG%" echo Phase: PowerShell executable missing
   echo PowerShell was not found. Diagnostic folder: %LOGDIR%
