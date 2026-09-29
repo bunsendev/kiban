@@ -5,6 +5,7 @@ $diagnosticFile = Join-Path $diagnosticDir 'setup-last-error.txt'
 $progressFile = Join-Path $diagnosticDir 'setup-progress-last.txt'
 $transcriptFile = Join-Path $diagnosticDir 'setup-transcript-last.txt'
 $childOutputFile = Join-Path $diagnosticDir 'field-pilot-setup-output-last.txt'
+$completionFile = Join-Path $diagnosticDir 'setup-complete-last.txt'
 $step = 'startup'
 $setupCode = 1
 $transcriptStarted = $false
@@ -76,6 +77,7 @@ try {
     }
     Remove-Item -LiteralPath $diagnosticFile -ErrorAction SilentlyContinue
     Set-SetupStep 'completed'
+    Set-Content -LiteralPath $completionFile -Value "Completed: $((Get-Date).ToString('o'))" -Encoding utf8
 } catch {
     $setupCode = 1
     $message = $_.Exception.Message
