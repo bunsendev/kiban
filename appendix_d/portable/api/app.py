@@ -35,6 +35,7 @@ from .business_review import (
     review_view,
 )
 from .forecast import forecast
+from .formal_pipeline_routes import register_formal_pipeline_routes
 from .input_csv import MAX_CSV_BYTES, InputError, parse_csv
 from .inventory_routes import register_inventory_handoff_routes
 from .store import RunStore
@@ -76,6 +77,7 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
         return review_view(report, journal)
 
     register_inventory_handoff_routes(app, paths, load_analysis, _read_limited)
+    register_formal_pipeline_routes(app, paths, _read_limited)
 
     @app.middleware("http")
     async def local_only(request: Request, call_next):

@@ -3,7 +3,7 @@
 Field Pilot現場PC配布は[管理者導入運用](docs/FieldPilot_管理者導入運用.md)、[現場担当者1ページ手順](docs/FieldPilot_現場担当者_1ページ.md)、[検証・導入判定](planning/FIELD_PILOT_RELEASE_RESULT.md)を参照する。配布は`python make_release.py --field-pilot`で生成する。
 Windows Portable版は業務ZIPの在庫・出荷を自動確定・確認待ち・隔離へ分類し、直近28日学習・7日評価のBaseline参考バックテストを実行できる。これは正式取込、正式OSS比較、現在の出荷指示ではない。詳細は[実データPreflight結果](planning/WINDOWS_PORTABLE_DATA_B_PREFLIGHT_RESULT.md)を参照する。
 確認待ち・隔離の担当者判断、追記履歴、JAN対応付けの次回再利用は[担当者確認結果](planning/WINDOWS_PORTABLE_OPERATOR_REVIEW_RESULT.md)を参照する。
-最新倉庫在庫から既存Phase 3S契約へ渡す候補パッケージは[正式在庫handoff結果](planning/WINDOWS_PORTABLE_FORMAL_INVENTORY_HANDOFF_RESULT.md)を参照する。業務確認済み拠点コードと基準時刻を記録し、最終Snapshot承認は別Gateのまま維持する。
+最新倉庫在庫から既存Phase 3S契約へ渡す候補パッケージは[正式在庫handoff結果](planning/WINDOWS_PORTABLE_FORMAL_INVENTORY_HANDOFF_RESULT.md)を参照する。Pilot対象JANの明示確認、Unified Inbox、Worker、数量照合、最終Snapshot承認までの接続は[正式在庫Pipeline結果](planning/WINDOWS_PORTABLE_UNIFIED_INBOX_SNAPSHOT_RESULT.md)を参照する。承認済み在庫の後に必要な出荷日次buildと予測更新は次工程である。
 承認型の形式学習と「今日やること」画面は[実装・未接続範囲](planning/FIELD_PILOT_APPROVED_LEARNING_RESULT.md)を参照する。構造の承認と正式データ採用は別であり、投入から予測更新までの自動接続は未実装である。
 
 README → docs/統合仕様_v2.9.md → docs/実装仕様書_v2.2_完全版.mdの順で読む。
