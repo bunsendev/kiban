@@ -59,6 +59,14 @@ Windows 11 x64の1台での観測値。配布フォルダーは2,328ファイル
 
 12 Gateが揃っていないので**P1は完了扱いにしない**。現場PCでのクリーン導入・オフライン・GUI・異常停止・再起動試験を次の受入作業とする。
 
+### 2026-09-30 現場受入準備の追試
+
+P0のmain取込後、P1 PRをmain基準へ変更した。担当者がテスト用CSVの場所を探さずに済むよう［付属の人工CSVで試す］を追加した。従来のファイル選択経路も維持する。人工CSVはEXE内のローカルassetから配信し、既存の`POST /api/runs`と同じ検証・Baseline・保存経路へ渡す。受入手順と12 Gateの記録表は`portable/P1_FIELD_ACCEPTANCE.md`に記載した。
+
+PyInstaller 6.22.0でWindows x64 onedirを再ビルドし、ブラウザー画面のボタン操作から14行の結果、保存済み履歴、2回実行の同一入力SHA-256と結果SHA-256を確認した。`tests/portable`は12件成功、ruffとdiff検査も成功。再生成ZIPは`BunsenPortablePoC-P1-20260930-TEST-ONLY.zip`、56,181,318 byte、SHA-256 `7122266f41e6d96d87485c3eb8bd4f9e43c79e06e7f8508738ba1631fa70788f`。2,327 entryのCRCを確認し、別フォルダーへ展開した凍結EXEで14行予測・保存・API再起動後の履歴・127.0.0.1のみの待受を再確認した。配布manifest更新後の全体回帰は832 passed / 20 skipped / 2 failedで、失敗は既存Field Pilotの固定期待値とWindows上のLinux専用RSS計測。`make_release.py --check`は900/900一致した。
+
+このPCではブラウザー操作ツールのファイル選択イベントを取得できなかったため、ファイル選択からの手操作は未判定。ダブルクリックからのLauncher GUI正常終了、Docker・WSL・Python未導入PC、完全オフライン、異常終了後の現場復旧も未判定である。12 Gateの判定自体は上表から変更しない。これは人工データ専用の受入候補で、現場の正式予測や配布承認を意味しない。
+
 ## 7. 発見した問題、P2、残存リスク
 
 現行`/ui/easy`と`/ui/pilot`の再利用にはPostgreSQLを含む正式API・台帳の移植が必要。P1 SQLiteはPoCのrun履歴だけで、現行PostgreSQLをSQLiteへ置換する設計判断ではない。P2にはWindows用PostgreSQLバイナリ/初期化、既存schema migration、DB起動停止とバックアップ、Worker永続化、正式snapshot・artifact台帳、既存UI接続、障害注入、署名付き更新と復旧が必要。これらは本PRの範囲外。

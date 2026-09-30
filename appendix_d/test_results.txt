@@ -1,3 +1,10 @@
+# Windows Portable P1 現場受入準備（2026-09-30 JST）
+
+- 付属人工CSVの画面ボタンを追加。凍結版のブラウザー操作で14行の予測・保存と、2回実行の入力/結果SHA-256一致を確認した。ファイル選択の手操作はブラウザー操作ツールがchooserを取得できず未判定。
+- 配布ZIPは`BunsenPortablePoC-P1-20260930-TEST-ONLY.zip`。SHA-256 `7122266f41e6d96d87485c3eb8bd4f9e43c79e06e7f8508738ba1631fa70788f`、2,327 entryのCRCを確認。別フォルダーへ展開した凍結EXEで14行予測、保存、再起動後履歴、127.0.0.1のみの待受を確認した。
+- `tests/portable`は12 passed、`ruff check .`成功。配布manifest更新前の全体試験は831 passed / 20 skipped / 3 failed。失敗は既存Field Pilot固定期待値、Linux専用RSS計測、manifest更新前の不一致。12 Gateは未完了で、現場配布承認ではない。
+- manifest更新後の配布照合は900/900一致し、該当回帰試験1件成功。最終の全体判定は832 passed / 20 skipped / 2 failed（Field Pilot固定期待値、Windows上のLinux専用RSS計測）。
+
 # Field Pilot 更新前バックアップ・復旧対象（2026-09-29 JST）
 
 - 更新確認SQLiteと署名公開鍵をバックアップ・復旧対象へ追加。`pre-update` FULLバックアップ用PowerShell入口と保持件数policyを追加し、旧policyは既定5件で互換。

@@ -4,7 +4,7 @@ Docker、WSL、PC側Python、PostgreSQLを使わず、人工CSVから**既存の
 
 Windows x64のビルドPCではPython 3.12とPyInstallerをビルド時だけ使います。`python -m portable.build_windows` で `dist/BunsenPortablePoC` を作ります。配布先では展開後 `App/BunsenPortable.exe` をダブルクリックします。実際の配布物はコード署名と対象PCでの許可確認が必要です。
 
-人工データは `Sample/synthetic_shipments.csv`。画面から選択し［予測を開始］を押します。結果は `Data/Results`、入力コピーは `Data/Input`、実行台帳は `Data/State/runs.sqlite3`、診断ログは `Data/Logs` に残ります。画面には保存済み履歴が表示されます。アプリ更新時には `App` のみを差し替え、`Data` は保持します。
+人工データは `Sample/synthetic_shipments.csv`。画面の［付属の人工CSVで試す］を押すか、このファイルを選択して［予測を開始］を押します。結果は `Data/Results`、入力コピーは `Data/Input`、実行台帳は `Data/State/runs.sqlite3`、診断ログは `Data/Logs` に残ります。画面には保存済み履歴が表示されます。アプリ更新時には `App` のみを差し替え、`Data` は保持します。
 
 最小のCSV契約は `ds,unique_id,y`（UTF-8、日付 `YYYY-MM-DD`、数量は0以上）。7日以上の系列が必要です。出荷数量の欠損はP1では拒否し、0は有効です。商品マスタ、JAN確定、単位換算、正式比較、現場データは扱いません。
 

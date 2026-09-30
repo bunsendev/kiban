@@ -34,6 +34,7 @@ def test_end_to_end_and_restart(tmp_path: Path):
         Path(__file__).resolve().parents[2] / "portable" / "sample" / "synthetic_shipments.csv"
     ).read_bytes()
     client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    assert client.get("/api/sample.csv").content == data
     first = client.post("/api/runs", content=data, headers={"Content-Type": "text/csv"})
     assert first.status_code == 201, first.text
     result = first.json()

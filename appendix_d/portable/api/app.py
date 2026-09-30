@@ -22,6 +22,7 @@ from .store import RunStore
 
 LOG = logging.getLogger("portable.api")
 STATIC = Path(__file__).parent / "static"
+SAMPLE = Path(__file__).resolve().parents[1] / "sample" / "synthetic_shipments.csv"
 
 
 def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
@@ -66,6 +67,10 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     @app.get("/style.css")
     def style():
         return FileResponse(STATIC / "style.css", media_type="text/css")
+
+    @app.get("/api/sample.csv")
+    def sample_csv():
+        return FileResponse(SAMPLE, media_type="text/csv")
 
     @app.get("/api/runs")
     def runs():

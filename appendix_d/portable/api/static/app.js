@@ -1,5 +1,6 @@
 const csv = document.getElementById('csv');
 const run = document.getElementById('run');
+const sample = document.getElementById('sample');
 const state = document.getElementById('state');
 function message(value, kind='') { state.textContent=value; state.className=kind; }
 csv.addEventListener('change', () => {
@@ -38,16 +39,26 @@ async function refresh() {
     }
   } catch { message('履歴を読み込めません。','error'); }
 }
-run.addEventListener('click', async () => {
-  const file=csv.files[0]; if (!file) return;
-  run.disabled=true; message('処理中です。画面を閉じずにお待ちください。');
+async function submit(data) {
+  run.disabled=true; sample.disabled=true; message('処理中です。画面を閉じずにお待ちください。');
   try {
-    const response=await fetch('/api/runs', {method:'POST', headers:{'Content-Type':'text/csv'}, body:await file.arrayBuffer()});
+    const response=await fetch('/api/runs', {method:'POST', headers:{'Content-Type':'text/csv'}, body:data});
     const result=await response.json();
     if (!response.ok) throw new Error(result.detail || '処理に失敗しました。');
     show(result); message('予測が完了し、PC内に保存しました。','success'); await refresh();
   } catch (error) { message(error.message,'error'); }
-  finally { run.disabled=false; }
+  finally { run.disabled=!csv.files[0]; sample.disabled=false; }
+}
+run.addEventListener('click', async () => {
+  const file=csv.files[0]; if (!file) return;
+  await submit(await file.arrayBuffer());
+});
+sample.addEventListener('click', async () => {
+  try {
+    const response=await fetch('/api/sample.csv');
+    if (!response.ok) throw new Error('付属CSVを読み込めません。');
+    await submit(await response.arrayBuffer());
+  } catch (error) { message(error.message,'error'); }
 });
 document.getElementById('reload').addEventListener('click',refresh);
 refresh();
