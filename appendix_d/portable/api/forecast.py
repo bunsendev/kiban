@@ -16,21 +16,29 @@ MODEL = "seasonal_naive_7"
 HORIZON = 7
 
 
-def forecast(frame: pd.DataFrame, work_dir: Path, run_id: str) -> list[dict]:
+def forecast(
+    frame: pd.DataFrame,
+    work_dir: Path,
+    run_id: str,
+    *,
+    horizon: int = HORIZON,
+    dataset_snapshot_id: str = "portable-p1",
+    selection_version: str = "portable-p1",
+) -> list[dict]:
     origin = frame["ds"].max().date()
     ids = tuple(sorted(frame["unique_id"].unique()))
     dataset = ForecastDataset(
-        dataset_snapshot_id="portable-p1",
-        selection_version="portable-p1",
+        dataset_snapshot_id=dataset_snapshot_id,
+        selection_version=selection_version,
         unique_ids=ids,
         train_start=frame["ds"].min().date(),
         train_end=origin,
         test_start=origin + timedelta(days=1),
-        test_end=origin + timedelta(days=HORIZON),
-        origin_interval_days=HORIZON,
-        max_horizon=HORIZON,
-        primary_horizon_max=HORIZON,
-        report_horizons=(HORIZON,),
+        test_end=origin + timedelta(days=horizon),
+        origin_interval_days=horizon,
+        max_horizon=horizon,
+        primary_horizon_max=horizon,
+        report_horizons=(7, horizon) if horizon != 7 else (7,),
     )
     config = ProviderConfig(
         provider_id="builtin-baseline",
@@ -66,11 +74,11 @@ def forecast(frame: pd.DataFrame, work_dir: Path, run_id: str) -> list[dict]:
                 "horizon": h,
             }
             for uid in ids
-            for h in range(1, HORIZON + 1)
+            for h in range(1, horizon + 1)
         ]
     )
     predicted = provider.predict(
-        model_ref, context_ref, future, list(range(1, HORIZON + 1)), context
+        model_ref, context_ref, future, list(range(1, horizon + 1)), context
     )
     validate_predict_frame(predicted, expected_targets=future)
     point = predicted[predicted["forecast_kind"] == "POINT"].sort_values(

@@ -1,5 +1,11 @@
 # v2.9 修正記録
 
+## Windows Portable 正式出荷・14日予測Pipeline
+
+- 承認済みInventory SnapshotからJAN・正式倉庫コードのidentity bridgeを担当者確認付きで発行した。
+- 原本出荷ZIPと確認後集計を再検証し、欠測、不正、明示確認済み出荷0を分けた内容アドレス方式の日次buildを追加した。
+- 28日履歴と直近7日の完全性を満たす商品だけを既存Baseline Providerの14日予測へ接続し、対象外商品を理由付きで表示する画面とAPIを追加した。
+
 ## Windows Portable 正式在庫Pipeline
 
 - 準備済みhandoffから倉庫別10〜20 JANのPilot Scopeを担当者が明示確認し、既存Unified Inboxへ登録する画面とAPIを追加した。

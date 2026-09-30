@@ -104,6 +104,68 @@ def pilot_inventory_zip(count: int = 10) -> bytes:
     return target.getvalue()
 
 
+def pilot_forecast_zip(count: int = 10, *, invalid_recent: bool = False) -> bytes:
+    target = io.BytesIO()
+    inventory_rows = ["商品コード,商品名,明細バラ数,賞味期限"]
+    for index in range(count):
+        jan = _jan13(index)
+        inventory_rows.append(f"{jan},正式商品{index},{index + 1},2026/04/30")
+    with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for offset in range(35):
+            day = (pd.Timestamp("2026-01-01") + pd.Timedelta(days=offset)).date()
+            shipment_rows = ["出荷日,納品日,商品名,JAN,数量"]
+            for index in range(count):
+                jan = _jan13(index)
+                quantity = "不正" if invalid_recent and offset == 34 and index == 0 else index + 1
+                shipment_rows.append(
+                    f"{day:%Y/%m/%d},{day:%Y/%m/%d},正式商品{index},{jan},{quantity}"
+                )
+            archive.writestr(
+                f"data/神戸日時出荷_{day:%Y%m%d}.csv",
+                "\n".join(shipment_rows).encode("cp932"),
+            )
+        archive.writestr(
+            "data/神戸日時在庫_20260204.csv", "\n".join(inventory_rows).encode("cp932")
+        )
+    return target.getvalue()
+
+
+def approved_formal_pipeline(client: TestClient, raw: bytes) -> dict:
+    report = client.post(
+        "/api/business-archives", content=raw,
+        headers={"Content-Type": "application/zip"},
+    ).json()
+    handoff = client.post(
+        f"/api/business-archives/{report['analysis_id']}/formal-inventory",
+        json={
+            "actor": "現場担当者", "reason": "最新在庫とCASEを確認", "confirm_case": True,
+            "locations": [{"source_center": "神戸", "location_code": "KOBE",
+                           "location_name": "神戸倉庫", "snapshot_time": "16:00"}],
+        },
+    ).json()
+    pipeline_view = client.get(
+        f"/api/formal-inventory/{handoff['handoff_id']}/pipeline"
+    ).json()
+    registered = client.post(
+        f"/api/formal-inventory/{handoff['handoff_id']}/pipeline",
+        json={
+            "actor": "試験管理者", "reason": "10商品のPilot Scopeを確認",
+            "confirm_pilot_scope": True,
+            "selections": [{"source_center": "神戸",
+                            "jans": pipeline_view["locations"][0]["jans"]}],
+        },
+    ).json()
+    job = registered["jobs"][0]
+    approved = client.post(
+        "/api/formal-inventory/pipeline/"
+        f"{registered['registration_id']}/jobs/{job['job_id']}/approve",
+        json={"actor": "承認管理者", "reason": "原本数量と隔離0件を確認",
+              "expected_revision": 0},
+    ).json()
+    assert approved["status"] == "APPROVED"
+    return approved
+
+
 def test_business_archive_preflight_and_reference_backtest(tmp_path: Path):
     prepared = tmp_path / "prepared.csv"
     report = analyze_archive(business_zip(), prepared)
@@ -406,6 +468,114 @@ def test_formal_pipeline_rejects_modified_candidate(tmp_path: Path):
 
     assert response.status_code == 404
     assert "整合性" in response.json()["detail"]
+
+
+def test_approved_inventory_builds_formal_daily_history_and_forecast(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    approved = approved_formal_pipeline(client, pilot_forecast_zip())
+    registration_id = approved["registration_id"]
+
+    view = client.get(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast"
+    )
+    assert view.status_code == 200, view.text
+    assert view.json()["inventory_status"] == "APPROVED"
+    assert len(view.json()["identity_proposal"]) == 10
+    assert view.json()["identity_proposal"][0]["canonical_product_id"] == _jan13(0)
+
+    response = client.post(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast",
+        json={
+            "actor": "予測確認者",
+            "reason": "JAN対応と日次ファイル内の出荷0を確認",
+            "confirm_identity_bridge": True,
+            "confirm_zero_policy": True,
+        },
+    )
+    assert response.status_code == 201, response.text
+    result = response.json()
+    assert result["status"] == "FORECAST_COMPLETED"
+    assert result["eligible_series_count"] == 10
+    assert result["blocked_series_count"] == 0
+    assert result["horizon_days"] == 14
+    assert len(result["predictions"]) == 140
+    assert result["predictions"][0]["current_inventory_cases"] is not None
+    assert (tmp_path / "FormalForecast" / result["build_id"] / "daily.csv").is_file()
+    assert client.get(
+        f"/api/formal-forecast/{result['build_id']}/download"
+    ).status_code == 200
+
+    restarted = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    persisted = restarted.get(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast"
+    ).json()["latest"]
+    assert persisted["build_id"] == result["build_id"]
+    repeated = restarted.post(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast",
+        json={
+            "actor": "予測確認者",
+            "reason": "JAN対応と日次ファイル内の出荷0を確認",
+            "confirm_identity_bridge": True,
+            "confirm_zero_policy": True,
+        },
+    ).json()
+    assert repeated["build_id"] == result["build_id"]
+    assert repeated["prediction_sha256"] == result["prediction_sha256"]
+    prediction_path = (
+        tmp_path / "FormalForecast" / result["build_id"] / "predictions.json"
+    )
+    prediction_path.write_bytes(prediction_path.read_bytes() + b"modified")
+    assert restarted.get(
+        f"/api/formal-forecast/{result['build_id']}/download"
+    ).status_code == 404
+
+
+def test_formal_forecast_requires_explicit_identity_and_zero_policy(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    registration_id = approved_formal_pipeline(
+        client, pilot_forecast_zip()
+    )["registration_id"]
+
+    response = client.post(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast",
+        json={
+            "actor": "予測確認者",
+            "reason": "未確認条件の拒否を確認",
+            "confirm_identity_bridge": True,
+            "confirm_zero_policy": False,
+        },
+    )
+
+    assert response.status_code == 422
+    assert "出荷0日" in response.json()["detail"]
+    assert not list((tmp_path / "FormalForecast").glob("portable-daily-*"))
+
+
+def test_formal_forecast_keeps_invalid_product_blocked_and_runs_others(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    registration_id = approved_formal_pipeline(
+        client, pilot_forecast_zip(invalid_recent=True)
+    )["registration_id"]
+
+    response = client.post(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast",
+        json={
+            "actor": "予測確認者",
+            "reason": "不正行を0へ変換しないことを確認",
+            "confirm_identity_bridge": True,
+            "confirm_zero_policy": True,
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    result = response.json()
+    assert result["status"] == "FORECAST_COMPLETED_WITH_BLOCKERS"
+    assert result["eligible_series_count"] == 9
+    assert result["blocked_series_count"] == 1
+    blocked = next(item for item in result["series"] if not item["forecast_eligible"])
+    assert blocked["jan"] == _jan13(0)
+    assert blocked["blocking_reasons"] == ["RECENT_SOURCE_DAYS_MISSING"]
+    assert len(result["predictions"]) == 126
 
 
 def test_end_to_end_and_restart(tmp_path: Path):

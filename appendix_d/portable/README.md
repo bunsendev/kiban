@@ -10,9 +10,11 @@ Windows x64のビルドPCではPython 3.12とPyInstallerをビルド時だけ使
 
 最新の倉庫在庫は、画面で正式拠点コード、在庫基準時刻、`明細バラ数 = CASE`を確認した後、既存のPhase 3S正式在庫契約で再検証できます。全行がJAN、賞味期限、非負数量を満たす拠点だけ、原本ZIP・判断履歴・確認内容・変換後CSVのSHA-256を結んだパッケージを `Data/FormalInventory` に生成します。未解決行がある場合は次へ進めません。
 
-準備済みパッケージでは、倉庫ごとに10〜20商品のJANを試験対象として明示確認し、確認者と理由を記録して［Unified Inboxへ登録］を押します。既存のUnified Inbox、正式在庫Worker、数量照合を実行し、隔離0件かつ数量一致の最新ジョブだけを画面から明示承認できます。承認済みSnapshotは正式在庫として保存されます。出荷実績の日次buildと予測更新は別のGateであり、この操作だけで予測済みとは表示しません。
+準備済みパッケージでは、倉庫ごとに10〜20商品のJANを試験対象として明示確認し、確認者と理由を記録して［Unified Inboxへ登録］を押します。既存のUnified Inbox、正式在庫Worker、数量照合を実行し、隔離0件かつ数量一致の最新ジョブだけを画面から明示承認できます。承認済みSnapshotは正式在庫として保存されます。
 
-人工データは `Sample/synthetic_shipments.csv`。画面の「付属の人工CSVによる技術確認」を開き、［付属の人工CSVで試す］を押すこともできます。結果は `Data/Results`、入力コピーは `Data/Input`、分析結果は `Data/Analysis`、予測用日次集計は `Data/Prepared`、担当者判断は `Data/Decisions`、正式在庫候補と登録記録は `Data/FormalInventory`、Unified Inboxの原本は `Data/Inbox`、正式在庫台帳は `Data/State/formal-pipeline.sqlite3`、実行台帳は `Data/State/runs.sqlite3`、診断ログは `Data/Logs` に残ります。画面には保存済み履歴が表示されます。アプリ更新時には `App` のみを差し替え、`Data` は保持します。
+全Snapshotの承認後、画面の手順6でJANを商品ID、正式倉庫コードを予測拠点として使用する対応と、「日次出荷CSVが存在するのに対象JANの行がない日は出荷0箱」というpolicyを明示確認できます。原本ZIPと担当者判断後の出荷集計をSHA-256で再検証し、最大365日の日次状態を`OBSERVED`、`CONFIRMED_ZERO`、`MISSING`、`PARTIAL_OR_INVALID`に分けて保存します。原本CSV自体がない日や不正行は0へ変換しません。28日以上の有効履歴と直近7日の完全性を満たす商品だけ既存Baseline Providerで14日予測し、条件を満たさない商品は理由付きで残します。これはPortable試験運用の参考予測であり、正式な出荷指示、補充推奨、Production側のForecast Runではありません。
+
+人工データは `Sample/synthetic_shipments.csv`。画面の「付属の人工CSVによる技術確認」を開き、［付属の人工CSVで試す］を押すこともできます。結果は `Data/Results`、入力コピーは `Data/Input`、分析結果は `Data/Analysis`、予測用日次集計は `Data/Prepared`、担当者判断は `Data/Decisions`、正式在庫候補と登録記録は `Data/FormalInventory`、正式出荷日次build・identity bridge・14日予測は `Data/FormalForecast`、Unified Inboxの原本は `Data/Inbox`、正式在庫・bridge台帳は `Data/State/formal-pipeline.sqlite3`、実行台帳は `Data/State/runs.sqlite3`、診断ログは `Data/Logs` に残ります。画面には保存済み履歴が表示されます。アプリ更新時には `App` のみを差し替え、`Data` は保持します。
 
 人工CSVの最小契約は `ds,unique_id,y`（UTF-8、日付 `YYYY-MM-DD`、数量は0以上）。7日以上の系列が必要です。出荷数量の欠損は拒否し、0は有効です。業務ZIP分析だけでは商品マスタの正式採用、単位換算、正式Snapshot承認を行いません。
 

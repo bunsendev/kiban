@@ -7,11 +7,17 @@ const pilotForm=document.getElementById('pilot-form');
 const pilotLocations=document.getElementById('pilot-locations');
 const pilotState=document.getElementById('pilot-state');
 const pilotJobs=document.getElementById('pilot-jobs');
+const forecastPanel=document.getElementById('formal-forecast');
+const forecastForm=document.getElementById('formal-forecast-form');
+const forecastIdentities=document.getElementById('forecast-identities');
+const forecastState=document.getElementById('formal-forecast-state');
+const forecastResult=document.getElementById('formal-forecast-result');
 let formalAnalysisId=null;let formalHandoffId=null;let pipelineRegistration=null;
 function formalMessage(value,kind=''){formalState.textContent=value;formalState.className=kind;}
 function pilotMessage(value,kind=''){pilotState.textContent=value;pilotState.className=kind;}
+function forecastMessage(value,kind=''){forecastState.textContent=value;forecastState.className=kind;}
 function showHandoff(item){
-  formalResult.replaceChildren();pipelinePanel.hidden=true;formalHandoffId=null;if(!item)return;
+  formalResult.replaceChildren();pipelinePanel.hidden=true;forecastPanel.hidden=true;formalHandoffId=null;if(!item)return;
   const summary=document.createElement('p');
   summary.textContent=item.status==='READY_FOR_FORMAL_INTAKE'
     ? `${item.files.length}倉庫、${item.files.reduce((sum,file)=>sum+file.accepted_row_count,0).toLocaleString()}行を正式取込用に検証しました。`
@@ -74,7 +80,7 @@ async function loadPipeline(handoffId){
   }catch(error){pipelinePanel.hidden=false;pilotMessage(error.message,'error');}
 }
 function renderPipeline(value){
-  pipelineRegistration=value;pilotJobs.replaceChildren();if(!value)return;
+  pipelineRegistration=value;pilotJobs.replaceChildren();forecastPanel.hidden=true;if(!value)return;
   if(!document.getElementById('pilot-actor').value)document.getElementById('pilot-actor').value=value.approved_by||'';
   if(!document.getElementById('pilot-reason').value)document.getElementById('pilot-reason').value=value.approval_reason||'';
   for(const job of value.jobs){
@@ -85,7 +91,10 @@ function renderPipeline(value){
     }
     pilotJobs.appendChild(li);
   }
-  if(value.status==='APPROVED')pilotMessage('正式在庫Snapshotを承認しました。出荷日次入力の確定後に予測更新へ進めます。','success');
+  if(value.status==='APPROVED'){
+    pilotMessage('正式在庫Snapshotを承認しました。続けて出荷履歴と予測条件を確認してください。','success');
+    loadFormalForecast(value.registration_id);
+  }
 }
 pilotForm.addEventListener('submit',async event=>{
   event.preventDefault();if(!formalHandoffId)return;
@@ -104,4 +113,31 @@ async function approveJob(job){
     const result=await response.json();if(!response.ok)throw new Error(result.detail||'正式承認できませんでした。');renderPipeline(result);
   }catch(error){pilotMessage(error.message,'error');}
 }
+async function loadFormalForecast(registrationId){
+  try{
+    const response=await fetch(`/api/formal-inventory/pipeline/${encodeURIComponent(registrationId)}/forecast`);
+    const view=await response.json();if(!response.ok)throw new Error(view.detail||'予測準備状態を確認できません。');
+    forecastPanel.hidden=false;forecastIdentities.replaceChildren();
+    const table=document.createElement('table');table.innerHTML='<thead><tr><th>元の倉庫</th><th>JAN / 商品ID</th><th>予測拠点</th></tr></thead>';
+    const body=document.createElement('tbody');
+    for(const item of view.identity_proposal){const row=document.createElement('tr');for(const value of [item.source_center,`${item.jan} / ${item.canonical_product_id}`,item.forecast_center_id]){const cell=document.createElement('td');cell.textContent=value;row.appendChild(cell);}body.appendChild(row);}
+    table.appendChild(body);forecastIdentities.appendChild(table);
+    if(!document.getElementById('forecast-actor').value)document.getElementById('forecast-actor').value=pipelineRegistration.approved_by||'';
+    renderFormalForecast(view.latest);
+    forecastMessage(view.latest?'保存済みの予測結果を表示しました。':'JAN・倉庫対応と出荷0日の扱いを確認してください。');
+  }catch(error){forecastPanel.hidden=false;forecastMessage(error.message,'error');}
+}
+function renderFormalForecast(value){
+  forecastResult.replaceChildren();if(!value)return;
+  const box=document.createElement('div');box.className='forecast-summary';
+  const heading=document.createElement('strong');heading.textContent=value.status==='BLOCKED'?'予測対象を準備できませんでした':'14日予測が完了しました';box.appendChild(heading);
+  const summary=document.createElement('p');summary.textContent=`対象 ${value.eligible_series_count}系列／確認が必要 ${value.blocked_series_count}系列／学習期間 ${value.train_start}〜${value.train_end}`;box.appendChild(summary);
+  if(value.series?.some(item=>item.blocking_reasons.length)){const list=document.createElement('ul');for(const item of value.series.filter(item=>item.blocking_reasons.length)){const li=document.createElement('li');li.textContent=`${item.jan}（${item.forecast_center_id}）：${item.blocking_reasons.join('、')}`;list.appendChild(li);}box.appendChild(list);}
+  if(value.predictions?.length){const table=document.createElement('table');table.innerHTML='<thead><tr><th>系列</th><th>予測日</th><th>予測箱数</th><th>現在庫</th></tr></thead>';const body=document.createElement('tbody');for(const item of value.predictions){const row=document.createElement('tr');for(const content of [item.unique_id,item.target_date,Number(item.yhat).toFixed(2),item.current_inventory_cases]){const cell=document.createElement('td');cell.textContent=content;row.appendChild(cell);}body.appendChild(row);}table.appendChild(body);box.appendChild(table);const link=document.createElement('a');link.href=`/api/formal-forecast/${encodeURIComponent(value.build_id)}/download`;link.textContent='予測結果JSONを保存';box.appendChild(link);}
+  forecastResult.appendChild(box);forecastMessage(value.notice,value.status==='BLOCKED'?'error':'success');
+}
+forecastForm.addEventListener('submit',async event=>{
+  event.preventDefault();if(!pipelineRegistration)return;const button=document.getElementById('formal-forecast-submit');button.disabled=true;forecastMessage('出荷履歴を日次化し、14日予測を実行中です。');
+  try{const response=await fetch(`/api/formal-inventory/pipeline/${encodeURIComponent(pipelineRegistration.registration_id)}/forecast`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({actor:document.getElementById('forecast-actor').value,reason:document.getElementById('forecast-reason').value,confirm_identity_bridge:document.getElementById('forecast-identity-confirm').checked,confirm_zero_policy:document.getElementById('forecast-zero-confirm').checked})});const result=await response.json();if(!response.ok)throw new Error(result.detail||'正式予測を実行できませんでした。');renderFormalForecast(result);}catch(error){forecastMessage(error.message,'error');}finally{button.disabled=false;}
+});
 window.PortableInventory={render:renderFormalInventory};

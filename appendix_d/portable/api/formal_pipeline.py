@@ -143,6 +143,16 @@ class PortableFormalPipeline:
         )
         return self.registration_view(registration)
 
+    def get_registration(self, registration_id: str) -> dict:
+        """Return the immutable registration for a following adapter."""
+
+        return self._registration(registration_id)
+
+    def get_handoff(self, handoff_id: str) -> dict:
+        """Return the verified handoff manifest for a following adapter."""
+
+        return self._handoff(handoff_id)[0]
+
     def registration_view(self, registration: dict) -> dict:
         jobs = []
         for item in registration["jobs"]:

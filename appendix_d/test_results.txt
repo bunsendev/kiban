@@ -1,3 +1,9 @@
+# Windows Portable 正式出荷・14日予測接続（2026-10-01 JST）
+
+- 承認済み在庫10商品、35日出荷、JAN・倉庫identity bridge、日次build、14日予測140点、再起動後の再表示と冪等性を統合試験で確認。
+- 直近日の不正数量を0へ変換せず、該当1商品を理由付きで除外して残り9商品の126点を予測することを確認。
+- Portable対象試験25 passed、`ruff check portable tests/portable`、JavaScript構文検査に成功。
+
 # Windows Portable Unified Inbox・正式在庫Snapshot接続（2026-10-01 JST）
 
 - 正式在庫handoffから倉庫別10〜20 JANのPilot Scopeを明示確認し、既存Unified Inbox、Inventory Snapshot Worker、数量照合、Snapshot承認へ接続。
@@ -1784,3 +1790,11 @@ OS: Windows 11
 - 拠点ごとの最新在庫CSVを選び、担当者が正式拠点・基準時刻・CASE解釈を確認した内容を既存Phase 3S契約で検証し、追跡可能な取込候補ZIPとして保存する。未解決JAN・賞味期限・数量が1行でもあればダウンロードを止める。
 - 対象テスト19 passed、`ruff check portable tests/portable`、JavaScript構文検査、実ブラウザでの入力・候補生成・保存リンク表示、実データの技術的変換確認に成功。実データは2拠点、最新日2025-07-29、189賞味期限bucket、合計1,003,878 CASEを未解決0件で変換した。正式拠点コードと業務上のCASE解釈は現場確認事項として残す。
 - 全体回帰の初回は838 passed / 20 skipped / 2 deselected、配布SHA未更新による1件のみ失敗。配布一覧更新後は839 passed / 20 skipped / 2 deselected。`ruff check .`、配布一覧909/909一致、`git diff --check`も成功。
+
+# Windows Portable 正式出荷日次build・14日参考予測（2026-10-01 JST）
+
+- 承認済みInventory Snapshotと出荷実績を、担当者が確認したJAN・倉庫identity bridgeで接続し、直近28日以上の正式日次系列から14日参考予測を生成する。未確認identity・未確認ゼロ日policy・欠測・不正数量がある系列は理由付きで隔離し、正常系列の処理を止めない。
+- 対象試験25 passed。人工データ10商品×35日から140予測点を生成し、再起動後の同一build ID/SHA、明示確認の必須化、不正数量系列だけの隔離、結果改変拒否を確認。`ruff check .`、JavaScript構文検査、`git diff --check`に成功。
+- 配布一覧更新前の全体回帰は843 passed / 20 skipped / 4 failed。失敗内訳は既存承認学習イベント順序1件、日付固定fixtureの鮮度判定1件、Windows非対応Linux RSS計測1件、更新前の配布SHA照合1件。今回の対象試験はすべて成功している。
+- 配布一覧を更新後、上記の既知3件を除外した全体回帰は844 passed / 20 skipped / 3 deselected。`make_release.py --check`は917/917一致。
+- 本機能はPortable版のローカル参考予測であり、Productionの正式Forecast Run queueや出荷指示Decision Engineへの接続ではない。実データはRepositoryへ保存していない。
