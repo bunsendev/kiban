@@ -1,3 +1,9 @@
+# Windows Portable 正式在庫handoff（2026-09-30 JST）
+
+- 拠点別最新在庫、拠点・基準時刻・CASE確認、既存Phase 3S契約での再検証、追跡可能なhandoff ZIP、未解決時のfail closedを追加。
+- Portable対象試験19 passed、`ruff check portable tests/portable`、JavaScript構文検査、`git diff --check`に成功。
+- Repository外の実データで加須107原本行→89 expiry bucket、神戸114原本行→100 expiry bucketを検証し、未解決0件で技術的に変換可能と確認。テスト用拠点コード・16時を使用しており、業務承認ではない。
+
 # Windows Portable 担当者確認・判断再利用（2026-09-30 JST）
 
 - 確認待ち122行と隔離2行を14項目へ集約し、原因・元の値・商品名・行数を画面表示。12桁JAN対応付け、賞味期限欠損確認、除外を追記履歴へ保存し、JAN判断の次回再利用と出荷日次再集計を追加。
@@ -1766,3 +1772,9 @@ OS: Windows 11
 - 人工CSV→既存Baseline→結果表示/保存→API再起動後の履歴確認を、Windows x64のPyInstaller onedir実行物で確認。P1専用テスト12 passed、既存Baselineを含む対象59 passed。`ruff check portable tests/portable`成功。
 - 同じ人工入力のSHA-256と結果SHA-256は再実行で一致。Port競合、異常CSV、Data書込不可、二重起動、Launcher相当process強制終了時の子API停止とlock回収を確認。listenは`127.0.0.1`のみ。
 - 配布一覧更新後の全体回帰は832 passed / 20 skipped / 2 failed。既存Field Pilot期待値、Windows非対応Linux RSS計測。`make_release.py --check`は899/899一致、`ruff check .`成功。12 Gate中、クリーンPCのDocker/WSL/Python未導入、完全オフライン、凍結GUIの現場手操作等は未実施。P1完成判定は保留。詳細は`planning/WINDOWS_PORTABLE_P1_RESULT.md`。\n
+
+# Windows Portable 正式在庫取込候補への接続（2026-09-30 JST）
+
+- 拠点ごとの最新在庫CSVを選び、担当者が正式拠点・基準時刻・CASE解釈を確認した内容を既存Phase 3S契約で検証し、追跡可能な取込候補ZIPとして保存する。未解決JAN・賞味期限・数量が1行でもあればダウンロードを止める。
+- 対象テスト19 passed、`ruff check portable tests/portable`、JavaScript構文検査、実ブラウザでの入力・候補生成・保存リンク表示、実データの技術的変換確認に成功。実データは2拠点、最新日2025-07-29、189賞味期限bucket、合計1,003,878 CASEを未解決0件で変換した。正式拠点コードと業務上のCASE解釈は現場確認事項として残す。
+- 全体回帰の初回は838 passed / 20 skipped / 2 deselected、配布SHA未更新による1件のみ失敗。配布一覧更新後は839 passed / 20 skipped / 2 deselected。`ruff check .`、配布一覧909/909一致、`git diff --check`も成功。

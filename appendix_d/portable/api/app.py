@@ -36,6 +36,7 @@ from .business_review import (
 )
 from .forecast import forecast
 from .input_csv import MAX_CSV_BYTES, InputError, parse_csv
+from .inventory_routes import register_inventory_handoff_routes
 from .store import RunStore
 
 LOG = logging.getLogger("portable.api")
@@ -74,6 +75,8 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
         journal = paths.decisions / f"{report['analysis_id']}.jsonl"
         return review_view(report, journal)
 
+    register_inventory_handoff_routes(app, paths, load_analysis, _read_limited)
+
     @app.middleware("http")
     async def local_only(request: Request, call_next):
         if request.client and request.client.host not in {"127.0.0.1", "::1", "testclient"}:
@@ -106,6 +109,10 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     @app.get("/review.js")
     def review_script():
         return FileResponse(STATIC / "review.js", media_type="text/javascript")
+
+    @app.get("/inventory.js")
+    def inventory_script():
+        return FileResponse(STATIC / "inventory.js", media_type="text/javascript")
 
     @app.get("/style.css")
     def style():

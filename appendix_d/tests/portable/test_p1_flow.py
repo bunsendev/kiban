@@ -56,6 +56,27 @@ def business_zip(marker: str = "") -> bytes:
     return target.getvalue()
 
 
+def formal_inventory_zip(*, latest_expiry: str = "2026/04/30") -> bytes:
+    target = io.BytesIO()
+    with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        shipment = (
+            "出荷日,納品日,商品名,JAN,数量\n"
+            "2026/02/04,2026/02/04,正式商品,4901234567894,2\n"
+        )
+        archive.writestr("data/神戸日時出荷_20260204.csv", shipment.encode("cp932"))
+        older = (
+            "商品コード,商品名,明細バラ数,賞味期限\n"
+            "4901234567894,正式商品,3,\n"
+        )
+        latest = (
+            "商品コード,商品名,明細バラ数,賞味期限\n"
+            f"4901234567894,正式商品,5,{latest_expiry}\n"
+        )
+        archive.writestr("data/神戸日時在庫_20260203.csv", older.encode("cp932"))
+        archive.writestr("data/神戸日時在庫_20260204.csv", latest.encode("cp932"))
+    return target.getvalue()
+
+
 def test_business_archive_preflight_and_reference_backtest(tmp_path: Path):
     prepared = tmp_path / "prepared.csv"
     report = analyze_archive(business_zip(), prepared)
@@ -168,6 +189,93 @@ def test_operator_decision_rejects_invalid_correction(tmp_path: Path):
     )
     assert response.status_code == 422
     assert not (tmp_path / "Decisions" / f"{report['analysis_id']}.jsonl").exists()
+
+
+def test_latest_inventory_is_validated_and_packaged_for_formal_intake(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    report = client.post(
+        "/api/business-archives",
+        content=formal_inventory_zip(),
+        headers={"Content-Type": "application/zip"},
+    ).json()
+    view = client.get(
+        f"/api/business-archives/{report['analysis_id']}/formal-inventory"
+    ).json()
+    assert view == {
+        "centers": [{"source_center": "神戸", "latest_date": "2026-02-04"}],
+        "latest": None,
+    }
+    payload = {
+        "actor": "現場担当者",
+        "reason": "最新在庫、拠点、基準時刻、CASEを確認",
+        "confirm_case": True,
+        "locations": [{
+            "source_center": "神戸",
+            "location_code": "KOBE",
+            "location_name": "神戸倉庫",
+            "snapshot_time": "16:00",
+        }],
+    }
+    response = client.post(
+        f"/api/business-archives/{report['analysis_id']}/formal-inventory", json=payload
+    )
+    assert response.status_code == 201, response.text
+    handoff = response.json()
+    assert handoff["status"] == "READY_FOR_FORMAL_INTAKE"
+    assert handoff["normalized_unit"] == "CASE"
+    assert handoff["files"][0]["source_row_count"] == 1
+    assert handoff["files"][0]["accepted_row_count"] == 1
+    assert handoff["files"][0]["quantity_cases"] == "5"
+    assert handoff["files"][0]["snapshot_at"] == "2026-02-04T07:00:00+00:00"
+    download = client.get(f"/api/formal-inventory/{handoff['handoff_id']}/download")
+    assert download.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(download.content)) as package:
+        assert json.loads(package.read("manifest.json"))["handoff_id"] == handoff["handoff_id"]
+        csv_name = handoff["files"][0]["candidate_file"]
+        candidate = package.read(csv_name).decode("utf-8-sig")
+        assert "4901234567894,KOBE,2026-04-30,5,2026-02-04T07:00:00+00:00" in candidate
+    repeated = client.post(
+        f"/api/business-archives/{report['analysis_id']}/formal-inventory", json=payload
+    ).json()
+    assert repeated["handoff_id"] == handoff["handoff_id"]
+
+
+def test_formal_inventory_stays_blocked_for_unresolved_latest_row(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    report = client.post(
+        "/api/business-archives",
+        content=formal_inventory_zip(latest_expiry=""),
+        headers={"Content-Type": "application/zip"},
+    ).json()
+    response = client.post(
+        f"/api/business-archives/{report['analysis_id']}/formal-inventory",
+        json={
+            "actor": "現場担当者",
+            "reason": "欠損を確認",
+            "confirm_case": True,
+            "locations": [{"source_center": "神戸", "location_code": "KOBE",
+                           "location_name": "神戸倉庫", "snapshot_time": "16:00"}],
+        },
+    )
+    assert response.status_code == 201
+    handoff = response.json()
+    assert handoff["status"] == "BLOCKED"
+    assert handoff["blockers"][0]["reason_codes"] == ["EXPIRY_UNRESOLVED"]
+    assert client.get(f"/api/formal-inventory/{handoff['handoff_id']}/download").status_code == 404
+
+
+def test_formal_inventory_requires_explicit_case_confirmation(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    report = client.post(
+        "/api/business-archives", content=formal_inventory_zip(),
+        headers={"Content-Type": "application/zip"},
+    ).json()
+    response = client.post(
+        f"/api/business-archives/{report['analysis_id']}/formal-inventory",
+        json={"actor": "担当", "reason": "確認", "confirm_case": False, "locations": []},
+    )
+    assert response.status_code == 422
+    assert "CASE" in response.json()["detail"]
 
 
 def test_end_to_end_and_restart(tmp_path: Path):
