@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import threading
 import uuid
 from pathlib import Path
@@ -16,6 +17,14 @@ from forecast_provider.providers.builtin_baseline import PROVIDER_VERSION
 from portable import APP_VERSION
 from portable.runtime.paths import DataPaths
 
+from .business_archive import (
+    MAX_ZIP_BYTES,
+    ArchiveError,
+    analyze_archive,
+    atomic_json,
+    content_id,
+    run_reference_backtest,
+)
 from .forecast import forecast
 from .input_csv import MAX_CSV_BYTES, InputError, parse_csv
 from .store import RunStore
@@ -23,6 +32,15 @@ from .store import RunStore
 LOG = logging.getLogger("portable.api")
 STATIC = Path(__file__).parent / "static"
 SAMPLE = Path(__file__).resolve().parents[1] / "sample" / "synthetic_shipments.csv"
+
+
+async def _read_limited(request: Request, limit: int) -> bytes:
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > limit:
+            raise HTTPException(413, "アップロード容量が上限を超えています")
+        body.extend(chunk)
+    return bytes(body)
 
 
 def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
@@ -75,6 +93,106 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     @app.get("/api/runs")
     def runs():
         return store.list()
+
+    @app.get("/api/business-archives")
+    def business_archives():
+        records = []
+        for report_path in sorted(
+            paths.analysis.glob("*.json"), key=lambda item: item.stat().st_mtime, reverse=True
+        )[:20]:
+            try:
+                report = json.loads(report_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            records.append(
+                {
+                    "analysis_id": report.get("analysis_id"),
+                    "status": report.get("status"),
+                    "rows": report.get("rows"),
+                    "products": report.get("products"),
+                }
+            )
+        return records
+
+    @app.get("/api/business-archives/{analysis_id}")
+    def business_archive(analysis_id: str):
+        if not re.fullmatch(r"[0-9a-f]{64}", analysis_id):
+            raise HTTPException(404, "分析結果が見つかりません")
+        report_path = paths.analysis / f"{analysis_id}.json"
+        if not report_path.is_file():
+            raise HTTPException(404, "分析結果が見つかりません")
+        return json.loads(report_path.read_text(encoding="utf-8"))
+
+    @app.post("/api/business-archives", status_code=201)
+    async def create_business_archive(request: Request):
+        if request.headers.get("content-type", "").split(";")[0] not in {
+            "application/zip",
+            "application/octet-stream",
+        }:
+            raise HTTPException(415, "在庫・出荷CSVを含むZIPを選択してください")
+        data = await _read_limited(request, MAX_ZIP_BYTES)
+        with app.state.lock:
+            if app.state.closing:
+                raise HTTPException(503, "終了処理中です")
+            if app.state.active:
+                raise HTTPException(409, "別の処理を実行中です")
+            app.state.active += 1
+        analysis_id = content_id(data)
+        try:
+            prepared_path = paths.prepared / f"{analysis_id}.csv"
+            report = analyze_archive(data, prepared_path)
+            input_path = paths.input / f"{analysis_id}.zip"
+            if not input_path.exists():
+                temporary = input_path.with_suffix(".tmp")
+                temporary.write_bytes(data)
+                os.replace(temporary, input_path)
+            report = {
+                "analysis_id": analysis_id,
+                "input_sha256": analysis_id,
+                **report,
+            }
+            atomic_json(paths.analysis / f"{analysis_id}.json", report)
+            LOG.info("business_archive_analyzed analysis_id=%s", analysis_id)
+            return report
+        except ArchiveError as exc:
+            LOG.info("business_archive_rejected code=PORTABLE-ARCHIVE-001")
+            raise HTTPException(422, str(exc)) from exc
+        except Exception as exc:
+            LOG.exception("business_archive_failed code=PORTABLE-ARCHIVE-002")
+            message = "分析できませんでした。エラーコード PORTABLE-ARCHIVE-002"
+            raise HTTPException(500, message) from exc
+        finally:
+            with app.state.lock:
+                app.state.active -= 1
+
+    @app.post("/api/business-archives/{analysis_id}/backtest", status_code=201)
+    def backtest_business_archive(analysis_id: str):
+        if not re.fullmatch(r"[0-9a-f]{64}", analysis_id):
+            raise HTTPException(404, "分析結果が見つかりません")
+        report_path = paths.analysis / f"{analysis_id}.json"
+        prepared_path = paths.prepared / f"{analysis_id}.csv"
+        if not report_path.is_file() or not prepared_path.is_file():
+            raise HTTPException(404, "分析結果が見つかりません")
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        if not all(item["backtest_ready"] for item in report["center_windows"]):
+            raise HTTPException(409, "直近35日のファイルが揃っていない拠点があります")
+        with app.state.lock:
+            if app.state.closing:
+                raise HTTPException(503, "終了処理中です")
+            if app.state.active:
+                raise HTTPException(409, "別の処理を実行中です")
+            app.state.active += 1
+        try:
+            result = run_reference_backtest(prepared_path, paths.state, analysis_id)
+            atomic_json(paths.results / f"business-{analysis_id}.json", result)
+            return result
+        except Exception as exc:
+            LOG.exception("business_backtest_failed analysis_id=%s", analysis_id)
+            message = "参考評価に失敗しました。エラーコード PORTABLE-BACKTEST-001"
+            raise HTTPException(500, message) from exc
+        finally:
+            with app.state.lock:
+                app.state.active -= 1
 
     @app.get("/api/runs/{run_id}")
     def run(run_id: str):

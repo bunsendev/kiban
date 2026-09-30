@@ -1,3 +1,10 @@
+# Windows Portable 実データPreflight（2026-09-30 JST）
+
+- 実データZIP 3,869 CSV / 4,108,358行を全件処理し、自動確定4,108,234行、確認待ち122行、隔離2行、日次集計80,023行を確認。原本はRepositoryへ追加していない。
+- 加須56系列392点はMAE 282.3138 / WAPE 32.6949%、神戸57系列399点はMAE 349.4561 / WAPE 39.5087%。直近28日学習・7日評価のBaseline参考値であり正式比較ではない。
+- Portable対象試験14 passed、`ruff check .`成功、`make_release.py --check`は902/902一致。
+- 全体初回は860 passed / 14 skipped / 3 failed。manifest更新前の1件を解消後、既存Field Pilot固定期待値とWindows非対応Linux RSS計測の2件を除く回帰は861 passed / 14 skipped / 2 deselected。残る2件は今回の変更領域外。
+
 # Windows Portable P1 現場受入準備（2026-09-30 JST）
 
 - 付属人工CSVの画面ボタンを追加。凍結版のブラウザー操作で14行の予測・保存と、2回実行の入力/結果SHA-256一致を確認した。ファイル選択の手操作はブラウザー操作ツールがchooserを取得できず未判定。

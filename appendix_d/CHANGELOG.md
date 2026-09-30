@@ -1,5 +1,9 @@
 # v2.9 修正記録
 
+## Windows Portable 実データPreflight
+
+- 在庫・出荷ZIPの全件検査、自動確定・確認待ち・隔離、拠点別28日学習・7日Baseline参考バックテストをPortable画面へ追加。
+
 ## Phase 3T 倉庫Shadow確認画面
 
 - 承認済みPilot在庫・確定POINT予測・FEFO試算をJAN×倉庫の一覧と14日詳細で見る認証付きShadow画面を追加。
