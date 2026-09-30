@@ -1,5 +1,11 @@
 # v2.9 修正記録
 
+## Windows Portable 正式在庫Pipeline
+
+- 準備済みhandoffから倉庫別10〜20 JANのPilot Scopeを担当者が明示確認し、既存Unified Inboxへ登録する画面とAPIを追加した。
+- 既存の正式在庫Worker、対象内外数量照合、隔離判定を実行し、最新かつ数量一致のSnapshotだけを明示承認できるようにした。
+- 承認済み在庫と予測更新を区別し、出荷実績の日次buildが未完了の場合は待機状態を明示する。
+
 ## Windows Portable 正式在庫handoff
 
 - 各拠点の最新在庫CSVを選び、正式拠点コード、基準時刻、CASE確認を画面から記録できるようにした。

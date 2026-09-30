@@ -77,6 +77,33 @@ def formal_inventory_zip(*, latest_expiry: str = "2026/04/30") -> bytes:
     return target.getvalue()
 
 
+def _jan13(serial: int) -> str:
+    body = f"490123456{serial:03d}"
+    check = (10 - sum(
+        int(value) * (1 if index % 2 == 0 else 3)
+        for index, value in enumerate(body)
+    ) % 10) % 10
+    return f"{body}{check}"
+
+
+def pilot_inventory_zip(count: int = 10) -> bytes:
+    target = io.BytesIO()
+    shipment_rows = ["出荷日,納品日,商品名,JAN,数量"]
+    inventory_rows = ["商品コード,商品名,明細バラ数,賞味期限"]
+    for index in range(count):
+        jan = _jan13(index)
+        shipment_rows.append(f"2026/02/04,2026/02/04,正式商品{index},{jan},{index + 1}")
+        inventory_rows.append(f"{jan},正式商品{index},{index + 1},2026/04/30")
+    with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "data/神戸日時出荷_20260204.csv", "\n".join(shipment_rows).encode("cp932")
+        )
+        archive.writestr(
+            "data/神戸日時在庫_20260204.csv", "\n".join(inventory_rows).encode("cp932")
+        )
+    return target.getvalue()
+
+
 def test_business_archive_preflight_and_reference_backtest(tmp_path: Path):
     prepared = tmp_path / "prepared.csv"
     report = analyze_archive(business_zip(), prepared)
@@ -276,6 +303,109 @@ def test_formal_inventory_requires_explicit_case_confirmation(tmp_path: Path):
     )
     assert response.status_code == 422
     assert "CASE" in response.json()["detail"]
+
+
+def test_formal_inventory_runs_unified_inbox_worker_and_explicit_approval(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    report = client.post(
+        "/api/business-archives", content=pilot_inventory_zip(),
+        headers={"Content-Type": "application/zip"},
+    ).json()
+    handoff = client.post(
+        f"/api/business-archives/{report['analysis_id']}/formal-inventory",
+        json={
+            "actor": "現場担当者", "reason": "最新在庫とCASEを確認", "confirm_case": True,
+            "locations": [{"source_center": "神戸", "location_code": "KOBE",
+                           "location_name": "神戸倉庫", "snapshot_time": "16:00"}],
+        },
+    ).json()
+    pipeline_view = client.get(
+        f"/api/formal-inventory/{handoff['handoff_id']}/pipeline"
+    ).json()
+    assert len(pipeline_view["locations"][0]["jans"]) == 10
+    response = client.post(
+        f"/api/formal-inventory/{handoff['handoff_id']}/pipeline",
+        json={
+            "actor": "試験管理者", "reason": "10商品のPilot Scopeを確認",
+            "confirm_pilot_scope": True,
+            "selections": [{"source_center": "神戸",
+                            "jans": pipeline_view["locations"][0]["jans"]}],
+        },
+    )
+    assert response.status_code == 201, response.text
+    registered = response.json()
+    assert registered["status"] == "APPROVAL_REQUIRED"
+    assert registered["jobs"][0]["accepted_row_count"] == 10
+    assert registered["jobs"][0]["quarantined_row_count"] == 0
+    assert registered["jobs"][0]["reconciliation_matched"] is True
+    assert registered["jobs"][0]["normalized_quantity_cases"] == "55"
+    job = registered["jobs"][0]
+    approved_response = client.post(
+        "/api/formal-inventory/pipeline/"
+        f"{registered['registration_id']}/jobs/{job['job_id']}/approve",
+        json={"actor": "承認管理者", "reason": "原本数量と隔離0件を確認",
+              "expected_revision": 0},
+    )
+    assert approved_response.status_code == 201, approved_response.text
+    approved = approved_response.json()
+    assert approved["status"] == "APPROVED"
+    assert approved["jobs"][0]["snapshot_id"].startswith("inventory-snapshot-")
+    assert approved["forecast_update_status"] == "WAITING_FOR_FORMAL_SHIPMENT_DAILY_BUILD"
+
+    restarted = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    persisted = restarted.get(
+        f"/api/formal-inventory/{handoff['handoff_id']}/pipeline"
+    ).json()["latest"]
+    assert persisted["status"] == "APPROVED"
+
+
+def test_formal_pipeline_rejects_unconfirmed_or_too_small_scope(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    report = client.post(
+        "/api/business-archives", content=pilot_inventory_zip(),
+        headers={"Content-Type": "application/zip"},
+    ).json()
+    handoff = client.post(
+        f"/api/business-archives/{report['analysis_id']}/formal-inventory",
+        json={
+            "actor": "担当", "reason": "確認", "confirm_case": True,
+            "locations": [{"source_center": "神戸", "location_code": "KOBE",
+                           "location_name": "神戸倉庫", "snapshot_time": "16:00"}],
+        },
+    ).json()
+    response = client.post(
+        f"/api/formal-inventory/{handoff['handoff_id']}/pipeline",
+        json={"actor": "管理者", "reason": "確認", "confirm_pilot_scope": False,
+              "selections": [{"source_center": "神戸", "jans": [_jan13(0)]}]},
+    )
+    assert response.status_code == 422
+    assert not list((tmp_path / "FormalInventory" / "Registrations").glob("*.json"))
+
+
+def test_formal_pipeline_rejects_modified_candidate(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    report = client.post(
+        "/api/business-archives", content=pilot_inventory_zip(),
+        headers={"Content-Type": "application/zip"},
+    ).json()
+    handoff = client.post(
+        f"/api/business-archives/{report['analysis_id']}/formal-inventory",
+        json={
+            "actor": "担当", "reason": "確認", "confirm_case": True,
+            "locations": [{"source_center": "神戸", "location_code": "KOBE",
+                           "location_name": "神戸倉庫", "snapshot_time": "16:00"}],
+        },
+    ).json()
+    candidate = (
+        tmp_path / "FormalInventory" / handoff["handoff_id"]
+        / handoff["files"][0]["candidate_file"]
+    )
+    candidate.write_bytes(candidate.read_bytes() + b"modified")
+
+    response = client.get(f"/api/formal-inventory/{handoff['handoff_id']}/pipeline")
+
+    assert response.status_code == 404
+    assert "整合性" in response.json()["detail"]
 
 
 def test_end_to_end_and_restart(tmp_path: Path):

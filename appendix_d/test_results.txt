@@ -1,3 +1,9 @@
+# Windows Portable Unified Inbox・正式在庫Snapshot接続（2026-10-01 JST）
+
+- 正式在庫handoffから倉庫別10〜20 JANのPilot Scopeを明示確認し、既存Unified Inbox、Inventory Snapshot Worker、数量照合、Snapshot承認へ接続。
+- Portable統合試験22 passed、`ruff check portable tests/portable`、JavaScript構文検査、`git diff --check`に成功。
+- 配布ハッシュ更新前の全体回帰は840 passed / 20 skipped / 2 deselected / 1 failed。失敗は今回変更した13ファイルのmanifest未反映のみ。
+- 承認済み在庫と予測更新を分離し、出荷実績の日次build未完了時は`WAITING_FOR_FORMAL_SHIPMENT_DAILY_BUILD`と表示する。
 # Windows Portable 正式在庫handoff（2026-09-30 JST）
 
 - 拠点別最新在庫、拠点・基準時刻・CASE確認、既存Phase 3S契約での再検証、追跡可能なhandoff ZIP、未解決時のfail closedを追加。
