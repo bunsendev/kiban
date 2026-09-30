@@ -25,6 +25,7 @@ function showAnalysis(report) {
   const reasons=document.getElementById('analysis-reasons'); reasons.replaceChildren();
   for (const [code,count] of Object.entries(report.reasons)) { const li=document.createElement('li'); li.textContent=`${reasonLabels[code]||code}: ${count.toLocaleString()}件`; reasons.appendChild(li); }
   window.PortableReview.render(report,async updated=>{showAnalysis(updated);businessMessage('担当者判断を保存し、確定済みデータを再集計しました。','success');await refreshAnalyses();});
+  window.PortableInventory.render(report);
   backtest.disabled=!report.center_windows.length || report.center_windows.some(item=>!item.backtest_ready);
   document.getElementById('backtest-state').textContent=backtest.disabled ? '直近35日のファイル不足により参考評価を開始できません。' : '自動判定OKと担当者が確定した出荷データで28日学習・7日評価を実行できます。';
 }

@@ -8,8 +8,10 @@ Windows x64のビルドPCではPython 3.12とPyInstallerをビルド時だけ使
 
 確認待ちと隔離は画面に原因・元の値・件数を表示します。担当者は、確認済み13桁JANへの対応付け、賞味期限欠損の確認、今回の対象からの除外を選び、任意のメモとともに保存できます。判断履歴は `Data/Decisions/<analysis_id>.jsonl` へ追記し、元の分析結果を上書きしません。「同じ値を次回も使用」を選んだJAN対応付けは `Data/Decisions/rules.jsonl` に保存し、同じ値を含む次回ZIPへ自動適用します。担当者判断後の出荷集計は `Data/Prepared/<analysis_id>-reviewed.csv` に分離します。
 
-人工データは `Sample/synthetic_shipments.csv`。画面の「付属の人工CSVによる技術確認」を開き、［付属の人工CSVで試す］を押すこともできます。結果は `Data/Results`、入力コピーは `Data/Input`、分析結果は `Data/Analysis`、予測用日次集計は `Data/Prepared`、担当者判断は `Data/Decisions`、実行台帳は `Data/State/runs.sqlite3`、診断ログは `Data/Logs` に残ります。画面には保存済み履歴が表示されます。アプリ更新時には `App` のみを差し替え、`Data` は保持します。
+最新の倉庫在庫は、画面で正式拠点コード、在庫基準時刻、`明細バラ数 = CASE`を確認した後、既存のPhase 3S正式在庫契約で再検証できます。全行がJAN、賞味期限、非負数量を満たす拠点だけ、原本ZIP・判断履歴・確認内容・変換後CSVのSHA-256を結んだパッケージを `Data/FormalInventory` に生成します。これは正式inventory intakeへ渡す候補であり、Snapshotの最終承認を自動化しません。未解決行がある場合はパッケージをダウンロードできません。
 
-人工CSVの最小契約は `ds,unique_id,y`（UTF-8、日付 `YYYY-MM-DD`、数量は0以上）。7日以上の系列が必要です。出荷数量の欠損は拒否し、0は有効です。業務ZIP分析は商品マスタの正式採用、単位換算、現在在庫、正式比較を行いません。
+人工データは `Sample/synthetic_shipments.csv`。画面の「付属の人工CSVによる技術確認」を開き、［付属の人工CSVで試す］を押すこともできます。結果は `Data/Results`、入力コピーは `Data/Input`、分析結果は `Data/Analysis`、予測用日次集計は `Data/Prepared`、担当者判断は `Data/Decisions`、正式在庫候補は `Data/FormalInventory`、実行台帳は `Data/State/runs.sqlite3`、診断ログは `Data/Logs` に残ります。画面には保存済み履歴が表示されます。アプリ更新時には `App` のみを差し替え、`Data` は保持します。
+
+人工CSVの最小契約は `ds,unique_id,y`（UTF-8、日付 `YYYY-MM-DD`、数量は0以上）。7日以上の系列が必要です。出荷数量の欠損は拒否し、0は有効です。業務ZIP分析だけでは商品マスタの正式採用、単位換算、正式Snapshot承認を行いません。
 
 開発確認は `python -m pytest tests/portable -q`。WindowsのPyInstaller onedirで同梱するため、対象PCへのPythonインストールは必要ありません。`Data` に書けない、あるいは許可ポリシーでEXEが拒否された場合は画面のエラーコードと `Data/Logs` を管理者に渡します。Windows保護機能を無効にする手順はありません。
