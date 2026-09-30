@@ -12,6 +12,7 @@ deploy/.env.production
 *.egg-info/
 build/
 dist/
+.portable-p1/
 snapshot_input/*
 !snapshot_input/.gitkeep
 import_input/*

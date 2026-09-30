@@ -1740,3 +1740,9 @@ OS: Windows 11
 - 公開Release用のソース非同梱配布物、更新適用・migration・smoke・rollback、署名鍵・公開Repo、現場PC導入試験は未完了。自動更新完了とは判定しない。
 - `make_release.py --field-pilot` と `--check` は876/876ファイル一致。IExpressでRC4 EXEを生成し、自己展開したZIPのSHA-256一致を確認した。DockerエンジンがこのPCで利用できず、実際のセットアップ起動・Compose稼働は未検証。
 - 配布SHA更新後のWindows対応全体回帰は820 passed / 20 skipped / Linux専用RSS 1件deselected。`ruff check .`と変更したPowerShell 3ファイルの構文検査も成功。
+
+# Windows Portable P1 最小PoC（2026-09-30 JST）
+
+- 人工CSV→既存Baseline→結果表示/保存→API再起動後の履歴確認を、Windows x64のPyInstaller onedir実行物で確認。P1専用テスト12 passed、既存Baselineを含む対象59 passed。`ruff check portable tests/portable`成功。
+- 同じ人工入力のSHA-256と結果SHA-256は再実行で一致。Port競合、異常CSV、Data書込不可、二重起動、Launcher相当process強制終了時の子API停止とlock回収を確認。listenは`127.0.0.1`のみ。
+- 配布一覧更新後の全体回帰は832 passed / 20 skipped / 2 failed。既存Field Pilot期待値、Windows非対応Linux RSS計測。`make_release.py --check`は899/899一致、`ruff check .`成功。12 Gate中、クリーンPCのDocker/WSL/Python未導入、完全オフライン、凍結GUIの現場手操作等は未実施。P1完成判定は保留。詳細は`planning/WINDOWS_PORTABLE_P1_RESULT.md`。\n
