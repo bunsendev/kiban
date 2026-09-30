@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ブンセン予測 Portable P1</title><link rel="stylesheet" href="/style.css"></head>
+<body><main>
+<header><small>Windows Portable 技術PoC</small><h1>ブンセン予測</h1><p>人工CSVで、既存Baselineの7日先予測を試します。業務データは使用しないでください。</p></header>
+<section><h2>1. 人工CSVで試す</h2><p>列：<code>ds,unique_id,y</code>。日付は YYYY-MM-DD、各系列7日以上です。</p>
+<input id="csv" type="file" accept=".csv,text/csv"><p id="selected">未選択</p>
+<button id="run" disabled>予測を開始</button><button id="sample">付属の人工CSVで試す</button><p id="state" role="status">CSVを選択するか、付属の人工CSVで試してください。</p></section>
+<section id="result-section" hidden><h2>2. 予測結果</h2><p id="meta"></p><div class="table-wrap"><table><thead><tr><th>系列ID</th><th>予測日</th><th>日数</th><th>予測数量</th></tr></thead><tbody id="result"></tbody></table></div><a id="download" href="#">結果JSONを保存</a></section>
+<section><h2>過去の結果</h2><button id="reload">表示を更新</button><ul id="history"></ul></section>
+<footer>終了するときは、起動時に開いた「ブンセン予測」小画面の［終了］を押してください。保存先はアプリと同じフォルダーの <code>Data/Results</code> です。インターネット接続は使いません。</footer>
+</main><script src="/app.js" defer></script></body></html>

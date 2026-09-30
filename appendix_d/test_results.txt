@@ -1,3 +1,10 @@
+# Windows Portable P1 現場受入準備（2026-09-30 JST）
+
+- 付属人工CSVの画面ボタンを追加。凍結版のブラウザー操作で14行の予測・保存と、2回実行の入力/結果SHA-256一致を確認した。ファイル選択の手操作はブラウザー操作ツールがchooserを取得できず未判定。
+- 配布ZIPは`BunsenPortablePoC-P1-20260930-TEST-ONLY.zip`。SHA-256 `7122266f41e6d96d87485c3eb8bd4f9e43c79e06e7f8508738ba1631fa70788f`、2,327 entryのCRCを確認。別フォルダーへ展開した凍結EXEで14行予測、保存、再起動後履歴、127.0.0.1のみの待受を確認した。
+- `tests/portable`は12 passed、`ruff check .`成功。配布manifest更新前の全体試験は831 passed / 20 skipped / 3 failed。失敗は既存Field Pilot固定期待値、Linux専用RSS計測、manifest更新前の不一致。12 Gateは未完了で、現場配布承認ではない。
+- manifest更新後の配布照合は900/900一致し、該当回帰試験1件成功。最終の全体判定は832 passed / 20 skipped / 2 failed（Field Pilot固定期待値、Windows上のLinux専用RSS計測）。
+
 # Field Pilot 更新前バックアップ・復旧対象（2026-09-29 JST）
 
 - 更新確認SQLiteと署名公開鍵をバックアップ・復旧対象へ追加。`pre-update` FULLバックアップ用PowerShell入口と保持件数policyを追加し、旧policyは既定5件で互換。
@@ -1740,3 +1747,9 @@ OS: Windows 11
 - 公開Release用のソース非同梱配布物、更新適用・migration・smoke・rollback、署名鍵・公開Repo、現場PC導入試験は未完了。自動更新完了とは判定しない。
 - `make_release.py --field-pilot` と `--check` は876/876ファイル一致。IExpressでRC4 EXEを生成し、自己展開したZIPのSHA-256一致を確認した。DockerエンジンがこのPCで利用できず、実際のセットアップ起動・Compose稼働は未検証。
 - 配布SHA更新後のWindows対応全体回帰は820 passed / 20 skipped / Linux専用RSS 1件deselected。`ruff check .`と変更したPowerShell 3ファイルの構文検査も成功。
+
+# Windows Portable P1 最小PoC（2026-09-30 JST）
+
+- 人工CSV→既存Baseline→結果表示/保存→API再起動後の履歴確認を、Windows x64のPyInstaller onedir実行物で確認。P1専用テスト12 passed、既存Baselineを含む対象59 passed。`ruff check portable tests/portable`成功。
+- 同じ人工入力のSHA-256と結果SHA-256は再実行で一致。Port競合、異常CSV、Data書込不可、二重起動、Launcher相当process強制終了時の子API停止とlock回収を確認。listenは`127.0.0.1`のみ。
+- 配布一覧更新後の全体回帰は832 passed / 20 skipped / 2 failed。既存Field Pilot期待値、Windows非対応Linux RSS計測。`make_release.py --check`は899/899一致、`ruff check .`成功。12 Gate中、クリーンPCのDocker/WSL/Python未導入、完全オフライン、凍結GUIの現場手操作等は未実施。P1完成判定は保留。詳細は`planning/WINDOWS_PORTABLE_P1_RESULT.md`。\n
