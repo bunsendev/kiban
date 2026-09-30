@@ -1,12 +1,14 @@
 """P1 acceptance tests: persistence, deterministic baseline, recovery and local boundary."""
 
 import hashlib
+import io
 import json
 import os
 import secrets
 import subprocess
 import sys
 import time
+import zipfile
 from pathlib import Path
 
 import pandas as pd
@@ -14,6 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from portable.api.app import create_app
+from portable.api.business_archive import analyze_archive, run_reference_backtest
 from portable.api.store import RunStore
 from portable.launcher.main import available_ports, request_json, start_server, stop_server
 from portable.runtime.paths import DataPaths
@@ -27,6 +30,72 @@ def synthetic_csv() -> bytes:
             date = (pd.Timestamp("2026-01-01") + pd.Timedelta(days=day)).date()
             rows.append(f"{date},{uid},{day % 7 + offset}")
     return ("\n".join(rows) + "\n").encode()
+
+
+def business_zip() -> bytes:
+    target = io.BytesIO()
+    with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for offset in range(35):
+            day = (pd.Timestamp("2026-01-01") + pd.Timedelta(days=offset)).date()
+            rows = ["出荷日,納品日,商品名,JAN,数量"]
+            rows.append(f"{day:%Y/%m/%d},{day:%Y/%m/%d},人工商品,4900000000001,{offset % 7}")
+            if offset == 0:
+                rows.append(f"{day:%Y/%m/%d},{day:%Y/%m/%d},確認商品,900000000001,1")
+            archive.writestr(
+                f"data/神戸日時出荷_{day:%Y%m%d}.csv", ("\n".join(rows) + "\n").encode("cp932")
+            )
+        inventory = (
+            "商品コード,商品名,明細バラ数,賞味期限\n"
+            "4900000000001,人工商品,10,2026/02/01\n"
+            "4900000000002,未対応商品,5,2026/02/01\n"
+            "2,異常商品,1,\n"
+        )
+        archive.writestr("data/神戸日時在庫_20260204.csv", inventory.encode("cp932"))
+    return target.getvalue()
+
+
+def test_business_archive_preflight_and_reference_backtest(tmp_path: Path):
+    prepared = tmp_path / "prepared.csv"
+    report = analyze_archive(business_zip(), prepared)
+    assert report["status"] == "REVIEW_REQUIRED"
+    assert report["rows"] == {
+        "shipment": 36,
+        "inventory": 3,
+        "auto_confirmed": 36,
+        "review_required": 2,
+        "quarantined": 1,
+    }
+    assert report["products"]["inventory_codes_matched_to_shipment_jan"] == 1
+    assert report["reasons"]["INVENTORY_CODE_UNMATCHED"] == 1
+    assert report["center_windows"] == [
+        {
+            "center": "神戸",
+            "latest_date": "2026-02-04",
+            "backtest_ready": True,
+            "missing_recent_days": 0,
+        }
+    ]
+    result = run_reference_backtest(prepared, tmp_path, "analysis")
+    assert result["provider"] == "builtin-baseline/seasonal_naive_7"
+    assert result["centers"][0]["points"] == 7
+    assert result["centers"][0]["wape"] == 0.0
+
+
+def test_business_archive_api_flow(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    response = client.post(
+        "/api/business-archives",
+        content=business_zip(),
+        headers={"Content-Type": "application/zip"},
+    )
+    assert response.status_code == 201, response.text
+    report = response.json()
+    analysis_id = report["analysis_id"]
+    assert client.get("/api/business-archives").json()[0]["analysis_id"] == analysis_id
+    assert client.get(f"/api/business-archives/{analysis_id}").json() == report
+    backtest = client.post(f"/api/business-archives/{analysis_id}/backtest")
+    assert backtest.status_code == 201, backtest.text
+    assert backtest.json()["centers"][0]["wape"] == 0.0
 
 
 def test_end_to_end_and_restart(tmp_path: Path):

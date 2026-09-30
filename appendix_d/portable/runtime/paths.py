@@ -24,8 +24,16 @@ class DataPaths:
     def logs(self) -> Path:
         return self.root / "Logs"
 
+    @property
+    def analysis(self) -> Path:
+        return self.root / "Analysis"
+
+    @property
+    def prepared(self) -> Path:
+        return self.root / "Prepared"
+
     def ensure(self) -> None:
-        for path in (self.input, self.results, self.state, self.logs):
+        for path in (self.input, self.results, self.state, self.logs, self.analysis, self.prepared):
             path.mkdir(parents=True, exist_ok=True)
         probe = self.state / ".write-test"
         probe.write_bytes(b"ok")
