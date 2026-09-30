@@ -25,6 +25,15 @@ from .business_archive import (
     content_id,
     run_reference_backtest,
 )
+from .business_review import (
+    ReviewError,
+    apply_remembered_rules,
+    decision_history,
+    latest_decisions,
+    rebuild_reviewed_prepared,
+    record_decision,
+    review_view,
+)
 from .forecast import forecast
 from .input_csv import MAX_CSV_BYTES, InputError, parse_csv
 from .store import RunStore
@@ -52,6 +61,18 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     app.state.active = 0
     app.state.closing = False
     app.state.lock = threading.Lock()
+
+    def load_analysis(analysis_id: str) -> tuple[dict, Path]:
+        if not re.fullmatch(r"[0-9a-f]{64}", analysis_id):
+            raise HTTPException(404, "分析結果が見つかりません")
+        report_path = paths.analysis / f"{analysis_id}.json"
+        if not report_path.is_file():
+            raise HTTPException(404, "分析結果が見つかりません")
+        return json.loads(report_path.read_text(encoding="utf-8")), report_path
+
+    def reviewed_report(report: dict) -> dict:
+        journal = paths.decisions / f"{report['analysis_id']}.jsonl"
+        return review_view(report, journal)
 
     @app.middleware("http")
     async def local_only(request: Request, call_next):
@@ -82,6 +103,10 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     def script():
         return FileResponse(STATIC / "app.js", media_type="text/javascript")
 
+    @app.get("/review.js")
+    def review_script():
+        return FileResponse(STATIC / "review.js", media_type="text/javascript")
+
     @app.get("/style.css")
     def style():
         return FileResponse(STATIC / "style.css", media_type="text/css")
@@ -104,24 +129,27 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
                 report = json.loads(report_path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
                 continue
+            view = reviewed_report(report)
             records.append(
                 {
-                    "analysis_id": report.get("analysis_id"),
-                    "status": report.get("status"),
-                    "rows": report.get("rows"),
-                    "products": report.get("products"),
+                    "analysis_id": view.get("analysis_id"),
+                    "status": view.get("status"),
+                    "rows": view.get("rows"),
+                    "products": view.get("products"),
+                    "review": view.get("review"),
                 }
             )
         return records
 
     @app.get("/api/business-archives/{analysis_id}")
     def business_archive(analysis_id: str):
-        if not re.fullmatch(r"[0-9a-f]{64}", analysis_id):
-            raise HTTPException(404, "分析結果が見つかりません")
-        report_path = paths.analysis / f"{analysis_id}.json"
-        if not report_path.is_file():
-            raise HTTPException(404, "分析結果が見つかりません")
-        return json.loads(report_path.read_text(encoding="utf-8"))
+        report, _ = load_analysis(analysis_id)
+        return reviewed_report(report)
+
+    @app.get("/api/business-archives/{analysis_id}/decision-history")
+    def business_archive_decision_history(analysis_id: str):
+        load_analysis(analysis_id)
+        return decision_history(paths.decisions / f"{analysis_id}.jsonl")
 
     @app.post("/api/business-archives", status_code=201)
     async def create_business_archive(request: Request):
@@ -152,8 +180,20 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
                 **report,
             }
             atomic_json(paths.analysis / f"{analysis_id}.json", report)
+            apply_remembered_rules(
+                report,
+                paths.decisions / f"{analysis_id}.jsonl",
+                paths.decisions / "rules.jsonl",
+            )
+            if latest_decisions(paths.decisions / f"{analysis_id}.jsonl"):
+                rebuild_reviewed_prepared(
+                    prepared_path,
+                    paths.prepared / f"{analysis_id}-reviewed.csv",
+                    report,
+                    paths.decisions / f"{analysis_id}.jsonl",
+                )
             LOG.info("business_archive_analyzed analysis_id=%s", analysis_id)
-            return report
+            return reviewed_report(report)
         except ArchiveError as exc:
             LOG.info("business_archive_rejected code=PORTABLE-ARCHIVE-001")
             raise HTTPException(422, str(exc)) from exc
@@ -165,15 +205,52 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
             with app.state.lock:
                 app.state.active -= 1
 
+    @app.post("/api/business-archives/{analysis_id}/issues/{issue_id}", status_code=201)
+    async def decide_business_archive_issue(analysis_id: str, issue_id: str, request: Request):
+        report, _ = load_analysis(analysis_id)
+        if not re.fullmatch(r"[0-9a-f]{24}", issue_id):
+            raise HTTPException(404, "確認対象が見つかりません")
+        try:
+            raw = await _read_limited(request, 8 * 1024)
+            payload = json.loads(raw or b"{}")
+            if not isinstance(payload, dict):
+                raise ReviewError("判断内容を確認してください")
+            with app.state.lock:
+                if app.state.closing:
+                    raise HTTPException(503, "終了処理中です")
+                if app.state.active:
+                    raise HTTPException(409, "別の処理を実行中です")
+                app.state.active += 1
+            try:
+                record_decision(
+                    report,
+                    paths.decisions / f"{analysis_id}.jsonl",
+                    paths.decisions / "rules.jsonl",
+                    issue_id,
+                    payload,
+                )
+                rebuild_reviewed_prepared(
+                    paths.prepared / f"{analysis_id}.csv",
+                    paths.prepared / f"{analysis_id}-reviewed.csv",
+                    report,
+                    paths.decisions / f"{analysis_id}.jsonl",
+                )
+                return reviewed_report(report)
+            finally:
+                with app.state.lock:
+                    app.state.active -= 1
+        except (ReviewError, json.JSONDecodeError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+
     @app.post("/api/business-archives/{analysis_id}/backtest", status_code=201)
     def backtest_business_archive(analysis_id: str):
-        if not re.fullmatch(r"[0-9a-f]{64}", analysis_id):
-            raise HTTPException(404, "分析結果が見つかりません")
-        report_path = paths.analysis / f"{analysis_id}.json"
-        prepared_path = paths.prepared / f"{analysis_id}.csv"
+        report, report_path = load_analysis(analysis_id)
+        reviewed_path = paths.prepared / f"{analysis_id}-reviewed.csv"
+        prepared_path = (
+            reviewed_path if reviewed_path.is_file() else paths.prepared / f"{analysis_id}.csv"
+        )
         if not report_path.is_file() or not prepared_path.is_file():
             raise HTTPException(404, "分析結果が見つかりません")
-        report = json.loads(report_path.read_text(encoding="utf-8"))
         if not all(item["backtest_ready"] for item in report["center_windows"]):
             raise HTTPException(409, "直近35日のファイルが揃っていない拠点があります")
         with app.state.lock:

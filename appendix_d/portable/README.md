@@ -6,7 +6,9 @@ Windows x64のビルドPCではPython 3.12とPyInstallerをビルド時だけ使
 
 画面の先頭では、在庫・出荷CSVを含む100 MB以下のZIPを分析できます。13桁JAN、非負数量、賞味期限を検査し、「自動確定」「確認待ち」「隔離」へ分類します。自動確定した出荷は拠点×JAN×日へ集約し、直近35日が揃う拠点では28日学習・7日評価のBaseline参考バックテストを実行できます。12桁JAN、賞味期限欠損、不正な商品コードは勝手に補正しません。結果は過去データの参考評価であり、正式比較、現在予測、出荷指示ではありません。
 
-人工データは `Sample/synthetic_shipments.csv`。画面の「付属の人工CSVによる技術確認」を開き、［付属の人工CSVで試す］を押すこともできます。結果は `Data/Results`、入力コピーは `Data/Input`、分析結果は `Data/Analysis`、予測用日次集計は `Data/Prepared`、実行台帳は `Data/State/runs.sqlite3`、診断ログは `Data/Logs` に残ります。画面には保存済み履歴が表示されます。アプリ更新時には `App` のみを差し替え、`Data` は保持します。
+確認待ちと隔離は画面に原因・元の値・件数を表示します。担当者は、確認済み13桁JANへの対応付け、賞味期限欠損の確認、今回の対象からの除外を選び、任意のメモとともに保存できます。判断履歴は `Data/Decisions/<analysis_id>.jsonl` へ追記し、元の分析結果を上書きしません。「同じ値を次回も使用」を選んだJAN対応付けは `Data/Decisions/rules.jsonl` に保存し、同じ値を含む次回ZIPへ自動適用します。担当者判断後の出荷集計は `Data/Prepared/<analysis_id>-reviewed.csv` に分離します。
+
+人工データは `Sample/synthetic_shipments.csv`。画面の「付属の人工CSVによる技術確認」を開き、［付属の人工CSVで試す］を押すこともできます。結果は `Data/Results`、入力コピーは `Data/Input`、分析結果は `Data/Analysis`、予測用日次集計は `Data/Prepared`、担当者判断は `Data/Decisions`、実行台帳は `Data/State/runs.sqlite3`、診断ログは `Data/Logs` に残ります。画面には保存済み履歴が表示されます。アプリ更新時には `App` のみを差し替え、`Data` は保持します。
 
 人工CSVの最小契約は `ds,unique_id,y`（UTF-8、日付 `YYYY-MM-DD`、数量は0以上）。7日以上の系列が必要です。出荷数量の欠損は拒否し、0は有効です。業務ZIP分析は商品マスタの正式採用、単位換算、現在在庫、正式比較を行いません。
 

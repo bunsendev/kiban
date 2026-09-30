@@ -7,7 +7,7 @@ const analyze = document.getElementById('analyze');
 const businessState = document.getElementById('business-state');
 const backtest = document.getElementById('backtest');
 let currentAnalysis = null;
-const reasonLabels={JAN_12_DIGITS:'12桁JAN（担当者確認）',EXPIRY_MISSING:'賞味期限なし',INVENTORY_ROW_INVALID:'在庫の商品コード・数量が不正',INVENTORY_CODE_UNMATCHED:'出荷JANと一致しない在庫商品',SHIPMENT_ROW_INVALID:'出荷日・JAN・数量が不正',HEADER_MISSING:'必要な列が不足'};
+const reasonLabels=window.PortableReview.reasonLabels;
 function message(value, kind='') { state.textContent=value; state.className=kind; }
 function businessMessage(value, kind='') { businessState.textContent=value; businessState.className=kind; }
 businessZip.addEventListener('change', () => {
@@ -24,8 +24,9 @@ function showAnalysis(report) {
   document.getElementById('analysis-detail').textContent=`出荷 ${report.rows.shipment.toLocaleString()}行、在庫 ${report.rows.inventory.toLocaleString()}行、在庫と出荷で一致した商品 ${report.products.inventory_codes_matched_to_shipment_jan}件。`;
   const reasons=document.getElementById('analysis-reasons'); reasons.replaceChildren();
   for (const [code,count] of Object.entries(report.reasons)) { const li=document.createElement('li'); li.textContent=`${reasonLabels[code]||code}: ${count.toLocaleString()}件`; reasons.appendChild(li); }
+  window.PortableReview.render(report,async updated=>{showAnalysis(updated);businessMessage('担当者判断を保存し、確定済みデータを再集計しました。','success');await refreshAnalyses();});
   backtest.disabled=!report.center_windows.length || report.center_windows.some(item=>!item.backtest_ready);
-  document.getElementById('backtest-state').textContent=backtest.disabled ? '直近35日のファイル不足により参考評価を開始できません。' : '自動確定データで28日学習・7日評価を実行できます。';
+  document.getElementById('backtest-state').textContent=backtest.disabled ? '直近35日のファイル不足により参考評価を開始できません。' : '自動判定OKと担当者が確定した出荷データで28日学習・7日評価を実行できます。';
 }
 analyze.addEventListener('click', async () => {
   const file=businessZip.files[0]; if (!file) return;
@@ -53,7 +54,8 @@ async function refreshAnalyses() {
   try {
     const response=await fetch('/api/business-archives'); const records=await response.json();
     for(const item of records){ const li=document.createElement('li'); const button=document.createElement('button');
-      button.textContent=`${item.status}　OK ${item.rows.auto_confirmed.toLocaleString()}　確認 ${item.rows.review_required.toLocaleString()}　隔離 ${item.rows.quarantined.toLocaleString()}`;
+      const pending=item.review?.pending_rows??(item.rows.review_required+item.rows.quarantined);
+      button.textContent=`${item.review?.status||item.status}　OK ${item.rows.auto_confirmed.toLocaleString()}　未確認 ${pending.toLocaleString()}`;
       button.addEventListener('click',async()=>{const detail=await fetch(`/api/business-archives/${encodeURIComponent(item.analysis_id)}`);if(detail.ok)showAnalysis(await detail.json());});
       li.appendChild(button);list.appendChild(li); }
   } catch { const li=document.createElement('li'); li.textContent='過去の分析を読み込めません。'; list.appendChild(li); }
