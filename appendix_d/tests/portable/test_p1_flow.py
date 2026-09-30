@@ -32,7 +32,7 @@ def synthetic_csv() -> bytes:
     return ("\n".join(rows) + "\n").encode()
 
 
-def business_zip() -> bytes:
+def business_zip(marker: str = "") -> bytes:
     target = io.BytesIO()
     with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for offset in range(35):
@@ -51,6 +51,8 @@ def business_zip() -> bytes:
             "2,異常商品,1,\n"
         )
         archive.writestr("data/神戸日時在庫_20260204.csv", inventory.encode("cp932"))
+        if marker:
+            archive.writestr(f"data/{marker}.txt", marker.encode())
     return target.getvalue()
 
 
@@ -67,6 +69,8 @@ def test_business_archive_preflight_and_reference_backtest(tmp_path: Path):
     }
     assert report["products"]["inventory_codes_matched_to_shipment_jan"] == 1
     assert report["reasons"]["INVENTORY_CODE_UNMATCHED"] == 1
+    assert "EXPIRY_MISSING" not in report["reasons"]
+    assert sum(item["count"] for item in report["issues"]) == 3
     assert report["center_windows"] == [
         {
             "center": "神戸",
@@ -96,6 +100,74 @@ def test_business_archive_api_flow(tmp_path: Path):
     backtest = client.post(f"/api/business-archives/{analysis_id}/backtest")
     assert backtest.status_code == 201, backtest.text
     assert backtest.json()["centers"][0]["wape"] == 0.0
+
+
+def test_operator_decision_is_append_only_rebuilds_data_and_reuses_mapping(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    report = client.post(
+        "/api/business-archives",
+        content=business_zip(),
+        headers={"Content-Type": "application/zip"},
+    ).json()
+    issue = next(item for item in report["issues"] if item["reason"] == "JAN_12_DIGITS")
+    immutable_report = tmp_path / "Analysis" / f"{report['analysis_id']}.json"
+    report_bytes = immutable_report.read_bytes()
+    response = client.post(
+        f"/api/business-archives/{report['analysis_id']}/issues/{issue['issue_id']}",
+        json={
+            "action": "MAP_JAN",
+            "corrected_jan": "4900000000002",
+            "note": "商品マスタで確認",
+            "remember": True,
+        },
+    )
+    assert response.status_code == 201, response.text
+    decided = response.json()
+    assert decided["review"]["resolved_rows"] == 1
+    assert decided["review"]["pending_rows"] == 2
+    assert issue["issue_id"] in (
+        tmp_path / "Decisions" / f"{report['analysis_id']}.jsonl"
+    ).read_text(encoding="utf-8")
+    reviewed = pd.read_csv(tmp_path / "Prepared" / f"{report['analysis_id']}-reviewed.csv")
+    assert "神戸:4900000000002" in set(reviewed["unique_id"])
+    assert immutable_report.read_bytes() == report_bytes
+
+    revised = client.post(
+        f"/api/business-archives/{report['analysis_id']}/issues/{issue['issue_id']}",
+        json={"action": "EXCLUDE", "note": "再確認して除外"},
+    )
+    assert revised.status_code == 201
+    reviewed = pd.read_csv(tmp_path / "Prepared" / f"{report['analysis_id']}-reviewed.csv")
+    assert "神戸:4900000000002" not in set(reviewed["unique_id"])
+    history = client.get(
+        f"/api/business-archives/{report['analysis_id']}/decision-history"
+    ).json()
+    assert [item["action"] for item in history] == ["MAP_JAN", "EXCLUDE"]
+
+    second = client.post(
+        "/api/business-archives",
+        content=business_zip("second"),
+        headers={"Content-Type": "application/zip"},
+    ).json()
+    remembered = next(item for item in second["issues"] if item["reason"] == "JAN_12_DIGITS")
+    assert remembered["decision"]["source"] == "REMEMBERED_RULE"
+    assert remembered["decision"]["corrected_jan"] == "4900000000002"
+
+
+def test_operator_decision_rejects_invalid_correction(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    report = client.post(
+        "/api/business-archives",
+        content=business_zip(),
+        headers={"Content-Type": "application/zip"},
+    ).json()
+    issue = next(item for item in report["issues"] if item["reason"] == "JAN_12_DIGITS")
+    response = client.post(
+        f"/api/business-archives/{report['analysis_id']}/issues/{issue['issue_id']}",
+        json={"action": "MAP_JAN", "corrected_jan": "123"},
+    )
+    assert response.status_code == 422
+    assert not (tmp_path / "Decisions" / f"{report['analysis_id']}.jsonl").exists()
 
 
 def test_end_to_end_and_restart(tmp_path: Path):
