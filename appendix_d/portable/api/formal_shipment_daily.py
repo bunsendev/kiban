@@ -45,6 +45,7 @@ def build_daily_shipment(
     registration_id: str,
     identities: list[dict],
     zero_when_file_present: bool,
+    snapshot_dates_by_center: dict[str, date] | None = None,
     invalid_occurrences: set[tuple[str, str, date]] | None = None,
     invalid_file_dates: set[tuple[str, date]] | None = None,
 ) -> tuple[dict, pd.DataFrame]:
@@ -61,19 +62,29 @@ def build_daily_shipment(
     }
     invalid_occurrences = invalid_occurrences or set()
     invalid_file_dates = invalid_file_dates or set()
+    snapshot_dates_by_center = snapshot_dates_by_center or {}
     if not selected:
         raise FormalShipmentBuildError("予測対象の商品がありません")
     file_dates = _shipment_file_dates(archive_bytes, {key[0] for key in selected})
     missing_centers = sorted({key[0] for key in selected} - set(file_dates))
     if missing_centers:
         raise FormalShipmentBuildError("出荷CSVがない倉庫があります")
-    origin = min(max(days) for days in file_dates.values())
-    start = max(min(min(days) for days in file_dates.values()), origin - timedelta(days=364))
-    quantities = _prepared_quantities(prepared_bytes, selected, start, origin)
+    center_windows = {
+        center: {
+            "train_start": max(min(days), max(days) - timedelta(days=364)),
+            "train_end": max(days),
+        }
+        for center, days in file_dates.items()
+    }
+    overall_start = min(item["train_start"] for item in center_windows.values())
+    overall_end = max(item["train_end"] for item in center_windows.values())
+    quantities = _prepared_quantities(prepared_bytes, selected, overall_start, overall_end)
     rows: list[dict] = []
     summaries: list[dict] = []
     frame_rows: list[dict] = []
     for (center, jan), identity in sorted(selected.items()):
+        start = center_windows[center]["train_start"]
+        origin = center_windows[center]["train_end"]
         uid = series_id(identity["canonical_product_id"], identity["forecast_center_id"])
         observed = zero = missing = 0
         recent_missing = 0
@@ -126,6 +137,7 @@ def build_daily_shipment(
             rows.append(row)
             frame_rows.append(
                 {"ds": pd.Timestamp(current), "unique_id": uid,
+                 "source_center": center,
                  "y": None if quantity is None else float(quantity)}
             )
             current += timedelta(days=1)
@@ -135,6 +147,9 @@ def build_daily_shipment(
             blockers.append("HISTORY_LESS_THAN_28_DAYS")
         if recent_missing:
             blockers.append("RECENT_SOURCE_DAYS_MISSING")
+        snapshot_date = snapshot_dates_by_center.get(center)
+        if snapshot_date is not None and snapshot_date != origin:
+            blockers.append("INVENTORY_SHIPMENT_AS_OF_MISMATCH")
         summaries.append(
             {
                 "source_center": center,
@@ -146,6 +161,11 @@ def build_daily_shipment(
                 "confirmed_zero_day_count": zero,
                 "missing_day_count": missing,
                 "last_observed_day": last_observed,
+                "train_start": start.isoformat(),
+                "train_end": origin.isoformat(),
+                "inventory_snapshot_date": (
+                    None if snapshot_date is None else snapshot_date.isoformat()
+                ),
                 "forecast_eligible": not blockers,
                 "blocking_reasons": blockers,
             }
@@ -163,8 +183,20 @@ def build_daily_shipment(
         "invalid_file_dates": sorted(
             (center, day.isoformat()) for center, day in invalid_file_dates
         ),
-        "train_start": start.isoformat(),
-        "train_end": origin.isoformat(),
+        "train_start": overall_start.isoformat(),
+        "train_end": overall_end.isoformat(),
+        "center_windows": [
+            {
+                "source_center": center,
+                "train_start": window["train_start"].isoformat(),
+                "train_end": window["train_end"].isoformat(),
+                "inventory_snapshot_date": (
+                    snapshot_dates_by_center[center].isoformat()
+                    if center in snapshot_dates_by_center else None
+                ),
+            }
+            for center, window in sorted(center_windows.items())
+        ],
         "series": summaries,
         "rows": rows,
     }

@@ -91,6 +91,9 @@ class PortableFormalForecastPipeline:
         invalid_occurrences, invalid_file_dates = _shipment_issue_evidence(report)
         reviewed = self.paths.prepared / f"{analysis_id}-reviewed.csv"
         prepared = reviewed if reviewed.is_file() else self.paths.prepared / f"{analysis_id}.csv"
+        inventory_cases, snapshot_dates = self._inventory_context(
+            registration, inventory_view
+        )
         build, frame = build_daily_shipment(
             archive_path=self.paths.input / f"{analysis_id}.zip",
             prepared_path=prepared,
@@ -98,6 +101,7 @@ class PortableFormalForecastPipeline:
             registration_id=registration_id,
             identities=proposal,
             zero_when_file_present=True,
+            snapshot_dates_by_center=snapshot_dates,
             invalid_occurrences=invalid_occurrences,
             invalid_file_dates=invalid_file_dates,
         )
@@ -106,17 +110,20 @@ class PortableFormalForecastPipeline:
         if manifest_path.is_file():
             return self._verified_result(manifest_path)
         daily_bytes = daily_csv(build)
-        predictions = []
+        predictions: list[dict] = []
         if not frame.empty:
-            predictions = forecast(
-                frame,
-                self.paths.state,
-                build["build_id"],
-                horizon=FORECAST_HORIZON,
-                dataset_snapshot_id=build["build_id"],
-                selection_version=bridge.version.bridge_version,
-            )
-        inventory_cases = self._inventory_totals(registration, inventory_view)
+            for center, center_frame in frame.groupby("source_center", sort=True):
+                predictions.extend(
+                    forecast(
+                        center_frame.drop(columns=["source_center"]),
+                        self.paths.state,
+                        f"{build['build_id']}-{center}",
+                        horizon=FORECAST_HORIZON,
+                        dataset_snapshot_id=build["build_id"],
+                        selection_version=bridge.version.bridge_version,
+                    )
+                )
+            predictions.sort(key=lambda item: (item["unique_id"], item["target_date"]))
         for row in predictions:
             row["current_inventory_cases"] = inventory_cases.get(row["unique_id"])
         result_bytes = canonical_json(predictions)
@@ -147,6 +154,7 @@ class PortableFormalForecastPipeline:
             "prediction_sha256": sha256(result_bytes),
             "train_start": build["train_start"],
             "train_end": build["train_end"],
+            "center_windows": build["center_windows"],
             "horizon_days": FORECAST_HORIZON,
             "eligible_series_count": build["eligible_series_count"],
             "blocked_series_count": build["blocked_series_count"],
@@ -212,14 +220,23 @@ class PortableFormalForecastPipeline:
             raise FormalForecastError("承認済み在庫からJAN・倉庫対応を作成できません")
         return sorted(proposal, key=lambda item: (item["source_center"], item["jan"]))
 
-    def _inventory_totals(self, registration: dict, inventory_view: dict) -> dict[str, str]:
+    def _inventory_context(
+        self, registration: dict, inventory_view: dict
+    ) -> tuple[dict[str, str], dict[str, date]]:
         handoff = self.inventory_pipeline.get_handoff(registration["handoff_id"])
         locations = {item["source_center"]: item for item in handoff["locations"]}
         totals: dict[str, Decimal] = {}
+        snapshot_dates: dict[str, date] = {}
         for job in inventory_view["jobs"]:
             if not job["snapshot_id"]:
                 continue
             center_id = locations[job["source_center"]]["location_code"]
+            snapshot = self.inventory_store.get_snapshot(job["snapshot_id"])
+            if snapshot is None:
+                raise FormalForecastError("承認済み在庫Snapshotが見つかりません")
+            snapshot_dates[job["source_center"]] = datetime.fromisoformat(
+                snapshot["snapshot_at"]
+            ).date()
             for bucket in self.inventory_store.list_expiry_buckets_with_location(
                 job["snapshot_id"]
             ):
@@ -227,7 +244,7 @@ class PortableFormalForecastPipeline:
                 totals[uid] = totals.get(uid, Decimal("0")) + Decimal(
                     str(bucket["quantity_cases"])
                 )
-        return {key: str(value) for key, value in totals.items()}
+        return ({key: str(value) for key, value in totals.items()}, snapshot_dates)
 
     def _latest(self, registration_id: str) -> dict | None:
         values = []

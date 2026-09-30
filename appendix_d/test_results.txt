@@ -1798,3 +1798,11 @@ OS: Windows 11
 - 配布一覧更新前の全体回帰は843 passed / 20 skipped / 4 failed。失敗内訳は既存承認学習イベント順序1件、日付固定fixtureの鮮度判定1件、Windows非対応Linux RSS計測1件、更新前の配布SHA照合1件。今回の対象試験はすべて成功している。
 - 配布一覧を更新後、上記の既知3件を除外した全体回帰は844 passed / 20 skipped / 3 deselected。`make_release.py --check`は917/917一致。
 - 本機能はPortable版のローカル参考予測であり、Productionの正式Forecast Run queueや出荷指示Decision Engineへの接続ではない。実データはRepositoryへ保存していない。
+
+# Windows Portable 実データ一連フロー受入（2026-10-01 JST）
+
+- Repository外の46,231,516 bytesの提供済みZIPを一時領域で処理。出荷3,907,441行・在庫200,917行を分析し、正式在庫候補2倉庫、Unified Inbox 2 job、隔離0、数量照合一致、明示承認まで完走した。
+- 初回検証で倉庫間の出荷基準日を古い側へ揃える問題を検出。倉庫別期間へ修正し、在庫Snapshot日と不一致の系列を`INVENTORY_SHIPMENT_AS_OF_MISMATCH`で隔離した。
+- 修正後は加須10系列を2025-07-29起点で14日140点生成し、神戸10系列は出荷2025-06-30・在庫2025-07-29の不一致により対象外。実ブラウザーで日本語理由、基準日、結果表示を確認した。
+- Portable対象試験26 passed、Ruff、JavaScript構文、`git diff --check`に成功。入力は過去データであり、現在業務の予測精度や正式拠点・時刻・CASE判断の承認を意味しない。
+- 既知3件を除外した全回帰は845 passed / 20 skipped / 3 deselected。配布一覧更新後の`make_release.py --check`は918/918一致。

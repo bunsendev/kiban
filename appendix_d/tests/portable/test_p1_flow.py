@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 import zipfile
+from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -17,6 +18,7 @@ from fastapi.testclient import TestClient
 
 from portable.api.app import create_app
 from portable.api.business_archive import analyze_archive, run_reference_backtest
+from portable.api.formal_shipment_daily import build_daily_shipment
 from portable.api.store import RunStore
 from portable.launcher.main import available_ports, request_json, start_server, stop_server
 from portable.runtime.paths import DataPaths
@@ -576,6 +578,75 @@ def test_formal_forecast_keeps_invalid_product_blocked_and_runs_others(tmp_path:
     assert blocked["jan"] == _jan13(0)
     assert blocked["blocking_reasons"] == ["RECENT_SOURCE_DAYS_MISSING"]
     assert len(result["predictions"]) == 126
+
+
+def test_formal_daily_uses_each_center_origin_and_blocks_inventory_date_mismatch(
+    tmp_path: Path,
+):
+    raw_target = io.BytesIO()
+    prepared_rows = ["ds,unique_id,y"]
+    centers = (
+        ("加須", "KAZO", _jan13(0), date(2026, 2, 4)),
+        ("神戸", "KOBE", _jan13(1), date(2026, 1, 31)),
+    )
+    with zipfile.ZipFile(raw_target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for source_center, _center_id, jan, origin in centers:
+            for offset in range(35):
+                day = origin - timedelta(days=34 - offset)
+                rows = (
+                    "出荷日,納品日,商品名,JAN,数量\n"
+                    f"{day:%Y/%m/%d},{day:%Y/%m/%d},正式商品,{jan},1\n"
+                )
+                archive.writestr(
+                    f"data/{source_center}日時出荷_{day:%Y%m%d}.csv",
+                    rows.encode("cp932"),
+                )
+                prepared_rows.append(f"{day},{source_center}:{jan},1")
+    archive_path = tmp_path / "input.zip"
+    archive_path.write_bytes(raw_target.getvalue())
+    prepared_path = tmp_path / "prepared.csv"
+    prepared_path.write_text("\n".join(prepared_rows) + "\n", encoding="utf-8")
+    identities = [
+        {
+            "source_center": source_center,
+            "jan": jan,
+            "canonical_product_id": jan,
+            "forecast_center_id": center_id,
+        }
+        for source_center, center_id, jan, _origin in centers
+    ]
+
+    build, frame = build_daily_shipment(
+        archive_path=archive_path,
+        prepared_path=prepared_path,
+        handoff={"source_archive_sha256": hashlib.sha256(raw_target.getvalue()).hexdigest()},
+        registration_id="registration",
+        identities=identities,
+        zero_when_file_present=True,
+        snapshot_dates_by_center={"加須": date(2026, 2, 4), "神戸": date(2026, 2, 4)},
+    )
+
+    assert build["center_windows"] == [
+        {
+            "source_center": "加須",
+            "train_start": "2026-01-01",
+            "train_end": "2026-02-04",
+            "inventory_snapshot_date": "2026-02-04",
+        },
+        {
+            "source_center": "神戸",
+            "train_start": "2025-12-28",
+            "train_end": "2026-01-31",
+            "inventory_snapshot_date": "2026-02-04",
+        },
+    ]
+    summaries = {item["source_center"]: item for item in build["series"]}
+    assert summaries["加須"]["forecast_eligible"] is True
+    assert summaries["神戸"]["blocking_reasons"] == [
+        "INVENTORY_SHIPMENT_AS_OF_MISMATCH"
+    ]
+    assert set(frame["source_center"]) == {"加須"}
+    assert frame["ds"].max().date() == date(2026, 2, 4)
 
 
 def test_end_to_end_and_restart(tmp_path: Path):

@@ -14,6 +14,8 @@ Windows x64のビルドPCではPython 3.12とPyInstallerをビルド時だけ使
 
 全Snapshotの承認後、画面の手順6でJANを商品ID、正式倉庫コードを予測拠点として使用する対応と、「日次出荷CSVが存在するのに対象JANの行がない日は出荷0箱」というpolicyを明示確認できます。原本ZIPと担当者判断後の出荷集計をSHA-256で再検証し、最大365日の日次状態を`OBSERVED`、`CONFIRMED_ZERO`、`MISSING`、`PARTIAL_OR_INVALID`に分けて保存します。原本CSV自体がない日や不正行は0へ変換しません。28日以上の有効履歴と直近7日の完全性を満たす商品だけ既存Baseline Providerで14日予測し、条件を満たさない商品は理由付きで残します。これはPortable試験運用の参考予測であり、正式な出荷指示、補充推奨、Production側のForecast Runではありません。
 
+出荷履歴は倉庫別の基準日で処理し、在庫Snapshot日と出荷基準日が一致しない系列は予測へ混ぜません。結果画面は商品別の7日・14日合計を表示し、日別値は展開して確認できます。
+
 人工データは `Sample/synthetic_shipments.csv`。画面の「付属の人工CSVによる技術確認」を開き、［付属の人工CSVで試す］を押すこともできます。結果は `Data/Results`、入力コピーは `Data/Input`、分析結果は `Data/Analysis`、予測用日次集計は `Data/Prepared`、担当者判断は `Data/Decisions`、正式在庫候補と登録記録は `Data/FormalInventory`、正式出荷日次build・identity bridge・14日予測は `Data/FormalForecast`、Unified Inboxの原本は `Data/Inbox`、正式在庫・bridge台帳は `Data/State/formal-pipeline.sqlite3`、実行台帳は `Data/State/runs.sqlite3`、診断ログは `Data/Logs` に残ります。画面には保存済み履歴が表示されます。アプリ更新時には `App` のみを差し替え、`Data` は保持します。
 
 人工CSVの最小契約は `ds,unique_id,y`（UTF-8、日付 `YYYY-MM-DD`、数量は0以上）。7日以上の系列が必要です。出荷数量の欠損は拒否し、0は有効です。業務ZIP分析だけでは商品マスタの正式採用、単位換算、正式Snapshot承認を行いません。
