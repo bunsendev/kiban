@@ -80,6 +80,33 @@ def _write_prepared(path: Path, daily: dict[tuple[str, str, date], Decimal]) -> 
     temp.replace(path)
 
 
+def _issue_id(reason: str, *parts: str) -> str:
+    source = "\0".join((reason, *parts)).encode("utf-8")
+    return hashlib.sha256(source).hexdigest()[:24]
+
+
+def _new_issue(
+    issues: dict[str, dict],
+    *,
+    reason: str,
+    category: str,
+    source_value: str,
+    label: str = "",
+) -> dict:
+    issue_id = _issue_id(reason, category, source_value)
+    return issues.setdefault(
+        issue_id,
+        {
+            "issue_id": issue_id,
+            "reason": reason,
+            "category": category,
+            "source_value": source_value,
+            "label": label,
+            "count": 0,
+        },
+    )
+
+
 def analyze_archive(data: bytes, prepared_path: Path) -> dict:
     if not data or len(data) > MAX_ZIP_BYTES:
         raise ArchiveError("ZIPが空、または100 MBを超えています")
@@ -97,6 +124,8 @@ def analyze_archive(data: bytes, prepared_path: Path) -> dict:
     daily: dict[tuple[str, str, date], Decimal] = defaultdict(Decimal)
     shipment_dates: dict[str, set[date]] = defaultdict(set)
     shipment_files = inventory_files = ignored_files = 0
+    issues: dict[str, dict] = {}
+    inventory_labels: dict[str, str] = {}
 
     with archive:
         for member in _safe_members(archive):
@@ -116,6 +145,13 @@ def analyze_archive(data: bytes, prepared_path: Path) -> dict:
             if not required.issubset(headers):
                 quarantine_rows += 1
                 reason_counts["HEADER_MISSING"] += 1
+                issue = _new_issue(
+                    issues,
+                    reason="HEADER_MISSING",
+                    category="file",
+                    source_value=member.filename,
+                )
+                issue["count"] += 1
                 continue
             if is_shipment:
                 shipment_files += 1
@@ -137,9 +173,36 @@ def analyze_archive(data: bytes, prepared_path: Path) -> dict:
                     elif jan.isdigit() and len(jan) == 12 and day and valid_quantity:
                         review_rows += 1
                         reason_counts["JAN_12_DIGITS"] += 1
+                        issue = _new_issue(
+                            issues,
+                            reason="JAN_12_DIGITS",
+                            category="shipment",
+                            source_value=jan,
+                            label=str(row.get("商品名") or "").strip(),
+                        )
+                        issue["count"] += 1
+                        occurrence = f"{center}\0{day.isoformat()}"
+                        totals = issue.setdefault("occurrence_totals", {})
+                        totals[occurrence] = str(Decimal(totals.get(occurrence, "0")) + quantity)
                     else:
                         quarantine_rows += 1
                         reason_counts["SHIPMENT_ROW_INVALID"] += 1
+                        source = "|".join(
+                            (
+                                center,
+                                jan,
+                                str(row.get("出荷日") or "").strip(),
+                                str(row.get("数量") or "").strip(),
+                            )
+                        )
+                        issue = _new_issue(
+                            issues,
+                            reason="SHIPMENT_ROW_INVALID",
+                            category="shipment",
+                            source_value=source,
+                            label=str(row.get("商品名") or "").strip(),
+                        )
+                        issue["count"] += 1
             else:
                 inventory_files += 1
                 for row in reader:
@@ -157,12 +220,22 @@ def analyze_archive(data: bytes, prepared_path: Path) -> dict:
                         and quantity >= 0
                     ):
                         inventory_codes.add(code)
+                        inventory_labels.setdefault(code, str(row.get("商品名") or "").strip())
                         inventory_valid_rows[code] += 1
                         if not expiry:
                             inventory_missing_expiry[code] += 1
                     else:
                         quarantine_rows += 1
                         reason_counts["INVENTORY_ROW_INVALID"] += 1
+                        source = f"{code}|{str(row.get('明細バラ数') or '').strip()}"
+                        issue = _new_issue(
+                            issues,
+                            reason="INVENTORY_ROW_INVALID",
+                            category="inventory",
+                            source_value=source,
+                            label=str(row.get("商品名") or "").strip(),
+                        )
+                        issue["count"] += 1
 
     if not shipment_files:
         raise ArchiveError("出荷CSVが見つかりません")
@@ -172,11 +245,31 @@ def analyze_archive(data: bytes, prepared_path: Path) -> dict:
         if code in matched:
             auto_rows += count - missing_expiry
             review_rows += missing_expiry
-            reason_counts["EXPIRY_MISSING"] += missing_expiry
+            if missing_expiry:
+                reason_counts["EXPIRY_MISSING"] += missing_expiry
+                issue = _new_issue(
+                    issues,
+                    reason="EXPIRY_MISSING",
+                    category="inventory",
+                    source_value=code,
+                    label=inventory_labels.get(code, ""),
+                )
+                issue["count"] += missing_expiry
         else:
             review_rows += count
             reason_counts["INVENTORY_CODE_UNMATCHED"] += count
-            reason_counts["EXPIRY_MISSING"] += missing_expiry
+            if missing_expiry:
+                reason_counts["EXPIRY_MISSING"] += missing_expiry
+            issue = _new_issue(
+                issues,
+                reason="INVENTORY_CODE_UNMATCHED",
+                category="inventory",
+                source_value=code,
+                label=inventory_labels.get(code, ""),
+            )
+            issue["count"] += count
+            if missing_expiry:
+                issue["missing_expiry_count"] = missing_expiry
     prepared_path.parent.mkdir(parents=True, exist_ok=True)
     _write_prepared(prepared_path, daily)
     center_windows = []
@@ -213,6 +306,7 @@ def analyze_archive(data: bytes, prepared_path: Path) -> dict:
             "inventory_codes_without_shipment": len(inventory_codes - shipment_jans),
         },
         "reasons": dict(sorted(reason_counts.items())),
+        "issues": sorted(issues.values(), key=lambda item: (item["reason"], item["source_value"])),
         "center_windows": center_windows,
         "prepared_rows": len(daily),
         "notice": "過去データの参考評価です。正式な出荷指示には使用できません。",

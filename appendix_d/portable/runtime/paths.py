@@ -32,8 +32,20 @@ class DataPaths:
     def prepared(self) -> Path:
         return self.root / "Prepared"
 
+    @property
+    def decisions(self) -> Path:
+        return self.root / "Decisions"
+
     def ensure(self) -> None:
-        for path in (self.input, self.results, self.state, self.logs, self.analysis, self.prepared):
+        for path in (
+            self.input,
+            self.results,
+            self.state,
+            self.logs,
+            self.analysis,
+            self.prepared,
+            self.decisions,
+        ):
             path.mkdir(parents=True, exist_ok=True)
         probe = self.state / ".write-test"
         probe.write_bytes(b"ok")
