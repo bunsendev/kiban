@@ -1806,3 +1806,11 @@ OS: Windows 11
 - 修正後は加須10系列を2025-07-29起点で14日140点生成し、神戸10系列は出荷2025-06-30・在庫2025-07-29の不一致により対象外。実ブラウザーで日本語理由、基準日、結果表示を確認した。
 - Portable対象試験26 passed、Ruff、JavaScript構文、`git diff --check`に成功。入力は過去データであり、現在業務の予測精度や正式拠点・時刻・CASE判断の承認を意味しない。
 - 既知3件を除外した全回帰は845 passed / 20 skipped / 3 deselected。配布一覧更新後の`make_release.py --check`は918/918一致。
+
+# Windows Portable Production Forecast Run受渡し（2026-10-01 JST）
+
+- 承認済みPortable日次buildを既存Dataset Snapshot、Experiment、Forecast Run queueへ接続した。API要求内では予測を実行せず、既存Provider Workerが処理する。
+- 対象試験28 passed。10系列のqueue登録からWorker成功、同一build再送の冪等性、欠測1系列を入力から除外し受渡し記録へ保持、受渡し記録の改変拒否を確認した。
+- 全体初回は847 passed / 20 skipped / 3 failed。失敗は既存Field Pilot固定fixture 1件、Windows非対応Linux RSS 1件、配布SHA更新前1件。新規機能の対象試験と`ruff check .`は成功した。
+- 配布SHA更新後、既知のWindows環境依存2件を除く全体回帰は848 passed / 20 skipped / 2 deselected。make_release.py --checkは921/921一致。
+- 実データ、認証情報はRepositoryへ保存していない。次工程は担当者画面の登録確認・Run進捗表示と、完了POINT予測のWarehouse Projection接続。
