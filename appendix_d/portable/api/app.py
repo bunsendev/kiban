@@ -120,6 +120,10 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     def inventory_script():
         return FileResponse(STATIC / "inventory.js", media_type="text/javascript")
 
+    @app.get("/production.js")
+    def production_script():
+        return FileResponse(STATIC / "production.js", media_type="text/javascript")
+
     @app.get("/style.css")
     def style():
         return FileResponse(STATIC / "style.css", media_type="text/css")

@@ -14,7 +14,10 @@ from forecast_provider.api.schemas import ExperimentCreate, SnapshotCreate
 from forecast_provider.api.service import ApplicationService
 from forecast_provider.catalog import SqliteCatalogStore
 from forecast_provider.jobs import SqliteRunStore
+from forecast_provider.warehouse_projection import ProjectionBlocked, WarehouseProjectionService
 
+from .formal_forecast_pipeline import PortableFormalForecastPipeline
+from .formal_pipeline import PortableFormalPipeline
 from .formal_shipment_daily import canonical_json, sha256
 
 RUN_NAMESPACE = uuid.UUID("9c197980-397e-4a47-a3cc-8abbdc9c4299")
@@ -43,13 +46,16 @@ class PortableProductionHandoff:
     def view(self, build_id: str) -> dict:
         manifest, _ = self._verified_source(build_id)
         receipt = self._receipt_path(build_id)
+        handoff = None if not receipt.is_file() else self._verified_receipt(receipt)
+        if handoff is not None:
+            handoff = self._run_view(handoff)
         return {
             "build_id": build_id,
             "source_status": manifest["status"],
             "eligible_series_count": manifest["eligible_series_count"],
             "blocked_series_count": manifest["blocked_series_count"],
             "queued": receipt.is_file(),
-            "handoff": None if not receipt.is_file() else self._verified_receipt(receipt),
+            "handoff": handoff,
         }
 
     def enqueue(self, build_id: str, payload: dict) -> dict:
@@ -131,6 +137,68 @@ class PortableProductionHandoff:
         _atomic_bytes(receipt_path, canonical_json(receipt))
         return receipt
 
+    def run_id(self, build_id: str) -> str:
+        receipt = self._receipt_path(build_id)
+        if not receipt.is_file():
+            raise ProductionHandoffError("Production Forecast Runが登録されていません")
+        return str(self._verified_receipt(receipt)["run_id"])
+
+    def projection(self, build_id: str) -> dict:
+        manifest, _ = self._verified_source(build_id)
+        receipt = self._verified_receipt(self._receipt_path(build_id))
+        pipeline = PortableFormalPipeline(self.paths)
+        registration = pipeline.get_registration(manifest["registration_id"])
+        jobs = [pipeline.inventory_store.get_job(item["job_id"]) for item in registration["jobs"]]
+        scopes = {job.pilot_scope_version for job in jobs if job is not None}
+        if len(scopes) != 1 or None in scopes:
+            raise ProductionHandoffError("在庫見通しのPilot Scopeを一意に確認できません")
+        service = WarehouseProjectionService(
+            pipeline.inventory_store,
+            pipeline.scope_store,
+            PortableFormalForecastPipeline(self.paths).bridge_store,
+            self.service.runs,
+        )
+        try:
+            batch = service.calculate(
+                calculation_at=_utc_now(),
+                pilot_scope_version=next(iter(scopes)),
+                identity_bridge_version=manifest["identity_bridge_version"],
+                forecast_run_id=receipt["run_id"],
+            )
+        except ProjectionBlocked as exc:
+            raise ProductionHandoffError(f"在庫見通しを作成できません: {exc.code}") from exc
+        return {
+            "forecast_run_id": batch.forecast_run_id,
+            "inventory_snapshot_id": batch.inventory_snapshot_id,
+            "calculation_at": batch.calculation_at.isoformat(),
+            "projections": [
+                {
+                    "jan": value.jan,
+                    "warehouse_id": value.warehouse_id,
+                    "starting_inventory_cases": str(value.starting_inventory_cases),
+                    "demand_7d_cases": str(value.demand_7_days_cases),
+                    "demand_14d_cases": str(value.demand_14_days_cases),
+                    "ending_inventory_cases": str(value.days[-1].gross_remaining_cases),
+                    "shortage_cases": str(value.days[-1].cumulative_shortfall_cases),
+                }
+                for value in batch.projections
+            ],
+        }
+
+    def _run_view(self, receipt: dict) -> dict:
+        run = self.service.runs.get_run(receipt["run_id"])
+        if run is None:
+            raise ProductionHandoffError("Production Forecast Runが見つかりません")
+        output = {**receipt, "run_status": run.status, "origin_counts": run.origin_counts}
+        if run.status == "SUCCEEDED":
+            result = self.service.runs.get_run_results(run.run_id) or {}
+            points = [
+                item for item in result.get("values", [])
+                if item["forecast_kind"] == "POINT" and item["quantile"] is None
+            ]
+            output["point_predictions"] = points
+        return output
+
     def _verified_source(self, build_id: str) -> tuple[dict, bytes]:
         if not build_id.startswith("portable-daily-") or len(build_id) != 79:
             raise ProductionHandoffError("日次buildが見つかりません")
@@ -206,3 +274,9 @@ def _atomic_bytes(path: Path, value: bytes) -> None:
     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     temporary.write_bytes(value)
     os.replace(temporary, path)
+
+
+def _utc_now():
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC)
