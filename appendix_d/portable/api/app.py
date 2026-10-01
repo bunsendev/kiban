@@ -39,6 +39,7 @@ from .formal_forecast_routes import register_formal_forecast_routes
 from .formal_pipeline_routes import register_formal_pipeline_routes
 from .input_csv import MAX_CSV_BYTES, InputError, parse_csv
 from .inventory_routes import register_inventory_handoff_routes
+from .production_handoff_routes import register_production_handoff_routes
 from .store import RunStore
 
 LOG = logging.getLogger("portable.api")
@@ -80,6 +81,7 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     register_inventory_handoff_routes(app, paths, load_analysis, _read_limited)
     register_formal_pipeline_routes(app, paths, _read_limited)
     register_formal_forecast_routes(app, paths, _read_limited)
+    register_production_handoff_routes(app, paths, _read_limited)
 
     @app.middleware("http")
     async def local_only(request: Request, call_next):

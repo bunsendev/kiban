@@ -16,6 +16,10 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
+from forecast_provider.catalog import SqliteCatalogStore
+from forecast_provider.executors import BuiltinBaselineExecutor
+from forecast_provider.jobs import SqliteRunStore
+from forecast_provider.worker_process import work_once
 from portable.api.app import create_app
 from portable.api.business_archive import analyze_archive, run_reference_backtest
 from portable.api.formal_shipment_daily import build_daily_shipment
@@ -530,6 +534,93 @@ def test_approved_inventory_builds_formal_daily_history_and_forecast(tmp_path: P
     assert restarted.get(
         f"/api/formal-forecast/{result['build_id']}/download"
     ).status_code == 404
+
+
+def test_formal_build_is_queued_once_in_existing_production_contracts(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    registration_id = approved_formal_pipeline(
+        client, pilot_forecast_zip()
+    )["registration_id"]
+    forecast_result = client.post(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast",
+        json={
+            "actor": "予測確認者", "reason": "正式予測条件を確認",
+            "confirm_identity_bridge": True, "confirm_zero_policy": True,
+        },
+    ).json()
+    build_id = forecast_result["build_id"]
+
+    queued = client.post(
+        f"/api/formal-forecast/{build_id}/production-run",
+        json={
+            "actor": "運用管理者", "reason": "日次Runへ登録",
+            "confirm_production_queue": True,
+        },
+    )
+
+    assert queued.status_code == 202, queued.text
+    receipt = queued.json()
+    assert receipt["run_status"] == "QUEUED"
+    assert receipt["provider_id"] == "builtin-baseline"
+    assert len(receipt["eligible_series"]) == 10
+    assert receipt["blocked_series"] == []
+    repeated = client.post(
+        f"/api/formal-forecast/{build_id}/production-run",
+        json={
+            "actor": "別の再送者", "reason": "誤って再送",
+            "confirm_production_queue": True,
+        },
+    ).json()
+    assert repeated == receipt
+    view = client.get(f"/api/formal-forecast/{build_id}/production-run").json()
+    assert view["queued"] is True
+    assert view["handoff"]["run_id"] == receipt["run_id"]
+
+    database = tmp_path / "State" / "production-forecast.sqlite3"
+    runs = SqliteRunStore(database)
+    processed = work_once(
+        runs,
+        BuiltinBaselineExecutor(
+            runs,
+            SqliteCatalogStore(database),
+            tmp_path / "Artifacts",
+            tmp_path / "Work",
+        ),
+        "portable-production-test",
+        provider_id="builtin-baseline",
+    )
+    assert processed == 1
+    assert runs.get_run(receipt["run_id"]).status == "SUCCEEDED"
+
+
+def test_production_handoff_preserves_blocked_series_and_rejects_tampering(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    registration_id = approved_formal_pipeline(
+        client, pilot_forecast_zip(invalid_recent=True)
+    )["registration_id"]
+    result = client.post(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast",
+        json={
+            "actor": "予測確認者", "reason": "欠測を隔離",
+            "confirm_identity_bridge": True, "confirm_zero_policy": True,
+        },
+    ).json()
+    build_id = result["build_id"]
+    queued = client.post(
+        f"/api/formal-forecast/{build_id}/production-run",
+        json={
+            "actor": "運用管理者", "reason": "対象内だけ登録",
+            "confirm_production_queue": True,
+        },
+    ).json()
+    assert len(queued["eligible_series"]) == 9
+    assert len(queued["blocked_series"]) == 1
+
+    receipt = tmp_path / "FormalForecast" / "ProductionHandoffs" / f"{build_id}.json"
+    receipt.write_bytes(receipt.read_bytes() + b"modified")
+    response = client.get(f"/api/formal-forecast/{build_id}/production-run")
+    assert response.status_code == 404
+    assert "整合性" in response.json()["detail"]
 
 
 def test_formal_forecast_requires_explicit_identity_and_zero_policy(tmp_path: Path):
