@@ -37,6 +37,7 @@ function appendCells(row, values) {
 function renderProduction(value) {
   productionResult.replaceChildren();
   projectionResult.replaceChildren();
+  window.PortableShipmentDecision?.reset();
   if (!value) return;
   const box = document.createElement('div');
   box.className = 'production-status';
@@ -224,6 +225,7 @@ function renderSummary(result) {
     details.appendChild(list);
     projectionResult.appendChild(details);
   }
+  window.PortableShipmentDecision.show(productionBuild, result);
 }
 
 summaryForm.addEventListener('submit', async event => {

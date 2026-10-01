@@ -33,7 +33,7 @@ class PortableProductionProjection:
         self.summary_root.mkdir(parents=True, exist_ok=True)
 
     def projection(self, build_id: str) -> dict:
-        context = self._context(build_id)
+        context = self.context(build_id)
         calculation_at = datetime.now(UTC)
         projections = []
         scopes = []
@@ -67,7 +67,7 @@ class PortableProductionProjection:
 
     def daily_summary(self, build_id: str, payload: dict) -> dict:
         request = _summary_request(payload)
-        context = self._context(build_id)
+        context = self.context(build_id)
         request_key = sha256(canonical_json({
             "format": "portable-daily-summary-request-v1",
             "build_id": build_id,
@@ -178,7 +178,19 @@ class PortableProductionProjection:
         _atomic_json(target, result)
         return result
 
-    def _context(self, build_id: str) -> dict:
+    def get_summary(self, request_key: str) -> dict:
+        if (
+            not isinstance(request_key, str)
+            or len(request_key) != 64
+            or any(value not in "0123456789abcdef" for value in request_key)
+        ):
+            raise ProductionHandoffError("日次業務サマリーIDを確認してください")
+        target = self.summary_root / f"{request_key}.json"
+        if not target.is_file():
+            raise ProductionHandoffError("日次業務サマリーが見つかりません")
+        return _verified_summary(target, request_key)
+
+    def context(self, build_id: str) -> dict:
         manifest, _daily = self.handoff._verified_source(build_id)
         receipt_path = self.handoff._receipt_path(build_id)
         if not receipt_path.is_file():

@@ -2,8 +2,11 @@
 
 import json
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, Response
 
+from .decision_input_contracts import DecisionInputError
+from .decision_input_package import PortableDecisionInputPackages
+from .production_decision import PortableShipmentDecision
 from .production_handoff import PortableProductionHandoff, ProductionHandoffError
 from .production_projection import PortableProductionProjection
 from .production_worker import PortableProductionWorker
@@ -12,6 +15,8 @@ from .production_worker import PortableProductionWorker
 def register_production_handoff_routes(app, paths, read_limited) -> None:
     service = PortableProductionHandoff(paths)
     projection = PortableProductionProjection(paths, service)
+    input_packages = PortableDecisionInputPackages(paths)
+    decision = PortableShipmentDecision(paths, projection, input_packages)
     worker = PortableProductionWorker(
         service.database,
         paths.formal_forecast / "ProductionArtifacts",
@@ -71,5 +76,61 @@ def register_production_handoff_routes(app, paths, read_limited) -> None:
             if not isinstance(payload, dict):
                 raise ProductionHandoffError("日次業務サマリーの確認条件を確認してください")
             return projection.daily_summary(build_id, payload)
+        except (json.JSONDecodeError, ProductionHandoffError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.get(
+        "/api/formal-forecast/{build_id}/daily-summary/{summary_key}/"
+        "decision-input-template"
+    )
+    def download_decision_input_template(build_id: str, summary_key: str):
+        try:
+            summary = projection.get_summary(summary_key)
+            if summary["build_id"] != build_id:
+                raise ProductionHandoffError("日次サマリーと正式予測buildが一致しません")
+            return Response(
+                content=input_packages.template(summary),
+                media_type="application/zip",
+                headers={
+                    "Content-Disposition": (
+                        'attachment; filename="decision-input-template.zip"'
+                    )
+                },
+            )
+        except (DecisionInputError, ProductionHandoffError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.post(
+        "/api/formal-forecast/{build_id}/daily-summary/{summary_key}/decision-inputs",
+        status_code=201,
+    )
+    async def create_decision_input_package(
+        build_id: str, summary_key: str, request: Request
+    ):
+        try:
+            raw = await read_limited(request, 8 * 1024 * 1024)
+            payload = json.loads(raw or b"{}")
+            if not isinstance(payload, dict):
+                raise DecisionInputError("正式Decision入力を確認してください")
+            summary = projection.get_summary(summary_key)
+            if summary["build_id"] != build_id:
+                raise ProductionHandoffError("日次サマリーと正式予測buildが一致しません")
+            return input_packages.create(build_id, summary, payload)
+        except (json.JSONDecodeError, DecisionInputError, ProductionHandoffError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.post(
+        "/api/formal-forecast/{build_id}/daily-summary/{summary_key}/shipment-recommendation",
+        status_code=201,
+    )
+    async def create_shipment_recommendation(
+        build_id: str, summary_key: str, request: Request
+    ):
+        try:
+            raw = await read_limited(request, 256 * 1024)
+            payload = json.loads(raw or b"{}")
+            if not isinstance(payload, dict):
+                raise ProductionHandoffError("Decision Engine入力を確認してください")
+            return decision.create(build_id, summary_key, payload)
         except (json.JSONDecodeError, ProductionHandoffError) as exc:
             raise HTTPException(422, str(exc)) from exc
