@@ -132,6 +132,37 @@ def pilot_forecast_zip(count: int = 10, *, invalid_recent: bool = False) -> byte
     return target.getvalue()
 
 
+def multi_center_forecast_zip(count: int = 10) -> bytes:
+    target = io.BytesIO()
+    centers = (("神戸", "2026/02/10"), ("加須", "2026/04/30"))
+    with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for center, expiry in centers:
+            inventory_rows = ["商品コード,商品名,明細バラ数,賞味期限"]
+            for index in range(count):
+                jan = _jan13(index)
+                inventory_quantity = 100 + index if center == "神戸" else index + 2
+                inventory_rows.append(
+                    f"{jan},正式商品{index},{inventory_quantity},{expiry}"
+                )
+            for offset in range(35):
+                day = (pd.Timestamp("2026-01-01") + pd.Timedelta(days=offset)).date()
+                shipment_rows = ["出荷日,納品日,商品名,JAN,数量"]
+                for index in range(count):
+                    jan = _jan13(index)
+                    shipment_rows.append(
+                        f"{day:%Y/%m/%d},{day:%Y/%m/%d},正式商品{index},{jan},{index + 1}"
+                    )
+                archive.writestr(
+                    f"data/{center}日時出荷_{day:%Y%m%d}.csv",
+                    "\n".join(shipment_rows).encode("cp932"),
+                )
+            archive.writestr(
+                f"data/{center}日時在庫_20260204.csv",
+                "\n".join(inventory_rows).encode("cp932"),
+            )
+    return target.getvalue()
+
+
 def approved_formal_pipeline(client: TestClient, raw: bytes) -> dict:
     report = client.post(
         "/api/business-archives", content=raw,
@@ -164,6 +195,50 @@ def approved_formal_pipeline(client: TestClient, raw: bytes) -> dict:
         json={"actor": "承認管理者", "reason": "原本数量と隔離0件を確認",
               "expected_revision": 0},
     ).json()
+    assert approved["status"] == "APPROVED"
+    return approved
+
+
+def approved_multi_center_pipeline(client: TestClient) -> dict:
+    report = client.post(
+        "/api/business-archives", content=multi_center_forecast_zip(),
+        headers={"Content-Type": "application/zip"},
+    ).json()
+    handoff = client.post(
+        f"/api/business-archives/{report['analysis_id']}/formal-inventory",
+        json={
+            "actor": "現場担当者", "reason": "2倉庫の最新在庫とCASEを確認",
+            "confirm_case": True,
+            "locations": [
+                {"source_center": "神戸", "location_code": "KOBE",
+                 "location_name": "神戸倉庫", "snapshot_time": "16:00"},
+                {"source_center": "加須", "location_code": "KAZO",
+                 "location_name": "加須倉庫", "snapshot_time": "16:00"},
+            ],
+        },
+    ).json()
+    pipeline_view = client.get(
+        f"/api/formal-inventory/{handoff['handoff_id']}/pipeline"
+    ).json()
+    registered = client.post(
+        f"/api/formal-inventory/{handoff['handoff_id']}/pipeline",
+        json={
+            "actor": "試験管理者", "reason": "2倉庫のPilot Scopeを確認",
+            "confirm_pilot_scope": True,
+            "selections": [
+                {"source_center": item["source_center"], "jans": item["jans"]}
+                for item in pipeline_view["locations"]
+            ],
+        },
+    ).json()
+    approved = None
+    for job in registered["jobs"]:
+        approved = client.post(
+            "/api/formal-inventory/pipeline/"
+            f"{registered['registration_id']}/jobs/{job['job_id']}/approve",
+            json={"actor": "承認管理者", "reason": "原本数量と隔離0件を確認",
+                  "expected_revision": 0},
+        ).json()
     assert approved["status"] == "APPROVED"
     return approved
 
@@ -593,6 +668,78 @@ def test_formal_build_is_queued_once_in_existing_production_contracts(tmp_path: 
     )
     assert projection.status_code == 200, projection.text
     assert len(projection.json()["projections"]) == 10
+
+
+def test_multi_warehouse_daily_summary_is_auditable_and_idempotent(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    assert 'id="daily-summary"' in client.get("/").text
+    registration_id = approved_multi_center_pipeline(client)["registration_id"]
+    forecast = client.post(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast",
+        json={
+            "actor": "予測確認者", "reason": "2倉庫の予測条件を確認",
+            "confirm_identity_bridge": True, "confirm_zero_policy": True,
+        },
+    ).json()
+    build_id = forecast["build_id"]
+    queued = client.post(
+        f"/api/formal-forecast/{build_id}/production-run",
+        json={
+            "actor": "運用管理者", "reason": "2倉庫の日次Runへ登録",
+            "confirm_production_queue": True,
+        },
+    )
+    assert queued.status_code == 202, queued.text
+    deadline = time.monotonic() + 8
+    while True:
+        run = client.get(f"/api/formal-forecast/{build_id}/production-run").json()
+        if run["handoff"]["run_status"] == "SUCCEEDED" or time.monotonic() >= deadline:
+            break
+        time.sleep(0.05)
+    assert run["handoff"]["run_status"] == "SUCCEEDED"
+
+    projection = client.get(
+        f"/api/formal-forecast/{build_id}/production-projection"
+    )
+    assert projection.status_code == 200, projection.text
+    assert projection.json()["status"] == "READY"
+    assert len(projection.json()["scope_results"]) == 2
+    assert len(projection.json()["projections"]) == 20
+
+    policy = {
+        "actor": "現場責任者", "reason": "初回の賞味期限確認条件",
+        "minimum_remaining_days": 0, "attention_days": 7,
+        "confirm_expiry_policy": True,
+    }
+    response = client.post(
+        f"/api/formal-forecast/{build_id}/daily-summary", json=policy,
+    )
+    assert response.status_code == 201, response.text
+    result = response.json()
+    assert result["status"] == "READY"
+    assert result["mode"] == "SHADOW"
+    assert len(result["warehouses"]) == 2
+    assert len(result["rows"]) == 20
+    assert result["blockers"] == []
+    assert result["replenishment_policy_status"].startswith("NOT_CALCULATED")
+    assert any(item["replenishment_candidate"] for item in result["rows"])
+    assert any("EXPIRY_RISK" in item["risk_flags"] for item in result["rows"])
+
+    restarted = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    repeated = restarted.post(
+        f"/api/formal-forecast/{build_id}/daily-summary", json=policy,
+    ).json()
+    assert repeated == result
+    target = (
+        tmp_path / "FormalForecast" / "ProductionSummaries"
+        / f"{result['request_key']}.json"
+    )
+    target.write_bytes(target.read_bytes() + b"modified")
+    tampered = restarted.post(
+        f"/api/formal-forecast/{build_id}/daily-summary", json=policy,
+    )
+    assert tampered.status_code == 422
+    assert "整合性" in tampered.json()["detail"]
 
 
 def test_production_handoff_preserves_blocked_series_and_rejects_tampering(tmp_path: Path):
