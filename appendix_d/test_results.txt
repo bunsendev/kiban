@@ -1814,3 +1814,11 @@ OS: Windows 11
 - 全体初回は847 passed / 20 skipped / 3 failed。失敗は既存Field Pilot固定fixture 1件、Windows非対応Linux RSS 1件、配布SHA更新前1件。新規機能の対象試験と`ruff check .`は成功した。
 - 配布SHA更新後、既知のWindows環境依存2件を除く全体回帰は848 passed / 20 skipped / 2 deselected。make_release.py --checkは921/921一致。
 - 実データ、認証情報はRepositoryへ保存していない。次工程は担当者画面の登録確認・Run進捗表示と、完了POINT予測のWarehouse Projection接続。
+
+# Windows Portable 正式予測更新UI（2026-10-01 JST）
+
+- 担当者画面に手順7を追加し、確認済み日次buildのProduction Run登録、非同期Worker進捗、完了POINT予測、既存Warehouse Projectionによる在庫見通しを一画面で確認可能にした。
+- Portable対象試験28 passed。人工10系列のRun完走、140 POINT、再送冪等性、再起動後の結果復元、10商品の在庫見通し、欠測系列の対象外保持、改変拒否を確認した。
+- 全体初回は847 passed / 20 skipped / 3 failed。失敗は既存Field Pilot固定fixture 1件、Windows非対応Linux RSS 1件、配布SHA更新前1件。`ruff check .`、変更JavaScriptの構文検査、`git diff --check`は成功した。
+- 配布SHA更新後、既知のWindows環境依存2件を除く全体回帰は848 passed / 20 skipped / 2 deselected。`make_release.py --check`は924/924一致。
+- 実データと認証情報はRepositoryへ保存していない。複数倉庫では個別Pilot ScopeごとのProjection集約を次工程とする。

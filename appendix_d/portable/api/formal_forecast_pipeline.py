@@ -202,7 +202,7 @@ class PortableFormalForecastPipeline:
                     or bucket["issue_codes"]
                 ):
                     continue
-                key = (bucket["jan"], location["location_code"])
+                key = (bucket["jan"], location["location_id"])
                 if key in seen:
                     continue
                 seen.add(key)
@@ -210,7 +210,7 @@ class PortableFormalForecastPipeline:
                     {
                         "source_center": job["source_center"],
                         "jan": bucket["jan"],
-                        "warehouse_id": location["location_code"],
+                        "warehouse_id": location["location_id"],
                         "canonical_product_id": bucket["jan"],
                         "forecast_center_id": location["location_code"],
                         "effective_from": effective,

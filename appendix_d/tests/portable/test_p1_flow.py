@@ -16,10 +16,6 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from forecast_provider.catalog import SqliteCatalogStore
-from forecast_provider.executors import BuiltinBaselineExecutor
-from forecast_provider.jobs import SqliteRunStore
-from forecast_provider.worker_process import work_once
 from portable.api.app import create_app
 from portable.api.business_archive import analyze_archive, run_reference_backtest
 from portable.api.formal_shipment_daily import build_daily_shipment
@@ -538,6 +534,8 @@ def test_approved_inventory_builds_formal_daily_history_and_forecast(tmp_path: P
 
 def test_formal_build_is_queued_once_in_existing_production_contracts(tmp_path: Path):
     client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    assert client.get("/production.js").status_code == 200
+    assert 'id="production-run"' in client.get("/").text
     registration_id = approved_formal_pipeline(
         client, pilot_forecast_zip()
     )["registration_id"]
@@ -560,7 +558,7 @@ def test_formal_build_is_queued_once_in_existing_production_contracts(tmp_path: 
 
     assert queued.status_code == 202, queued.text
     receipt = queued.json()
-    assert receipt["run_status"] == "QUEUED"
+    assert receipt["run_status"] in {"QUEUED", "RUNNING", "SUCCEEDED"}
     assert receipt["provider_id"] == "builtin-baseline"
     assert len(receipt["eligible_series"]) == 10
     assert receipt["blocked_series"] == []
@@ -571,26 +569,30 @@ def test_formal_build_is_queued_once_in_existing_production_contracts(tmp_path: 
             "confirm_production_queue": True,
         },
     ).json()
-    assert repeated == receipt
-    view = client.get(f"/api/formal-forecast/{build_id}/production-run").json()
+    assert repeated["run_id"] == receipt["run_id"]
+    deadline = time.monotonic() + 5
+    while True:
+        view = client.get(f"/api/formal-forecast/{build_id}/production-run").json()
+        if view["handoff"]["run_status"] == "SUCCEEDED" or time.monotonic() >= deadline:
+            break
+        time.sleep(0.05)
     assert view["queued"] is True
     assert view["handoff"]["run_id"] == receipt["run_id"]
+    assert view["handoff"]["run_status"] == "SUCCEEDED"
+    assert len(view["handoff"]["point_predictions"]) == 140
 
-    database = tmp_path / "State" / "production-forecast.sqlite3"
-    runs = SqliteRunStore(database)
-    processed = work_once(
-        runs,
-        BuiltinBaselineExecutor(
-            runs,
-            SqliteCatalogStore(database),
-            tmp_path / "Artifacts",
-            tmp_path / "Work",
-        ),
-        "portable-production-test",
-        provider_id="builtin-baseline",
+    restarted = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    restored = restarted.get(
+        f"/api/formal-forecast/{build_id}/production-run"
+    ).json()["handoff"]
+    assert restored["run_status"] == "SUCCEEDED"
+    assert restored["run_id"] == receipt["run_id"]
+
+    projection = restarted.get(
+        f"/api/formal-forecast/{build_id}/production-projection"
     )
-    assert processed == 1
-    assert runs.get_run(receipt["run_id"]).status == "SUCCEEDED"
+    assert projection.status_code == 200, projection.text
+    assert len(projection.json()["projections"]) == 10
 
 
 def test_production_handoff_preserves_blocked_series_and_rejects_tampering(tmp_path: Path):
