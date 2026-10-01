@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from forecast_provider.expiry_simulation import ExpirySimulationService, build_expiry_policy
 from forecast_provider.inventory_foundation.contracts import RecommendationBasis
@@ -24,20 +25,29 @@ from .formal_shipment_daily import canonical_json, sha256
 from .production_handoff import ProductionHandoffError
 from .production_projection import PortableProductionProjection
 
+if TYPE_CHECKING:
+    from .decision_input_package import PortableDecisionInputPackages
+
 
 class PortableShipmentDecision:
     """Bind one immutable daily summary to explicit, versioned supply policies."""
 
-    def __init__(self, paths, projection: PortableProductionProjection) -> None:
+    def __init__(
+        self,
+        paths,
+        projection: PortableProductionProjection,
+        input_packages: PortableDecisionInputPackages | None = None,
+    ) -> None:
         self.projection = projection
+        self.input_packages = input_packages
         self.root = paths.formal_forecast / "ProductionDecisions"
         self.root.mkdir(parents=True, exist_ok=True)
 
     def create(self, build_id: str, summary_key: str, payload: dict) -> dict:
-        request = _request(payload)
         summary = self.projection.get_summary(summary_key)
         if summary["build_id"] != build_id:
             raise ProductionHandoffError("日次サマリーと正式予測buildが一致しません")
+        request = self._request(build_id, summary, payload)
         request_key = sha256(canonical_json({
             "format": "portable-shipment-decision-request-v1",
             "build_id": build_id,
@@ -134,7 +144,7 @@ class PortableShipmentDecision:
             "notice": "参考値・検証中です。担当者の確認なしに出荷指示へ使用しないでください。",
             "actor": request["actor"],
             "reason": request["reason"],
-            "source_blockers": blockers,
+            "source_blockers": blockers + request.get("input_package_issues", []),
             "input_versions": {
                 "route_policy_versions": sorted({
                     item["policy_version"] for item in request["routes"]
@@ -148,11 +158,42 @@ class PortableShipmentDecision:
                 "production_plan_versions": sorted({
                     item["plan_version"] for item in request["production_plans"]
                 }),
+                "decision_input_package_id": request.get("decision_input_package_id"),
             },
         }
         result["result_sha256"] = sha256(canonical_json(result))
         _atomic_json(target, result)
         return result
+
+    def _request(self, build_id: str, summary: dict, payload: dict) -> dict:
+        package_id = str(payload.get("decision_input_package_id") or "").strip()
+        if not package_id:
+            return _request(payload)
+        if payload.get("confirm_decision_inputs") is not True or self.input_packages is None:
+            raise ProductionHandoffError("正式Decision入力packageの確認が必要です")
+        try:
+            package = self.input_packages.get(package_id)
+        except ValueError as exc:
+            raise ProductionHandoffError(str(exc)) from exc
+        if (
+            package["build_id"] != build_id
+            or package["daily_summary_sha256"] != summary["summary_sha256"]
+        ):
+            raise ProductionHandoffError("Decision入力packageと日次サマリーが一致しません")
+        if not package["ready_for_decision"]:
+            raise ProductionHandoffError("Decision入力packageの必須入力が揃っていません")
+        accepted = package["accepted"]
+        return {
+            "actor": package["actor"],
+            "reason": package["reason"],
+            "confirm_decision_inputs": True,
+            "decision_input_package_id": package_id,
+            "input_package_sha256": package["package_sha256"],
+            "input_package_issues": (
+                package["quarantines"] + package["missing_or_outside_scope"]
+            ),
+            **accepted,
+        }
 
 
 def _request(payload: dict) -> dict:

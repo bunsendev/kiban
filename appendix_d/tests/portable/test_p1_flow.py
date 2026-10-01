@@ -1,5 +1,6 @@
 """P1 acceptance tests: persistence, deterministic baseline, recovery and local boundary."""
 
+import base64
 import hashlib
 import io
 import json
@@ -1137,3 +1138,114 @@ def test_launcher_crash_kills_api_and_releases_mutex(tmp_path: Path):
         if process.poll() is None:
             process.kill()
             process.wait(timeout=5)
+
+
+def test_formal_decision_input_zip_is_validated_and_connected(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    assert 'id="decision-package-form"' in client.get("/").text
+    registration_id = approved_multi_center_pipeline(client)["registration_id"]
+    forecast = client.post(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast",
+        json={
+            "actor": "予測確認者", "reason": "2倉庫の予測条件を確認",
+            "confirm_identity_bridge": True, "confirm_zero_policy": True,
+        },
+    ).json()
+    build_id = forecast["build_id"]
+    client.post(
+        f"/api/formal-forecast/{build_id}/production-run",
+        json={
+            "actor": "運用管理者", "reason": "2倉庫の日次Runへ登録",
+            "confirm_production_queue": True,
+        },
+    )
+    deadline = time.monotonic() + 8
+    while True:
+        run = client.get(f"/api/formal-forecast/{build_id}/production-run").json()
+        if run["handoff"]["run_status"] == "SUCCEEDED" or time.monotonic() >= deadline:
+            break
+        time.sleep(0.05)
+    summary = client.post(
+        f"/api/formal-forecast/{build_id}/daily-summary",
+        json={
+            "actor": "現場責任者", "reason": "賞味期限条件を確認",
+            "minimum_remaining_days": 0, "attention_days": 7,
+            "confirm_expiry_policy": True,
+        },
+    ).json()
+    endpoint = f"/api/formal-forecast/{build_id}/daily-summary/{summary['request_key']}"
+    template = client.get(f"{endpoint}/decision-input-template")
+    assert template.status_code == 200
+    assert template.headers["content-type"] == "application/zip"
+    warehouses = [item["warehouse_id"] for item in summary["warehouses"]]
+    jans = sorted({item["jan"] for item in summary["rows"]})
+    calculation_date = summary["calculation_at"][:10]
+    files = {
+        "factory_inventory.csv": (
+            "factory_snapshot_id,snapshot_at,factory_id,jan,inventory_cases\n"
+            + "".join(
+                f"factory-v1,2026-01-01T00:00:00+00:00,F01,{jan},1000\n"
+                for jan in jans
+            )
+        ),
+        "production_plans.csv": (
+            "plan_id,plan_version,factory_id,jan,completion_at,quantity_cases\n"
+        ),
+        "routes.csv": (
+            "policy_id,policy_version,location_master_version,factory_location_id,"
+            "warehouse_location_id,minimum_hours,standard_hours,maximum_hours,"
+            "recommendation_basis,effective_from,effective_to\n"
+            + "".join(
+                f"route-{warehouse},routes-v1,locations-v1,F01,{warehouse},"
+                f"12,24,36,MAXIMUM,{calculation_date},\n"
+                for warehouse in warehouses
+            )
+        ),
+        "safety_stock.csv": (
+            "policy_version,warehouse_id,coverage_days,shipment_unit_cases\n"
+            + "".join(f"safety-v1,{warehouse},3,1\n" for warehouse in warehouses)
+        ),
+    }
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, content in files.items():
+            archive.writestr(name, content.encode("utf-8-sig"))
+    package_request = {
+        "actor": "出荷責任者", "reason": "正式CSV入力を確認",
+        "confirm_decision_inputs": True,
+        "archive_base64": base64.b64encode(buffer.getvalue()).decode("ascii"),
+    }
+
+    package_response = client.post(f"{endpoint}/decision-inputs", json=package_request)
+
+    assert package_response.status_code == 201, package_response.text
+    package = package_response.json()
+    assert package["status"] == "READY"
+    assert package["ready_for_decision"] is True
+    assert package["quarantines"] == []
+    repeated = client.post(f"{endpoint}/decision-inputs", json=package_request).json()
+    assert repeated == package
+    result_response = client.post(
+        f"{endpoint}/shipment-recommendation",
+        json={
+            "decision_input_package_id": package["package_id"],
+            "confirm_decision_inputs": True,
+        },
+    )
+    assert result_response.status_code == 201, result_response.text
+    result = result_response.json()
+    assert len(result["recommendations"]) == 20
+    assert result["input_versions"]["decision_input_package_id"] == package["package_id"]
+    stored = (
+        tmp_path / "FormalForecast" / "DecisionInputs" / f"{package['package_id']}.json"
+    )
+    stored.write_bytes(stored.read_bytes() + b"modified")
+    tampered = client.post(
+        f"{endpoint}/shipment-recommendation",
+        json={
+            "decision_input_package_id": package["package_id"],
+            "confirm_decision_inputs": True,
+        },
+    )
+    assert tampered.status_code == 422
+    assert "整合性" in tampered.json()["detail"]

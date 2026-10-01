@@ -179,7 +179,11 @@ class PortableProductionProjection:
         return result
 
     def get_summary(self, request_key: str) -> dict:
-        if not request_key or not request_key.isascii() or len(request_key) != 64:
+        if (
+            not isinstance(request_key, str)
+            or len(request_key) != 64
+            or any(value not in "0123456789abcdef" for value in request_key)
+        ):
             raise ProductionHandoffError("日次業務サマリーIDを確認してください")
         target = self.summary_root / f"{request_key}.json"
         if not target.is_file():

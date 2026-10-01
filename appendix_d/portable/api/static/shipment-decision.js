@@ -2,12 +2,20 @@ const decisionPanel = document.getElementById('shipment-decision');
 const decisionForm = document.getElementById('shipment-decision-form');
 const decisionState = document.getElementById('shipment-decision-state');
 const decisionResult = document.getElementById('shipment-decision-result');
+const packageForm = document.getElementById('decision-package-form');
+const packageState = document.getElementById('decision-package-state');
+const packageResult = document.getElementById('decision-package-result');
 let decisionBuild = null;
 let decisionSummary = null;
 
 function decisionMessage(value, kind = '') {
   decisionState.textContent = value;
   decisionState.className = kind;
+}
+
+function packageMessage(value, kind = '') {
+  packageState.textContent = value;
+  packageState.className = kind;
 }
 
 function decisionCells(row, values) {
@@ -35,6 +43,7 @@ function resetDecision() {
   decisionSummary = null;
   decisionPanel.hidden = true;
   decisionResult.replaceChildren();
+  packageResult.replaceChildren();
 }
 
 function showDecision(buildId, summary) {
@@ -42,6 +51,10 @@ function showDecision(buildId, summary) {
   decisionSummary = summary;
   decisionPanel.hidden = false;
   decisionResult.replaceChildren();
+  packageResult.replaceChildren();
+  const prefix = `/api/formal-forecast/${encodeURIComponent(buildId)}`
+    + `/daily-summary/${encodeURIComponent(summary.request_key)}`;
+  document.getElementById('decision-template').href = `${prefix}/decision-input-template`;
   const uniqueJans = [...new Set(summary.rows.map(item => item.jan))].sort();
   document.getElementById('decision-inventory-csv').value =
     `JAN,現在庫（箱）\n${uniqueJans.map(jan => `${jan},`).join('\n')}`;
@@ -50,6 +63,57 @@ function showDecision(buildId, summary) {
   const snapshot = new Date(summary.calculation_at);
   snapshot.setMinutes(snapshot.getMinutes() - snapshot.getTimezoneOffset());
   document.getElementById('decision-snapshot-at').value = snapshot.toISOString().slice(0, 16);
+}
+
+function decisionEndpoint(suffix) {
+  return `/api/formal-forecast/${encodeURIComponent(decisionBuild)}`
+    + `/daily-summary/${encodeURIComponent(decisionSummary.request_key)}/${suffix}`;
+}
+
+function bytesToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return btoa(binary);
+}
+
+function renderPackage(value) {
+  packageResult.replaceChildren();
+  const summary = document.createElement('p');
+  summary.textContent = `採用：工場在庫 ${value.accepted.factory_supplies.length}行、`
+    + `生産予定 ${value.accepted.production_plans.length}行、route ${value.accepted.routes.length}行、`
+    + `安全在庫 ${value.accepted.safety_stock_policies.length}行／確認必要 `
+    + `${value.quarantines.length + value.missing_or_outside_scope.length}件`;
+  packageResult.appendChild(summary);
+  const issues = [...value.quarantines, ...value.missing_or_outside_scope];
+  if (issues.length) {
+    const details = document.createElement('details');
+    const title = document.createElement('summary');
+    title.textContent = '採用しなかった行・不足入力を確認';
+    details.appendChild(title);
+    const list = document.createElement('ul');
+    for (const issue of issues) {
+      const item = document.createElement('li');
+      item.textContent = `${issue.filename || issue.jan || issue.warehouse_id || '入力'}：`
+        + `${issue.reason_code || issue.code}${issue.row_number ? `（${issue.row_number}行）` : ''}`;
+      list.appendChild(item);
+    }
+    details.appendChild(list);
+    packageResult.appendChild(details);
+  }
+}
+
+async function runDecision(payload) {
+  const response = await fetch(decisionEndpoint('shipment-recommendation'), {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.detail || '推奨出荷量を計算できませんでした。');
+  renderDecision(result);
+  return result;
 }
 
 function renderDecision(result) {
@@ -159,17 +223,51 @@ decisionForm.addEventListener('submit', async event => {
   button.disabled = true;
   decisionMessage('到着時点在庫と工場出荷可能量を計算しています。');
   try {
-    const endpoint = `/api/formal-forecast/${encodeURIComponent(decisionBuild)}/daily-summary/${encodeURIComponent(decisionSummary.request_key)}/shipment-recommendation`;
-    const response = await fetch(endpoint, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(requestPayload()),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.detail || '推奨出荷量を計算できませんでした。');
-    renderDecision(result);
+    await runDecision(requestPayload());
     decisionMessage('推奨出荷量の試算を作成しました。', 'success');
   } catch (error) {
     decisionMessage(error.message, 'error');
+  } finally {
+    button.disabled = false;
+  }
+});
+
+packageForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!decisionBuild || !decisionSummary) return;
+  const button = document.getElementById('decision-package-submit');
+  const file = document.getElementById('decision-package-file').files[0];
+  button.disabled = true;
+  packageMessage('正式CSVを検証し、正常行だけを準備しています。');
+  try {
+    const response = await fetch(decisionEndpoint('decision-inputs'), {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        actor: document.getElementById('decision-package-actor').value,
+        reason: document.getElementById('decision-package-reason').value,
+        confirm_decision_inputs: document.getElementById('decision-package-confirm').checked,
+        archive_base64: bytesToBase64(await file.arrayBuffer()),
+      }),
+    });
+    const value = await response.json();
+    if (!response.ok) throw new Error(value.detail || '正式Decision入力を検証できませんでした。');
+    renderPackage(value);
+    if (!value.ready_for_decision) {
+      throw new Error('必須入力が揃っていないため試算を開始できません。');
+    }
+    packageMessage('正常行を使って到着時点在庫を試算しています。');
+    await runDecision({
+      decision_input_package_id: value.package_id,
+      confirm_decision_inputs: true,
+    });
+    packageMessage(
+      value.status === 'READY'
+        ? '正式入力を確認し、推奨出荷量を試算しました。'
+        : '確認が必要な行を除外し、正常行だけで試算しました。',
+      'success',
+    );
+  } catch (error) {
+    packageMessage(error.message, 'error');
   } finally {
     button.disabled = false;
   }
