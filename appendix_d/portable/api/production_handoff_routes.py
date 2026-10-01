@@ -4,6 +4,7 @@ import json
 
 from fastapi import HTTPException, Request
 
+from .production_decision import PortableShipmentDecision
 from .production_handoff import PortableProductionHandoff, ProductionHandoffError
 from .production_projection import PortableProductionProjection
 from .production_worker import PortableProductionWorker
@@ -12,6 +13,7 @@ from .production_worker import PortableProductionWorker
 def register_production_handoff_routes(app, paths, read_limited) -> None:
     service = PortableProductionHandoff(paths)
     projection = PortableProductionProjection(paths, service)
+    decision = PortableShipmentDecision(paths, projection)
     worker = PortableProductionWorker(
         service.database,
         paths.formal_forecast / "ProductionArtifacts",
@@ -71,5 +73,21 @@ def register_production_handoff_routes(app, paths, read_limited) -> None:
             if not isinstance(payload, dict):
                 raise ProductionHandoffError("日次業務サマリーの確認条件を確認してください")
             return projection.daily_summary(build_id, payload)
+        except (json.JSONDecodeError, ProductionHandoffError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.post(
+        "/api/formal-forecast/{build_id}/daily-summary/{summary_key}/shipment-recommendation",
+        status_code=201,
+    )
+    async def create_shipment_recommendation(
+        build_id: str, summary_key: str, request: Request
+    ):
+        try:
+            raw = await read_limited(request, 256 * 1024)
+            payload = json.loads(raw or b"{}")
+            if not isinstance(payload, dict):
+                raise ProductionHandoffError("Decision Engine入力を確認してください")
+            return decision.create(build_id, summary_key, payload)
         except (json.JSONDecodeError, ProductionHandoffError) as exc:
             raise HTTPException(422, str(exc)) from exc

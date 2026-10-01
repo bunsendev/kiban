@@ -124,6 +124,10 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     def production_script():
         return FileResponse(STATIC / "production.js", media_type="text/javascript")
 
+    @app.get("/shipment-decision.js")
+    def shipment_decision_script():
+        return FileResponse(STATIC / "shipment-decision.js", media_type="text/javascript")
+
     @app.get("/style.css")
     def style():
         return FileResponse(STATIC / "style.css", media_type="text/css")

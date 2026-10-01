@@ -5,6 +5,7 @@ Windows Portable版は業務ZIPの在庫・出荷を自動確定・確認待ち�
 承認済みPortable日次buildは、内容検証後に既存Dataset Snapshot、Experiment、Forecast Run queueへ冪等登録できる。予測可能な系列だけを入力し、確認待ち・隔離系列はSHA-256付き受渡し記録へ残す。詳細は[Production Forecast Run受渡し結果](planning/WINDOWS_PORTABLE_PRODUCTION_HANDOFF_RESULT.md)を参照する。
 担当者画面の手順7からRun登録、非同期Workerの進捗、完了POINT予測、既存Warehouse Projectionによる在庫見通しを確認できる。詳細は[正式予測更新UI結果](planning/WINDOWS_PORTABLE_PRODUCTION_UI_RESULT.md)を参照する。
 手順8では複数倉庫の個別Pilot Scopeを既存Projection・FEFO契約で計算し、倉庫別の不足、賞味期限注意、補充確認候補、計算対象外理由を日次業務サマリーとして表示する。リードタイムと安全在庫policy未確定のため正式な推奨出荷量は生成しない。詳細は[複数倉庫・日次業務サマリー結果](planning/WINDOWS_PORTABLE_DAILY_SUMMARY_RESULT.md)を参照する。
+手順9では確認済みの工場在庫、生産予定、12〜36時間のroute policy、安全在庫policyを入力し、到着時点在庫、必要補充量、工場制約後の推奨出荷量、未充足をSHADOW試算する。期限内消化困難商品は自動配分を保留する。詳細は[到着時点在庫・推奨出荷Decision Engine結果](planning/WINDOWS_PORTABLE_SHIPMENT_DECISION_RESULT.md)を参照する。
 確認待ち・隔離の担当者判断、追記履歴、JAN対応付けの次回再利用は[担当者確認結果](planning/WINDOWS_PORTABLE_OPERATOR_REVIEW_RESULT.md)を参照する。
 最新倉庫在庫から既存Phase 3S契約へ渡す候補パッケージは[正式在庫handoff結果](planning/WINDOWS_PORTABLE_FORMAL_INVENTORY_HANDOFF_RESULT.md)を参照する。Pilot対象JANの明示確認、Unified Inbox、Worker、数量照合、最終Snapshot承認までの接続は[正式在庫Pipeline結果](planning/WINDOWS_PORTABLE_UNIFIED_INBOX_SNAPSHOT_RESULT.md)を参照する。承認済み在庫と出荷履歴の日次状態、JAN・倉庫identity bridge、14日Baseline参考予測の接続は[正式予測Pipeline結果](planning/WINDOWS_PORTABLE_FORMAL_FORECAST_RESULT.md)を参照する。
 承認型の形式学習と「今日やること」画面は[実装・未接続範囲](planning/FIELD_PILOT_APPROVED_LEARNING_RESULT.md)を参照する。構造の承認と正式データ採用は別である。Portableの承認済みbuildからRun queueへの接続は実装済みだが、Field Pilot旧経路の自動接続は未実装である。

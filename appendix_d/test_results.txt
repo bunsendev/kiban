@@ -1829,3 +1829,10 @@ OS: Windows 11
 - 全体初回は847 passed / 20 skipped / 3 failed。失敗は既存Field Pilot固定fixture 1件、Windows非対応Linux RSS 1件、配布SHA更新前1件。`ruff check .`、変更JavaScriptの構文検査、`git diff --check`は成功した。
 - 配布SHA更新後、既知のWindows環境依存2件を除く全体回帰は848 passed / 20 skipped / 2 deselected。`make_release.py --check`は924/924一致。
 - 実データと認証情報はRepositoryへ保存していない。複数倉庫では個別Pilot ScopeごとのProjection集約を次工程とする。
+
+# Windows Portable 到着時点在庫・推奨出荷Decision Engine（2026-10-01 JST）
+
+- 工場在庫、生産予定、Phase 3Sのroute lead time policy、安全在庫日数、CASE出荷単位を複数倉庫Projectionへ接続し、到着時点在庫、必要補充量、工場制約後の推奨出荷量、未充足をSHADOW試算する手順9を追加した。
+- 到着時刻のJST日付境界、12〜36時間の採用値、安全在庫・出荷単位切上げ、完成済み生産予定、共有工場在庫の決定的配分、期限内消化困難時の自動配分保留、入力不足blocker、再起動後の冪等性、改変拒否を確認した。対象46 passed。
+- 全体初回は853 passed / 20 skipped / 3 failed。失敗は既存Field Pilot固定日付fixture、Windows非対応Linux RSS、更新前の配布SHA照合。配布更新後、既知2件を除外した最終回帰は854 passed / 20 skipped / 2 deselected。
+- `ruff check .`、JavaScript構文検査、`git diff --check`に成功。配布一覧は933/933一致。実データ・資格情報はRepositoryへ保存していない。

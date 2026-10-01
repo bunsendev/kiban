@@ -10,6 +10,7 @@ import sys
 import time
 import zipfile
 from datetime import date, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
@@ -738,6 +739,99 @@ def test_multi_warehouse_daily_summary_is_auditable_and_idempotent(tmp_path: Pat
     tampered = restarted.post(
         f"/api/formal-forecast/{build_id}/daily-summary", json=policy,
     )
+    assert tampered.status_code == 422
+    assert "整合性" in tampered.json()["detail"]
+
+
+def test_daily_summary_builds_arrival_time_shipment_recommendations(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    assert 'id="shipment-decision"' in client.get("/").text
+    assert client.get("/shipment-decision.js").status_code == 200
+    registration_id = approved_multi_center_pipeline(client)["registration_id"]
+    forecast = client.post(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast",
+        json={
+            "actor": "予測確認者", "reason": "2倉庫の予測条件を確認",
+            "confirm_identity_bridge": True, "confirm_zero_policy": True,
+        },
+    ).json()
+    build_id = forecast["build_id"]
+    client.post(
+        f"/api/formal-forecast/{build_id}/production-run",
+        json={
+            "actor": "運用管理者", "reason": "2倉庫の日次Runへ登録",
+            "confirm_production_queue": True,
+        },
+    )
+    deadline = time.monotonic() + 8
+    while True:
+        run = client.get(f"/api/formal-forecast/{build_id}/production-run").json()
+        if run["handoff"]["run_status"] == "SUCCEEDED" or time.monotonic() >= deadline:
+            break
+        time.sleep(0.05)
+    summary = client.post(
+        f"/api/formal-forecast/{build_id}/daily-summary",
+        json={
+            "actor": "現場責任者", "reason": "賞味期限条件を確認",
+            "minimum_remaining_days": 0, "attention_days": 7,
+            "confirm_expiry_policy": True,
+        },
+    ).json()
+    warehouses = [item["warehouse_id"] for item in summary["warehouses"]]
+    jans = sorted({item["jan"] for item in summary["rows"]})
+    request = {
+        "actor": "出荷責任者", "reason": "工場在庫と運用policyを確認",
+        "confirm_decision_inputs": True,
+        "routes": [
+            {
+                "policy_id": f"route-v1-{warehouse}",
+                "policy_version": f"route-v1-{warehouse}",
+                "location_master_version": "locations-v1",
+                "factory_location_id": "F01", "warehouse_location_id": warehouse,
+                "minimum_hours": 12, "standard_hours": 24, "maximum_hours": 36,
+                "recommendation_basis": "MAXIMUM",
+                "effective_from": "2026-01-01", "effective_to": None,
+            }
+            for warehouse in warehouses
+        ],
+        "safety_stock_policies": [
+            {
+                "policy_version": f"safety-v1-{warehouse}",
+                "warehouse_id": warehouse, "coverage_days": 3,
+                "shipment_unit_cases": "1",
+            }
+            for warehouse in warehouses
+        ],
+        "factory_supplies": [
+            {
+                "snapshot_id": "factory-snapshot-v1",
+                "snapshot_at": "2026-01-01T00:00:00+00:00",
+                "factory_id": "F01", "jan": jan, "inventory_cases": "1000",
+            }
+            for jan in jans
+        ],
+        "production_plans": [],
+    }
+    endpoint = (
+        f"/api/formal-forecast/{build_id}/daily-summary/"
+        f"{summary['request_key']}/shipment-recommendation"
+    )
+
+    response = client.post(endpoint, json=request)
+
+    assert response.status_code == 201, response.text
+    result = response.json()
+    assert result["mode"] == "SHADOW"
+    assert len(result["recommendations"]) == 20
+    assert result["blockers"] == []
+    assert result["input_versions"]["factory_snapshot_ids"] == ["factory-snapshot-v1"]
+    assert any(Decimal(item["recommended_shipment_cases"]) > 0
+               for item in result["recommendations"])
+    restarted = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    assert restarted.post(endpoint, json=request).json() == result
+    target = tmp_path / "FormalForecast" / "ProductionDecisions" / f"{result['request_key']}.json"
+    target.write_bytes(target.read_bytes() + b"modified")
+    tampered = restarted.post(endpoint, json=request)
     assert tampered.status_code == 422
     assert "整合性" in tampered.json()["detail"]
 
