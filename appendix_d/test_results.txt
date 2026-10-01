@@ -1,3 +1,10 @@
+# Windows Portable 複数倉庫・日次業務サマリー（2026-10-01 JST）
+
+- 2倉庫×各10 JANの正式在庫、日次build、Production Run、複数Projection、FEFO、倉庫別集計を一連で検証。補充確認候補、賞味期限注意、再起動後の同一結果、保存サマリー改変拒否を確認。
+- Portable・Warehouse Projection・FEFO対象試験41 passed、`ruff check portable tests/portable/test_p1_flow.py`、JavaScript構文検査、`git diff --check`に成功。
+- 配布ハッシュ更新前の全体回帰は848 passed / 20 skipped / 3 failed。失敗は既存Field Pilot固定日付fixture、Windows非対応Linux RSS試験、配布manifest未更新の3件。
+- 配布manifest更新後、既存環境依存2件を除いた回帰は849 passed / 20 skipped / 2 deselected。`make_release.py --check`は926/926一致。
+
 # Windows Portable 正式出荷・14日予測接続（2026-10-01 JST）
 
 - 承認済み在庫10商品、35日出荷、JAN・倉庫identity bridge、日次build、14日予測140点、再起動後の再表示と冪等性を統合試験で確認。

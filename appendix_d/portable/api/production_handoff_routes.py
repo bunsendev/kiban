@@ -5,11 +5,13 @@ import json
 from fastapi import HTTPException, Request
 
 from .production_handoff import PortableProductionHandoff, ProductionHandoffError
+from .production_projection import PortableProductionProjection
 from .production_worker import PortableProductionWorker
 
 
 def register_production_handoff_routes(app, paths, read_limited) -> None:
     service = PortableProductionHandoff(paths)
+    projection = PortableProductionProjection(paths, service)
     worker = PortableProductionWorker(
         service.database,
         paths.formal_forecast / "ProductionArtifacts",
@@ -57,6 +59,17 @@ def register_production_handoff_routes(app, paths, read_limited) -> None:
     @app.get("/api/formal-forecast/{build_id}/production-projection")
     def get_production_projection(build_id: str):
         try:
-            return service.projection(build_id)
+            return projection.projection(build_id)
         except ProductionHandoffError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.post("/api/formal-forecast/{build_id}/daily-summary", status_code=201)
+    async def create_daily_summary(build_id: str, request: Request):
+        try:
+            raw = await read_limited(request, 16 * 1024)
+            payload = json.loads(raw or b"{}")
+            if not isinstance(payload, dict):
+                raise ProductionHandoffError("日次業務サマリーの確認条件を確認してください")
+            return projection.daily_summary(build_id, payload)
+        except (json.JSONDecodeError, ProductionHandoffError) as exc:
             raise HTTPException(422, str(exc)) from exc
