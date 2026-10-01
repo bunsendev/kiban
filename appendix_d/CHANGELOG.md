@@ -1,5 +1,17 @@
 # v2.9 修正記録
 
+## Windows Portable 実データ受入改善
+
+- 倉庫ごとに異なる出荷基準日を保持し、在庫Snapshot日と一致しない系列を理由付きで予測対象外にした。
+- 予測結果画面を商品別の7日・14日合計へ集約し、日別結果を展開式にした。
+- 提供済み実データをRepository外の一時領域で完走し、加須10系列140点を生成、神戸10系列を基準日不一致で安全に隔離した。
+
+## Windows Portable 正式出荷・14日予測Pipeline
+
+- 承認済みInventory SnapshotからJAN・正式倉庫コードのidentity bridgeを担当者確認付きで発行した。
+- 原本出荷ZIPと確認後集計を再検証し、欠測、不正、明示確認済み出荷0を分けた内容アドレス方式の日次buildを追加した。
+- 28日履歴と直近7日の完全性を満たす商品だけを既存Baseline Providerの14日予測へ接続し、対象外商品を理由付きで表示する画面とAPIを追加した。
+
 ## Windows Portable 正式在庫Pipeline
 
 - 準備済みhandoffから倉庫別10〜20 JANのPilot Scopeを担当者が明示確認し、既存Unified Inboxへ登録する画面とAPIを追加した。

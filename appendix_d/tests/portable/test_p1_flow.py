@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 import zipfile
+from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -17,6 +18,7 @@ from fastapi.testclient import TestClient
 
 from portable.api.app import create_app
 from portable.api.business_archive import analyze_archive, run_reference_backtest
+from portable.api.formal_shipment_daily import build_daily_shipment
 from portable.api.store import RunStore
 from portable.launcher.main import available_ports, request_json, start_server, stop_server
 from portable.runtime.paths import DataPaths
@@ -102,6 +104,68 @@ def pilot_inventory_zip(count: int = 10) -> bytes:
             "data/神戸日時在庫_20260204.csv", "\n".join(inventory_rows).encode("cp932")
         )
     return target.getvalue()
+
+
+def pilot_forecast_zip(count: int = 10, *, invalid_recent: bool = False) -> bytes:
+    target = io.BytesIO()
+    inventory_rows = ["商品コード,商品名,明細バラ数,賞味期限"]
+    for index in range(count):
+        jan = _jan13(index)
+        inventory_rows.append(f"{jan},正式商品{index},{index + 1},2026/04/30")
+    with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for offset in range(35):
+            day = (pd.Timestamp("2026-01-01") + pd.Timedelta(days=offset)).date()
+            shipment_rows = ["出荷日,納品日,商品名,JAN,数量"]
+            for index in range(count):
+                jan = _jan13(index)
+                quantity = "不正" if invalid_recent and offset == 34 and index == 0 else index + 1
+                shipment_rows.append(
+                    f"{day:%Y/%m/%d},{day:%Y/%m/%d},正式商品{index},{jan},{quantity}"
+                )
+            archive.writestr(
+                f"data/神戸日時出荷_{day:%Y%m%d}.csv",
+                "\n".join(shipment_rows).encode("cp932"),
+            )
+        archive.writestr(
+            "data/神戸日時在庫_20260204.csv", "\n".join(inventory_rows).encode("cp932")
+        )
+    return target.getvalue()
+
+
+def approved_formal_pipeline(client: TestClient, raw: bytes) -> dict:
+    report = client.post(
+        "/api/business-archives", content=raw,
+        headers={"Content-Type": "application/zip"},
+    ).json()
+    handoff = client.post(
+        f"/api/business-archives/{report['analysis_id']}/formal-inventory",
+        json={
+            "actor": "現場担当者", "reason": "最新在庫とCASEを確認", "confirm_case": True,
+            "locations": [{"source_center": "神戸", "location_code": "KOBE",
+                           "location_name": "神戸倉庫", "snapshot_time": "16:00"}],
+        },
+    ).json()
+    pipeline_view = client.get(
+        f"/api/formal-inventory/{handoff['handoff_id']}/pipeline"
+    ).json()
+    registered = client.post(
+        f"/api/formal-inventory/{handoff['handoff_id']}/pipeline",
+        json={
+            "actor": "試験管理者", "reason": "10商品のPilot Scopeを確認",
+            "confirm_pilot_scope": True,
+            "selections": [{"source_center": "神戸",
+                            "jans": pipeline_view["locations"][0]["jans"]}],
+        },
+    ).json()
+    job = registered["jobs"][0]
+    approved = client.post(
+        "/api/formal-inventory/pipeline/"
+        f"{registered['registration_id']}/jobs/{job['job_id']}/approve",
+        json={"actor": "承認管理者", "reason": "原本数量と隔離0件を確認",
+              "expected_revision": 0},
+    ).json()
+    assert approved["status"] == "APPROVED"
+    return approved
 
 
 def test_business_archive_preflight_and_reference_backtest(tmp_path: Path):
@@ -406,6 +470,183 @@ def test_formal_pipeline_rejects_modified_candidate(tmp_path: Path):
 
     assert response.status_code == 404
     assert "整合性" in response.json()["detail"]
+
+
+def test_approved_inventory_builds_formal_daily_history_and_forecast(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    approved = approved_formal_pipeline(client, pilot_forecast_zip())
+    registration_id = approved["registration_id"]
+
+    view = client.get(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast"
+    )
+    assert view.status_code == 200, view.text
+    assert view.json()["inventory_status"] == "APPROVED"
+    assert len(view.json()["identity_proposal"]) == 10
+    assert view.json()["identity_proposal"][0]["canonical_product_id"] == _jan13(0)
+
+    response = client.post(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast",
+        json={
+            "actor": "予測確認者",
+            "reason": "JAN対応と日次ファイル内の出荷0を確認",
+            "confirm_identity_bridge": True,
+            "confirm_zero_policy": True,
+        },
+    )
+    assert response.status_code == 201, response.text
+    result = response.json()
+    assert result["status"] == "FORECAST_COMPLETED"
+    assert result["eligible_series_count"] == 10
+    assert result["blocked_series_count"] == 0
+    assert result["horizon_days"] == 14
+    assert len(result["predictions"]) == 140
+    assert result["predictions"][0]["current_inventory_cases"] is not None
+    assert (tmp_path / "FormalForecast" / result["build_id"] / "daily.csv").is_file()
+    assert client.get(
+        f"/api/formal-forecast/{result['build_id']}/download"
+    ).status_code == 200
+
+    restarted = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    persisted = restarted.get(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast"
+    ).json()["latest"]
+    assert persisted["build_id"] == result["build_id"]
+    repeated = restarted.post(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast",
+        json={
+            "actor": "予測確認者",
+            "reason": "JAN対応と日次ファイル内の出荷0を確認",
+            "confirm_identity_bridge": True,
+            "confirm_zero_policy": True,
+        },
+    ).json()
+    assert repeated["build_id"] == result["build_id"]
+    assert repeated["prediction_sha256"] == result["prediction_sha256"]
+    prediction_path = (
+        tmp_path / "FormalForecast" / result["build_id"] / "predictions.json"
+    )
+    prediction_path.write_bytes(prediction_path.read_bytes() + b"modified")
+    assert restarted.get(
+        f"/api/formal-forecast/{result['build_id']}/download"
+    ).status_code == 404
+
+
+def test_formal_forecast_requires_explicit_identity_and_zero_policy(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    registration_id = approved_formal_pipeline(
+        client, pilot_forecast_zip()
+    )["registration_id"]
+
+    response = client.post(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast",
+        json={
+            "actor": "予測確認者",
+            "reason": "未確認条件の拒否を確認",
+            "confirm_identity_bridge": True,
+            "confirm_zero_policy": False,
+        },
+    )
+
+    assert response.status_code == 422
+    assert "出荷0日" in response.json()["detail"]
+    assert not list((tmp_path / "FormalForecast").glob("portable-daily-*"))
+
+
+def test_formal_forecast_keeps_invalid_product_blocked_and_runs_others(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    registration_id = approved_formal_pipeline(
+        client, pilot_forecast_zip(invalid_recent=True)
+    )["registration_id"]
+
+    response = client.post(
+        f"/api/formal-inventory/pipeline/{registration_id}/forecast",
+        json={
+            "actor": "予測確認者",
+            "reason": "不正行を0へ変換しないことを確認",
+            "confirm_identity_bridge": True,
+            "confirm_zero_policy": True,
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    result = response.json()
+    assert result["status"] == "FORECAST_COMPLETED_WITH_BLOCKERS"
+    assert result["eligible_series_count"] == 9
+    assert result["blocked_series_count"] == 1
+    blocked = next(item for item in result["series"] if not item["forecast_eligible"])
+    assert blocked["jan"] == _jan13(0)
+    assert blocked["blocking_reasons"] == ["RECENT_SOURCE_DAYS_MISSING"]
+    assert len(result["predictions"]) == 126
+
+
+def test_formal_daily_uses_each_center_origin_and_blocks_inventory_date_mismatch(
+    tmp_path: Path,
+):
+    raw_target = io.BytesIO()
+    prepared_rows = ["ds,unique_id,y"]
+    centers = (
+        ("加須", "KAZO", _jan13(0), date(2026, 2, 4)),
+        ("神戸", "KOBE", _jan13(1), date(2026, 1, 31)),
+    )
+    with zipfile.ZipFile(raw_target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for source_center, _center_id, jan, origin in centers:
+            for offset in range(35):
+                day = origin - timedelta(days=34 - offset)
+                rows = (
+                    "出荷日,納品日,商品名,JAN,数量\n"
+                    f"{day:%Y/%m/%d},{day:%Y/%m/%d},正式商品,{jan},1\n"
+                )
+                archive.writestr(
+                    f"data/{source_center}日時出荷_{day:%Y%m%d}.csv",
+                    rows.encode("cp932"),
+                )
+                prepared_rows.append(f"{day},{source_center}:{jan},1")
+    archive_path = tmp_path / "input.zip"
+    archive_path.write_bytes(raw_target.getvalue())
+    prepared_path = tmp_path / "prepared.csv"
+    prepared_path.write_text("\n".join(prepared_rows) + "\n", encoding="utf-8")
+    identities = [
+        {
+            "source_center": source_center,
+            "jan": jan,
+            "canonical_product_id": jan,
+            "forecast_center_id": center_id,
+        }
+        for source_center, center_id, jan, _origin in centers
+    ]
+
+    build, frame = build_daily_shipment(
+        archive_path=archive_path,
+        prepared_path=prepared_path,
+        handoff={"source_archive_sha256": hashlib.sha256(raw_target.getvalue()).hexdigest()},
+        registration_id="registration",
+        identities=identities,
+        zero_when_file_present=True,
+        snapshot_dates_by_center={"加須": date(2026, 2, 4), "神戸": date(2026, 2, 4)},
+    )
+
+    assert build["center_windows"] == [
+        {
+            "source_center": "加須",
+            "train_start": "2026-01-01",
+            "train_end": "2026-02-04",
+            "inventory_snapshot_date": "2026-02-04",
+        },
+        {
+            "source_center": "神戸",
+            "train_start": "2025-12-28",
+            "train_end": "2026-01-31",
+            "inventory_snapshot_date": "2026-02-04",
+        },
+    ]
+    summaries = {item["source_center"]: item for item in build["series"]}
+    assert summaries["加須"]["forecast_eligible"] is True
+    assert summaries["神戸"]["blocking_reasons"] == [
+        "INVENTORY_SHIPMENT_AS_OF_MISMATCH"
+    ]
+    assert set(frame["source_center"]) == {"加須"}
+    assert frame["ds"].max().date() == date(2026, 2, 4)
 
 
 def test_end_to_end_and_restart(tmp_path: Path):

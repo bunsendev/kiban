@@ -40,6 +40,10 @@ class DataPaths:
     def formal_inventory(self) -> Path:
         return self.root / "FormalInventory"
 
+    @property
+    def formal_forecast(self) -> Path:
+        return self.root / "FormalForecast"
+
     def ensure(self) -> None:
         for path in (
             self.input,
@@ -50,6 +54,7 @@ class DataPaths:
             self.prepared,
             self.decisions,
             self.formal_inventory,
+            self.formal_forecast,
         ):
             path.mkdir(parents=True, exist_ok=True)
         probe = self.state / ".write-test"
