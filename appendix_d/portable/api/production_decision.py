@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -163,6 +164,23 @@ class PortableShipmentDecision:
         }
         result["result_sha256"] = sha256(canonical_json(result))
         _atomic_json(target, result)
+        return result
+
+    def get(self, build_id: str, summary_key: str, request_key: str) -> dict:
+        if not re.fullmatch(r"[0-9a-f]{64}", request_key):
+            raise ProductionHandoffError("出荷推奨結果が見つかりません")
+        summary = self.projection.get_summary(summary_key)
+        if summary["build_id"] != build_id:
+            raise ProductionHandoffError("日次サマリーと正式予測buildが一致しません")
+        target = self.root / f"{request_key}.json"
+        if not target.is_file():
+            raise ProductionHandoffError("出荷推奨結果が見つかりません")
+        result = _verified(target, request_key)
+        if (
+            result.get("build_id") != build_id
+            or result.get("daily_summary_sha256") != summary["summary_sha256"]
+        ):
+            raise ProductionHandoffError("出荷推奨結果と日次サマリーが一致しません")
         return result
 
     def _request(self, build_id: str, summary: dict, payload: dict) -> dict:

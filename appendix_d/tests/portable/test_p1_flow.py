@@ -1143,6 +1143,8 @@ def test_launcher_crash_kills_api_and_releases_mutex(tmp_path: Path):
 def test_formal_decision_input_zip_is_validated_and_connected(tmp_path: Path):
     client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
     assert 'id="decision-package-form"' in client.get("/").text
+    assert 'id="decision-review-form"' in client.get("/").text
+    assert client.get("/shipment-review.js").status_code == 200
     registration_id = approved_multi_center_pipeline(client)["registration_id"]
     forecast = client.post(
         f"/api/formal-inventory/pipeline/{registration_id}/forecast",
@@ -1236,6 +1238,29 @@ def test_formal_decision_input_zip_is_validated_and_connected(tmp_path: Path):
     result = result_response.json()
     assert len(result["recommendations"]) == 20
     assert result["input_versions"]["decision_input_package_id"] == package["package_id"]
+    recommendation = result["recommendations"][0]
+    review_endpoint = (
+        f"{endpoint}/shipment-recommendation/{result['request_key']}/review"
+    )
+    review_request = {
+        "jan": recommendation["jan"],
+        "warehouse_id": recommendation["warehouse_id"],
+        "expected_revision": 0,
+        "operator_decision": "ACCEPTED",
+        "operator_quantity_cases": recommendation["recommended_shipment_cases"],
+        "reason_code": None,
+        "comment": None,
+        "actor": "現場担当者",
+        "confirm_shadow_review": True,
+    }
+    review_response = client.post(review_endpoint, json=review_request)
+    assert review_response.status_code == 201, review_response.text
+    review = review_response.json()
+    assert review["latest"][
+        f"{recommendation['jan']}::{recommendation['warehouse_id']}"
+    ]["operator_decision"] == "ACCEPTED"
+    assert client.post(review_endpoint, json=review_request).json() == review
+    assert client.get(review_endpoint).json() == review
     stored = (
         tmp_path / "FormalForecast" / "DecisionInputs" / f"{package['package_id']}.json"
     )

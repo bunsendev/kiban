@@ -44,6 +44,7 @@ function resetDecision() {
   decisionPanel.hidden = true;
   decisionResult.replaceChildren();
   packageResult.replaceChildren();
+  window.PortableShipmentReview?.reset();
 }
 
 function showDecision(buildId, summary) {
@@ -143,7 +144,7 @@ function renderDecision(result) {
   }
   decisionResult.appendChild(cards);
   const table = document.createElement('table');
-  table.innerHTML = '<thead><tr><th>JAN</th><th>倉庫</th><th>到着予定</th><th>到着時点在庫</th><th>必要補充</th><th>工場出荷可能</th><th>推奨出荷</th><th>未充足</th><th>理由・リスク</th></tr></thead>';
+  table.innerHTML = '<thead><tr><th>JAN</th><th>倉庫</th><th>到着予定</th><th>到着時点在庫</th><th>必要補充</th><th>工場出荷可能</th><th>推奨出荷</th><th>未充足</th><th>理由・リスク</th><th>確認</th></tr></thead>';
   const body = document.createElement('tbody');
   for (const item of result.recommendations) {
     const row = document.createElement('tr');
@@ -151,6 +152,13 @@ function renderDecision(result) {
       item.arrival_time_inventory_cases, item.required_replenishment_cases,
       item.factory_available_before_cases, item.recommended_shipment_cases,
       item.unmet_cases, `${item.reason}${item.risk_flags.length ? `／${item.risk_flags.join('・')}` : ''}`]);
+    const actionCell = document.createElement('td');
+    const actionButton = document.createElement('button');
+    actionButton.type = 'button';
+    actionButton.textContent = '判断を入力';
+    actionButton.addEventListener('click', () => window.PortableShipmentReview?.select(item));
+    actionCell.appendChild(actionButton);
+    row.appendChild(actionCell);
     body.appendChild(row);
   }
   table.appendChild(body);
@@ -170,6 +178,7 @@ function renderDecision(result) {
     details.appendChild(list);
     decisionResult.appendChild(details);
   }
+  window.PortableShipmentReview?.load(decisionBuild, decisionSummary, result);
 }
 
 function requestPayload() {

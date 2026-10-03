@@ -6,6 +6,7 @@ from fastapi import HTTPException, Request, Response
 
 from .decision_input_contracts import DecisionInputError
 from .decision_input_package import PortableDecisionInputPackages
+from .decision_review import DecisionReviewConflict, PortableDecisionReviews
 from .production_decision import PortableShipmentDecision
 from .production_handoff import PortableProductionHandoff, ProductionHandoffError
 from .production_projection import PortableProductionProjection
@@ -17,6 +18,7 @@ def register_production_handoff_routes(app, paths, read_limited) -> None:
     projection = PortableProductionProjection(paths, service)
     input_packages = PortableDecisionInputPackages(paths)
     decision = PortableShipmentDecision(paths, projection, input_packages)
+    reviews = PortableDecisionReviews(paths.state / "shipment-decision-reviews.sqlite3")
     worker = PortableProductionWorker(
         service.database,
         paths.formal_forecast / "ProductionArtifacts",
@@ -132,5 +134,38 @@ def register_production_handoff_routes(app, paths, read_limited) -> None:
             if not isinstance(payload, dict):
                 raise ProductionHandoffError("Decision Engine入力を確認してください")
             return decision.create(build_id, summary_key, payload)
+        except (json.JSONDecodeError, ProductionHandoffError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.get(
+        "/api/formal-forecast/{build_id}/daily-summary/{summary_key}/"
+        "shipment-recommendation/{request_key}/review"
+    )
+    def get_shipment_recommendation_review(
+        build_id: str, summary_key: str, request_key: str
+    ):
+        try:
+            return reviews.view(decision.get(build_id, summary_key, request_key))
+        except ProductionHandoffError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.post(
+        "/api/formal-forecast/{build_id}/daily-summary/{summary_key}/"
+        "shipment-recommendation/{request_key}/review",
+        status_code=201,
+    )
+    async def create_shipment_recommendation_review(
+        build_id: str, summary_key: str, request_key: str, request: Request
+    ):
+        try:
+            raw = await read_limited(request, 16 * 1024)
+            payload = json.loads(raw or b"{}")
+            if not isinstance(payload, dict):
+                raise ProductionHandoffError("担当者判断を確認してください")
+            result = decision.get(build_id, summary_key, request_key)
+            reviews.record(result, payload)
+            return reviews.view(result)
+        except DecisionReviewConflict as exc:
+            raise HTTPException(409, str(exc)) from exc
         except (json.JSONDecodeError, ProductionHandoffError) as exc:
             raise HTTPException(422, str(exc)) from exc
