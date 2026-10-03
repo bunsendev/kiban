@@ -1843,3 +1843,10 @@ OS: Windows 11
 - 正常な入力packageを手順9のDecision Engineへ自動接続した。確認者・理由・日次サマリー・buildとの一致、冪等再送、packageと原本の改変拒否を確認した。既存個別入力は互換・検証用として維持する。
 - 対象回帰52 passed。配布SHA試験と既知の固定日付fixture、Windows非対応Linux RSS試験を除いた全回帰は859 passed / 20 skipped / 3 deselected。`ruff check .`、JavaScript構文検査、`git diff --check`に成功した。
 - 結果はSHADOW参考値であり、実データ、正式policy値、資格情報はRepositoryへ保存していない。
+
+# Windows Portable 推奨出荷・担当者判断（2026-10-01 JST）
+
+- 手順10を追加し、商品・倉庫ごとの推奨値を採用、増量、減量、見送り、本日は出荷しないとして追記保存できるようにした。判断とSHADOW試算は別データとして保持する。
+- 増減・見送りの固定理由、OTHER補足、数量規則、欠測と確定ゼロ、冪等再送、revision競合、未知対象、SHADOW確認、履歴改変拒否、改善候補集計を確認した。対象回帰44 passed。
+- 既知の固定日付fixtureとWindows非対応Linux RSS試験を除いた全回帰は876 passed / 19 skipped / 2 deselected。配布SHA検査を含み、配布一覧は941/941一致。`ruff check .`、JavaScript構文検査、`git diff --check`に成功した。
+- 改善候補は理由別件数・平均数量差・対象を表示するが、予測モデル、lead time、安全在庫、出荷単位へ自動反映しない。実データと資格情報はRepositoryへ保存していない。
