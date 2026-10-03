@@ -4,6 +4,8 @@ from .contracts import (
     FieldMode,
     LearningCandidateDecision,
     LearningCandidateType,
+    LearningExperimentDecision,
+    LearningExperimentTarget,
     OperatorDecision,
     OperatorReasonCode,
 )
@@ -15,6 +17,14 @@ from .domain import (
     build_actual_outcome_event,
     build_operator_decision_event,
     build_reference_case,
+)
+from .experiment_domain import (
+    FieldLearningExperimentDecisionEvent,
+    FieldLearningExperimentPlan,
+    FieldLearningExperimentRun,
+    build_experiment_decision_event,
+    build_experiment_plan,
+    build_experiment_run,
 )
 from .service import FieldLearningService
 from .store import PostgresFieldLearningStore, SqliteFieldLearningStore
@@ -32,6 +42,9 @@ __all__ = [
     "FieldLearningCandidate",
     "FieldLearningCandidateDecisionEvent",
     "FieldLearningConflict",
+    "FieldLearningExperimentDecisionEvent",
+    "FieldLearningExperimentPlan",
+    "FieldLearningExperimentRun",
     "FieldLearningService",
     "FieldMode",
     "FieldOperatorDecisionEvent",
@@ -39,11 +52,16 @@ __all__ = [
     "FieldWeeklyReview",
     "LearningCandidateDecision",
     "LearningCandidateType",
+    "LearningExperimentDecision",
+    "LearningExperimentTarget",
     "OperatorDecision",
     "OperatorReasonCode",
     "PostgresFieldLearningStore",
     "SqliteFieldLearningStore",
     "build_actual_outcome_event",
+    "build_experiment_decision_event",
+    "build_experiment_plan",
+    "build_experiment_run",
     "build_learning_candidate",
     "build_learning_candidate_decision_event",
     "build_operator_decision_event",

@@ -50,6 +50,7 @@ async function decideCandidate(review, candidate, form) {
     const updated = await response.json();
     if (!response.ok) throw new Error(updated.detail || '改善候補の判断を保存できませんでした。');
     renderLearningReview(updated);
+    if (window.PortableLearningExperiments) window.PortableLearningExperiments.refresh();
     learningMessage('改善候補の判断を追記保存しました。設定は変更していません。', 'success');
   } catch (error) {
     learningMessage(error.message, 'error');

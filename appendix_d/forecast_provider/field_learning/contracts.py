@@ -46,3 +46,13 @@ class LearningCandidateType(StrEnum):
 class LearningCandidateDecision(StrEnum):
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
+
+
+class LearningExperimentTarget(StrEnum):
+    DEMAND_FORECAST = "DEMAND_FORECAST"
+    SHIPMENT_RECOMMENDATION = "SHIPMENT_RECOMMENDATION"
+
+
+class LearningExperimentDecision(StrEnum):
+    RECOMMEND_FORMAL_CHANGE = "RECOMMEND_FORMAL_CHANGE"
+    REJECT_CHANGE = "REJECT_CHANGE"
