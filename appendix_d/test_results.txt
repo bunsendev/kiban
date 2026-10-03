@@ -1865,3 +1865,10 @@ OS: Windows 11
 - 担当者理由と業務Outcomeから、カレンダー、大口予定、生産予定、Route、賞味期限、データ品質、欠品防止の改善候補を作る。最小根拠件数は明示設定し、承認・却下はrevision付きで追記する。モデル、特徴量、policyへ自動反映しない。
 - Portable担当者判断を既存`field_learning`台帳へ同期した。空欄と確定ゼロ、時点外訂正、週次版の冪等再送、候補判断競合、履歴整合性を確認した。対象53 passed / 1 skipped、`ruff check .`、JavaScript構文検査、`git diff --check`に成功した。
 - 配布更新前の全回帰は870 passed / 19 skipped / 1 deselectedで、更新前の配布SHA照合1件だけ失敗した。モジュール分離と配布更新後の最終全回帰は871 passed / 19 skipped / 1 deselected。`make_release.py --check`は953/953一致。
+
+# Windows Portable 改善候補比較検証（2026-10-04 JST）
+
+- 手順13を追加し、APPROVEDとなった週次改善候補の根拠caseを固定して、需要予測または推奨出荷量のBaselineとChallengerを同じActualで比較できるようにした。
+- 共通比較件数、MAE、RMSE、WAPE、Bias、改善・同等・悪化case、不足・過剰数量の代理差、観測済み欠品・期限切れ・倉庫間移動を表示する。欠測を0にせず、反実仮想の業務Outcomeを推測しない。
+- 調査計画、比較run、採用候補・見送り判断をcontent hashとrevision付きで追記保存する。共通比較0件では正式変更案の推奨を拒否し、正式モデル・特徴量・policyへ自動反映しない。
+- 対象回帰37 passed、追加機能単体4 passed。既知の固定日付fixtureを除く全回帰は875 passed / 19 skipped / 1 deselected。`ruff check .`、JavaScript構文検査、`git diff --check`に成功した。配布一覧は962ファイルへ更新した。

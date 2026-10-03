@@ -39,6 +39,7 @@ from .formal_forecast_routes import register_formal_forecast_routes
 from .formal_pipeline_routes import register_formal_pipeline_routes
 from .input_csv import MAX_CSV_BYTES, InputError, parse_csv
 from .inventory_routes import register_inventory_handoff_routes
+from .learning_experiment_routes import register_learning_experiment_routes
 from .learning_review_routes import register_learning_review_routes
 from .production_handoff_routes import register_production_handoff_routes
 from .store import RunStore
@@ -84,6 +85,7 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     register_formal_forecast_routes(app, paths, _read_limited)
     register_production_handoff_routes(app, paths, _read_limited)
     register_learning_review_routes(app, paths, _read_limited)
+    register_learning_experiment_routes(app, paths, _read_limited)
 
     @app.middleware("http")
     async def local_only(request: Request, call_next):
@@ -141,6 +143,10 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     @app.get("/learning-reviews.js")
     def learning_reviews_script():
         return FileResponse(STATIC / "learning-reviews.js", media_type="text/javascript")
+
+    @app.get("/learning-experiments.js")
+    def learning_experiments_script():
+        return FileResponse(STATIC / "learning-experiments.js", media_type="text/javascript")
 
     @app.get("/style.css")
     def style():

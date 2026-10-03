@@ -114,3 +114,50 @@ CREATE TABLE IF NOT EXISTS field_learning_candidate_decision_events (
 );
 CREATE INDEX IF NOT EXISTS field_candidate_decisions_idx
   ON field_learning_candidate_decision_events(candidate_id,revision);
+
+CREATE TABLE IF NOT EXISTS field_learning_experiment_plans (
+  plan_id TEXT PRIMARY KEY,
+  candidate_id TEXT NOT NULL REFERENCES field_learning_candidates(candidate_id),
+  target TEXT NOT NULL CHECK(target IN ('DEMAND_FORECAST','SHIPMENT_RECOMMENDATION')),
+  baseline_version TEXT NOT NULL,
+  challenger_version TEXT NOT NULL,
+  hypothesis TEXT NOT NULL CHECK(length(hypothesis) <= 500),
+  evidence_case_ids_json TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  known_at TIMESTAMPTZ NOT NULL,
+  recorded_at TIMESTAMPTZ NOT NULL,
+  content_sha256 TEXT NOT NULL UNIQUE CHECK(length(content_sha256)=64),
+  case_count INTEGER NOT NULL CHECK(case_count >= 1)
+);
+CREATE INDEX IF NOT EXISTS field_experiment_plans_candidate_idx
+  ON field_learning_experiment_plans(candidate_id,recorded_at DESC,plan_id);
+
+CREATE TABLE IF NOT EXISTS field_learning_experiment_runs (
+  run_id TEXT PRIMARY KEY,
+  plan_id TEXT NOT NULL REFERENCES field_learning_experiment_plans(plan_id),
+  result_version TEXT NOT NULL,
+  source_sha256 TEXT NOT NULL CHECK(length(source_sha256)=64),
+  report_json TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  known_at TIMESTAMPTZ NOT NULL,
+  recorded_at TIMESTAMPTZ NOT NULL,
+  content_sha256 TEXT NOT NULL UNIQUE CHECK(length(content_sha256)=64),
+  comparable_count INTEGER NOT NULL CHECK(comparable_count >= 0)
+);
+CREATE INDEX IF NOT EXISTS field_experiment_runs_plan_idx
+  ON field_learning_experiment_runs(plan_id,recorded_at DESC,run_id);
+
+CREATE TABLE IF NOT EXISTS field_learning_experiment_decision_events (
+  decision_event_id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL REFERENCES field_learning_experiment_runs(run_id),
+  revision INTEGER NOT NULL CHECK(revision >= 1),
+  decision TEXT NOT NULL CHECK(decision IN ('RECOMMEND_FORMAL_CHANGE','REJECT_CHANGE')),
+  subject TEXT NOT NULL,
+  reason TEXT NOT NULL CHECK(length(reason) <= 500),
+  known_at TIMESTAMPTZ NOT NULL,
+  recorded_at TIMESTAMPTZ NOT NULL,
+  content_sha256 TEXT NOT NULL UNIQUE CHECK(length(content_sha256)=64),
+  UNIQUE(run_id,revision)
+);
+CREATE INDEX IF NOT EXISTS field_experiment_decisions_run_idx
+  ON field_learning_experiment_decision_events(run_id,revision);

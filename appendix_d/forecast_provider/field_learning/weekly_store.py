@@ -9,6 +9,7 @@ from decimal import Decimal
 from ..inventory_foundation.domain import canonical_decimal
 from .contracts import LearningCandidateDecision, LearningCandidateType
 from .domain import FieldLearningConflict
+from .experiment_store import ExperimentLearningStoreMixin
 from .weekly_domain import (
     FieldLearningCandidate,
     FieldLearningCandidateDecisionEvent,
@@ -16,7 +17,7 @@ from .weekly_domain import (
 )
 
 
-class WeeklyLearningStoreMixin:
+class WeeklyLearningStoreMixin(ExperimentLearningStoreMixin):
     def put_weekly_review(
         self,
         review: FieldWeeklyReview,
