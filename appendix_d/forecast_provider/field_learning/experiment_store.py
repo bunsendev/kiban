@@ -12,9 +12,10 @@ from .experiment_domain import (
     FieldLearningExperimentPlan,
     FieldLearningExperimentRun,
 )
+from .formal_change_store import FormalChangeStoreMixin
 
 
-class ExperimentLearningStoreMixin:
+class ExperimentLearningStoreMixin(FormalChangeStoreMixin):
     def put_experiment_plan(self, value: FieldLearningExperimentPlan):
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")

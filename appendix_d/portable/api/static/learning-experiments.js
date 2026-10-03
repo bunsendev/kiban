@@ -50,6 +50,7 @@ async function decideExperimentRun(plan, run, form) {
     const value = await response.json();
     if (!response.ok) throw new Error(value.detail || '比較結果の判断を保存できませんでした。');
     renderExperimentPlan(value);
+    if (window.PortableFormalChanges) window.PortableFormalChanges.refresh();
     experimentMessage('比較結果の判断を追記保存しました。正式設定は変更していません。', 'success');
   } catch (error) {
     experimentMessage(error.message, 'error');
