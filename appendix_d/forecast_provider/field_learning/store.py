@@ -16,9 +16,10 @@ from .domain import (
     FieldOperatorDecisionEvent,
     FieldReferenceCase,
 )
+from .weekly_store import WeeklyLearningStoreMixin
 
 
-class SqliteFieldLearningStore:
+class SqliteFieldLearningStore(WeeklyLearningStoreMixin):
     lock_clause = ""
 
     def __init__(self, path: Path) -> None:
@@ -216,9 +217,11 @@ class SqliteFieldLearningStore:
         if row is None:
             raise KeyError(case_id)
 
-    def _latest_revision(self, db, table: str, case_id: str) -> int:
+    def _latest_revision(
+        self, db, table: str, case_id: str, *, id_column: str = "case_id"
+    ) -> int:
         row = db.execute(
-            f"SELECT revision FROM {table} WHERE case_id=? "
+            f"SELECT revision FROM {table} WHERE {id_column}=? "
             f"ORDER BY revision DESC LIMIT 1{self.lock_clause}",
             (case_id,),
         ).fetchone()

@@ -1264,6 +1264,18 @@ def test_formal_decision_input_zip_is_validated_and_connected(tmp_path: Path):
     ]["operator_decision"] == "ACCEPTED"
     assert client.post(review_endpoint, json=review_request).json() == review
     assert client.get(review_endpoint).json() == review
+    changed_review = {
+        **review_request,
+        "expected_revision": 1,
+        "operator_decision": "INCREASED",
+        "operator_quantity_cases": str(
+            Decimal(recommendation["recommended_shipment_cases"]) + 1
+        ),
+        "reason_code": "EXPECTED_LARGE_ORDER",
+    }
+    changed_response = client.post(review_endpoint, json=changed_review)
+    assert changed_response.status_code == 201, changed_response.text
+    assert changed_response.json()["improvement_candidates"][0]["count"] == 1
     outcome_endpoint = (
         f"{endpoint}/shipment-recommendation/{result['request_key']}/outcomes"
     )
@@ -1305,6 +1317,51 @@ def test_formal_decision_input_zip_is_validated_and_connected(tmp_path: Path):
     assert outcome["rows"][0]["actual_shipped_cases"] == "0"
     assert client.post(outcome_endpoint, json=outcome_request).json() == outcome
     assert client.get(outcome_endpoint).json() == outcome
+    learning_overview = client.get("/api/learning-reviews").json()
+    assert learning_overview["available_pilot_scope_versions"]
+    assert client.get("/learning-reviews.js").status_code == 200
+    assert 'id="learning-review-form"' in client.get("/").text
+    weekly_request = {
+        "week_end": result["calculation_at"][:10],
+        "pilot_scope_versions": learning_overview["available_pilot_scope_versions"],
+        "aggregation_version": "portable-weekly-v1",
+        "threshold_version": "field-threshold-v1",
+        "minimum_evidence_count": 1,
+        "reviewer": "現場責任者",
+        "known_at": datetime.now().astimezone().isoformat(),
+        "confirm_shadow_review": True,
+    }
+    weekly_response = client.post("/api/learning-reviews", json=weekly_request)
+    assert weekly_response.status_code == 201, weekly_response.text
+    weekly = weekly_response.json()
+    assert weekly["report"]["current"]["comparison_coverage"]["actual_any"] == 20
+    assert weekly["report"]["current"]["operational_kpis"]["expired_cases"] is None
+    large_order = next(
+        item for item in weekly["candidates"]
+        if item["candidate_type"] == "LARGE_ORDER_INPUT"
+    )
+    decision_request = {
+        "expected_revision": 0,
+        "decision": "APPROVED",
+        "subject": "現場責任者",
+        "reason": "大口予定の取得方法を調査",
+        "confirm_no_automatic_application": True,
+    }
+    candidate_endpoint = (
+        f"/api/learning-candidates/{large_order['candidate_id']}/decision"
+    )
+    approved = client.post(candidate_endpoint, json=decision_request)
+    assert approved.status_code == 201, approved.text
+    approved_candidate = next(
+        item for item in approved.json()["candidates"]
+        if item["candidate_id"] == large_order["candidate_id"]
+    )
+    assert approved_candidate["status"] == "APPROVED"
+    assert client.post(candidate_endpoint, json=decision_request).json() == approved.json()
+    repeated_weekly = client.post("/api/learning-reviews", json=weekly_request).json()
+    assert repeated_weekly["review_id"] == weekly["review_id"]
+    assert repeated_weekly["content_sha256"] == weekly["content_sha256"]
+    assert repeated_weekly["candidates"][0]["status"] == "APPROVED"
     stored = (
         tmp_path / "FormalForecast" / "DecisionInputs" / f"{package['package_id']}.json"
     )

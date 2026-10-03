@@ -16,7 +16,10 @@ from forecast_provider.field_actuals.importer import COLUMNS
 from forecast_provider.field_learning import (
     FieldLearningConflict,
     FieldMode,
+    OperatorDecision,
+    OperatorReasonCode,
     SqliteFieldLearningStore,
+    build_operator_decision_event,
     build_reference_case,
 )
 from forecast_provider.inventory_foundation.domain import canonical_decimal
@@ -229,7 +232,40 @@ class PortableDecisionOutcomes:
                 cases.append(self.store.put_reference_case(case))
             except (KeyError, TypeError, ValueError) as exc:
                 raise ProductionHandoffError(str(exc)) from exc
-        return sorted(cases, key=lambda item: (item.warehouse_id, item.jan))
+        ordered = sorted(cases, key=lambda item: (item.warehouse_id, item.jan))
+        self._sync_operator_decisions(result, ordered)
+        return ordered
+
+    def _sync_operator_decisions(self, result: dict, cases) -> None:
+        """Mirror Portable reviews into the shared append-only field ledger."""
+
+        by_pair = {(case.jan, case.warehouse_id): case for case in cases}
+        history = self.reviews.view(result)["history"]
+        for review in history:
+            case = by_pair.get((review["jan"], review["warehouse_id"]))
+            if case is None:
+                raise ProductionHandoffError("担当者判断と実績caseを対応付けられません")
+            existing = self.store.list_operator_decisions(case.case_id)
+            revision = int(review["revision"])
+            if revision <= len(existing):
+                if not _same_operator_decision(existing[revision - 1], review):
+                    raise ProductionHandoffError("担当者判断の共有台帳と内容が一致しません")
+                continue
+            if revision != len(existing) + 1:
+                raise ProductionHandoffError("担当者判断履歴のrevisionが連続していません")
+            reason = review["reason_code"]
+            event = build_operator_decision_event(
+                case=case,
+                expected_revision=len(existing),
+                operator_decision=OperatorDecision(review["operator_decision"]),
+                operator_quantity=review["operator_quantity_cases"],
+                operator_reason_code=None if reason is None else OperatorReasonCode(reason),
+                operator_comment=review["comment"],
+                subject=review["actor"],
+                known_at=_datetime(review["known_at"], "判断日時"),
+                recorded_at=_datetime(review["recorded_at"], "記録日時"),
+            )
+            self.store.append_operator_decision(event, len(existing))
 
     def _same_import(
         self,
@@ -302,3 +338,21 @@ def _difference(left, right) -> str | None:
     if left is None or right is None:
         return None
     return canonical_decimal(Decimal(str(left)) - Decimal(str(right)))
+
+
+def _same_operator_decision(event, review: dict) -> bool:
+    return (
+        event.revision == int(review["revision"])
+        and event.operator_decision.value == review["operator_decision"]
+        and _decimal_value(event.operator_quantity) == review["operator_quantity_cases"]
+        and (
+            None if event.operator_reason_code is None else event.operator_reason_code.value
+        ) == review["reason_code"]
+        and event.operator_comment == review["comment"]
+        and event.subject == review["actor"]
+        and event.known_at == _datetime(review["known_at"], "判断日時").astimezone(UTC)
+    )
+
+
+def _decimal_value(value) -> str | None:
+    return None if value is None else canonical_decimal(value)
