@@ -45,6 +45,7 @@ function resetDecision() {
   decisionResult.replaceChildren();
   packageResult.replaceChildren();
   window.PortableShipmentReview?.reset();
+  window.PortableShipmentOutcomes?.reset();
 }
 
 function showDecision(buildId, summary) {
@@ -179,6 +180,7 @@ function renderDecision(result) {
     decisionResult.appendChild(details);
   }
   window.PortableShipmentReview?.load(decisionBuild, decisionSummary, result);
+  window.PortableShipmentOutcomes?.load(decisionBuild, decisionSummary, result);
 }
 
 function requestPayload() {

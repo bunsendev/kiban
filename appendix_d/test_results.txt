@@ -1850,3 +1850,11 @@ OS: Windows 11
 - 増減・見送りの固定理由、OTHER補足、数量規則、欠測と確定ゼロ、冪等再送、revision競合、未知対象、SHADOW確認、履歴改変拒否、改善候補集計を確認した。対象回帰44 passed。
 - 既知の固定日付fixtureとWindows非対応Linux RSS試験を除いた全回帰は876 passed / 19 skipped / 2 deselected。配布SHA検査を含み、配布一覧は941/941一致。`ruff check .`、JavaScript構文検査、`git diff --check`に成功した。
 - 改善候補は理由別件数・平均数量差・対象を表示するが、予測モデル、lead time、安全在庫、出荷単位へ自動反映しない。実データと資格情報はRepositoryへ保存していない。
+
+# Windows Portable 後日実績・判断比較（2026-10-03 JST）
+
+- 手順11を追加し、SHADOW推奨試算ごとのCSVテンプレートから実出荷、到着時点までの実需要、欠品、期限切れ、倉庫間移動を追記できるようにした。既存field_actuals/field_learning契約を再利用し、System・担当者・ActualをJAN×倉庫×業務日で比較する。
+- 空欄は未取得、文字列0は確認済みゼロとして維持する。需要予測MAE/WAPE/Biasと業務KPIは取得済み行だけで集計し、取得件数を併記する。同一原本の再送は冪等、訂正はrevision付き追記、別試算caseと古い版は拒否する。
+- Portable対象回帰31 passed、Phase 3T後日実績取込5 passed、`ruff check .`、JavaScript構文検査、`git diff --check`に成功した。全体初回は868 passed / 19 skipped / 1 deselectedで、更新前の配布SHA照合1件だけ失敗した。配布更新後に再確認する。
+- 比較結果から予測モデル、lead time、安全在庫、出荷単位を自動変更しない。実データと資格情報はRepositoryへ保存していない。
+- 配布更新後の最終全回帰は869 passed / 19 skipped / 1 deselected。`make_release.py --check`は944/944一致。

@@ -1,6 +1,7 @@
 """P1 acceptance tests: persistence, deterministic baseline, recovery and local boundary."""
 
 import base64
+import csv
 import hashlib
 import io
 import json
@@ -10,7 +11,7 @@ import subprocess
 import sys
 import time
 import zipfile
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -1144,7 +1145,9 @@ def test_formal_decision_input_zip_is_validated_and_connected(tmp_path: Path):
     client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
     assert 'id="decision-package-form"' in client.get("/").text
     assert 'id="decision-review-form"' in client.get("/").text
+    assert 'id="decision-outcome-form"' in client.get("/").text
     assert client.get("/shipment-review.js").status_code == 200
+    assert client.get("/shipment-outcomes.js").status_code == 200
     registration_id = approved_multi_center_pipeline(client)["registration_id"]
     forecast = client.post(
         f"/api/formal-inventory/pipeline/{registration_id}/forecast",
@@ -1261,6 +1264,47 @@ def test_formal_decision_input_zip_is_validated_and_connected(tmp_path: Path):
     ]["operator_decision"] == "ACCEPTED"
     assert client.post(review_endpoint, json=review_request).json() == review
     assert client.get(review_endpoint).json() == review
+    outcome_endpoint = (
+        f"{endpoint}/shipment-recommendation/{result['request_key']}/outcomes"
+    )
+    empty_outcomes = client.get(outcome_endpoint).json()
+    assert empty_outcomes["actual_count"] == 0
+    assert empty_outcomes["business_kpis"]["stockout_cases"] is None
+    template_response = client.get(f"{outcome_endpoint}/template")
+    reader = csv.DictReader(
+        io.StringIO(template_response.content.decode("utf-8-sig"), newline="")
+    )
+    rows = list(reader)
+    output = io.StringIO(newline="")
+    writer = csv.DictWriter(output, fieldnames=reader.fieldnames, lineterminator="\r\n")
+    writer.writeheader()
+    for index, row in enumerate(rows):
+        row["actual_shipped_quantity"] = "0"
+        if index == 0:
+            row.update({
+                "actual_demand_quantity": "4", "stockout_quantity": "0",
+                "expired_quantity": "", "interwarehouse_transfer_quantity": "0",
+            })
+        writer.writerow(row)
+    outcome_request = {
+        "source_version": "field-result-v1",
+        "known_at": datetime.now().astimezone().isoformat(),
+        "confirm_actual_outcomes": True,
+        "csv_base64": base64.b64encode(
+            output.getvalue().encode("utf-8-sig")
+        ).decode("ascii"),
+    }
+    outcome_response = client.post(outcome_endpoint, json=outcome_request)
+    assert outcome_response.status_code == 201, outcome_response.text
+    outcome = outcome_response.json()
+    assert outcome["actual_count"] == len(rows) == 20
+    assert outcome["business_kpis"]["stockout_cases"] == "0"
+    assert outcome["business_kpis"]["expired_cases"] is None
+    assert outcome["kpi_coverage"]["stockout_cases"] == 1
+    assert outcome["kpi_coverage"]["expired_cases"] == 0
+    assert outcome["rows"][0]["actual_shipped_cases"] == "0"
+    assert client.post(outcome_endpoint, json=outcome_request).json() == outcome
+    assert client.get(outcome_endpoint).json() == outcome
     stored = (
         tmp_path / "FormalForecast" / "DecisionInputs" / f"{package['package_id']}.json"
     )

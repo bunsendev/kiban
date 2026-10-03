@@ -6,6 +6,7 @@ from fastapi import HTTPException, Request, Response
 
 from .decision_input_contracts import DecisionInputError
 from .decision_input_package import PortableDecisionInputPackages
+from .decision_outcomes import OutcomeConflict, PortableDecisionOutcomes
 from .decision_review import DecisionReviewConflict, PortableDecisionReviews
 from .production_decision import PortableShipmentDecision
 from .production_handoff import PortableProductionHandoff, ProductionHandoffError
@@ -19,6 +20,9 @@ def register_production_handoff_routes(app, paths, read_limited) -> None:
     input_packages = PortableDecisionInputPackages(paths)
     decision = PortableShipmentDecision(paths, projection, input_packages)
     reviews = PortableDecisionReviews(paths.state / "shipment-decision-reviews.sqlite3")
+    outcomes = PortableDecisionOutcomes(
+        paths.state / "shipment-actual-outcomes.sqlite3", reviews
+    )
     worker = PortableProductionWorker(
         service.database,
         paths.formal_forecast / "ProductionArtifacts",
@@ -52,6 +56,66 @@ def register_production_handoff_routes(app, paths, read_limited) -> None:
             result = service.enqueue(build_id, payload)
             worker.submit(result["run_id"])
             return current(build_id)["handoff"]
+        except (json.JSONDecodeError, ProductionHandoffError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    def outcome_context(build_id: str, summary_key: str, request_key: str):
+        summary = projection.get_summary(summary_key)
+        if summary["build_id"] != build_id:
+            raise ProductionHandoffError("日次サマリーと正式予測buildが一致しません")
+        return decision.get(build_id, summary_key, request_key), summary
+
+    @app.get(
+        "/api/formal-forecast/{build_id}/daily-summary/{summary_key}/"
+        "shipment-recommendation/{request_key}/outcomes"
+    )
+    def get_shipment_recommendation_outcomes(
+        build_id: str, summary_key: str, request_key: str
+    ):
+        try:
+            result, summary = outcome_context(build_id, summary_key, request_key)
+            return outcomes.view(result, summary)
+        except ProductionHandoffError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.get(
+        "/api/formal-forecast/{build_id}/daily-summary/{summary_key}/"
+        "shipment-recommendation/{request_key}/outcomes/template"
+    )
+    def download_shipment_recommendation_outcome_template(
+        build_id: str, summary_key: str, request_key: str
+    ):
+        try:
+            result, summary = outcome_context(build_id, summary_key, request_key)
+            return Response(
+                content=outcomes.template(result, summary),
+                media_type="text/csv; charset=utf-8",
+                headers={
+                    "Content-Disposition": (
+                        'attachment; filename="shipment-actual-outcomes.csv"'
+                    )
+                },
+            )
+        except ProductionHandoffError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.post(
+        "/api/formal-forecast/{build_id}/daily-summary/{summary_key}/"
+        "shipment-recommendation/{request_key}/outcomes",
+        status_code=201,
+    )
+    async def create_shipment_recommendation_outcomes(
+        build_id: str, summary_key: str, request_key: str, request: Request
+    ):
+        try:
+            raw = await read_limited(request, 16 * 1024 * 1024)
+            payload = json.loads(raw or b"{}")
+            if not isinstance(payload, dict):
+                raise ProductionHandoffError("後日実績を確認してください")
+            result, summary = outcome_context(build_id, summary_key, request_key)
+            return outcomes.record(result, summary, payload)
+        except OutcomeConflict as exc:
+            raise HTTPException(409, str(exc)) from exc
         except (json.JSONDecodeError, ProductionHandoffError) as exc:
             raise HTTPException(422, str(exc)) from exc
 
