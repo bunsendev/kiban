@@ -67,3 +67,50 @@ CREATE TABLE IF NOT EXISTS field_actual_outcome_events (
 );
 CREATE INDEX IF NOT EXISTS field_actual_outcomes_case_idx
   ON field_actual_outcome_events(case_id,revision);
+
+CREATE TABLE IF NOT EXISTS field_weekly_reviews (
+  review_id TEXT PRIMARY KEY,
+  week_start DATE NOT NULL,
+  week_end DATE NOT NULL,
+  pilot_scope_versions_json TEXT NOT NULL,
+  aggregation_version TEXT NOT NULL,
+  threshold_version TEXT NOT NULL,
+  report_json TEXT NOT NULL,
+  reviewer TEXT NOT NULL,
+  known_at TIMESTAMPTZ NOT NULL,
+  recorded_at TIMESTAMPTZ NOT NULL,
+  content_sha256 TEXT NOT NULL UNIQUE CHECK(length(content_sha256)=64)
+);
+CREATE INDEX IF NOT EXISTS field_weekly_reviews_period_idx
+  ON field_weekly_reviews(week_end DESC,review_id);
+
+CREATE TABLE IF NOT EXISTS field_learning_candidates (
+  candidate_id TEXT PRIMARY KEY,
+  review_id TEXT NOT NULL REFERENCES field_weekly_reviews(review_id),
+  candidate_type TEXT NOT NULL CHECK(candidate_type IN (
+    'CALENDAR_FEATURE','LARGE_ORDER_INPUT','PRODUCTION_PLAN_INTEGRATION',
+    'ROUTE_POLICY','EXPIRY_POLICY','DATA_QUALITY','STOCKOUT_POLICY'
+  )),
+  evidence_count INTEGER NOT NULL CHECK(evidence_count >= 1),
+  impact_quantity TEXT,
+  reason_codes_json TEXT NOT NULL,
+  evidence_case_ids_json TEXT NOT NULL,
+  content_sha256 TEXT NOT NULL UNIQUE CHECK(length(content_sha256)=64)
+);
+CREATE INDEX IF NOT EXISTS field_learning_candidates_review_idx
+  ON field_learning_candidates(review_id,candidate_type,candidate_id);
+
+CREATE TABLE IF NOT EXISTS field_learning_candidate_decision_events (
+  decision_event_id TEXT PRIMARY KEY,
+  candidate_id TEXT NOT NULL REFERENCES field_learning_candidates(candidate_id),
+  revision INTEGER NOT NULL CHECK(revision >= 1),
+  decision TEXT NOT NULL CHECK(decision IN ('APPROVED','REJECTED')),
+  subject TEXT NOT NULL,
+  reason TEXT NOT NULL CHECK(length(reason) <= 500),
+  known_at TIMESTAMPTZ NOT NULL,
+  recorded_at TIMESTAMPTZ NOT NULL,
+  content_sha256 TEXT NOT NULL UNIQUE CHECK(length(content_sha256)=64),
+  UNIQUE(candidate_id,revision)
+);
+CREATE INDEX IF NOT EXISTS field_candidate_decisions_idx
+  ON field_learning_candidate_decision_events(candidate_id,revision);

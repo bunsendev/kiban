@@ -51,6 +51,7 @@ function renderOutcomes(value) {
   }
   table.appendChild(body);
   outcomeResult.appendChild(table);
+  window.PortableLearningReviews?.refresh();
 }
 
 function resetOutcomes() {

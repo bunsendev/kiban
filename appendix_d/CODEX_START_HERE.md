@@ -9,6 +9,7 @@ Windows Portable版は業務ZIPの在庫・出荷を自動確定・確認待ち�
 手順9の正式入力は日次サマリー専用テンプレートZIPで受け付ける。CSVの正常行だけを既存Decision Engineへ自動接続し、異常行、対象外JAN・倉庫、入力不足を原本SHA・確認者・理由付きpackageへ保存する。詳細は[正式Decision入力・自動試算結果](planning/WINDOWS_PORTABLE_FORMAL_DECISION_INPUT_RESULT.md)を参照する。
 手順10では試算結果を商品・倉庫ごとに採用、増量、減量、見送り、本日は出荷しないとして追記保存する。増減・見送り理由を設定改善候補へ集計するが、予測・policyへ自動反映しない。詳細は[推奨出荷・担当者判断結果](planning/WINDOWS_PORTABLE_SHIPMENT_REVIEW_RESULT.md)を参照する。
 手順11では試算専用CSVから後日実績を追記し、System予測・推奨、担当者判断、実出荷・実需要を比較する。欠品、期限切れ、倉庫間移動と需要誤差を取得件数付きで表示し、空欄を0へ変換しない。詳細は[後日実績・判断比較結果](planning/WINDOWS_PORTABLE_ACTUAL_OUTCOME_RESULT.md)を参照する。
+手順12では同じPilot Scopeの7日間を不変な集計版として保存し、比較可能件数、予測KPI、担当者修正、欠品・期限・倉庫間移動、実績欠測を確認する。反復観測から改善候補を作り、承認・却下を追記するが、モデルやpolicyは自動変更しない。詳細は[週次改善レビュー結果](planning/WINDOWS_PORTABLE_WEEKLY_LEARNING_REVIEW_RESULT.md)を参照する。
 確認待ち・隔離の担当者判断、追記履歴、JAN対応付けの次回再利用は[担当者確認結果](planning/WINDOWS_PORTABLE_OPERATOR_REVIEW_RESULT.md)を参照する。
 最新倉庫在庫から既存Phase 3S契約へ渡す候補パッケージは[正式在庫handoff結果](planning/WINDOWS_PORTABLE_FORMAL_INVENTORY_HANDOFF_RESULT.md)を参照する。Pilot対象JANの明示確認、Unified Inbox、Worker、数量照合、最終Snapshot承認までの接続は[正式在庫Pipeline結果](planning/WINDOWS_PORTABLE_UNIFIED_INBOX_SNAPSHOT_RESULT.md)を参照する。承認済み在庫と出荷履歴の日次状態、JAN・倉庫identity bridge、14日Baseline参考予測の接続は[正式予測Pipeline結果](planning/WINDOWS_PORTABLE_FORMAL_FORECAST_RESULT.md)を参照する。
 承認型の形式学習と「今日やること」画面は[実装・未接続範囲](planning/FIELD_PILOT_APPROVED_LEARNING_RESULT.md)を参照する。構造の承認と正式データ採用は別である。Portableの承認済みbuildからRun queueへの接続は実装済みだが、Field Pilot旧経路の自動接続は未実装である。

@@ -1858,3 +1858,10 @@ OS: Windows 11
 - Portable対象回帰31 passed、Phase 3T後日実績取込5 passed、`ruff check .`、JavaScript構文検査、`git diff --check`に成功した。全体初回は868 passed / 19 skipped / 1 deselectedで、更新前の配布SHA照合1件だけ失敗した。配布更新後に再確認する。
 - 比較結果から予測モデル、lead time、安全在庫、出荷単位を自動変更しない。実データと資格情報はRepositoryへ保存していない。
 - 配布更新後の最終全回帰は869 passed / 19 skipped / 1 deselected。`make_release.py --check`は944/944一致。
+
+# Windows Portable 週次改善レビュー（2026-10-04 JST）
+
+- 手順12を追加し、同じPilot Scopeの7日間を不変な集計版として保存する。System・Operator・Actualの比較可能件数、需要予測MAE/RMSE/WAPE/Bias、担当者修正、欠品、期限切れ、倉庫間移動、実績欠測を同じ`known_at`時点で表示する。
+- 担当者理由と業務Outcomeから、カレンダー、大口予定、生産予定、Route、賞味期限、データ品質、欠品防止の改善候補を作る。最小根拠件数は明示設定し、承認・却下はrevision付きで追記する。モデル、特徴量、policyへ自動反映しない。
+- Portable担当者判断を既存`field_learning`台帳へ同期した。空欄と確定ゼロ、時点外訂正、週次版の冪等再送、候補判断競合、履歴整合性を確認した。対象53 passed / 1 skipped、`ruff check .`、JavaScript構文検査、`git diff --check`に成功した。
+- 配布更新前の全回帰は870 passed / 19 skipped / 1 deselectedで、更新前の配布SHA照合1件だけ失敗した。モジュール分離と配布更新後の最終全回帰は871 passed / 19 skipped / 1 deselected。`make_release.py --check`は953/953一致。
