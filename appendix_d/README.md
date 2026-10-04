@@ -76,6 +76,8 @@ Windows Portableの手順12-2では、固定済み週次集計版を実際のRun
 
 Windows Portableの手順15-3では、Pilot中の候補版を版付きの観測期間、共通Actual件数、欠測、予測精度、担当者修正、欠品、期限切れ、倉庫間移動の基準で評価する。担当者は継続、停止、Baselineへ戻す依頼、正式採用審査への送付を追記する。機械判定から設定変更やrollbackは自動実行しない。操作と契約は[Pilot評価Gate](docs/Phase3T_Portable_Pilot評価Gate.md)を参照する。
 
+手順15-4では、合格済み評価の最新判断を受入へ、Baselineへ戻す依頼をrollback検証へ接続する。評価、Runtime比較、判断、適用計画のhashとrevisionを最終履歴へ固定し、評価Gate作成後の証跡なし迂回を拒否する。担当者による全基準・復旧結果の確認は省略せず、操作自体も自動化しない。詳細は[Pilot完了Gate](docs/Phase3T_Portable_Pilot完了Gate.md)を参照する。
+
 ## Run API / Worker
 
 APIと軽量な全Provider依存は`pip install -e ".[api,postgres,statsforecast,mlforecast,timesfm,auth]"`で追加する。developmentでは`KIBAN_POSTGRES_DSN`、`KIBAN_API_TOKEN`、`KIBAN_API_SUBJECT`、`KIBAN_SNAPSHOT_ROOT`、`KIBAN_REPORT_ROOT`を設定し、`uvicorn forecast_provider.api.factory:from_environment --factory`で起動する。productionでは外部IdPのJWTまたは更新可能なcredential file、Host allowlist、HTTPSを必須とする。snapshotと実験を登録後、保存済みexperiment IDからrunを作る。組込baseline Workerは`--builtin-baseline`、AutoETS Workerは`--statsforecast-ets`、MLForecast Ridge Workerは`--mlforecast-ridge`、TimesFM専用Workerは`--timesfm-2p5`を指定する。TimesFMのCPU PyTorchと検証済み重みは専用Workerだけに置く。共通実行は[実験SnapshotとBaseline統合](docs/Phase1F_実験SnapshotとBaseline統合.md)、各追加Providerは[StatsForecast AutoETS](docs/Phase1M_StatsForecast_AutoETS.md)、[MLForecast Ridge](docs/Phase1Z_MLForecast_Ridge.md)、[TimesFM 2.5](docs/Phase2A_TimesFM_2p5.md)、月次運用は[継続学習と安全なモデル切替](docs/Phase1S_継続学習とモデル切替.md)を参照する。

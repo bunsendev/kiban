@@ -1,3 +1,12 @@
+# Windows Portable Pilot完了Gate（2026-10-04 JST）
+
+- Pilot評価の最新判断を既存受入・rollbackへ接続し、評価・Runtime・判断・適用計画のID、SHA-256、revisionが最終イベントに固定されることを確認した。
+- 評価Gate作成後の旧API迂回、古い判断revision、判断と異なる遷移を拒否し、受入未達後は同じ評価証跡でrollback完了まで進めることを確認した。
+- Pilot関連・Portable統合試験72 passed。`ruff check .`、JavaScript構文検査、`git diff --check`に成功した。
+- 配布manifest更新前の全体回帰は909 passed / 20 skipped / 3 failed。失敗は既存Field Pilot固定日付fixture、Windows非対応Linux RSS試験、配布manifest未更新の3件。
+- 配布manifest更新後、既存の固定日付fixtureとLinux専用試験を明示除外したWindows全体回帰は910 passed / 20 skipped / 2 deselected。
+- 現場PCでの正式採用・rollback訓練と業務閾値確定は後続作業とする。
+
 # Windows Portable Pilot評価Gate（2026-10-04 JST）
 
 - Pilot適用計画とRuntime週次評価を版付き評価基準で固定し、観測日数、同一Actual、欠測、精度、担当者修正、欠品、期限切れ、倉庫間移動のGate判定と追記型担当者判断を確認した。
