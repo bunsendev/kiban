@@ -51,6 +51,7 @@ async function decideFormalChange(proposal, form) {
     if (!response.ok) throw new Error(value.detail || '正式変更案の判断を保存できませんでした。');
     renderFormalChange(value);
     await refreshFormalChanges();
+    if (window.PortableChangeApplications) window.PortableChangeApplications.refresh();
     formalChangeMessage('判断を追記しました。変更はまだ適用されていません。', 'success');
   } catch (error) {
     formalChangeMessage(error.message, 'error');

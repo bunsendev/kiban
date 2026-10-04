@@ -1,6 +1,14 @@
 """Phase 3T-A-0 Feedback Ledger公開API。"""
 
+from .change_application_domain import (
+    FieldChangeApplication,
+    FieldChangeApplicationEvent,
+    build_change_application,
+    build_change_application_event,
+)
 from .contracts import (
+    ChangeApplicationState,
+    ChangeApplicationTransition,
     FieldMode,
     FormalChangeDecision,
     FormalChangeTarget,
@@ -46,7 +54,11 @@ from .weekly_domain import (
 )
 
 __all__ = [
+    "ChangeApplicationState",
+    "ChangeApplicationTransition",
     "FieldActualOutcomeEvent",
+    "FieldChangeApplication",
+    "FieldChangeApplicationEvent",
     "FieldFormalChangeDecisionEvent",
     "FieldFormalChangeProposal",
     "FieldLearningCandidate",
@@ -71,6 +83,8 @@ __all__ = [
     "PostgresFieldLearningStore",
     "SqliteFieldLearningStore",
     "build_actual_outcome_event",
+    "build_change_application",
+    "build_change_application_event",
     "build_experiment_decision_event",
     "build_experiment_plan",
     "build_experiment_run",
