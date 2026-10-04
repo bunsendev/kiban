@@ -44,6 +44,7 @@ from .input_csv import MAX_CSV_BYTES, InputError, parse_csv
 from .inventory_routes import register_inventory_handoff_routes
 from .learning_experiment_routes import register_learning_experiment_routes
 from .learning_review_routes import register_learning_review_routes
+from .pilot_evaluation_gate_routes import register_pilot_evaluation_gate_routes
 from .production_handoff_routes import register_production_handoff_routes
 from .runtime_assignment_routes import register_runtime_assignment_routes
 from .runtime_weekly_evaluation_routes import register_runtime_weekly_evaluation_routes
@@ -96,6 +97,7 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     register_candidate_package_routes(app, paths, _read_limited)
     register_runtime_assignment_routes(app, paths)
     register_runtime_weekly_evaluation_routes(app, paths, _read_limited)
+    register_pilot_evaluation_gate_routes(app, paths, _read_limited)
 
     @app.middleware("http")
     async def local_only(request: Request, call_next):
@@ -178,6 +180,12 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     def runtime_weekly_evaluations_script():
         return FileResponse(
             STATIC / "runtime-weekly-evaluations.js", media_type="text/javascript"
+        )
+
+    @app.get("/pilot-evaluation-gates.js")
+    def pilot_evaluation_gates_script():
+        return FileResponse(
+            STATIC / "pilot-evaluation-gates.js", media_type="text/javascript"
         )
 
     @app.get("/style.css")

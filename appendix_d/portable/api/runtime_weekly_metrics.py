@@ -93,6 +93,7 @@ def _compare_pair(baseline_signature, baseline_items, candidate_signature, candi
     )
     left_metrics = _forecast_metrics(baseline_errors, actual_total)
     right_metrics = _forecast_metrics(candidate_errors, actual_total)
+    shared_operational, shared_coverage = _operational([left for left, _ in matched])
     status = "READY"
     if duplicate_keys:
         status = "BLOCKED_DUPLICATE_CASE"
@@ -117,9 +118,8 @@ def _compare_pair(baseline_signature, baseline_items, candidate_signature, candi
             key: _metric_delta(right_metrics[key], left_metrics[key])
             for key in ("mae_cases", "rmse_cases", "wape", "bias")
         },
-        "shared_actual_business_kpis": _operational(
-            [left for left, _ in matched]
-        )[0],
+        "shared_actual_business_kpis": shared_operational,
+        "shared_actual_business_coverage": shared_coverage,
     }
 
 
