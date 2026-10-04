@@ -29,6 +29,7 @@ function showHandoff(item){
     link.href=`/api/formal-inventory/${encodeURIComponent(item.handoff_id)}/download`;formalResult.appendChild(link);
     loadPipeline(item.handoff_id);
   }
+  if(formalAnalysisId)document.dispatchEvent(new CustomEvent('portable-analysis-changed',{detail:{analysisId:formalAnalysisId}}));
 }
 async function renderFormalInventory(report){
   formalAnalysisId=report.analysis_id;formalLocations.replaceChildren();formalResult.replaceChildren();pipelinePanel.hidden=true;

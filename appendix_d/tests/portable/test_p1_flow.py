@@ -292,6 +292,63 @@ def test_business_archive_api_flow(tmp_path: Path):
     assert backtest.json()["centers"][0]["wape"] == 0.0
 
 
+def test_drop_folder_ingests_zip_and_records_receipt(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    raw = pilot_forecast_zip()
+    source = tmp_path / "Incoming" / "本日の在庫・出荷.zip"
+    source.write_bytes(raw)
+
+    response = client.post("/api/drop-folder/scan")
+
+    assert response.status_code == 200, response.text
+    handled = response.json()["handled"]
+    assert len(handled) == 1
+    receipt = handled[0]
+    assert receipt["status"] == "PROCESSED"
+    analysis_id = receipt["analysis_id"]
+    assert (tmp_path / "Analysis" / f"{analysis_id}.json").is_file()
+    assert (tmp_path / "Input" / f"{analysis_id}.zip").read_bytes() == raw
+    assert (tmp_path / "State" / "DailyAutoRuns" / f"{analysis_id}.jsonl").is_file()
+    assert (tmp_path / receipt["stored_path"]).read_bytes() == raw
+    assert not source.exists()
+    assert client.post("/api/drop-folder/scan").json()["handled"] == []
+    page = client.get("/").text
+    assert 'id="drop-folder-path"' in page
+    assert 'src="/drop-folder.js"' in page
+
+
+def test_drop_folder_quarantines_invalid_zip_with_reason(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    source = tmp_path / "Incoming" / "壊れた.zip"
+    source.write_bytes(b"not-a-zip")
+
+    response = client.post("/api/drop-folder/scan")
+
+    assert response.status_code == 200, response.text
+    receipt = response.json()["handled"][0]
+    assert receipt["status"] == "REJECTED"
+    assert receipt["detail"]
+    assert (tmp_path / receipt["stored_path"]).read_bytes() == b"not-a-zip"
+    assert not source.exists()
+    assert list((tmp_path / "Incoming" / "Receipts").glob("*.json"))
+    assert not list((tmp_path / "Analysis").glob("*.json"))
+
+
+def test_drop_folder_waits_for_unchanged_file_before_automatic_intake(tmp_path: Path):
+    app = create_app(tmp_path)
+    raw = pilot_forecast_zip()
+    source = tmp_path / "Incoming" / "copy-in-progress.zip"
+    source.write_bytes(raw)
+
+    first = app.state.drop_folder.scan()
+    second = app.state.drop_folder.scan()
+
+    assert first["handled"] == []
+    assert first["pending"] == [{"filename": source.name, "size_bytes": len(raw)}]
+    assert second["handled"][0]["status"] == "PROCESSED"
+    assert not source.exists()
+
+
 def test_operator_decision_is_append_only_rebuilds_data_and_reuses_mapping(tmp_path: Path):
     client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
     report = client.post(
@@ -608,6 +665,77 @@ def test_approved_inventory_builds_formal_daily_history_and_forecast(tmp_path: P
     assert restarted.get(
         f"/api/formal-forecast/{result['build_id']}/download"
     ).status_code == 404
+
+
+def test_daily_run_stops_at_business_confirmation_and_persists_revision(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    report = client.post(
+        "/api/business-archives", content=formal_inventory_zip(latest_expiry=""),
+        headers={"Content-Type": "application/zip"},
+    ).json()
+
+    first = client.get(f"/api/daily-runs/{report['analysis_id']}")
+    assert first.status_code == 200
+    assert first.json()["status"] == "REVIEW_REQUIRED"
+    assert first.json()["pending_rows"] > 0
+    repeated = client.get(f"/api/daily-runs/{report['analysis_id']}").json()
+    assert repeated["revision"] == first.json()["revision"] == 1
+    assert len((tmp_path / "State" / "DailyAutoRuns" / f"{report['analysis_id']}.jsonl").read_text(
+        encoding="utf-8"
+    ).splitlines()) == 1
+    restarted = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    assert restarted.get(f"/api/daily-runs/{report['analysis_id']}").json()[
+        "record_sha256"
+    ] == first.json()["record_sha256"]
+
+
+def test_daily_run_connects_verified_inventory_to_forecast_once(tmp_path: Path):
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    report = client.post(
+        "/api/business-archives", content=pilot_forecast_zip(),
+        headers={"Content-Type": "application/zip"},
+    ).json()
+    waiting = client.get(f"/api/daily-runs/{report['analysis_id']}").json()
+    assert waiting["status"] == "INVENTORY_CONFIRMATION_REQUIRED"
+    handoff = client.post(
+        f"/api/business-archives/{report['analysis_id']}/formal-inventory",
+        json={
+            "actor": "現場担当者", "reason": "最新在庫とCASEを確認",
+            "confirm_case": True,
+            "locations": [{"source_center": "神戸", "location_code": "KOBE",
+                           "location_name": "神戸倉庫", "snapshot_time": "16:00"}],
+        },
+    ).json()
+    assert handoff["status"] == "READY_FOR_FORMAL_INTAKE"
+    ready = client.get(f"/api/daily-runs/{report['analysis_id']}").json()
+    assert ready["status"] == "READY_TO_ADVANCE"
+
+    confirmations = {
+        "actor": "試験管理者", "reason": "対象、数量、商品対応、出荷0を一括確認",
+        "confirm_pilot_scope": True,
+        "confirm_quantity_reconciliation": True,
+        "confirm_identity_bridge": True,
+        "confirm_zero_policy": True,
+    }
+    completed = client.post(
+        f"/api/daily-runs/{report['analysis_id']}/advance", json=confirmations,
+    )
+    assert completed.status_code == 201, completed.text
+    value = completed.json()
+    assert value["status"] == "COMPLETED"
+    assert value["eligible_series_count"] == 10
+    assert value["blocked_series_count"] == 0
+    assert value["handoff_id"] == handoff["handoff_id"]
+    assert value["registration_id"]
+    assert value["build_id"].startswith("portable-daily-")
+    assert client.get(f"/api/formal-forecast/{value['build_id']}/download").status_code == 200
+
+    repeated = client.post(
+        f"/api/daily-runs/{report['analysis_id']}/advance", json=confirmations,
+    ).json()
+    assert repeated["record_sha256"] == value["record_sha256"]
+    assert len(list((tmp_path / "FormalInventory" / "Registrations").glob("*.json"))) == 1
+    assert len(list((tmp_path / "FormalForecast").glob("portable-daily-*/manifest.json"))) == 1
 
 
 def test_formal_build_is_queued_once_in_existing_production_contracts(tmp_path: Path):

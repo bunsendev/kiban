@@ -28,6 +28,7 @@ function showAnalysis(report) {
   window.PortableInventory.render(report);
   backtest.disabled=!report.center_windows.length || report.center_windows.some(item=>!item.backtest_ready);
   document.getElementById('backtest-state').textContent=backtest.disabled ? '直近35日のファイル不足により参考評価を開始できません。' : '自動判定OKと担当者が確定した出荷データで28日学習・7日評価を実行できます。';
+  document.dispatchEvent(new CustomEvent('portable-analysis-changed',{detail:{analysisId:report.analysis_id}}));
 }
 analyze.addEventListener('click', async () => {
   const file=businessZip.files[0]; if (!file) return;
@@ -62,6 +63,10 @@ async function refreshAnalyses() {
   } catch { const li=document.createElement('li'); li.textContent='過去の分析を読み込めません。'; list.appendChild(li); }
 }
 document.getElementById('analysis-reload').addEventListener('click',refreshAnalyses);
+document.addEventListener('portable-drop-ingested',async event=>{
+  const response=await fetch(`/api/business-archives/${encodeURIComponent(event.detail.analysisId)}`);
+  if(response.ok){showAnalysis(await response.json());businessMessage('投入フォルダのZIPを分析しました。確認待ちと隔離件数を確認してください。','success');await refreshAnalyses();}
+});
 csv.addEventListener('change', () => {
   const file=csv.files[0];
   document.getElementById('selected').textContent=file ? `${file.name} (${file.size} bytes)` : '未選択';

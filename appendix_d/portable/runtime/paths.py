@@ -13,6 +13,10 @@ class DataPaths:
         return self.root / "Input"
 
     @property
+    def incoming(self) -> Path:
+        return self.root / "Incoming"
+
+    @property
     def results(self) -> Path:
         return self.root / "Results"
 
@@ -47,6 +51,7 @@ class DataPaths:
     def ensure(self) -> None:
         for path in (
             self.input,
+            self.incoming,
             self.results,
             self.state,
             self.logs,

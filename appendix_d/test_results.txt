@@ -1,3 +1,13 @@
+# Windows Portable 日次自動実行（2026-10-04 JST）
+
+- ZIP分析時に日次実行を開始し、未確定JAN・賞味期限等があれば確認待ち、拠点・基準時刻・CASE未確認なら正式在庫確認待ちとして安全停止する。
+- `Data/Incoming` のZIPをコピー完了後に自動受付し、正常原本・不正原本・理由付き受付票を分離保存する。画面選択の従来経路と共通の分析処理を使用する。
+- 正式在庫候補の準備後、担当者がPilot対象、隔離0件・数量一致、JAN・倉庫対応、出荷0日policyを一度確認すると、Unified Inbox登録、Snapshot承認、出荷日次build、14日予測まで順番に実行する。
+- 実行状態をSHA-256連鎖付きJSONLへ追記し、再起動復元、同一入力・同一確認の冪等性、成果物の重複防止を確認した。既存の個別操作も維持する。
+- Portable統合試験36 passed。コピー途中の待機、正常受付、不正ZIP隔離、日次実行開始を確認した。
+- `ruff check .`、変更JavaScript構文検査、`git diff --check`に成功した。実データ、API key、署名秘密鍵はRepositoryや配布物へ含めていない。
+- Windows全体回帰は918 passed / 20 skipped / 2 deselected。配布一覧の最終更新後にSHA照合を再確認する。
+
 # Windows Portable Pilot停止Gate（2026-10-04 JST）
 
 - `PAUSE_PILOT`の最新判断を担当者の明示確認へ接続し、`PILOT_ACTIVE`から`PAUSED`へ追記型で遷移することを確認した。

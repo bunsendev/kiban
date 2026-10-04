@@ -7,6 +7,7 @@ import os
 import re
 import threading
 import uuid
+from contextlib import contextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -20,22 +21,22 @@ from portable.runtime.paths import DataPaths
 from .business_archive import (
     MAX_ZIP_BYTES,
     ArchiveError,
-    analyze_archive,
     atomic_json,
-    content_id,
     run_reference_backtest,
 )
+from .business_archive_intake import BusinessArchiveIntake
 from .business_review import (
     ReviewError,
-    apply_remembered_rules,
     decision_history,
-    latest_decisions,
     rebuild_reviewed_prepared,
     record_decision,
     review_view,
 )
 from .candidate_package_routes import register_candidate_package_routes
 from .change_application_routes import register_change_application_routes
+from .daily_auto_run_routes import register_daily_auto_run_routes
+from .drop_folder import DropFolderBusyError, DropFolderIntake
+from .drop_folder_routes import register_drop_folder_routes
 from .forecast import forecast
 from .formal_change_routes import register_formal_change_routes
 from .formal_forecast_routes import register_formal_forecast_routes
@@ -100,6 +101,28 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     register_runtime_weekly_evaluation_routes(app, paths, _read_limited)
     register_pilot_evaluation_gate_routes(app, paths, _read_limited)
     register_pilot_closeout_routes(app, paths, _read_limited)
+    daily_auto_runs = register_daily_auto_run_routes(app, paths, _read_limited)
+    archive_intake = BusinessArchiveIntake(paths, daily_auto_runs)
+
+    @contextmanager
+    def drop_active():
+        with app.state.lock:
+            if app.state.closing:
+                raise DropFolderBusyError("終了処理中です")
+            if app.state.active:
+                raise DropFolderBusyError("別の処理を実行中です")
+            app.state.active += 1
+        try:
+            yield
+        finally:
+            with app.state.lock:
+                app.state.active -= 1
+
+    drop_folder = DropFolderIntake(paths, archive_intake.ingest, active=drop_active)
+    app.state.drop_folder = drop_folder
+    register_drop_folder_routes(app, drop_folder)
+    app.router.add_event_handler("startup", drop_folder.start)
+    app.router.add_event_handler("shutdown", drop_folder.stop)
 
     @app.middleware("http")
     async def local_only(request: Request, call_next):
@@ -137,6 +160,14 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     @app.get("/inventory.js")
     def inventory_script():
         return FileResponse(STATIC / "inventory.js", media_type="text/javascript")
+
+    @app.get("/daily-auto-run.js")
+    def daily_auto_run_script():
+        return FileResponse(STATIC / "daily-auto-run.js", media_type="text/javascript")
+
+    @app.get("/drop-folder.js")
+    def drop_folder_script():
+        return FileResponse(STATIC / "drop-folder.js", media_type="text/javascript")
 
     @app.get("/production.js")
     def production_script():
@@ -254,34 +285,9 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
             if app.state.active:
                 raise HTTPException(409, "別の処理を実行中です")
             app.state.active += 1
-        analysis_id = content_id(data)
         try:
-            prepared_path = paths.prepared / f"{analysis_id}.csv"
-            report = analyze_archive(data, prepared_path)
-            input_path = paths.input / f"{analysis_id}.zip"
-            if not input_path.exists():
-                temporary = input_path.with_suffix(".tmp")
-                temporary.write_bytes(data)
-                os.replace(temporary, input_path)
-            report = {
-                "analysis_id": analysis_id,
-                "input_sha256": analysis_id,
-                **report,
-            }
-            atomic_json(paths.analysis / f"{analysis_id}.json", report)
-            apply_remembered_rules(
-                report,
-                paths.decisions / f"{analysis_id}.jsonl",
-                paths.decisions / "rules.jsonl",
-            )
-            if latest_decisions(paths.decisions / f"{analysis_id}.jsonl"):
-                rebuild_reviewed_prepared(
-                    prepared_path,
-                    paths.prepared / f"{analysis_id}-reviewed.csv",
-                    report,
-                    paths.decisions / f"{analysis_id}.jsonl",
-                )
-            LOG.info("business_archive_analyzed analysis_id=%s", analysis_id)
+            report = archive_intake.ingest(data)
+            LOG.info("business_archive_analyzed analysis_id=%s", report["analysis_id"])
             return reviewed_report(report)
         except ArchiveError as exc:
             LOG.info("business_archive_rejected code=PORTABLE-ARCHIVE-001")
