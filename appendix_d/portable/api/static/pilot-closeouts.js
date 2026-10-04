@@ -134,19 +134,45 @@ function pilotCloseoutRollback(view) {
   return form;
 }
 
+function pilotCloseoutPause(view) {
+  const form = pilotCloseoutBaseForm('Pilot停止を確定');
+  const details = document.createElement('fieldset');
+  details.innerHTML = '<legend>停止後の動作</legend><p>この候補版は以後の新規予測で選択されず、Baselineを使用します。</p><label><input name="baseline" type="checkbox" required>新規予測をBaselineへ戻すことを確認しました</label><label><input name="unchanged" type="checkbox" required>既存Run・データ・正式設定は変更されないことを確認しました</label>';
+  form.insertBefore(details, form.firstChild);
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const button = form.querySelector('button');
+    button.disabled = true;
+    try {
+      await pilotCloseoutPost(view, 'pause', {
+        actor: form.elements.actor.value, reason: form.elements.reason.value,
+        confirm: form.elements.confirm.checked,
+        extra: {
+          confirm_future_runs_use_baseline: form.elements.baseline.checked,
+          confirm_existing_runs_unchanged: form.elements.unchanged.checked,
+        },
+      }, 'Pilotを一時停止し、以後の新規予測をBaselineへ戻しました。');
+    } catch (error) { pilotCloseoutRoot.prepend(pilotCloseoutText('p', error.message, 'error')); }
+    finally { button.disabled = false; }
+  });
+  return form;
+}
+
 async function renderPilotCloseout(assessment) {
   if (!pilotCloseoutRoot || !assessment?.assessment_id) return;
   try {
     const response = await fetch(`/api/pilot-closeouts/${encodeURIComponent(assessment.assessment_id)}`);
     const view = await response.json();
     if (!response.ok) throw new Error(view.detail || 'Pilot完了Gateを読み込めませんでした。');
-    pilotCloseoutRoot.replaceChildren(pilotCloseoutText('h4', '15-4. 判断を受入・Rollbackへ引き渡す'));
+    pilotCloseoutRoot.replaceChildren(pilotCloseoutText('h4', '15-4. 判断を停止・受入・Rollbackへ引き渡す'));
     const decision = view.latest_decision?.decision || '未判断';
     pilotCloseoutRoot.appendChild(pilotCloseoutText('p', `最新判断：${decision}／適用状態：${view.application.state}`));
     if (view.action === 'EVALUATE_ACCEPTANCE') {
       pilotCloseoutRoot.appendChild(pilotCloseoutAcceptance(view));
     } else if (view.action === 'EVALUATE_ROLLBACK') {
       pilotCloseoutRoot.appendChild(pilotCloseoutRollback(view));
+    } else if (view.action === 'CONFIRM_PAUSE') {
+      pilotCloseoutRoot.appendChild(pilotCloseoutPause(view));
     } else if (view.action === 'COMPLETE') {
       pilotCloseoutRoot.appendChild(pilotCloseoutText('p', 'Pilot完了結果は適用履歴へ保存済みです。', 'success'));
     } else if (view.action === 'RECORD_DECISION') {

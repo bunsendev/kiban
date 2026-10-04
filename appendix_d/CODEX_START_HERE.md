@@ -198,6 +198,8 @@ Phase 3TのPortable実行時候補版選択で、受入済みまたはPilot運�
 
 Phase 3TのRuntime版別週次評価で、正式予測Runの実行版と後日Actualを固定済み週次集計版に接続した。同じ業務日・JAN・倉庫かつ取込元と数量が同じActualだけでBaselineと候補版を比較する。欠測、重複、Actual不一致、旧caseのRuntime未特定を明示し、設定は自動反映しない。詳細は[Runtime版別週次評価](docs/Phase3T_Runtime版別週次評価.md)。
 
+Phase 3TのPortable Pilot停止Gateで、`PAUSE_PILOT`判断を担当者の明示確認付き`PAUSED`状態へ接続した。停止後の新規予測は理由付きでBaselineを選び、既存Run・データ・正式設定は変更しない。評価・Runtime比較・判断・適用計画の証跡を停止イベントへ固定する。詳細は[Pilot停止Gate](docs/Phase3T_Portable_Pilot停止Gate.md)。
+
 ## 変更報告
 
 変更ファイル、理由、契約への影響、pytest・ruff・実データ検証、未対応事項を記載する。

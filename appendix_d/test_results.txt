@@ -1,3 +1,11 @@
+# Windows Portable Pilot停止Gate（2026-10-04 JST）
+
+- `PAUSE_PILOT`の最新判断を担当者の明示確認へ接続し、`PILOT_ACTIVE`から`PAUSED`へ追記型で遷移することを確認した。
+- 停止イベントへ評価・Runtime週次評価・判断・適用計画のID、SHA-256、revisionを固定し、確認不足、古いrevision、別判断からの停止を拒否する。
+- 停止前の候補版選択証跡を保持し、停止後の新規予測だけが理由`PILOT_PAUSED`付きでBaselineを選ぶ。既存Run・データ・正式設定・候補manifestは変更しない。
+- 旧SQLiteのイベント行を保持して`PAUSED`契約へ移行する試験を追加した。対象回帰25 passed、全体回帰は配布更新前に912 passed / 20 skipped / 2 deselectedで、未更新の配布SHA照合1件だけ失敗した。
+- `ruff check .`、変更JavaScript構文検査、`git diff --check`に成功した。配布一覧更新後の`make_release.py --check`は1015/1015一致。実データ、API key、署名秘密鍵はRepositoryや配布物へ含めていない。
+
 # Windows Portable Pilot完了Gate（2026-10-04 JST）
 
 - Pilot評価の最新判断を既存受入・rollbackへ接続し、評価・Runtime・判断・適用計画のID、SHA-256、revisionが最終イベントに固定されることを確認した。

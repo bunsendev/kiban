@@ -98,6 +98,7 @@ class PortableRuntimeAssignments:
 
     def _resolve_one(self, scope: str) -> dict:
         active = []
+        paused = False
         integrity_failed = False
         for item in self.store.list_change_applications(limit=500):
             try:
@@ -111,10 +112,15 @@ class PortableRuntimeAssignments:
                 and scope in _scope_versions(value["application_scope"])
             ):
                 active.append(value)
+            if (
+                value["state"] == "PAUSED"
+                and scope in _scope_versions(value["application_scope"])
+            ):
+                paused = True
         if integrity_failed:
             return _blocked_spec(scope, "APPLICATION_INTEGRITY_UNVERIFIED")
         if not active:
-            return _baseline_spec(scope)
+            return _baseline_spec(scope, "PILOT_PAUSED" if paused else "NO_ACTIVE_ASSIGNMENT")
         if len(active) > 1:
             return _blocked_spec(scope, "MULTIPLE_ACTIVE_ASSIGNMENTS")
         application = active[0]
@@ -265,13 +271,13 @@ def _valid_package_manifest(value: dict, application: dict) -> bool:
     )
 
 
-def _baseline_spec(scope: str) -> dict:
+def _baseline_spec(scope: str, reason: str = "NO_ACTIVE_ASSIGNMENT") -> dict:
     return {
         "pilot_scope_version": scope,
         "status": "BASELINE_SELECTED",
         "selected_version": BASELINE_CONFIGURATION["version"],
         "selected_configuration": BASELINE_CONFIGURATION,
-        "reason_code": "NO_ACTIVE_ASSIGNMENT",
+        "reason_code": reason,
     }
 
 

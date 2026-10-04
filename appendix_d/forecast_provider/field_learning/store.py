@@ -35,6 +35,59 @@ class SqliteFieldLearningStore(WeeklyLearningStoreMixin):
     def _initialize(self) -> None:
         with self._connect() as db:
             db.executescript(Path(__file__).with_name("schema.sql").read_text("utf-8"))
+            self._migrate_change_application_events(db)
+
+    @staticmethod
+    def _migrate_change_application_events(db) -> None:
+        """Expand the append-only Pilot event contract without losing field data."""
+
+        row = db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' "
+            "AND name='field_change_application_events'"
+        ).fetchone()
+        if row is None or "PILOT_PAUSED" in str(row["sql"]):
+            return
+        db.execute("PRAGMA foreign_keys=OFF")
+        try:
+            db.execute("BEGIN IMMEDIATE")
+            db.execute(
+                "CREATE TABLE field_change_application_events_v2 ("
+                "event_id TEXT PRIMARY KEY,"
+                "application_id TEXT NOT NULL REFERENCES field_change_applications(application_id),"
+                "revision INTEGER NOT NULL CHECK(revision >= 1),"
+                "transition TEXT NOT NULL CHECK(transition IN ("
+                "'PILOT_GATE_EVALUATED','ACCEPTANCE_EVALUATED',"
+                "'ROLLBACK_EVALUATED','PILOT_PAUSED')),"
+                "resulting_state TEXT NOT NULL CHECK(resulting_state IN ("
+                "'PILOT_ACTIVE','BLOCKED','ROLLBACK_REQUIRED','PAUSED',"
+                "'ACCEPTED','ROLLED_BACK')),"
+                "actor TEXT NOT NULL,"
+                "reason TEXT NOT NULL CHECK(length(reason) <= 500),"
+                "evidence_json TEXT NOT NULL,"
+                "known_at TIMESTAMPTZ NOT NULL,"
+                "recorded_at TIMESTAMPTZ NOT NULL,"
+                "content_sha256 TEXT NOT NULL UNIQUE CHECK(length(content_sha256)=64),"
+                "UNIQUE(application_id,revision))"
+            )
+            db.execute(
+                "INSERT INTO field_change_application_events_v2 SELECT * "
+                "FROM field_change_application_events"
+            )
+            db.execute("DROP TABLE field_change_application_events")
+            db.execute(
+                "ALTER TABLE field_change_application_events_v2 "
+                "RENAME TO field_change_application_events"
+            )
+            db.execute(
+                "CREATE INDEX field_change_application_events_application_idx "
+                "ON field_change_application_events(application_id,revision)"
+            )
+            db.execute("COMMIT")
+        except Exception:
+            db.execute("ROLLBACK")
+            raise
+        finally:
+            db.execute("PRAGMA foreign_keys=ON")
 
     def put_reference_case(self, value: FieldReferenceCase) -> FieldReferenceCase:
         with self._connect() as db:

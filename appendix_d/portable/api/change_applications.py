@@ -233,6 +233,34 @@ class PortableChangeApplications:
         )
         return self.view_application(application.application_id)
 
+    def pause_pilot(
+        self, application_id: str, payload: dict, *,
+        pilot_evaluation_reference: dict,
+    ) -> dict:
+        application, _, state, revision = self._mutable(application_id, payload)
+        if state is not ChangeApplicationState.PILOT_ACTIVE:
+            raise ProductionHandoffError("運用中のPilotだけを一時停止できます")
+        if payload.get("confirm_future_runs_use_baseline") is not True:
+            raise ProductionHandoffError("以後の新規予測をBaselineへ戻すことを確認してください")
+        if payload.get("confirm_existing_runs_unchanged") is not True:
+            raise ProductionHandoffError(
+                "既存Run・データ・正式設定を変更しないことを確認してください"
+            )
+        evidence = {
+            "candidate_version": application.candidate_version,
+            "future_runtime": "BASELINE",
+            "existing_runs_unchanged": True,
+            "formal_configuration_unchanged": True,
+            "pilot_evaluation_reference": pilot_evaluation_reference,
+        }
+        self._append_event(
+            application, revision,
+            ChangeApplicationTransition.PILOT_PAUSED,
+            ChangeApplicationState.PAUSED,
+            payload, evidence,
+        )
+        return self.view_application(application.application_id)
+
     def _mutable(self, application_id: str, payload: dict):
         application = self.store.get_change_application(application_id)
         if application is None:
@@ -365,6 +393,7 @@ def _next_action(state: ChangeApplicationState) -> str:
         ChangeApplicationState.BLOCKED: "FIX_AND_RETRY_PILOT_GATE",
         ChangeApplicationState.PILOT_ACTIVE: "EVALUATE_ACCEPTANCE_OR_ROLLBACK",
         ChangeApplicationState.ROLLBACK_REQUIRED: "COMPLETE_ROLLBACK",
+        ChangeApplicationState.PAUSED: "COMPLETE",
         ChangeApplicationState.ACCEPTED: "COMPLETE",
         ChangeApplicationState.ROLLED_BACK: "COMPLETE",
     }[state]

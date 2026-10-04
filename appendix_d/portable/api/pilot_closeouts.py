@@ -65,6 +65,20 @@ class PortablePilotCloseouts:
                 pilot_evaluation_reference=_reference(view),
             )
 
+    def pause(self, assessment_id: str, payload: dict) -> dict:
+        with PILOT_EVALUATION_LOCK:
+            view = self.view(assessment_id)
+            _expected_assessment_revision(payload, view)
+            if view["action"] != "CONFIRM_PAUSE":
+                raise ProductionHandoffError(
+                    "最新の担当者判断がPilot一時停止の場合だけ停止を確定できます"
+                )
+            return self.applications.pause_pilot(
+                view["application"]["application_id"],
+                payload,
+                pilot_evaluation_reference=_reference(view),
+            )
+
 
 def _action(assessment: dict, application: dict, decision: dict | None) -> str:
     if decision is None:
@@ -79,9 +93,11 @@ def _action(assessment: dict, application: dict, decision: dict | None) -> str:
         return "EVALUATE_ACCEPTANCE"
     if state == "PILOT_ACTIVE" and selected == "REQUEST_ROLLBACK":
         return "EVALUATE_ROLLBACK"
+    if state == "PILOT_ACTIVE" and selected == "PAUSE_PILOT":
+        return "CONFIRM_PAUSE"
     if state == "ROLLBACK_REQUIRED" and _linked_to_assessment(application, assessment):
         return "EVALUATE_ROLLBACK"
-    if state in {"ACCEPTED", "ROLLED_BACK"}:
+    if state in {"PAUSED", "ACCEPTED", "ROLLED_BACK"}:
         return "COMPLETE"
     return "NO_TRANSITION"
 

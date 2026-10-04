@@ -8,6 +8,11 @@ const runtimeStatusLabels = {
   BLOCKED: '安全停止',
 };
 
+const runtimeReasonLabels = {
+  NO_ACTIVE_ASSIGNMENT: '有効なPilot候補なし',
+  PILOT_PAUSED: '担当者がPilotを一時停止',
+};
+
 async function refreshRuntimeAssignments() {
   try {
     const response = await fetch('/api/runtime-assignments');
@@ -30,7 +35,7 @@ async function refreshRuntimeAssignments() {
       const title = document.createElement('strong');
       title.textContent = `${runtimeStatusLabels[resolution.status]}／${resolution.pilot_scope_version}／${resolution.selected_version}`;
       const detail = document.createElement('p');
-      detail.textContent = `理由 ${resolution.reason_code}／設定SHA-256 ${resolution.selected_configuration_sha256}／担当 ${resolution.actor}`;
+      detail.textContent = `理由 ${runtimeReasonLabels[resolution.reason_code] || resolution.reason_code}／設定SHA-256 ${resolution.selected_configuration_sha256}／担当 ${resolution.actor}`;
       item.append(title, detail);
       runtimeResolutionList.appendChild(item);
     }
