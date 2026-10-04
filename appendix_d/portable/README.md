@@ -14,6 +14,8 @@ Windows x64のビルドPCではPython 3.12とPyInstallerをビルド時だけ使
 
 手順16では、正式予測Runの登録時にPilot Scopeと有効な適用計画を照合し、実際に選ばれたBaselineまたは候補版、設定hash、判定理由を表示します。候補版は `Data/State/RuntimeCandidates` のmanifestとGateで記録したSHA-256が一致するときだけ選択されます。Scope外はBaselineのままです。複数割当、承認失効、manifest不一致、未対応設定、1つのRunへの異なる設定混在は安全に停止します。詳細は `docs/Phase3T_Portable実行時候補版選択.md` を参照してください。
 
+手順12-2では、固定済み週次集計版を、正式予測Runで実際に使ったRuntime版・設定hash・Pilot Scopeごとに表示できます。Baselineと候補版の差は、同じ業務日・JAN・倉庫かつ取込元と数量が同じActualだけで計算します。欠測や旧caseのRuntime未特定は0や推定版に変えません。詳細は `docs/Phase3T_Runtime版別週次評価.md` を参照してください。
+
 最新の倉庫在庫は、画面で正式拠点コード、在庫基準時刻、`明細バラ数 = CASE`を確認した後、既存のPhase 3S正式在庫契約で再検証できます。全行がJAN、賞味期限、非負数量を満たす拠点だけ、原本ZIP・判断履歴・確認内容・変換後CSVのSHA-256を結んだパッケージを `Data/FormalInventory` に生成します。未解決行がある場合は次へ進めません。
 
 準備済みパッケージでは、倉庫ごとに10〜20商品のJANを試験対象として明示確認し、確認者と理由を記録して［Unified Inboxへ登録］を押します。既存のUnified Inbox、正式在庫Worker、数量照合を実行し、隔離0件かつ数量一致の最新ジョブだけを画面から明示承認できます。承認済みSnapshotは正式在庫として保存されます。
