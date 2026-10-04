@@ -3,6 +3,7 @@
 Field Pilot現場PC配布は[管理者導入運用](docs/FieldPilot_管理者導入運用.md)、[現場担当者1ページ手順](docs/FieldPilot_現場担当者_1ページ.md)、[検証・導入判定](planning/FIELD_PILOT_RELEASE_RESULT.md)を参照する。配布は`python make_release.py --field-pilot`で生成する。
 Windows Portable版は業務ZIPの在庫・出荷を自動確定・確認待ち・隔離へ分類し、直近28日学習・7日評価のBaseline参考バックテストを実行できる。これは正式取込、正式OSS比較、現在の出荷指示ではない。詳細は[実データPreflight結果](planning/WINDOWS_PORTABLE_DATA_B_PREFLIGHT_RESULT.md)を参照する。
 Pilot結果の判定は手順15-3で、版付き基準と同一ActualによるRuntime比較を固定してから担当者判断を追記する。機械判定は正式採用、設定変更、Pilot停止、rollbackを自動実行しない。詳細は[Pilot評価Gate](docs/Phase3T_Portable_Pilot評価Gate.md)を参照する。
+評価後は手順15-4で、最新判断と評価・Runtime・適用計画のhashを受入またはrollback履歴へ固定する。担当者確認と実際の復旧作業は省略・自動化しない。詳細は[Pilot完了Gate](docs/Phase3T_Portable_Pilot完了Gate.md)を参照する。
 承認済みPortable日次buildは、内容検証後に既存Dataset Snapshot、Experiment、Forecast Run queueへ冪等登録できる。予測可能な系列だけを入力し、確認待ち・隔離系列はSHA-256付き受渡し記録へ残す。詳細は[Production Forecast Run受渡し結果](planning/WINDOWS_PORTABLE_PRODUCTION_HANDOFF_RESULT.md)を参照する。
 担当者画面の手順7からRun登録、非同期Workerの進捗、完了POINT予測、既存Warehouse Projectionによる在庫見通しを確認できる。詳細は[正式予測更新UI結果](planning/WINDOWS_PORTABLE_PRODUCTION_UI_RESULT.md)を参照する。
 手順8では複数倉庫の個別Pilot Scopeを既存Projection・FEFO契約で計算し、倉庫別の不足、賞味期限注意、補充確認候補、計算対象外理由を日次業務サマリーとして表示する。リードタイムと安全在庫policy未確定のため正式な推奨出荷量は生成しない。詳細は[複数倉庫・日次業務サマリー結果](planning/WINDOWS_PORTABLE_DAILY_SUMMARY_RESULT.md)を参照する。

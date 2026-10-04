@@ -165,7 +165,10 @@ class PortableChangeApplications:
         )
         return self.view_application(application.application_id)
 
-    def evaluate_acceptance(self, application_id: str, payload: dict) -> dict:
+    def evaluate_acceptance(
+        self, application_id: str, payload: dict, *,
+        pilot_evaluation_reference: dict | None = None,
+    ) -> dict:
         application, proposal, state, revision = self._mutable(application_id, payload)
         if state is not ChangeApplicationState.PILOT_ACTIVE:
             raise ProductionHandoffError("受入評価はPilot開始後に実施してください")
@@ -185,6 +188,8 @@ class PortableChangeApplications:
             "rollback_results": rollback,
             "candidate_version": application.candidate_version,
         }
+        if pilot_evaluation_reference is not None:
+            evidence["pilot_evaluation_reference"] = pilot_evaluation_reference
         self._append_event(
             application, revision,
             ChangeApplicationTransition.ACCEPTANCE_EVALUATED,
@@ -194,7 +199,10 @@ class PortableChangeApplications:
         )
         return self.view_application(application.application_id)
 
-    def evaluate_rollback(self, application_id: str, payload: dict) -> dict:
+    def evaluate_rollback(
+        self, application_id: str, payload: dict, *,
+        pilot_evaluation_reference: dict | None = None,
+    ) -> dict:
         application, proposal, state, revision = self._mutable(application_id, payload)
         if state not in {
             ChangeApplicationState.PILOT_ACTIVE,
@@ -214,6 +222,8 @@ class PortableChangeApplications:
             "rollback_target_version": target,
             "rollback_checks": checks,
         }
+        if pilot_evaluation_reference is not None:
+            evidence["pilot_evaluation_reference"] = pilot_evaluation_reference
         self._append_event(
             application, revision,
             ChangeApplicationTransition.ROLLBACK_EVALUATED,

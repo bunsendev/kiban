@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -22,6 +23,7 @@ DECISIONS = {
     "REQUEST_ROLLBACK",
     "FORWARD_TO_ACCEPTANCE",
 }
+PILOT_EVALUATION_LOCK = threading.RLock()
 
 
 class PortablePilotEvaluationGates:
@@ -59,6 +61,14 @@ class PortablePilotEvaluationGates:
                 "正式設定、受入、rollbackを自動実行しません。"
             ),
         }
+
+    def has_assessment_for_application(self, application_id: str) -> bool:
+        """Return true only after verifying every matching immutable assessment."""
+        for path in self.root.glob("pilot-assessment-*.json"):
+            value = self._view_file(path)
+            if value.get("application_id") == application_id:
+                return True
+        return False
 
     def create(self, payload: dict) -> dict:
         application_id = _text(payload.get("application_id"), "Pilot適用計画", 200)
@@ -125,6 +135,10 @@ class PortablePilotEvaluationGates:
         }
 
     def decide(self, assessment_id: str, payload: dict) -> dict:
+        with PILOT_EVALUATION_LOCK:
+            return self._decide(assessment_id, payload)
+
+    def _decide(self, assessment_id: str, payload: dict) -> dict:
         assessment = self.view(assessment_id)
         application = self.applications.view_application(assessment["application_id"])
         if application["state"] != "PILOT_ACTIVE" or not application["source_approval_is_current"]:

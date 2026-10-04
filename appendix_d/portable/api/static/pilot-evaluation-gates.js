@@ -48,6 +48,7 @@ function renderPilotEvaluation(value) {
     pilotEvaluationResult.appendChild(history);
   }
   pilotEvaluationResult.appendChild(pilotDecisionForm(value));
+  window.PortablePilotCloseouts?.render(value);
 }
 
 function pilotDecisionForm(value) {
