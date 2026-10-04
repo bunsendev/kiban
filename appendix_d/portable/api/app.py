@@ -46,6 +46,7 @@ from .learning_experiment_routes import register_learning_experiment_routes
 from .learning_review_routes import register_learning_review_routes
 from .production_handoff_routes import register_production_handoff_routes
 from .runtime_assignment_routes import register_runtime_assignment_routes
+from .runtime_weekly_evaluation_routes import register_runtime_weekly_evaluation_routes
 from .store import RunStore
 
 LOG = logging.getLogger("portable.api")
@@ -94,6 +95,7 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     register_change_application_routes(app, paths, _read_limited)
     register_candidate_package_routes(app, paths, _read_limited)
     register_runtime_assignment_routes(app, paths)
+    register_runtime_weekly_evaluation_routes(app, paths, _read_limited)
 
     @app.middleware("http")
     async def local_only(request: Request, call_next):
@@ -171,6 +173,12 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     @app.get("/runtime-assignments.js")
     def runtime_assignments_script():
         return FileResponse(STATIC / "runtime-assignments.js", media_type="text/javascript")
+
+    @app.get("/runtime-weekly-evaluations.js")
+    def runtime_weekly_evaluations_script():
+        return FileResponse(
+            STATIC / "runtime-weekly-evaluations.js", media_type="text/javascript"
+        )
 
     @app.get("/style.css")
     def style():

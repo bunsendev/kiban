@@ -201,6 +201,9 @@ learningForm.addEventListener('submit', async event => {
     if (!response.ok) throw new Error(value.detail || '週次集計版を作成できませんでした。');
     renderLearningReview(value);
     await refreshLearningReviews();
+    if (window.PortableRuntimeWeeklyEvaluations) {
+      await window.PortableRuntimeWeeklyEvaluations.refresh();
+    }
     learningMessage('週次集計版を固定保存しました。', 'success');
   } catch (error) {
     learningMessage(error.message, 'error');

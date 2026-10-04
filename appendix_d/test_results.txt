@@ -1,3 +1,11 @@
+# Windows Portable Runtime版別週次評価（2026-10-04 JST）
+
+- 正式予測RunのRuntime版・設定hash・Pilot Scopeを既存週次集計版へ接続し、予測精度、担当者修正、欠品、期限切れ、倉庫間移動を版別に固定集計した。
+- Baselineと候補版は、同じ業務日・JAN・倉庫かつ取込元版・SHA-256・数量が一致するActualだけで比較。欠測、重複、Actual不一致、Runtime証跡のない旧caseを自動補完せず停止理由に残した。
+- Portable、Runtime選択、週次reviewの対象試験41 passed。`ruff check .`、JavaScript構文検査、`git diff --check`に成功した。
+- 配布manifest更新前の全体回帰は908 passed / 19 skipped / 3 failed。失敗は既存Field Pilot固定日付fixture、Windows非対応Linux RSS試験、配布manifest未更新の3件。
+- 配布manifest更新後、既存の日付固定fixtureとLinux専用試験を明示除外したWindows全体回帰は909 passed / 19 skipped / 2 deselected。
+
 # Windows Portable 複数倉庫・日次業務サマリー（2026-10-01 JST）
 
 - 2倉庫×各10 JANの正式在庫、日次build、Production Run、複数Projection、FEFO、倉庫別集計を一連で検証。補充確認候補、賞味期限注意、再起動後の同一結果、保存サマリー改変拒否を確認。
