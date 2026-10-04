@@ -1,3 +1,12 @@
+# Windows Portable 日次Decision接続（2026-10-04 JST）
+
+- 日次実行を14日予測で終えず、既存Production Worker、倉庫別日次サマリー、到着時点在庫、SHADOW推奨出荷、担当者判断まで同じ入力SHA-256で追跡する。
+- 工場在庫、生産予定、12〜36時間route、安全在庫、CASE出荷単位は既存の正式ZIP契約で検証し、不足・対象外・不整合は0補完せず理由付きで停止する。
+- 不正routeで`DECISION_INPUT_BLOCKED`となり推奨が生成されないこと、修正ZIPから10商品の推奨を作成し全件判断後に`COMPLETED`となること、再起動復元と冪等性を確認した。
+- Portable統合試験36 passed。`ruff check .`と変更JavaScript構文検査に成功した。
+- Windows全体回帰の再実行は911 passed / 20 skipped / 1 deselected。既知の固定日付試験とLinux専用RSS試験は対象外とした。
+- SHADOW試算は正式出荷指示を自動発行せず、担当者判断をpolicyへ自動反映しない。
+
 # Windows Portable 日次自動実行（2026-10-04 JST）
 
 - ZIP分析時に日次実行を開始し、未確定JAN・賞味期限等があれば確認待ち、拠点・基準時刻・CASE未確認なら正式在庫確認待ちとして安全停止する。
@@ -1944,3 +1953,11 @@ OS: Windows 11
 - `moving_average_28`候補版をPilot開始Gate、Production受渡し、既存Baseline Workerへ接続し、人工10系列から140 POINTを生成した。4方式すべての発行smokeとscope内runtime選択を確認した。
 - 対象回帰56 passed。既知3件を除外した配布更新前の全回帰は905 passed / 19 skipped / 3 deselectedで、未更新の配布SHA照合1件だけ失敗した。配布更新後の最終全回帰は906 passed / 19 skipped / 3 deselected。既存の同時刻順序試験は単独で1 passed。`ruff check .`、変更JavaScript構文検査、`git diff --check`に成功した。
 - 結果はSHADOW候補版であり、正式設定へ自動昇格しない。実データ、API key、署名秘密鍵をRepositoryや配布物へ含めていない。
+
+# Windows Portable 実データ日次Decision・画面入力支援（2026-10-05 JST）
+
+- Repository外の提供済みZIPを再分析し、4,108,358行、確認待ち14項目・124行を既存の追記型判断経路で確定した。加須10系列は正式在庫、14日予測、Production予測、日次サマリーまで完走し、神戸10系列は基準日不一致で安全停止した。
+- 日次サマリーから1倉庫・10商品、工場在庫10行、route・安全在庫・出荷単位各1行が必要と判定した。実データに値がないため推測・0補完せず、欠落入力を422で拒否した。
+- 担当者向け画面入力を正式4 CSV ZIP契約へ変換し、原本SHA-256、隔離、内容アドレス保存、再開性を維持した。複数工場・倉庫別条件・生産予定には既存ZIP入力を残した。
+- 実ブラウザーで既存JavaScriptの同名宣言を検出・修正し、ページに読み込む全scriptの結合構文試験を追加した。Portable回帰37 passed、Ruff、JavaScript結合構文、`git diff --check`に成功した。
+- 既知の固定日付fixtureとWindows非対応Linux RSS試験を除いた最終全回帰は912 passed / 20 skipped / 1 deselected。配布一覧は1026ファイルで全件一致した。実データ、確認値、資格情報はRepositoryと配布物へ含めていない。

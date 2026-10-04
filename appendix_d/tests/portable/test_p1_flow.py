@@ -292,6 +292,24 @@ def test_business_archive_api_flow(tmp_path: Path):
     assert backtest.json()["centers"][0]["wape"] == 0.0
 
 
+def test_browser_scripts_have_no_shared_page_declaration_collisions():
+    static = Path(__file__).parents[2] / "portable" / "api" / "static"
+    html = (static / "index.html").read_text(encoding="utf-8")
+    names = [
+        part.split('"', 1)[0]
+        for part in html.split('<script src="/')[1:]
+    ]
+    combined = "\n".join((static / name).read_text(encoding="utf-8") for name in names)
+    try:
+        result = subprocess.run(
+            ["node", "--check", "-"], input=combined, text=True,
+            encoding="utf-8", capture_output=True, check=False,
+        )
+    except FileNotFoundError:
+        pytest.skip("Node.jsがない環境ではブラウザーscript結合検査を省略")
+    assert result.returncode == 0, result.stderr
+
+
 def test_drop_folder_ingests_zip_and_records_receipt(tmp_path: Path):
     client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
     raw = pilot_forecast_zip()
@@ -689,7 +707,7 @@ def test_daily_run_stops_at_business_confirmation_and_persists_revision(tmp_path
     ] == first.json()["record_sha256"]
 
 
-def test_daily_run_connects_verified_inventory_to_forecast_once(tmp_path: Path):
+def test_daily_run_connects_input_to_reviewed_shipment_recommendations(tmp_path: Path):
     client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
     report = client.post(
         "/api/business-archives", content=pilot_forecast_zip(),
@@ -717,12 +735,12 @@ def test_daily_run_connects_verified_inventory_to_forecast_once(tmp_path: Path):
         "confirm_identity_bridge": True,
         "confirm_zero_policy": True,
     }
-    completed = client.post(
+    started = client.post(
         f"/api/daily-runs/{report['analysis_id']}/advance", json=confirmations,
     )
-    assert completed.status_code == 201, completed.text
-    value = completed.json()
-    assert value["status"] == "COMPLETED"
+    assert started.status_code == 201, started.text
+    value = started.json()
+    assert value["status"] in {"PRODUCTION_RUNNING", "SUMMARY_CONFIRMATION_REQUIRED"}
     assert value["eligible_series_count"] == 10
     assert value["blocked_series_count"] == 0
     assert value["handoff_id"] == handoff["handoff_id"]
@@ -730,12 +748,144 @@ def test_daily_run_connects_verified_inventory_to_forecast_once(tmp_path: Path):
     assert value["build_id"].startswith("portable-daily-")
     assert client.get(f"/api/formal-forecast/{value['build_id']}/download").status_code == 200
 
+    deadline = time.monotonic() + 8
+    while value["status"] == "PRODUCTION_RUNNING" and time.monotonic() < deadline:
+        time.sleep(0.05)
+        value = client.get(f"/api/daily-runs/{report['analysis_id']}").json()
+    assert value["status"] == "SUMMARY_CONFIRMATION_REQUIRED"
+    assert value["production_run_id"]
+
+    summary_ready = client.post(
+        f"/api/daily-runs/{report['analysis_id']}/daily-summary",
+        json={
+            "actor": "現場責任者", "reason": "賞味期限条件を確認",
+            "minimum_remaining_days": 0, "attention_days": 7,
+            "confirm_expiry_policy": True,
+        },
+    )
+    assert summary_ready.status_code == 201, summary_ready.text
+    value = summary_ready.json()
+    assert value["status"] == "DECISION_INPUT_REQUIRED"
+    summary = client.get(
+        f"/api/formal-forecast/{value['build_id']}/daily-summary/{value['summary_key']}"
+    ).json()
+    warehouse = summary["warehouses"][0]["warehouse_id"]
+    jans = sorted({item["jan"] for item in summary["rows"]})
+    calculation_date = summary["calculation_at"][:10]
+    requirements = client.get(
+        f"/api/daily-runs/{report['analysis_id']}/decision-inputs/requirements"
+    )
+    assert requirements.status_code == 200, requirements.text
+    assert requirements.json()["warehouses"] == [warehouse]
+    assert requirements.json()["jans"] == jans
+    assert requirements.json()["required_factory_inventory_rows"] == 10
+    files = {
+        "factory_inventory.csv": (
+            "factory_snapshot_id,snapshot_at,factory_id,jan,inventory_cases\n"
+            + "".join(
+                f"factory-v1,{summary['calculation_at']},F01,{jan},1000\n"
+                for jan in jans
+            )
+        ),
+        "production_plans.csv": (
+            "plan_id,plan_version,factory_id,jan,completion_at,quantity_cases\n"
+        ),
+        "routes.csv": (
+            "policy_id,policy_version,location_master_version,factory_location_id,"
+            "warehouse_location_id,minimum_hours,standard_hours,maximum_hours,"
+            "recommendation_basis,effective_from,effective_to\n"
+            f"route-{warehouse},routes-v1,locations-v1,F01,{warehouse},"
+            f"12,24,36,MAXIMUM,{calculation_date},\n"
+        ),
+        "safety_stock.csv": (
+            "policy_version,warehouse_id,coverage_days,shipment_unit_cases\n"
+            f"safety-v1,{warehouse},3,1\n"
+        ),
+    }
+    blocked_buffer = io.BytesIO()
+    with zipfile.ZipFile(blocked_buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, content in files.items():
+            if name == "routes.csv":
+                content = content.replace(f",{warehouse},12,", ",UNKNOWN,12,")
+            archive.writestr(name, content.encode("utf-8-sig"))
+    blocked = client.post(
+        f"/api/daily-runs/{report['analysis_id']}/decision-inputs",
+        json={
+            "actor": "出荷責任者", "reason": "配送条件不足を確認",
+            "confirm_decision_inputs": True,
+            "archive_base64": base64.b64encode(blocked_buffer.getvalue()).decode("ascii"),
+        },
+    )
+    assert blocked.status_code == 201, blocked.text
+    blocked_value = blocked.json()
+    assert blocked_value["status"] == "DECISION_INPUT_BLOCKED"
+    assert blocked_value["blockers"]
+    assert blocked_value["recommendation_key"] is None
+
+    guided_payload = {
+        "actor": "出荷責任者", "reason": "画面で工場・配送条件を確認",
+        "factory_id": "F01", "policy_version": "field-policy-v1",
+        "snapshot_at": summary["calculation_at"],
+        "route": {
+            "minimum_hours": 12, "standard_hours": 24, "maximum_hours": 36,
+            "recommendation_basis": "MAXIMUM",
+        },
+        "safety_stock": {"coverage_days": 3, "shipment_unit_cases": "1"},
+        "factory_inventory": [
+            {"jan": jan, "inventory_cases": "1000"} for jan in jans
+        ],
+        "production_plans": [], "confirm_decision_inputs": True,
+    }
+    incomplete = dict(guided_payload)
+    incomplete["factory_inventory"] = guided_payload["factory_inventory"][:-1]
+    rejected = client.post(
+        f"/api/daily-runs/{report['analysis_id']}/decision-inputs/guided",
+        json=incomplete,
+    )
+    assert rejected.status_code == 422
+    assert "不足1件" in rejected.json()["detail"]
+    decision_ready = client.post(
+        f"/api/daily-runs/{report['analysis_id']}/decision-inputs/guided",
+        json=guided_payload,
+    )
+    assert decision_ready.status_code == 201, decision_ready.text
+    value = decision_ready.json()
+    assert value["status"] == "SHIPMENT_REVIEW_REQUIRED"
+    assert value["recommendation_count"] == 10
+    assert value["reviewed_recommendation_count"] == 0
+    endpoint = (
+        f"/api/formal-forecast/{value['build_id']}/daily-summary/{value['summary_key']}"
+        f"/shipment-recommendation/{value['recommendation_key']}"
+    )
+    recommendation = client.get(endpoint).json()
+    assert len(recommendation["recommendations"]) == 10
+    for item in recommendation["recommendations"]:
+        response = client.post(
+            f"{endpoint}/review",
+            json={
+                "jan": item["jan"], "warehouse_id": item["warehouse_id"],
+                "expected_revision": 0, "operator_decision": "ACCEPTED",
+                "operator_quantity_cases": item["recommended_shipment_cases"],
+                "reason_code": None, "comment": None, "actor": "現場担当者",
+                "confirm_shadow_review": True,
+            },
+        )
+        assert response.status_code == 201, response.text
+
+    completed = client.get(f"/api/daily-runs/{report['analysis_id']}").json()
+    assert completed["status"] == "COMPLETED"
+    assert completed["reviewed_recommendation_count"] == 10
+
     repeated = client.post(
         f"/api/daily-runs/{report['analysis_id']}/advance", json=confirmations,
     ).json()
-    assert repeated["record_sha256"] == value["record_sha256"]
+    assert repeated["record_sha256"] == completed["record_sha256"]
     assert len(list((tmp_path / "FormalInventory" / "Registrations").glob("*.json"))) == 1
     assert len(list((tmp_path / "FormalForecast").glob("portable-daily-*/manifest.json"))) == 1
+    restarted = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    restored = restarted.get(f"/api/daily-runs/{report['analysis_id']}").json()
+    assert restored["status"] == "COMPLETED"
+    assert restored["record_sha256"] == completed["record_sha256"]
 
 
 def test_formal_build_is_queued_once_in_existing_production_contracts(tmp_path: Path):

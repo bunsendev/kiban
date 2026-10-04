@@ -144,6 +144,9 @@ shipmentReviewForm.addEventListener('submit', async event => {
     selectShipmentReview(shipmentReviewTarget);
     shipmentReviewState.textContent = '判断を追記しました。設定へは自動反映されません。';
     shipmentReviewState.className = 'success';
+    document.dispatchEvent(new CustomEvent('portable-shipment-review-changed', {
+      detail: {requestKey: shipmentReviewContext.result.request_key},
+    }));
   } catch (error) {
     shipmentReviewState.textContent = error.message;
     shipmentReviewState.className = 'error';

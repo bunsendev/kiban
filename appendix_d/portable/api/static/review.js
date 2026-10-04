@@ -35,7 +35,7 @@ async function renderHistory(analysisId){
     }
   }catch{root.appendChild(element('li','判断履歴を読み込めません。','error'));}
 }
-function decisionForm(report,issue,onUpdated){
+function buildBusinessDecisionForm(report,issue,onUpdated){
   const form=element('form','','decision-form');
   const select=document.createElement('select'); select.setAttribute('aria-label','判断');
   for(const action of availableActions(issue)){const option=document.createElement('option');option.value=action;option.textContent=actionLabels[action];select.appendChild(option);}
@@ -72,8 +72,8 @@ async function renderReview(report,onUpdated){
     if(issue.missing_expiry_count)card.appendChild(element('p',`うち賞味期限なし: ${issue.missing_expiry_count.toLocaleString()}行`));
     if(issue.decision){
       card.appendChild(element('p',decisionText(issue.decision),'decision-done'));
-      const details=document.createElement('details');details.appendChild(element('summary','判断を変更'));details.appendChild(decisionForm(report,issue,onUpdated));card.appendChild(details);
-    }else{card.appendChild(decisionForm(report,issue,onUpdated));}
+      const details=document.createElement('details');details.appendChild(element('summary','判断を変更'));details.appendChild(buildBusinessDecisionForm(report,issue,onUpdated));card.appendChild(details);
+    }else{card.appendChild(buildBusinessDecisionForm(report,issue,onUpdated));}
     root.appendChild(card);
   }
 }

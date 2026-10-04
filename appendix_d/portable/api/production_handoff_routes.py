@@ -1,6 +1,7 @@
 """HTTP boundary for queuing a verified Portable build in the production ledger."""
 
 import json
+from dataclasses import dataclass
 
 from fastapi import HTTPException, Request, Response
 
@@ -14,7 +15,38 @@ from .production_projection import PortableProductionProjection
 from .production_worker import PortableProductionWorker
 
 
-def register_production_handoff_routes(app, paths, read_limited) -> None:
+@dataclass(frozen=True)
+class PortableProductionWorkflow:
+    """Shared composition root for HTTP routes and the daily orchestrator."""
+
+    service: PortableProductionHandoff
+    projection: PortableProductionProjection
+    input_packages: PortableDecisionInputPackages
+    decision: PortableShipmentDecision
+    reviews: PortableDecisionReviews
+    outcomes: PortableDecisionOutcomes
+    worker: PortableProductionWorker
+
+    def current(self, build_id: str) -> dict:
+        view = self.service.view(build_id)
+        handoff = view.get("handoff")
+        if handoff is not None:
+            handoff["worker_error"] = self.worker.error(handoff["run_id"])
+        return view
+
+    def enqueue(self, build_id: str, payload: dict) -> dict:
+        result = self.service.enqueue(build_id, payload)
+        self.worker.submit(result["run_id"])
+        return self.current(build_id)["handoff"]
+
+    def resume(self, build_id: str) -> dict:
+        self.worker.submit(self.service.run_id(build_id))
+        return self.current(build_id)["handoff"]
+
+
+def register_production_handoff_routes(
+    app, paths, read_limited
+) -> PortableProductionWorkflow:
     service = PortableProductionHandoff(paths)
     projection = PortableProductionProjection(paths, service)
     input_packages = PortableDecisionInputPackages(paths)
@@ -31,18 +63,14 @@ def register_production_handoff_routes(app, paths, read_limited) -> None:
     for status in ("QUEUED", "RUNNING"):
         for run in service.service.runs.list_runs(limit=200, status=status):
             worker.submit(run.run_id)
-
-    def current(build_id: str) -> dict:
-        view = service.view(build_id)
-        handoff = view.get("handoff")
-        if handoff is not None:
-            handoff["worker_error"] = worker.error(handoff["run_id"])
-        return view
+    workflow = PortableProductionWorkflow(
+        service, projection, input_packages, decision, reviews, outcomes, worker
+    )
 
     @app.get("/api/formal-forecast/{build_id}/production-run")
     def get_production_handoff(build_id: str):
         try:
-            return current(build_id)
+            return workflow.current(build_id)
         except ProductionHandoffError as exc:
             raise HTTPException(404, str(exc)) from exc
 
@@ -53,9 +81,7 @@ def register_production_handoff_routes(app, paths, read_limited) -> None:
             payload = json.loads(raw or b"{}")
             if not isinstance(payload, dict):
                 raise ProductionHandoffError("登録条件を確認してください")
-            result = service.enqueue(build_id, payload)
-            worker.submit(result["run_id"])
-            return current(build_id)["handoff"]
+            return workflow.enqueue(build_id, payload)
         except (json.JSONDecodeError, ProductionHandoffError) as exc:
             raise HTTPException(422, str(exc)) from exc
 
@@ -122,8 +148,7 @@ def register_production_handoff_routes(app, paths, read_limited) -> None:
     @app.post("/api/formal-forecast/{build_id}/production-run/resume", status_code=202)
     def resume_production_handoff(build_id: str):
         try:
-            worker.submit(service.run_id(build_id))
-            return current(build_id)["handoff"]
+            return workflow.resume(build_id)
         except ProductionHandoffError as exc:
             raise HTTPException(422, str(exc)) from exc
 
@@ -143,6 +168,18 @@ def register_production_handoff_routes(app, paths, read_limited) -> None:
                 raise ProductionHandoffError("日次業務サマリーの確認条件を確認してください")
             return projection.daily_summary(build_id, payload)
         except (json.JSONDecodeError, ProductionHandoffError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.get("/api/formal-forecast/{build_id}/daily-summary/{summary_key}")
+    def get_daily_summary(build_id: str, summary_key: str):
+        try:
+            summary = projection.get_summary(summary_key)
+            if summary["build_id"] != build_id:
+                raise ProductionHandoffError(
+                    "日次サマリーと正式予測buildが一致しません"
+                )
+            return summary
+        except ProductionHandoffError as exc:
             raise HTTPException(422, str(exc)) from exc
 
     @app.get(
@@ -203,6 +240,18 @@ def register_production_handoff_routes(app, paths, read_limited) -> None:
 
     @app.get(
         "/api/formal-forecast/{build_id}/daily-summary/{summary_key}/"
+        "shipment-recommendation/{request_key}"
+    )
+    def get_shipment_recommendation(
+        build_id: str, summary_key: str, request_key: str
+    ):
+        try:
+            return decision.get(build_id, summary_key, request_key)
+        except ProductionHandoffError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.get(
+        "/api/formal-forecast/{build_id}/daily-summary/{summary_key}/"
         "shipment-recommendation/{request_key}/review"
     )
     def get_shipment_recommendation_review(
@@ -233,3 +282,5 @@ def register_production_handoff_routes(app, paths, read_limited) -> None:
             raise HTTPException(409, str(exc)) from exc
         except (json.JSONDecodeError, ProductionHandoffError) as exc:
             raise HTTPException(422, str(exc)) from exc
+
+    return workflow
