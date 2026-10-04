@@ -14,6 +14,8 @@ Windows Portable版は業務ZIPの在庫・出荷を自動確定・確認待ち�
 手順13では承認済み改善候補の根拠caseを固定し、BaselineとChallengerを同じActualが揃う共通集合で比較する。KPI差、数量不足・過剰の代理差、観測済み業務Outcomeを分けて表示し、正式変更案の作成推奨または見送りを追記する。結果は設定へ自動反映しない。詳細は[改善候補比較検証結果](planning/WINDOWS_PORTABLE_LEARNING_EXPERIMENT_RESULT.md)を参照する。
 
 手順14では作成推奨となった比較runから、変更差分、適用範囲、受入基準、rollback条件を固定した正式変更案を作る。案の作成者とは別の担当者が承認・却下を追記するが、承認しても設定は自動適用しない。詳細は[正式変更案・別承認結果](planning/WINDOWS_PORTABLE_FORMAL_CHANGE_PROPOSAL_RESULT.md)を参照する。
+
+手順15では実装承認済みの正式変更案から、固定したPilot Scope、候補版、事前backupとSHA-256を持つ適用計画を作る。開始smoke test、受入基準、rollback条件を追記評価し、未達時はrollback完了まで受入済みにしない。これは限定範囲の利用許可と監査であり、設定を自動変更しない。詳細は[Pilot変更適用Gate結果](planning/WINDOWS_PORTABLE_CHANGE_APPLICATION_GATE_RESULT.md)を参照する。
 確認待ち・隔離の担当者判断、追記履歴、JAN対応付けの次回再利用は[担当者確認結果](planning/WINDOWS_PORTABLE_OPERATOR_REVIEW_RESULT.md)を参照する。
 最新倉庫在庫から既存Phase 3S契約へ渡す候補パッケージは[正式在庫handoff結果](planning/WINDOWS_PORTABLE_FORMAL_INVENTORY_HANDOFF_RESULT.md)を参照する。Pilot対象JANの明示確認、Unified Inbox、Worker、数量照合、最終Snapshot承認までの接続は[正式在庫Pipeline結果](planning/WINDOWS_PORTABLE_UNIFIED_INBOX_SNAPSHOT_RESULT.md)を参照する。承認済み在庫と出荷履歴の日次状態、JAN・倉庫identity bridge、14日Baseline参考予測の接続は[正式予測Pipeline結果](planning/WINDOWS_PORTABLE_FORMAL_FORECAST_RESULT.md)を参照する。
 承認型の形式学習と「今日やること」画面は[実装・未接続範囲](planning/FIELD_PILOT_APPROVED_LEARNING_RESULT.md)を参照する。構造の承認と正式データ採用は別である。Portableの承認済みbuildからRun queueへの接続は実装済みだが、Field Pilot旧経路の自動接続は未実装である。

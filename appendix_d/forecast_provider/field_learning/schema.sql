@@ -198,3 +198,41 @@ CREATE TABLE IF NOT EXISTS field_formal_change_decision_events (
 );
 CREATE INDEX IF NOT EXISTS field_formal_change_decisions_proposal_idx
   ON field_formal_change_decision_events(proposal_id,revision);
+
+CREATE TABLE IF NOT EXISTS field_change_applications (
+  application_id TEXT PRIMARY KEY,
+  proposal_id TEXT NOT NULL REFERENCES field_formal_change_proposals(proposal_id),
+  source_proposal_decision_revision INTEGER NOT NULL
+    CHECK(source_proposal_decision_revision >= 1),
+  candidate_version TEXT NOT NULL,
+  application_scope_json TEXT NOT NULL,
+  backup_reference TEXT NOT NULL,
+  backup_sha256 TEXT NOT NULL CHECK(length(backup_sha256)=64),
+  executor TEXT NOT NULL,
+  known_at TIMESTAMPTZ NOT NULL,
+  recorded_at TIMESTAMPTZ NOT NULL,
+  content_sha256 TEXT NOT NULL UNIQUE CHECK(length(content_sha256)=64)
+);
+CREATE INDEX IF NOT EXISTS field_change_applications_proposal_idx
+  ON field_change_applications(proposal_id,recorded_at);
+
+CREATE TABLE IF NOT EXISTS field_change_application_events (
+  event_id TEXT PRIMARY KEY,
+  application_id TEXT NOT NULL REFERENCES field_change_applications(application_id),
+  revision INTEGER NOT NULL CHECK(revision >= 1),
+  transition TEXT NOT NULL CHECK(transition IN (
+    'PILOT_GATE_EVALUATED','ACCEPTANCE_EVALUATED','ROLLBACK_EVALUATED'
+  )),
+  resulting_state TEXT NOT NULL CHECK(resulting_state IN (
+    'PILOT_ACTIVE','BLOCKED','ROLLBACK_REQUIRED','ACCEPTED','ROLLED_BACK'
+  )),
+  actor TEXT NOT NULL,
+  reason TEXT NOT NULL CHECK(length(reason) <= 500),
+  evidence_json TEXT NOT NULL,
+  known_at TIMESTAMPTZ NOT NULL,
+  recorded_at TIMESTAMPTZ NOT NULL,
+  content_sha256 TEXT NOT NULL UNIQUE CHECK(length(content_sha256)=64),
+  UNIQUE(application_id,revision)
+);
+CREATE INDEX IF NOT EXISTS field_change_application_events_application_idx
+  ON field_change_application_events(application_id,revision);

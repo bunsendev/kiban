@@ -34,6 +34,7 @@ from .business_review import (
     record_decision,
     review_view,
 )
+from .change_application_routes import register_change_application_routes
 from .forecast import forecast
 from .formal_change_routes import register_formal_change_routes
 from .formal_forecast_routes import register_formal_forecast_routes
@@ -88,6 +89,7 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     register_learning_review_routes(app, paths, _read_limited)
     register_learning_experiment_routes(app, paths, _read_limited)
     register_formal_change_routes(app, paths, _read_limited)
+    register_change_application_routes(app, paths, _read_limited)
 
     @app.middleware("http")
     async def local_only(request: Request, call_next):
@@ -153,6 +155,10 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     @app.get("/formal-changes.js")
     def formal_changes_script():
         return FileResponse(STATIC / "formal-changes.js", media_type="text/javascript")
+
+    @app.get("/change-applications.js")
+    def change_applications_script():
+        return FileResponse(STATIC / "change-applications.js", media_type="text/javascript")
 
     @app.get("/style.css")
     def style():

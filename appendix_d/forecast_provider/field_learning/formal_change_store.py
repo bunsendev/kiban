@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
+from .change_application_store import ChangeApplicationStoreMixin
 from .contracts import FormalChangeDecision, FormalChangeTarget
 from .domain import FieldLearningConflict
 from .formal_change_domain import (
@@ -13,7 +14,7 @@ from .formal_change_domain import (
 )
 
 
-class FormalChangeStoreMixin:
+class FormalChangeStoreMixin(ChangeApplicationStoreMixin):
     def put_formal_change_proposal(self, value: FieldFormalChangeProposal):
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")

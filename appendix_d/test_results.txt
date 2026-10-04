@@ -1879,3 +1879,10 @@ OS: Windows 11
 - 作成者とは別の担当者によるrevision付き承認・却下を追加した。元run判断の更新、自己承認、不正な変更対象、同一設定、欠落した受入・rollback条件を拒否する。
 - 承認後も`application_status=NOT_APPLIED`を維持し、モデル・特徴量・policy・現場設定を自動変更しない。
 - 対象回帰42 passed。配布更新前の全回帰は878 passed / 19 skipped / 1 deselectedで、未更新の配布SHA照合1件だけ失敗した。最終全回帰は880 passed / 19 skipped / 1 deselected。`ruff check .`、JavaScript構文検査、`git diff --check`に成功した。
+
+# Windows Portable Pilot変更適用Gate（2026-10-04 JST）
+
+- 手順15を追加し、`APPROVED_FOR_IMPLEMENTATION`の正式変更案から、固定したPilot Scope、候補版、事前backup参照・SHA-256、適用担当者・時刻を持つ適用計画を作成できるようにした。
+- backup照合、候補版の分離配置、smoke testが全件合格した場合だけ`PILOT_ACTIVE`とする。受入基準未達またはrollback条件発生時は`ROLLBACK_REQUIRED`とし、固定rollback先版への復元と検査が完了するまで受入済みにしない。
+- 計画とGate・受入・rollback eventをcontent hash、revision付きで追記保存する。元承認の失効、revision競合、固定条件の差替え、保存後改変を拒否する。正式変更案は`application_status=NOT_APPLIED`を維持し、設定を自動変更しない。
+- 対象試験11 passed。配布更新前の全回帰は885 passed / 19 skipped / 1 deselectedで、未更新の配布SHA照合1件だけ失敗した。`ruff check .`、JavaScript構文検査、`git diff --check`に成功した。配布一覧は978ファイルへ更新した。配布更新後は既知の固定日付fixtureと、全体実行時だけ履歴同時刻順序が不安定になる既存Field Pilot試験を除き885 passed / 19 skipped / 2 deselected。後者は単体再実行で1 passedを確認し、`make_release.py --check`は978/978一致を確認した。
