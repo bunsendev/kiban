@@ -20,12 +20,16 @@ from portable.runtime.paths import DataPaths
 from tests.test_phase3t_formal_change_proposals import _recommended_run
 
 
-def _candidate_configuration(version: str) -> dict:
-    return {**BASELINE_CONFIGURATION, "version": version}
+def _candidate_configuration(
+    version: str, model_name: str = "seasonal_naive_7",
+) -> dict:
+    return {**BASELINE_CONFIGURATION, "version": version, "model_name": model_name}
 
 
 def _approved_model_proposal(
     database, version: str = "candidate-model-v1", run_id: str | None = None,
+    model_name: str = "seasonal_naive_7",
+    scope_version: str = "scope-v1",
 ) -> dict:
     if run_id is None:
         _, run = _recommended_run(database)
@@ -35,8 +39,8 @@ def _approved_model_proposal(
         "run_id": run_id,
         "change_target": "FORECAST_MODEL",
         "current_configuration": BASELINE_CONFIGURATION,
-        "proposed_configuration": _candidate_configuration(version),
-        "application_scope": {"pilot_scope_versions": ["scope-v1"]},
+        "proposed_configuration": _candidate_configuration(version, model_name),
+        "application_scope": {"pilot_scope_versions": [scope_version]},
         "acceptance_criteria": ["Baseline以上の精度を維持する"],
         "rollback_conditions": ["精度悪化または証跡不整合を検出する"],
         "rollback_target_version": BASELINE_CONFIGURATION["version"],

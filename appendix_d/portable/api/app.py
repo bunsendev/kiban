@@ -34,6 +34,7 @@ from .business_review import (
     record_decision,
     review_view,
 )
+from .candidate_package_routes import register_candidate_package_routes
 from .change_application_routes import register_change_application_routes
 from .forecast import forecast
 from .formal_change_routes import register_formal_change_routes
@@ -91,6 +92,7 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     register_learning_experiment_routes(app, paths, _read_limited)
     register_formal_change_routes(app, paths, _read_limited)
     register_change_application_routes(app, paths, _read_limited)
+    register_candidate_package_routes(app, paths, _read_limited)
     register_runtime_assignment_routes(app, paths)
 
     @app.middleware("http")
@@ -161,6 +163,10 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     @app.get("/change-applications.js")
     def change_applications_script():
         return FileResponse(STATIC / "change-applications.js", media_type="text/javascript")
+
+    @app.get("/candidate-packages.js")
+    def candidate_packages_script():
+        return FileResponse(STATIC / "candidate-packages.js", media_type="text/javascript")
 
     @app.get("/runtime-assignments.js")
     def runtime_assignments_script():

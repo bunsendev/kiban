@@ -13,17 +13,15 @@ from forecast_provider.field_learning import (
 )
 
 from .formal_shipment_daily import canonical_json, sha256
+from .runtime_profiles import (
+    ADAPTER,
+    BASELINE_CONFIGURATION,
+    RESOURCE_LIMITS,
+    supported_configuration,
+)
 
-BASELINE_CONFIGURATION = {
-    "version": "builtin-baseline-v1",
-    "provider_id": "builtin-baseline",
-    "model_name": "seasonal_naive_7",
-    "preprocessing_version": "portable-daily-state-v1",
-    "seed": 7,
-    "resource_profile": "cpu-small",
-    "params": {},
-}
 MANIFEST_FORMAT = "bunsen-portable-runtime-candidate-v1"
+PACKAGE_MANIFEST_FORMAT = "bunsen-portable-runtime-candidate-v2"
 
 
 class RuntimeAssignmentError(ValueError):
@@ -148,7 +146,7 @@ class PortableRuntimeAssignments:
                 "reason_code": "CANDIDATE_MANIFEST_HASH_MISMATCH",
             }
         if (
-            manifest.get("format") != MANIFEST_FORMAT
+            manifest.get("format") not in {MANIFEST_FORMAT, PACKAGE_MANIFEST_FORMAT}
             or manifest.get("candidate_version") != application["candidate_version"]
             or manifest.get("proposal_id") != application["proposal"]["proposal_id"]
             or manifest.get("runtime_configuration")
@@ -158,8 +156,15 @@ class PortableRuntimeAssignments:
                 **common, "status": "BLOCKED",
                 "reason_code": "CANDIDATE_MANIFEST_CONTRACT_MISMATCH",
             }
-        if not _supported_configuration(common["selected_configuration"]):
+        if not supported_configuration(common["selected_configuration"]):
             return {**common, "status": "BLOCKED", "reason_code": "RUNTIME_ADAPTER_UNSUPPORTED"}
+        if manifest.get("format") == PACKAGE_MANIFEST_FORMAT and not _valid_package_manifest(
+            manifest, application
+        ):
+            return {
+                **common, "status": "BLOCKED",
+                "reason_code": "CANDIDATE_PACKAGE_CONTRACT_MISMATCH",
+            }
         return {
             **common, "status": "CANDIDATE_SELECTED",
             "reason_code": "ACTIVE_ASSIGNMENT_MATCHED",
@@ -190,8 +195,14 @@ class PortableRuntimeAssignments:
             result.append({
                 "candidate_version": value.get("candidate_version"),
                 "proposal_id": value.get("proposal_id"),
+                "package_id": value.get("package_id"),
+                "format": value.get("format"),
+                "model_name": (value.get("runtime_configuration") or {}).get("model_name")
+                if isinstance(value.get("runtime_configuration"), dict) else None,
+                "smoke_status": (value.get("smoke_test") or {}).get("status")
+                if isinstance(value.get("smoke_test"), dict) else None,
                 "manifest_sha256": hashlib.sha256(raw).hexdigest(),
-                "supported": _supported_configuration(value.get("runtime_configuration")),
+                "supported": supported_configuration(value.get("runtime_configuration")),
             })
         return result
 
@@ -214,22 +225,43 @@ def _gate_manifest_sha(application: dict) -> str | None:
     return None
 
 
-def _supported_configuration(value: object) -> bool:
-    if not isinstance(value, dict):
-        return False
+def _valid_package_manifest(value: dict, application: dict) -> bool:
     required = {
-        "version", "provider_id", "model_name", "preprocessing_version",
-        "seed", "resource_profile", "params",
+        "format", "package_id", "candidate_version", "proposal_id",
+        "source_proposal_decision_revision", "runtime_configuration",
+        "runtime_configuration_sha256", "adapter", "resource_limits",
+        "rollback", "smoke_test", "issued_by", "known_at",
     }
+    if set(value) != required:
+        return False
+    body = {key: item for key, item in value.items() if key != "package_id"}
+    expected_id = f"runtime-candidate-{sha256(canonical_json(body))}"
+    smoke = value.get("smoke_test")
+    rollback = value.get("rollback")
     return (
-        set(value) == required
-        and isinstance(value.get("version"), str) and bool(value["version"].strip())
-        and value.get("provider_id") == "builtin-baseline"
-        and value.get("model_name") == "seasonal_naive_7"
-        and value.get("preprocessing_version") == "portable-daily-state-v1"
-        and value.get("seed") == 7
-        and value.get("resource_profile") == "cpu-small"
-        and value.get("params") == {}
+        value.get("package_id") == expected_id
+        and value.get("source_proposal_decision_revision")
+        == application.get("source_proposal_decision_revision")
+        and value.get("runtime_configuration_sha256")
+        == sha256(canonical_json(value.get("runtime_configuration")))
+        and value.get("adapter") == ADAPTER
+        and value.get("resource_limits") == RESOURCE_LIMITS
+        and isinstance(rollback, dict)
+        and rollback == {
+            "target_version": application["proposal"]["rollback_target_version"],
+            "baseline_configuration_sha256": sha256(
+                canonical_json(BASELINE_CONFIGURATION)
+            ),
+        }
+        and isinstance(smoke, dict)
+        and smoke.get("status") == "PASSED"
+        and smoke.get("dataset_version") == "portable-candidate-smoke-v1"
+        and smoke.get("series_count") == 2
+        and smoke.get("forecast_count") == 14
+        and isinstance(smoke.get("prediction_sha256"), str)
+        and len(smoke["prediction_sha256"]) == 64
+        and isinstance(value.get("issued_by"), str) and bool(value["issued_by"].strip())
+        and isinstance(value.get("known_at"), str)
     )
 
 

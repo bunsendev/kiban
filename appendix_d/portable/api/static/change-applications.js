@@ -83,6 +83,16 @@ function renderGateForm(application) {
   form.insertBefore(checks, form.firstChild);
   const flags = document.createElement('fieldset');
   flags.innerHTML = '<legend>開始前の必須確認</legend><label><input name="backup" type="checkbox" required>事前backupをSHA-256まで照合しました</label><label><input name="staged" type="checkbox" required>候補版をPilot領域へ分離配置しました</label><label>配置した候補版manifestのSHA-256<input name="manifest_sha256" pattern="[0-9a-fA-F]{64}" maxlength="64" required></label>';
+  const issued = window.PortableCandidatePackages
+    ? window.PortableCandidatePackages.forApplication(application) : null;
+  if (issued) {
+    flags.querySelector('[name="manifest_sha256"]').value = issued.manifest_sha256;
+    flags.querySelector('[name="manifest_sha256"]').readOnly = true;
+    const packageNote = document.createElement('p');
+    packageNote.className = 'notice';
+    packageNote.textContent = `発行済み候補版 ${issued.package_id} のSHA-256を設定しました。`;
+    flags.appendChild(packageNote);
+  }
   form.insertBefore(flags, checks);
   form.addEventListener('submit', async event => {
     event.preventDefault();

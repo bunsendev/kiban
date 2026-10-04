@@ -1893,3 +1893,11 @@ OS: Windows 11
 - 複数割当、承認失効、履歴改変、manifest不在・重複・hash/契約不一致、未対応adapter、異なる設定のRun内混在は開始前に停止する。選択結果は追記型台帳とProduction受渡し記録へ保存する。
 - 対象回帰43 passed。配布更新前の全体回帰は896 passed / 19 skipped / 2 deselectedで、新規機能外のWindows非対応Linux RSS試験1件と更新前の配布SHA照合1件だけ失敗した。配布更新後、既知3件を除外した最終回帰は898 passed / 19 skipped / 3 deselected。既存の同時刻順序試験は単独で1 passedを確認した。
 - `ruff check .`、変更JavaScriptの構文検査、`git diff --check`に成功した。実データ、API key、署名秘密鍵はRepositoryと配布物へ含めていない。
+
+# Windows Portable 候補版パッケージ（2026-10-04 JST）
+
+- 手順15-1を追加し、実装承認済みの予測モデル変更案から、組込Baseline 4方式に限定した候補版パッケージを発行する。実Providerで人工2系列・400日のvalidate、fit、context復元、7日予測を行い、14 POINT、有限値、結果hashを確認する。
+- Provider版、設定hash、50系列・履歴400日・予測28日の資源上限、外部通信禁止、rollback先、smoke結果をv2 manifestへ固定した。内容アドレス発行証跡、同名異内容拒否、改変検知、既存v1 manifest互換を確認した。
+- `moving_average_28`候補版をPilot開始Gate、Production受渡し、既存Baseline Workerへ接続し、人工10系列から140 POINTを生成した。4方式すべての発行smokeとscope内runtime選択を確認した。
+- 対象回帰56 passed。既知3件を除外した配布更新前の全回帰は905 passed / 19 skipped / 3 deselectedで、未更新の配布SHA照合1件だけ失敗した。配布更新後の最終全回帰は906 passed / 19 skipped / 3 deselected。既存の同時刻順序試験は単独で1 passed。`ruff check .`、変更JavaScript構文検査、`git diff --check`に成功した。
+- 結果はSHADOW候補版であり、正式設定へ自動昇格しない。実データ、API key、署名秘密鍵をRepositoryや配布物へ含めていない。

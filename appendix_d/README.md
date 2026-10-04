@@ -70,6 +70,8 @@ test_results.txtはこの版の実測記録です。依存はrequirementsファ�
 
 APIはcomposition root、route、service、domain、storeの依存方向を固定し、UIはAPI・form・render・workflowを分離する。新機能を既存ファイルへ継ぎ足す前の判断基準と現在の分割方針は[保守開発のモジュール構成](docs/保守開発のモジュール構成.md)を参照する。
 
+Windows Portableの手順15-1では、承認済みの予測モデル変更案を組込Baseline 4方式の固定設定へ限定し、実Providerによる人工データsmoke、設定hash、Provider版、資源上限、rollback先を固定した候補版パッケージとして発行する。Pilot開始Gateと正式予測Runへ接続し、改変、不合格、Scope不一致、資源超過は実行前に停止する。操作と契約は[Portable候補版パッケージ](docs/Phase3T_Portable候補版パッケージ.md)を参照する。
+
 ## Run API / Worker
 
 APIと軽量な全Provider依存は`pip install -e ".[api,postgres,statsforecast,mlforecast,timesfm,auth]"`で追加する。developmentでは`KIBAN_POSTGRES_DSN`、`KIBAN_API_TOKEN`、`KIBAN_API_SUBJECT`、`KIBAN_SNAPSHOT_ROOT`、`KIBAN_REPORT_ROOT`を設定し、`uvicorn forecast_provider.api.factory:from_environment --factory`で起動する。productionでは外部IdPのJWTまたは更新可能なcredential file、Host allowlist、HTTPSを必須とする。snapshotと実験を登録後、保存済みexperiment IDからrunを作る。組込baseline Workerは`--builtin-baseline`、AutoETS Workerは`--statsforecast-ets`、MLForecast Ridge Workerは`--mlforecast-ridge`、TimesFM専用Workerは`--timesfm-2p5`を指定する。TimesFMのCPU PyTorchと検証済み重みは専用Workerだけに置く。共通実行は[実験SnapshotとBaseline統合](docs/Phase1F_実験SnapshotとBaseline統合.md)、各追加Providerは[StatsForecast AutoETS](docs/Phase1M_StatsForecast_AutoETS.md)、[MLForecast Ridge](docs/Phase1Z_MLForecast_Ridge.md)、[TimesFM 2.5](docs/Phase2A_TimesFM_2p5.md)、月次運用は[継続学習と安全なモデル切替](docs/Phase1S_継続学習とモデル切替.md)を参照する。
