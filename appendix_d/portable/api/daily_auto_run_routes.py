@@ -73,4 +73,24 @@ def register_daily_auto_run_routes(
         except (DailyAutoRunError, json.JSONDecodeError) as exc:
             raise HTTPException(422, str(exc)) from exc
 
+    @app.get("/api/daily-runs/{analysis_id}/decision-inputs/requirements")
+    def guided_daily_decision_requirements(analysis_id: str):
+        try:
+            return service.decision_requirements(analysis_id)
+        except DailyAutoRunError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.post(
+        "/api/daily-runs/{analysis_id}/decision-inputs/guided", status_code=201
+    )
+    async def submit_guided_daily_decision_inputs(analysis_id: str, request: Request):
+        try:
+            payload = json.loads(await read_limited(request, 2 * 1024 * 1024) or b"{}")
+            if not isinstance(payload, dict):
+                raise DailyAutoRunError("画面入力の工場・配送条件を確認してください")
+            with exclusive_operation():
+                return service.submit_guided_decision_inputs(analysis_id, payload)
+        except (DailyAutoRunError, json.JSONDecodeError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+
     return service

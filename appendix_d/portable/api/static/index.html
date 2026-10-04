@@ -41,15 +41,38 @@
     <label class="confirm-case"><input id="daily-summary-confirm" type="checkbox" required>今回の日次サマリー条件として記録します</label>
     <button id="daily-summary-submit" type="submit">日次サマリーと入力テンプレートを準備</button>
   </form>
-  <form id="daily-decision-input-form" hidden>
+  <div id="daily-decision-section" hidden>
     <h3>工場・配送条件を確認</h3>
-    <p><a id="daily-decision-template" href="#">この日次実行用の入力テンプレートZIPを保存</a>し、4つのCSVへ確認済みの値を入力してください。</p>
-    <label>確認者<input id="daily-decision-actor" maxlength="100" required></label>
-    <label>確認理由<input id="daily-decision-reason" maxlength="500" required></label>
-    <label>Decision入力ZIP<input id="daily-decision-file" type="file" accept=".zip,application/zip" required></label>
-    <label class="confirm-case"><input id="daily-decision-confirm" type="checkbox" required>工場在庫・生産予定・route・安全在庫・出荷単位を確認しました</label>
-    <button id="daily-decision-submit" type="submit">正式入力を検証して推奨出荷を試算</button>
-  </form>
+    <p id="daily-decision-requirements" role="status">必要な入力を確認しています。</p>
+    <form id="daily-guided-decision-form">
+      <label>確認者<input id="daily-guided-actor" maxlength="100" required></label>
+      <label>確認理由<input id="daily-guided-reason" maxlength="500" required></label>
+      <label>工場コード<input id="daily-guided-factory" maxlength="100" required></label>
+      <label>入力条件の版<input id="daily-guided-policy" maxlength="100" placeholder="例：field-policy-20261005" required></label>
+      <label>工場在庫の基準日時<input id="daily-guided-snapshot" type="datetime-local" required></label>
+      <fieldset><legend>工場から対象倉庫までの配送時間</legend>
+        <label>最短（時間）<input id="daily-guided-min-hours" type="number" min="12" max="36" required></label>
+        <label>標準（時間）<input id="daily-guided-standard-hours" type="number" min="12" max="36" required></label>
+        <label>最長（時間）<input id="daily-guided-max-hours" type="number" min="12" max="36" required></label>
+        <label>試算に使う値<select id="daily-guided-basis" required><option value="">選択してください</option><option value="MAXIMUM">最長（安全側）</option><option value="STANDARD">標準</option><option value="MINIMUM">最短</option></select></label>
+      </fieldset>
+      <label>安全在庫日数<input id="daily-guided-safety-days" type="number" min="0" max="365" required></label>
+      <label>出荷単位（箱）<input id="daily-guided-unit-cases" type="number" min="0.000001" step="any" required></label>
+      <div id="daily-guided-inventory"></div>
+      <label class="confirm-case"><input id="daily-guided-confirm" type="checkbox" required>入力した工場在庫・配送時間・安全在庫・出荷単位を確認しました</label>
+      <button id="daily-guided-submit" type="submit">入力を検証して推奨出荷を試算</button>
+    </form>
+    <details><summary>複数工場・生産予定・倉庫別条件をZIPで入力</summary>
+      <form id="daily-decision-input-form">
+        <p><a id="daily-decision-template" href="#">この日次実行用の入力テンプレートZIPを保存</a>し、4つのCSVへ確認済みの値を入力してください。</p>
+        <label>確認者<input id="daily-decision-actor" maxlength="100" required></label>
+        <label>確認理由<input id="daily-decision-reason" maxlength="500" required></label>
+        <label>Decision入力ZIP<input id="daily-decision-file" type="file" accept=".zip,application/zip" required></label>
+        <label class="confirm-case"><input id="daily-decision-confirm" type="checkbox" required>工場在庫・生産予定・route・安全在庫・出荷単位を確認しました</label>
+        <button id="daily-decision-submit" type="submit">正式入力を検証して推奨出荷を試算</button>
+      </form>
+    </details>
+  </div>
   <div id="daily-run-result"></div>
 </section>
 <section id="learning-reviews"><h2>12. 週次結果を確認し、改善候補を判断</h2><p>同じPilot ScopeのSystem・担当者判断・後日実績を7日単位で固定集計します。候補を承認しても設定は自動変更されず、次の調査対象として記録されます。</p><form id="learning-review-form"><label>週の終了日<input id="learning-week-end" type="date" required></label><fieldset><legend>Pilot Scope版</legend><div id="learning-scopes"><span>後日実績を保存すると選択できます。</span></div></fieldset><label>集計版<input id="learning-aggregation-version" value="weekly-review-v1" maxlength="100" required></label><label>判定基準版<input id="learning-threshold-version" value="field-threshold-v1" maxlength="100" required></label><label>候補化する最小根拠件数<input id="learning-minimum-evidence" type="number" min="1" max="30" value="2" required></label><label>確認者<input id="learning-reviewer" maxlength="100" required></label><label>集計基準日時<input id="learning-known-at" type="datetime-local" required></label><label class="confirm-case"><input id="learning-confirm" type="checkbox" required>SHADOWの週次確認であり、候補を設定へ自動反映しないことを確認しました</label><button type="submit">週次集計版を作成</button></form><p id="learning-review-state" role="status"></p><div id="learning-review-result"></div><details><summary>過去の週次集計版</summary><ul id="learning-review-history"></ul></details><div class="runtime-evaluation-panel"><h3>12-2. 実際に使った予測モデル版ごとに結果を比較</h3><p>固定済み週次版を、正式Runで実際に選択されたBaseline・候補版へ分けます。同じ業務日・JAN・倉庫で後日実績が一致するcaseだけを版間比較します。</p><form id="runtime-evaluation-form"><label>元の週次集計版<select id="runtime-evaluation-review" required><option value="">週次集計版を読み込み中です</option></select></label><label>Runtime評価版<input id="runtime-evaluation-version" value="runtime-weekly-v1" maxlength="100" required></label><label>確認者<input id="runtime-evaluation-reviewer" maxlength="100" required></label><label class="confirm-case"><input id="runtime-evaluation-confirm" type="checkbox" required>同じ取得済みActualだけを使うSHADOW評価であり、正式設定へ自動反映しないことを確認しました</label><button type="submit">使用モデル版ごとの結果を固定</button></form><p id="runtime-evaluation-state" role="status"></p><div id="runtime-evaluation-result"></div><details><summary>過去のRuntime週次評価</summary><ul id="runtime-evaluation-history"></ul></details></div></section>

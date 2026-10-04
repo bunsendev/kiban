@@ -2,10 +2,13 @@ const dailyPanel = document.getElementById('daily-auto-run');
 const dailyStatus = document.getElementById('daily-run-status');
 const dailyForm = document.getElementById('daily-run-form');
 const dailySummaryForm = document.getElementById('daily-auto-summary-form');
+const dailyDecisionSection = document.getElementById('daily-decision-section');
 const dailyDecisionForm = document.getElementById('daily-decision-input-form');
+const dailyGuidedForm = document.getElementById('daily-guided-decision-form');
 const dailyResult = document.getElementById('daily-run-result');
 let dailyAnalysisId = null;
 let dailyPoll = null;
+let dailyRequirementsSha = null;
 
 const dailyLabels = {
   REVIEW_REQUIRED: '確認待ち',
@@ -59,6 +62,53 @@ async function showDailyDecision(value) {
   window.PortableShipmentDecision?.render(recommendation);
 }
 
+function renderGuidedInventory(requirements) {
+  const root = document.getElementById('daily-guided-inventory');
+  root.replaceChildren();
+  const heading = document.createElement('h4');
+  heading.textContent = `商品ごとの工場在庫（${requirements.jans.length}商品）`;
+  root.appendChild(heading);
+  const table = document.createElement('table');
+  const head = document.createElement('thead');
+  head.innerHTML = '<tr><th>JAN</th><th>現在庫（箱）</th></tr>';
+  table.appendChild(head);
+  const body = document.createElement('tbody');
+  for (const jan of requirements.jans) {
+    const row = document.createElement('tr');
+    const janCell = document.createElement('td');
+    janCell.textContent = jan;
+    const quantityCell = document.createElement('td');
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.step = 'any';
+    input.required = true;
+    input.dataset.jan = jan;
+    input.setAttribute('aria-label', `${jan}の工場在庫（箱）`);
+    quantityCell.appendChild(input);
+    row.append(janCell, quantityCell);
+    body.appendChild(row);
+  }
+  table.appendChild(body);
+  root.appendChild(table);
+}
+
+async function loadDailyRequirements(value) {
+  if (!value.summary_key || dailyRequirementsSha === value.summary_key) return;
+  const response = await fetch(
+    `/api/daily-runs/${encodeURIComponent(value.analysis_id)}/decision-inputs/requirements`
+  );
+  const requirements = await response.json();
+  if (!response.ok) {
+    throw new Error(requirements.detail || '不足している工場・配送条件を確認できません。');
+  }
+  dailyRequirementsSha = value.summary_key;
+  document.getElementById('daily-decision-requirements').textContent =
+    `対象は${requirements.warehouses.length}倉庫・${requirements.jans.length}商品です。`
+    + '確認済みの値だけを入力してください。空欄を0箱として扱いません。';
+  renderGuidedInventory(requirements);
+}
+
 async function renderDailyRun(value) {
   dailyPanel.hidden = false;
   dailyAnalysisId = value.analysis_id;
@@ -74,7 +124,7 @@ async function renderDailyRun(value) {
     value.status,
   );
   dailySummaryForm.hidden = value.status !== 'SUMMARY_CONFIRMATION_REQUIRED';
-  dailyDecisionForm.hidden = ![
+  dailyDecisionSection.hidden = ![
     'DECISION_INPUT_REQUIRED', 'DECISION_INPUT_BLOCKED',
   ].includes(value.status);
   if (value.summary_key) {
@@ -82,6 +132,7 @@ async function renderDailyRun(value) {
       `/api/formal-forecast/${encodeURIComponent(value.build_id)}`
       + `/daily-summary/${encodeURIComponent(value.summary_key)}/decision-input-template`;
   }
+  if (!dailyDecisionSection.hidden) await loadDailyRequirements(value);
   if (value.recommendation_key) await showDailyDecision(value);
   if (value.status === 'SHIPMENT_REVIEW_REQUIRED' || value.status === 'COMPLETED') {
     const p = document.createElement('p');
@@ -201,6 +252,53 @@ dailyDecisionForm.addEventListener('submit', async event => {
     );
     const value = await response.json();
     if (!response.ok) throw new Error(value.detail || '正式Decision入力を確認できませんでした。');
+    await renderDailyRun(value);
+  } catch (error) {
+    dailyStatus.textContent = error.message;
+    dailyStatus.className = 'error';
+  } finally {
+    button.disabled = false;
+  }
+});
+
+dailyGuidedForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = document.getElementById('daily-guided-submit');
+  button.disabled = true;
+  dailyStatus.textContent = '画面入力を正式契約で検証し、到着時点在庫を計算しています。';
+  try {
+    const inventory = [...document.querySelectorAll('#daily-guided-inventory input[data-jan]')]
+      .map(input => ({jan: input.dataset.jan, inventory_cases: input.value}));
+    const snapshot = document.getElementById('daily-guided-snapshot').value;
+    if (!snapshot) throw new Error('工場在庫の基準日時を入力してください。');
+    const response = await fetch(
+      `/api/daily-runs/${encodeURIComponent(dailyAnalysisId)}/decision-inputs/guided`,
+      {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          actor: document.getElementById('daily-guided-actor').value,
+          reason: document.getElementById('daily-guided-reason').value,
+          factory_id: document.getElementById('daily-guided-factory').value,
+          policy_version: document.getElementById('daily-guided-policy').value,
+          snapshot_at: new Date(snapshot).toISOString(),
+          route: {
+            minimum_hours: Number(document.getElementById('daily-guided-min-hours').value),
+            standard_hours: Number(document.getElementById('daily-guided-standard-hours').value),
+            maximum_hours: Number(document.getElementById('daily-guided-max-hours').value),
+            recommendation_basis: document.getElementById('daily-guided-basis').value,
+          },
+          safety_stock: {
+            coverage_days: Number(document.getElementById('daily-guided-safety-days').value),
+            shipment_unit_cases: document.getElementById('daily-guided-unit-cases').value,
+          },
+          factory_inventory: inventory,
+          production_plans: [],
+          confirm_decision_inputs: document.getElementById('daily-guided-confirm').checked,
+        }),
+      },
+    );
+    const value = await response.json();
+    if (!response.ok) throw new Error(value.detail || '工場・配送条件を確認できませんでした。');
     await renderDailyRun(value);
   } catch (error) {
     dailyStatus.textContent = error.message;

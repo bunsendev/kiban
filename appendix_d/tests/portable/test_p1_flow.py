@@ -292,6 +292,24 @@ def test_business_archive_api_flow(tmp_path: Path):
     assert backtest.json()["centers"][0]["wape"] == 0.0
 
 
+def test_browser_scripts_have_no_shared_page_declaration_collisions():
+    static = Path(__file__).parents[2] / "portable" / "api" / "static"
+    html = (static / "index.html").read_text(encoding="utf-8")
+    names = [
+        part.split('"', 1)[0]
+        for part in html.split('<script src="/')[1:]
+    ]
+    combined = "\n".join((static / name).read_text(encoding="utf-8") for name in names)
+    try:
+        result = subprocess.run(
+            ["node", "--check", "-"], input=combined, text=True,
+            encoding="utf-8", capture_output=True, check=False,
+        )
+    except FileNotFoundError:
+        pytest.skip("Node.jsがない環境ではブラウザーscript結合検査を省略")
+    assert result.returncode == 0, result.stderr
+
+
 def test_drop_folder_ingests_zip_and_records_receipt(tmp_path: Path):
     client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
     raw = pilot_forecast_zip()
@@ -754,6 +772,13 @@ def test_daily_run_connects_input_to_reviewed_shipment_recommendations(tmp_path:
     warehouse = summary["warehouses"][0]["warehouse_id"]
     jans = sorted({item["jan"] for item in summary["rows"]})
     calculation_date = summary["calculation_at"][:10]
+    requirements = client.get(
+        f"/api/daily-runs/{report['analysis_id']}/decision-inputs/requirements"
+    )
+    assert requirements.status_code == 200, requirements.text
+    assert requirements.json()["warehouses"] == [warehouse]
+    assert requirements.json()["jans"] == jans
+    assert requirements.json()["required_factory_inventory_rows"] == 10
     files = {
         "factory_inventory.csv": (
             "factory_snapshot_id,snapshot_at,factory_id,jan,inventory_cases\n"
@@ -797,17 +822,31 @@ def test_daily_run_connects_input_to_reviewed_shipment_recommendations(tmp_path:
     assert blocked_value["blockers"]
     assert blocked_value["recommendation_key"] is None
 
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        for name, content in files.items():
-            archive.writestr(name, content.encode("utf-8-sig"))
-    decision_ready = client.post(
-        f"/api/daily-runs/{report['analysis_id']}/decision-inputs",
-        json={
-            "actor": "出荷責任者", "reason": "工場・配送条件を確認",
-            "confirm_decision_inputs": True,
-            "archive_base64": base64.b64encode(buffer.getvalue()).decode("ascii"),
+    guided_payload = {
+        "actor": "出荷責任者", "reason": "画面で工場・配送条件を確認",
+        "factory_id": "F01", "policy_version": "field-policy-v1",
+        "snapshot_at": summary["calculation_at"],
+        "route": {
+            "minimum_hours": 12, "standard_hours": 24, "maximum_hours": 36,
+            "recommendation_basis": "MAXIMUM",
         },
+        "safety_stock": {"coverage_days": 3, "shipment_unit_cases": "1"},
+        "factory_inventory": [
+            {"jan": jan, "inventory_cases": "1000"} for jan in jans
+        ],
+        "production_plans": [], "confirm_decision_inputs": True,
+    }
+    incomplete = dict(guided_payload)
+    incomplete["factory_inventory"] = guided_payload["factory_inventory"][:-1]
+    rejected = client.post(
+        f"/api/daily-runs/{report['analysis_id']}/decision-inputs/guided",
+        json=incomplete,
+    )
+    assert rejected.status_code == 422
+    assert "不足1件" in rejected.json()["detail"]
+    decision_ready = client.post(
+        f"/api/daily-runs/{report['analysis_id']}/decision-inputs/guided",
+        json=guided_payload,
     )
     assert decision_ready.status_code == 201, decision_ready.text
     value = decision_ready.json()

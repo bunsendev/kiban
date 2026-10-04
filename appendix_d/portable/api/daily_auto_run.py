@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -11,6 +12,7 @@ from pathlib import Path
 
 from .business_review import review_view
 from .decision_input_contracts import DecisionInputError
+from .decision_input_guided import package_payload, requirements
 from .formal_forecast_pipeline import PortableFormalForecastPipeline
 from .formal_pipeline import PortableFormalPipeline
 from .production_handoff import ProductionHandoffError
@@ -118,6 +120,35 @@ class PortableDailyAutoRun:
             return self._persist_if_changed(
                 self._derive(self._report(analysis_id), bindings)
             )
+
+    def decision_requirements(self, analysis_id: str) -> dict:
+        with self.lock:
+            current = self.view(analysis_id)
+            if current["status"] not in {
+                "DECISION_INPUT_REQUIRED", "DECISION_INPUT_BLOCKED"
+            } or not current.get("summary_key"):
+                raise DailyAutoRunError("工場・配送条件を入力できる状態ではありません")
+            summary = self.production.projection.get_summary(current["summary_key"])
+            return requirements(summary)
+
+    def submit_guided_decision_inputs(self, analysis_id: str, payload: dict) -> dict:
+        with self.lock:
+            current = self.view(analysis_id)
+            if current["status"] not in {
+                "DECISION_INPUT_REQUIRED", "DECISION_INPUT_BLOCKED"
+            } or not current.get("summary_key"):
+                raise DailyAutoRunError("工場・配送条件を入力できる状態ではありません")
+            summary = self.production.projection.get_summary(current["summary_key"])
+            try:
+                guided = package_payload(summary, payload)
+            except DecisionInputError as exc:
+                raise DailyAutoRunError(str(exc)) from exc
+            return self.submit_decision_inputs(analysis_id, {
+                "actor": guided["actor"],
+                "reason": guided["reason"],
+                "confirm_decision_inputs": True,
+                "archive_base64": base64.b64encode(guided["archive"]).decode("ascii"),
+            })
 
     def _advance(self, analysis_id: str, payload: dict) -> dict:
         current = self.view(analysis_id)
