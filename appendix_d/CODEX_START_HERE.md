@@ -191,6 +191,8 @@ Phase 3T-A-1で確認済みPilot Scope・Intake・予測identity CSVの登録CLI
 Phase 3T-Aで業務APPROVED済みのPilot部分在庫と確定POINT予測を同一as-ofで接続し、翌JST業務日から14日のgross在庫と不足をShadow参考値として算出する。予測run完了時刻、origin cutoff、identity、14日完全性を確認し、欠測を0へ変換しない。詳細は[実装結果](planning/PHASE3TA2_WAREHOUSE_PROJECTION_RESULT.md)と[運用手順](docs/Phase3TA2_Warehouse_Projection.md)。
 実データ受入は未実施であり、人工データだけで精度や業務効果を保証しない。
 
+Phase 3TのPortable実行時候補版選択で、受入済みまたはPilot運用中の適用計画を正式予測Runへ接続した。固定Pilot Scope、有効な承認、Gateで確認した候補manifest SHA-256、配置内容、対応済み実行設定が完全一致した場合だけ候補版を使う。Scope外はBaselineを維持し、競合・改変・未対応設定・異なる設定の混在は実行前に停止する。選択結果は追記型台帳と受渡し記録へ保存し、担当者画面の手順16で確認できる。詳細は[Portable実行時候補版選択](docs/Phase3T_Portable実行時候補版選択.md)。
+
 ## 変更報告
 
 変更ファイル、理由、契約への影響、pytest・ruff・実データ検証、未対応事項を記載する。

@@ -15,7 +15,9 @@ from forecast_provider.api.service import ApplicationService
 from forecast_provider.catalog import SqliteCatalogStore
 from forecast_provider.jobs import SqliteRunStore
 
+from .formal_pipeline import PortableFormalPipeline
 from .formal_shipment_daily import canonical_json, sha256
+from .runtime_assignments import PortableRuntimeAssignments, RuntimeAssignmentError
 
 RUN_NAMESPACE = uuid.UUID("9c197980-397e-4a47-a3cc-8abbdc9c4299")
 
@@ -39,6 +41,7 @@ class PortableProductionHandoff:
             SqliteCatalogStore(self.database),
             self.snapshot_root,
         )
+        self.runtime_assignments = PortableRuntimeAssignments(paths)
 
     def view(self, build_id: str) -> dict:
         manifest, _ = self._verified_source(build_id)
@@ -68,6 +71,23 @@ class PortableProductionHandoff:
         receipt_path = self._receipt_path(build_id)
         if receipt_path.is_file():
             return self._verified_receipt(receipt_path)
+
+        try:
+            runtime_resolutions = self.runtime_assignments.resolve_execution(
+                build_id, self._pilot_scope_versions(manifest), actor,
+            )
+        except RuntimeAssignmentError as exc:
+            raise ProductionHandoffError(str(exc)) from exc
+        blocked = [item for item in runtime_resolutions if item["status"] == "BLOCKED"]
+        if blocked:
+            reasons = "、".join(sorted({item["reason_code"] for item in blocked}))
+            raise ProductionHandoffError(f"実行時の候補版選択を確認できません: {reasons}")
+        runtime_hashes = {
+            item["selected_configuration_sha256"] for item in runtime_resolutions
+        }
+        if len(runtime_hashes) != 1:
+            raise ProductionHandoffError("実行時設定を単一の予測Runへ固定できません")
+        runtime_configuration = runtime_resolutions[0]["selected_configuration"]
 
         eligible = {
             item["unique_id"] for item in manifest["series"] if item["forecast_eligible"]
@@ -100,11 +120,12 @@ class PortableProductionHandoff:
         experiment = self.service.create_experiment(
             ExperimentCreate(
                 snapshot_id=snapshot.snapshot_id,
-                provider_id="builtin-baseline",
-                model_name="seasonal_naive_7",
-                preprocessing_version="portable-daily-state-v1",
-                seed=7,
-                resource_profile="cpu-small",
+                provider_id=runtime_configuration["provider_id"],
+                model_name=runtime_configuration["model_name"],
+                params=runtime_configuration["params"],
+                preprocessing_version=runtime_configuration["preprocessing_version"],
+                seed=runtime_configuration["seed"],
+                resource_profile=runtime_configuration["resource_profile"],
             )
         )
         run_id = str(uuid.uuid5(RUN_NAMESPACE, build_id))
@@ -119,8 +140,11 @@ class PortableProductionHandoff:
             "experiment_id": experiment.experiment_id,
             "run_id": run.run_id,
             "run_status": run.status,
-            "provider_id": "builtin-baseline",
-            "model_name": "seasonal_naive_7",
+            "provider_id": runtime_configuration["provider_id"],
+            "model_name": runtime_configuration["model_name"],
+            "runtime_version": runtime_configuration["version"],
+            "runtime_configuration_sha256": next(iter(runtime_hashes)),
+            "runtime_resolutions": runtime_resolutions,
             "actor": actor,
             "reason": reason,
             "eligible_series": sorted(eligible),
@@ -133,6 +157,17 @@ class PortableProductionHandoff:
         receipt["receipt_sha256"] = sha256(canonical_json(receipt))
         _atomic_bytes(receipt_path, canonical_json(receipt))
         return receipt
+
+    def _pilot_scope_versions(self, manifest: dict) -> list[str]:
+        pipeline = PortableFormalPipeline(self.paths)
+        registration = pipeline.get_registration(manifest["registration_id"])
+        result = []
+        for item in registration["jobs"]:
+            job = pipeline.inventory_store.get_job(item["job_id"])
+            if job is None or not job.pilot_scope_version:
+                raise ProductionHandoffError("Production RunのPilot Scopeを確認できません")
+            result.append(job.pilot_scope_version)
+        return result
 
     def run_id(self, build_id: str) -> str:
         receipt = self._receipt_path(build_id)

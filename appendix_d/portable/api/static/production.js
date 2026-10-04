@@ -47,6 +47,15 @@ function renderProduction(value) {
   const detail = document.createElement('p');
   detail.textContent = `対象 ${value.eligible_series.length}系列／確認が必要 ${value.blocked_series.length}系列／モデル ${value.provider_id}/${value.model_name}`;
   box.appendChild(detail);
+  if (value.runtime_resolutions?.length) {
+    const runtime = document.createElement('ul');
+    for (const resolution of value.runtime_resolutions) {
+      const item = document.createElement('li');
+      item.textContent = `${resolution.pilot_scope_version}：${resolution.selected_version}（${resolution.status}／設定SHA-256 ${resolution.selected_configuration_sha256}）`;
+      runtime.appendChild(item);
+    }
+    box.appendChild(runtime);
+  }
   if (value.blocked_series.length) {
     const text = document.createElement('p');
     text.textContent = `予測対象外：${value.blocked_series.join('、')}`;
@@ -150,6 +159,7 @@ productionForm.addEventListener('submit', async event => {
     const result = await response.json();
     if (!response.ok) throw new Error(result.detail || '正式予測を登録できませんでした。');
     renderProduction(result);
+    await window.PortableRuntimeAssignments?.refresh();
   } catch (error) {
     productionMessage(error.message, 'error');
   } finally {

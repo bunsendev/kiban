@@ -82,7 +82,7 @@ function renderGateForm(application) {
   appendCheck(checks, 'pilot_read', 'Pilot対象データの参照');
   form.insertBefore(checks, form.firstChild);
   const flags = document.createElement('fieldset');
-  flags.innerHTML = '<legend>開始前の必須確認</legend><label><input name="backup" type="checkbox" required>事前backupをSHA-256まで照合しました</label><label><input name="staged" type="checkbox" required>候補版をPilot領域へ分離配置しました</label>';
+  flags.innerHTML = '<legend>開始前の必須確認</legend><label><input name="backup" type="checkbox" required>事前backupをSHA-256まで照合しました</label><label><input name="staged" type="checkbox" required>候補版をPilot領域へ分離配置しました</label><label>配置した候補版manifestのSHA-256<input name="manifest_sha256" pattern="[0-9a-fA-F]{64}" maxlength="64" required></label>';
   form.insertBefore(flags, checks);
   form.addEventListener('submit', async event => {
     event.preventDefault();
@@ -93,6 +93,7 @@ function renderGateForm(application) {
         expected_revision: application.revision,
         backup_verified: form.elements.backup.checked,
         candidate_staged: form.elements.staged.checked,
+        candidate_manifest_sha256: form.elements.manifest_sha256.value,
         smoke_checks: collectChecks(form), actor: form.elements.actor.value,
         reason: form.elements.reason.value,
         confirm_audited_transition: form.elements.confirm.checked,

@@ -139,6 +139,9 @@ class PortableChangeApplications:
         checks = _checks(payload.get("smoke_checks"), "smoke test")
         backup_verified = payload.get("backup_verified") is True
         candidate_staged = payload.get("candidate_staged") is True
+        candidate_manifest_sha256 = _sha256(
+            payload.get("candidate_manifest_sha256"), "候補版manifest"
+        )
         passed = backup_verified and candidate_staged and all(
             item["passed"] for item in checks
         )
@@ -148,6 +151,7 @@ class PortableChangeApplications:
             "backup_verified": backup_verified,
             "candidate_staged": candidate_staged,
             "candidate_version": application.candidate_version,
+            "candidate_manifest_sha256": candidate_manifest_sha256,
             "smoke_checks": checks,
         }
         self._append_event(
@@ -416,3 +420,10 @@ def _datetime(value, label: str) -> datetime:
     if result.tzinfo is None or result.utcoffset() is None:
         raise ProductionHandoffError(f"{label}はtimezone付きISO日時です")
     return result.astimezone(UTC)
+
+
+def _sha256(value, label: str) -> str:
+    result = str(value or "").strip().lower()
+    if len(result) != 64 or any(item not in "0123456789abcdef" for item in result):
+        raise ProductionHandoffError(f"{label} SHA-256は64桁の16進数です")
+    return result

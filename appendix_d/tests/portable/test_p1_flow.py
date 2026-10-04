@@ -638,6 +638,11 @@ def test_formal_build_is_queued_once_in_existing_production_contracts(tmp_path: 
     receipt = queued.json()
     assert receipt["run_status"] in {"QUEUED", "RUNNING", "SUCCEEDED"}
     assert receipt["provider_id"] == "builtin-baseline"
+    assert receipt["runtime_version"] == "builtin-baseline-v1"
+    assert receipt["runtime_configuration_sha256"]
+    assert {item["status"] for item in receipt["runtime_resolutions"]} == {
+        "BASELINE_SELECTED"
+    }
     assert len(receipt["eligible_series"]) == 10
     assert receipt["blocked_series"] == []
     repeated = client.post(

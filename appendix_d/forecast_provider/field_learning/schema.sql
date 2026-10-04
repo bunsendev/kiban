@@ -236,3 +236,30 @@ CREATE TABLE IF NOT EXISTS field_change_application_events (
 );
 CREATE INDEX IF NOT EXISTS field_change_application_events_application_idx
   ON field_change_application_events(application_id,revision);
+
+CREATE TABLE IF NOT EXISTS field_runtime_assignment_resolutions (
+  resolution_id TEXT PRIMARY KEY,
+  execution_key TEXT NOT NULL,
+  pilot_scope_version TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN (
+    'BASELINE_SELECTED','CANDIDATE_SELECTED','BLOCKED'
+  )),
+  selected_version TEXT NOT NULL,
+  selected_configuration_json TEXT NOT NULL,
+  application_id TEXT REFERENCES field_change_applications(application_id),
+  application_revision INTEGER CHECK(application_revision >= 1),
+  proposal_id TEXT REFERENCES field_formal_change_proposals(proposal_id),
+  candidate_manifest_sha256 TEXT CHECK(
+    candidate_manifest_sha256 IS NULL OR length(candidate_manifest_sha256)=64
+  ),
+  reason_code TEXT NOT NULL,
+  actor TEXT NOT NULL,
+  known_at TIMESTAMPTZ NOT NULL,
+  recorded_at TIMESTAMPTZ NOT NULL,
+  content_sha256 TEXT NOT NULL UNIQUE CHECK(length(content_sha256)=64),
+  CHECK((application_id IS NULL) = (application_revision IS NULL))
+);
+CREATE INDEX IF NOT EXISTS field_runtime_assignment_execution_idx
+  ON field_runtime_assignment_resolutions(execution_key,recorded_at);
+CREATE INDEX IF NOT EXISTS field_runtime_assignment_scope_idx
+  ON field_runtime_assignment_resolutions(pilot_scope_version,recorded_at);

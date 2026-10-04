@@ -11,9 +11,10 @@ from .change_application_domain import (
 )
 from .contracts import ChangeApplicationState, ChangeApplicationTransition
 from .domain import FieldLearningConflict
+from .runtime_assignment_store import RuntimeAssignmentStoreMixin
 
 
-class ChangeApplicationStoreMixin:
+class ChangeApplicationStoreMixin(RuntimeAssignmentStoreMixin):
     def put_change_application(self, value: FieldChangeApplication):
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
