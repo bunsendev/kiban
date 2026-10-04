@@ -72,7 +72,7 @@ APIはcomposition root、route、service、domain、storeの依存方向を固�
 
 Windows Portableの手順15-1では、承認済みの予測モデル変更案を組込Baseline 4方式の固定設定へ限定し、実Providerによる人工データsmoke、設定hash、Provider版、資源上限、rollback先を固定した候補版パッケージとして発行する。Pilot開始Gateと正式予測Runへ接続し、改変、不合格、Scope不一致、資源超過は実行前に停止する。操作と契約は[Portable候補版パッケージ](docs/Phase3T_Portable候補版パッケージ.md)を参照する。
 
-Windows Portableでは、分析済みZIPを同じ日次実行として追跡し、担当者が正式在庫候補と4つの業務条件を確認した後、Pilot対象登録、数量照合済みSnapshot承認、出荷日次化、14日予測を一回の操作で続行できる。未確定JAN、隔離、履歴不足、在庫と出荷の基準日不一致では理由付きで停止し、同じ実行を再開する。操作は[日次自動実行](docs/Windows_Portable_日次自動実行.md)を参照する。
+Windows Portableでは、分析済みZIPを同じ日次実行として追跡し、担当者が正式在庫候補と業務条件を確認した後、正式取込、14日予測、Production予測、日次サマリー、到着時点在庫、SHADOW推奨出荷、担当者判断まで続行できる。未確定JAN、隔離、履歴不足、基準日不一致、工場在庫・route・安全在庫不足では理由付きで停止し、修正後に同じ実行を再開する。操作は[日次自動実行](docs/Windows_Portable_日次自動実行.md)を参照する。
 
 Windows Portableの手順12-2では、固定済み週次集計版を実際のRuntime版と設定hashごとに分け、予測精度、担当者修正、欠品、期限切れ、倉庫間移動を確認できる。Baselineと候補版は同じ取得済みActualだけで比較し、欠測、重複、不一致、Runtime未特定を明示する。操作と判断条件は[Runtime版別週次評価](docs/Phase3T_Runtime版別週次評価.md)を参照する。
 

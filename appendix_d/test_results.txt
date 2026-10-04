@@ -1,3 +1,12 @@
+# Windows Portable 日次Decision接続（2026-10-04 JST）
+
+- 日次実行を14日予測で終えず、既存Production Worker、倉庫別日次サマリー、到着時点在庫、SHADOW推奨出荷、担当者判断まで同じ入力SHA-256で追跡する。
+- 工場在庫、生産予定、12〜36時間route、安全在庫、CASE出荷単位は既存の正式ZIP契約で検証し、不足・対象外・不整合は0補完せず理由付きで停止する。
+- 不正routeで`DECISION_INPUT_BLOCKED`となり推奨が生成されないこと、修正ZIPから10商品の推奨を作成し全件判断後に`COMPLETED`となること、再起動復元と冪等性を確認した。
+- Portable統合試験36 passed。`ruff check .`と変更JavaScript構文検査に成功した。
+- Windows全体回帰の再実行は911 passed / 20 skipped / 1 deselected。既知の固定日付試験とLinux専用RSS試験は対象外とした。
+- SHADOW試算は正式出荷指示を自動発行せず、担当者判断をpolicyへ自動反映しない。
+
 # Windows Portable 日次自動実行（2026-10-04 JST）
 
 - ZIP分析時に日次実行を開始し、未確定JAN・賞味期限等があれば確認待ち、拠点・基準時刻・CASE未確認なら正式在庫確認待ちとして安全停止する。

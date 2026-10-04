@@ -286,4 +286,8 @@ packageForm.addEventListener('submit', async event => {
 
 loadCsvFile('decision-inventory-file', 'decision-inventory-csv');
 loadCsvFile('decision-production-file', 'decision-production-csv');
-window.PortableShipmentDecision = {reset: resetDecision, show: showDecision};
+window.PortableShipmentDecision = {
+  reset: resetDecision,
+  show: showDecision,
+  render: renderDecision,
+};

@@ -91,7 +91,7 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     register_inventory_handoff_routes(app, paths, load_analysis, _read_limited)
     register_formal_pipeline_routes(app, paths, _read_limited)
     register_formal_forecast_routes(app, paths, _read_limited)
-    register_production_handoff_routes(app, paths, _read_limited)
+    production_workflow = register_production_handoff_routes(app, paths, _read_limited)
     register_learning_review_routes(app, paths, _read_limited)
     register_learning_experiment_routes(app, paths, _read_limited)
     register_formal_change_routes(app, paths, _read_limited)
@@ -101,7 +101,9 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     register_runtime_weekly_evaluation_routes(app, paths, _read_limited)
     register_pilot_evaluation_gate_routes(app, paths, _read_limited)
     register_pilot_closeout_routes(app, paths, _read_limited)
-    daily_auto_runs = register_daily_auto_run_routes(app, paths, _read_limited)
+    daily_auto_runs = register_daily_auto_run_routes(
+        app, paths, _read_limited, production_workflow
+    )
     archive_intake = BusinessArchiveIntake(paths, daily_auto_runs)
 
     @contextmanager
