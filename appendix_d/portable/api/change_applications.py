@@ -110,6 +110,9 @@ class PortableChangeApplications:
         )
         return {
             **self._application_summary(application, events),
+            "source_proposal_decision_revision": (
+                application.source_proposal_decision_revision
+            ),
             "source_approval_is_current": source_is_current,
             "proposal": {
                 "proposal_id": proposal.proposal_id,
