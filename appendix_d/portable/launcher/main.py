@@ -165,7 +165,7 @@ def launch() -> int:
                 LOG.info("api_ready pid=%s port=%s", child.pid, port)
                 app = tk.Tk()
                 app.title("ブンセン予測 Portable P1")
-                app.geometry("430x190")
+                app.geometry("430x230")
                 tk.Label(app, text="ブンセン予測を起動しました", font=("Yu Gothic UI", 13)).pack(
                     pady=15
                 )
@@ -175,6 +175,18 @@ def launch() -> int:
                     webbrowser.open(f"http://127.0.0.1:{port}/")
 
                 tk.Button(app, text="画面を開く", command=open_browser).pack(pady=7)
+
+                def open_incoming():
+                    try:
+                        os.startfile(paths.incoming)  # type: ignore[attr-defined]
+                    except OSError:
+                        LOG.exception("incoming_folder_open_failed")
+                        messagebox.showerror(
+                            "ブンセン予測",
+                            "投入フォルダを開けません。Data/Incomingを確認してください。",
+                        )
+
+                tk.Button(app, text="投入フォルダを開く", command=open_incoming).pack()
                 tk.Button(app, text="終了", command=app.destroy).pack()
 
                 def monitor():
