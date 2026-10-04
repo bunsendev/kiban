@@ -10,6 +10,8 @@ Windows x64のビルドPCではPython 3.12とPyInstallerをビルド時だけ使
 
 担当者画面の手順15では、別担当者が実装承認した正式変更案を固定されたPilot Scopeで試す計画を作れます。事前backup参照・SHA-256、候補版、担当者を保存し、開始smoke test、受入基準、rollback条件を順に全件評価します。不合格では開始を止め、受入未達ではrollback完了を必須にします。これは限定範囲の利用許可と監査記録であり、候補版の配置、設定ファイルの書換え、現場全体への自動展開は行いません。詳しい手順は `docs/Phase3T_Change_Application_Gate.md` を参照してください。
 
+手順15-1では、承認済み予測モデル変更案から候補版パッケージを発行できます。組込Baseline 4方式だけを固定許可し、人工データでProviderを起動して14件の予測を検査します。Provider版、設定hash、50系列・履歴400日・予測28日の上限、外部通信禁止、rollback先、smoke結果hashをv2 manifestへ固定します。手順15-2の開始Gateは発行済みSHA-256を自動設定し、候補版Runは既存Baseline Workerで処理します。詳しい手順は `docs/Phase3T_Portable候補版パッケージ.md` を参照してください。
+
 手順16では、正式予測Runの登録時にPilot Scopeと有効な適用計画を照合し、実際に選ばれたBaselineまたは候補版、設定hash、判定理由を表示します。候補版は `Data/State/RuntimeCandidates` のmanifestとGateで記録したSHA-256が一致するときだけ選択されます。Scope外はBaselineのままです。複数割当、承認失効、manifest不一致、未対応設定、1つのRunへの異なる設定混在は安全に停止します。詳細は `docs/Phase3T_Portable実行時候補版選択.md` を参照してください。
 
 最新の倉庫在庫は、画面で正式拠点コード、在庫基準時刻、`明細バラ数 = CASE`を確認した後、既存のPhase 3S正式在庫契約で再検証できます。全行がJAN、賞味期限、非負数量を満たす拠点だけ、原本ZIP・判断履歴・確認内容・変換後CSVのSHA-256を結んだパッケージを `Data/FormalInventory` に生成します。未解決行がある場合は次へ進めません。

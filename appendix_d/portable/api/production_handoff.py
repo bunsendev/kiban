@@ -18,6 +18,7 @@ from forecast_provider.jobs import SqliteRunStore
 from .formal_pipeline import PortableFormalPipeline
 from .formal_shipment_daily import canonical_json, sha256
 from .runtime_assignments import PortableRuntimeAssignments, RuntimeAssignmentError
+from .runtime_profiles import enforce_resource_limits
 
 RUN_NAMESPACE = uuid.UUID("9c197980-397e-4a47-a3cc-8abbdc9c4299")
 
@@ -92,6 +93,18 @@ class PortableProductionHandoff:
         eligible = {
             item["unique_id"] for item in manifest["series"] if item["forecast_eligible"]
         }
+        if any(item["status"] == "CANDIDATE_SELECTED" for item in runtime_resolutions):
+            try:
+                train_start = date.fromisoformat(manifest["train_start"])
+                train_end_for_limit = date.fromisoformat(manifest["train_end"])
+                enforce_resource_limits(
+                    runtime_configuration,
+                    series=len(eligible),
+                    history_days=(train_end_for_limit - train_start).days + 1,
+                    horizon_days=int(manifest["horizon_days"]),
+                )
+            except ValueError as exc:
+                raise ProductionHandoffError(str(exc)) from exc
         snapshot_bytes = _production_csv(daily, eligible)
         snapshot_sha = sha256(snapshot_bytes)
         snapshot_path = self.snapshot_root / f"{snapshot_sha}.csv"
