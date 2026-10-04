@@ -54,6 +54,9 @@ def _checks(passed=True):
     ]
 
 
+MANIFEST_SHA256 = "b" * 64
+
+
 def _transition_payload(revision, **extra):
     return {
         "expected_revision": revision,
@@ -70,6 +73,7 @@ def _active_application(database):
     application = service.create_application(_application_payload(proposal["proposal_id"]))
     application = service.evaluate_gate(application["application_id"], _transition_payload(
         0, backup_verified=True, candidate_staged=True, smoke_checks=_checks(),
+        candidate_manifest_sha256=MANIFEST_SHA256,
     ))
     return service, application
 
@@ -132,12 +136,14 @@ def test_failed_gate_is_blocked_and_can_be_retried(tmp_path) -> None:
     application = service.create_application(_application_payload(proposal["proposal_id"]))
     application = service.evaluate_gate(application["application_id"], _transition_payload(
         0, backup_verified=True, candidate_staged=True, smoke_checks=_checks(False),
+        candidate_manifest_sha256=MANIFEST_SHA256,
     ))
     assert application["state"] == "BLOCKED"
     assert application["next_action"] == "FIX_AND_RETRY_PILOT_GATE"
 
     application = service.evaluate_gate(application["application_id"], _transition_payload(
         1, backup_verified=True, candidate_staged=True, smoke_checks=_checks(True),
+        candidate_manifest_sha256=MANIFEST_SHA256,
     ))
     assert application["state"] == "PILOT_ACTIVE"
     assert application["revision"] == 2
@@ -196,6 +202,7 @@ def test_newer_rejection_blocks_application_transition(tmp_path) -> None:
     with pytest.raises(ProductionHandoffError, match="承認済み"):
         service.evaluate_gate(application["application_id"], _transition_payload(
             0, backup_verified=True, candidate_staged=True, smoke_checks=_checks(),
+            candidate_manifest_sha256=MANIFEST_SHA256,
         ))
 
 

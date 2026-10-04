@@ -18,6 +18,7 @@ from .contracts import (
     LearningExperimentTarget,
     OperatorDecision,
     OperatorReasonCode,
+    RuntimeAssignmentStatus,
 )
 from .domain import (
     FieldActualOutcomeEvent,
@@ -41,6 +42,10 @@ from .formal_change_domain import (
     FieldFormalChangeProposal,
     build_formal_change_decision_event,
     build_formal_change_proposal,
+)
+from .runtime_assignment_domain import (
+    FieldRuntimeAssignmentResolution,
+    build_runtime_assignment_resolution,
 )
 from .service import FieldLearningService
 from .store import PostgresFieldLearningStore, SqliteFieldLearningStore
@@ -71,6 +76,7 @@ __all__ = [
     "FieldMode",
     "FieldOperatorDecisionEvent",
     "FieldReferenceCase",
+    "FieldRuntimeAssignmentResolution",
     "FieldWeeklyReview",
     "FormalChangeDecision",
     "FormalChangeTarget",
@@ -81,6 +87,7 @@ __all__ = [
     "OperatorDecision",
     "OperatorReasonCode",
     "PostgresFieldLearningStore",
+    "RuntimeAssignmentStatus",
     "SqliteFieldLearningStore",
     "build_actual_outcome_event",
     "build_change_application",
@@ -94,5 +101,6 @@ __all__ = [
     "build_learning_candidate_decision_event",
     "build_operator_decision_event",
     "build_reference_case",
+    "build_runtime_assignment_resolution",
     "build_weekly_review",
 ]

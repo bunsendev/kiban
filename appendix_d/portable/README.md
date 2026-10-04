@@ -10,6 +10,8 @@ Windows x64のビルドPCではPython 3.12とPyInstallerをビルド時だけ使
 
 担当者画面の手順15では、別担当者が実装承認した正式変更案を固定されたPilot Scopeで試す計画を作れます。事前backup参照・SHA-256、候補版、担当者を保存し、開始smoke test、受入基準、rollback条件を順に全件評価します。不合格では開始を止め、受入未達ではrollback完了を必須にします。これは限定範囲の利用許可と監査記録であり、候補版の配置、設定ファイルの書換え、現場全体への自動展開は行いません。詳しい手順は `docs/Phase3T_Change_Application_Gate.md` を参照してください。
 
+手順16では、正式予測Runの登録時にPilot Scopeと有効な適用計画を照合し、実際に選ばれたBaselineまたは候補版、設定hash、判定理由を表示します。候補版は `Data/State/RuntimeCandidates` のmanifestとGateで記録したSHA-256が一致するときだけ選択されます。Scope外はBaselineのままです。複数割当、承認失効、manifest不一致、未対応設定、1つのRunへの異なる設定混在は安全に停止します。詳細は `docs/Phase3T_Portable実行時候補版選択.md` を参照してください。
+
 最新の倉庫在庫は、画面で正式拠点コード、在庫基準時刻、`明細バラ数 = CASE`を確認した後、既存のPhase 3S正式在庫契約で再検証できます。全行がJAN、賞味期限、非負数量を満たす拠点だけ、原本ZIP・判断履歴・確認内容・変換後CSVのSHA-256を結んだパッケージを `Data/FormalInventory` に生成します。未解決行がある場合は次へ進めません。
 
 準備済みパッケージでは、倉庫ごとに10〜20商品のJANを試験対象として明示確認し、確認者と理由を記録して［Unified Inboxへ登録］を押します。既存のUnified Inbox、正式在庫Worker、数量照合を実行し、隔離0件かつ数量一致の最新ジョブだけを画面から明示承認できます。承認済みSnapshotは正式在庫として保存されます。

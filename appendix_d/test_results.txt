@@ -1886,3 +1886,10 @@ OS: Windows 11
 - backup照合、候補版の分離配置、smoke testが全件合格した場合だけ`PILOT_ACTIVE`とする。受入基準未達またはrollback条件発生時は`ROLLBACK_REQUIRED`とし、固定rollback先版への復元と検査が完了するまで受入済みにしない。
 - 計画とGate・受入・rollback eventをcontent hash、revision付きで追記保存する。元承認の失効、revision競合、固定条件の差替え、保存後改変を拒否する。正式変更案は`application_status=NOT_APPLIED`を維持し、設定を自動変更しない。
 - 対象試験11 passed。配布更新前の全回帰は885 passed / 19 skipped / 1 deselectedで、未更新の配布SHA照合1件だけ失敗した。`ruff check .`、JavaScript構文検査、`git diff --check`に成功した。配布一覧は978ファイルへ更新した。配布更新後は既知の固定日付fixtureと、全体実行時だけ履歴同時刻順序が不安定になる既存Field Pilot試験を除き885 passed / 19 skipped / 2 deselected。後者は単体再実行で1 passedを確認し、`make_release.py --check`は978/978一致を確認した。
+
+# Windows Portable 実行時候補版選択（2026-10-04 JST）
+
+- 手順16を追加し、正式予測Run登録時にPilot Scope、有効な適用計画、候補manifest SHA-256、実行設定を照合する。Scope外はBaselineを維持し、完全一致したScopeだけ候補版を選ぶ。
+- 複数割当、承認失効、履歴改変、manifest不在・重複・hash/契約不一致、未対応adapter、異なる設定のRun内混在は開始前に停止する。選択結果は追記型台帳とProduction受渡し記録へ保存する。
+- 対象回帰43 passed。配布更新前の全体回帰は896 passed / 19 skipped / 2 deselectedで、新規機能外のWindows非対応Linux RSS試験1件と更新前の配布SHA照合1件だけ失敗した。配布更新後、既知3件を除外した最終回帰は898 passed / 19 skipped / 3 deselected。既存の同時刻順序試験は単独で1 passedを確認した。
+- `ruff check .`、変更JavaScriptの構文検査、`git diff --check`に成功した。実データ、API key、署名秘密鍵はRepositoryと配布物へ含めていない。
