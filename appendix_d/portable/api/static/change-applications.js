@@ -6,7 +6,7 @@ const changeApplicationHistory = document.getElementById('change-application-his
 
 const applicationStateLabels = {
   PREPARED: '準備済み', PILOT_ACTIVE: 'Pilot運用中', BLOCKED: '開始停止',
-  ROLLBACK_REQUIRED: 'Rollback必須', ACCEPTED: '受入完了', ROLLED_BACK: 'Rollback完了',
+  ROLLBACK_REQUIRED: 'Rollback必須', PAUSED: 'Pilot一時停止', ACCEPTED: '受入完了', ROLLED_BACK: 'Rollback完了',
 };
 
 function applicationMessage(value, kind = '') {

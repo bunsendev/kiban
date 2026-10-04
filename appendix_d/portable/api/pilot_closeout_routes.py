@@ -35,6 +35,14 @@ def register_pilot_closeout_routes(app, paths, read_limited) -> None:
             lambda payload: service.rollback(assessment_id, payload),
         )
 
+    @app.post("/api/pilot-closeouts/{assessment_id}/pause", status_code=201)
+    async def pause_pilot(assessment_id: str, request: Request):
+        return await _call(
+            request,
+            read_limited,
+            lambda payload: service.pause(assessment_id, payload),
+        )
+
 
 async def _call(request, read_limited, callback):
     try:

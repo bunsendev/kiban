@@ -1,8 +1,13 @@
 """Pilot closeout binds the latest evaluation decision to the final transition."""
 
+import sqlite3
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
+from forecast_provider.field_learning import SqliteFieldLearningStore
 from portable.api.app import create_app
+from portable.api.runtime_assignments import PortableRuntimeAssignments
 from tests.test_phase3t_pilot_evaluation_gate import (
     _assessment,
     _decision,
@@ -156,6 +161,97 @@ def test_non_forward_or_stale_decision_cannot_close_pilot(tmp_path) -> None:
     )
     assert stale.status_code == 409
     assert "更新" in stale.json()["detail"]
+
+
+def test_pause_decision_stops_future_candidate_runs_but_preserves_history(tmp_path) -> None:
+    paths, application, runtime = _fixture(tmp_path)
+    client = TestClient(create_app(paths.root), base_url="http://127.0.0.1")
+    assignments = PortableRuntimeAssignments(paths)
+    before = assignments.resolve_execution(
+        "before-pause", ["scope-v1"], "runtime-operator"
+    )[0]
+    assert before["status"] == "CANDIDATE_SELECTED"
+
+    gate = _gate(client, application, runtime, "PAUSE_PILOT")
+    closeout = client.get(f"/api/pilot-closeouts/{gate['assessment_id']}").json()
+    assert closeout["action"] == "CONFIRM_PAUSE"
+    payload = {
+        **_transition(closeout["application"]),
+        "confirm_future_runs_use_baseline": True,
+        "confirm_existing_runs_unchanged": True,
+    }
+    response = client.post(
+        f"/api/pilot-closeouts/{gate['assessment_id']}/pause", json=payload
+    )
+    assert response.status_code == 201
+    paused = response.json()
+    assert paused["state"] == "PAUSED"
+    event = paused["events"][-1]
+    assert event["transition"] == "PILOT_PAUSED"
+    assert event["evidence"]["future_runtime"] == "BASELINE"
+    assert event["evidence"]["existing_runs_unchanged"] is True
+    reference = event["evidence"]["pilot_evaluation_reference"]
+    assert reference["assessment_id"] == gate["assessment_id"]
+    assert reference["assessment_content_sha256"] == gate["content_sha256"]
+    assert reference["decision_id"] == gate["decisions"][-1]["decision_id"]
+    assert reference["runtime_evaluation_sha256"] == gate["runtime_evaluation_sha256"]
+
+    after = assignments.resolve_execution(
+        "after-pause", ["scope-v1"], "runtime-operator"
+    )[0]
+    assert after["status"] == "BASELINE_SELECTED"
+    assert after["reason_code"] == "PILOT_PAUSED"
+    assert after["application_id"] is None
+    history = assignments.overview()["resolutions"]
+    assert any(item["resolution_id"] == before["resolution_id"] for item in history)
+    assert any(item["resolution_id"] == after["resolution_id"] for item in history)
+
+
+def test_pause_requires_both_operator_confirmations(tmp_path) -> None:
+    paths, application, runtime = _fixture(tmp_path)
+    client = TestClient(create_app(paths.root), base_url="http://127.0.0.1")
+    gate = _gate(client, application, runtime, "PAUSE_PILOT")
+    closeout = client.get(f"/api/pilot-closeouts/{gate['assessment_id']}").json()
+    payload = {
+        **_transition(closeout["application"]),
+        "confirm_future_runs_use_baseline": True,
+        "confirm_existing_runs_unchanged": False,
+    }
+    response = client.post(
+        f"/api/pilot-closeouts/{gate['assessment_id']}/pause", json=payload
+    )
+    assert response.status_code == 422
+    assert client.get(
+        f"/api/change-applications/{application['application_id']}"
+    ).json()["state"] == "PILOT_ACTIVE"
+
+
+def test_existing_sqlite_event_table_is_migrated_without_losing_rows(tmp_path) -> None:
+    database = tmp_path / "legacy.sqlite3"
+    schema = Path("forecast_provider/field_learning/schema.sql").read_text("utf-8")
+    schema = schema.replace(",'PILOT_PAUSED'", "").replace(",'PAUSED'", "")
+    with sqlite3.connect(database) as db:
+        db.executescript(schema)
+        db.execute("PRAGMA foreign_keys=OFF")
+        db.execute(
+            "INSERT INTO field_change_application_events VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                "event-legacy", "application-legacy", 1,
+                "PILOT_GATE_EVALUATED", "BLOCKED", "operator", "legacy",
+                "{}", "2026-10-04T00:00:00+00:00", "2026-10-04T00:00:00+00:00",
+                "a" * 64,
+            ),
+        )
+    SqliteFieldLearningStore(database)
+    with sqlite3.connect(database) as db:
+        table_sql = db.execute(
+            "SELECT sql FROM sqlite_master WHERE name='field_change_application_events'"
+        ).fetchone()[0]
+        assert "PILOT_PAUSED" in table_sql
+        assert "PAUSED" in table_sql
+        assert db.execute(
+            "SELECT event_id FROM field_change_application_events"
+        ).fetchone()[0] == "event-legacy"
 
 
 def test_closeout_assets_are_available(tmp_path) -> None:

@@ -221,10 +221,10 @@ CREATE TABLE IF NOT EXISTS field_change_application_events (
   application_id TEXT NOT NULL REFERENCES field_change_applications(application_id),
   revision INTEGER NOT NULL CHECK(revision >= 1),
   transition TEXT NOT NULL CHECK(transition IN (
-    'PILOT_GATE_EVALUATED','ACCEPTANCE_EVALUATED','ROLLBACK_EVALUATED'
+    'PILOT_GATE_EVALUATED','ACCEPTANCE_EVALUATED','ROLLBACK_EVALUATED','PILOT_PAUSED'
   )),
   resulting_state TEXT NOT NULL CHECK(resulting_state IN (
-    'PILOT_ACTIVE','BLOCKED','ROLLBACK_REQUIRED','ACCEPTED','ROLLED_BACK'
+    'PILOT_ACTIVE','BLOCKED','ROLLBACK_REQUIRED','PAUSED','ACCEPTED','ROLLED_BACK'
   )),
   actor TEXT NOT NULL,
   reason TEXT NOT NULL CHECK(length(reason) <= 500),
