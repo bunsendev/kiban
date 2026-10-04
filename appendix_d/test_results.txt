@@ -1872,3 +1872,10 @@ OS: Windows 11
 - 共通比較件数、MAE、RMSE、WAPE、Bias、改善・同等・悪化case、不足・過剰数量の代理差、観測済み欠品・期限切れ・倉庫間移動を表示する。欠測を0にせず、反実仮想の業務Outcomeを推測しない。
 - 調査計画、比較run、採用候補・見送り判断をcontent hashとrevision付きで追記保存する。共通比較0件では正式変更案の推奨を拒否し、正式モデル・特徴量・policyへ自動反映しない。
 - 対象回帰37 passed、追加機能単体4 passed。既知の固定日付fixtureを除く全回帰は875 passed / 19 skipped / 1 deselected。`ruff check .`、JavaScript構文検査、`git diff --check`に成功した。配布一覧は962ファイルへ更新した。
+
+# Windows Portable 正式変更案・別承認（2026-10-04 JST）
+
+- 手順14を追加し、`RECOMMEND_FORMAL_CHANGE`の比較runから変更差分、適用範囲、受入基準、rollback条件、rollback先版を固定した正式変更案を作成できるようにした。
+- 作成者とは別の担当者によるrevision付き承認・却下を追加した。元run判断の更新、自己承認、不正な変更対象、同一設定、欠落した受入・rollback条件を拒否する。
+- 承認後も`application_status=NOT_APPLIED`を維持し、モデル・特徴量・policy・現場設定を自動変更しない。
+- 対象回帰42 passed。配布更新前の全回帰は878 passed / 19 skipped / 1 deselectedで、未更新の配布SHA照合1件だけ失敗した。最終全回帰は880 passed / 19 skipped / 1 deselected。`ruff check .`、JavaScript構文検査、`git diff --check`に成功した。

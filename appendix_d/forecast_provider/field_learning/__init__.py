@@ -2,6 +2,8 @@
 
 from .contracts import (
     FieldMode,
+    FormalChangeDecision,
+    FormalChangeTarget,
     LearningCandidateDecision,
     LearningCandidateType,
     LearningExperimentDecision,
@@ -26,6 +28,12 @@ from .experiment_domain import (
     build_experiment_plan,
     build_experiment_run,
 )
+from .formal_change_domain import (
+    FieldFormalChangeDecisionEvent,
+    FieldFormalChangeProposal,
+    build_formal_change_decision_event,
+    build_formal_change_proposal,
+)
 from .service import FieldLearningService
 from .store import PostgresFieldLearningStore, SqliteFieldLearningStore
 from .weekly_domain import (
@@ -39,6 +47,8 @@ from .weekly_domain import (
 
 __all__ = [
     "FieldActualOutcomeEvent",
+    "FieldFormalChangeDecisionEvent",
+    "FieldFormalChangeProposal",
     "FieldLearningCandidate",
     "FieldLearningCandidateDecisionEvent",
     "FieldLearningConflict",
@@ -50,6 +60,8 @@ __all__ = [
     "FieldOperatorDecisionEvent",
     "FieldReferenceCase",
     "FieldWeeklyReview",
+    "FormalChangeDecision",
+    "FormalChangeTarget",
     "LearningCandidateDecision",
     "LearningCandidateType",
     "LearningExperimentDecision",
@@ -62,6 +74,8 @@ __all__ = [
     "build_experiment_decision_event",
     "build_experiment_plan",
     "build_experiment_run",
+    "build_formal_change_decision_event",
+    "build_formal_change_proposal",
     "build_learning_candidate",
     "build_learning_candidate_decision_event",
     "build_operator_decision_event",

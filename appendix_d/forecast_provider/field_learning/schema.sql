@@ -161,3 +161,40 @@ CREATE TABLE IF NOT EXISTS field_learning_experiment_decision_events (
 );
 CREATE INDEX IF NOT EXISTS field_experiment_decisions_run_idx
   ON field_learning_experiment_decision_events(run_id,revision);
+
+CREATE TABLE IF NOT EXISTS field_formal_change_proposals (
+  proposal_id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL REFERENCES field_learning_experiment_runs(run_id),
+  source_decision_revision INTEGER NOT NULL CHECK(source_decision_revision >= 1),
+  change_target TEXT NOT NULL CHECK(change_target IN (
+    'FORECAST_MODEL','FORECAST_FEATURE','SHIPMENT_POLICY','ROUTE_POLICY','DATA_CONTRACT'
+  )),
+  current_configuration_json TEXT NOT NULL,
+  proposed_configuration_json TEXT NOT NULL,
+  application_scope_json TEXT NOT NULL,
+  acceptance_criteria_json TEXT NOT NULL,
+  rollback_conditions_json TEXT NOT NULL,
+  rollback_target_version TEXT NOT NULL,
+  author TEXT NOT NULL,
+  known_at TIMESTAMPTZ NOT NULL,
+  recorded_at TIMESTAMPTZ NOT NULL,
+  content_sha256 TEXT NOT NULL UNIQUE CHECK(length(content_sha256)=64),
+  application_status TEXT NOT NULL CHECK(application_status='NOT_APPLIED')
+);
+CREATE INDEX IF NOT EXISTS field_formal_change_proposals_run_idx
+  ON field_formal_change_proposals(run_id,recorded_at);
+
+CREATE TABLE IF NOT EXISTS field_formal_change_decision_events (
+  decision_event_id TEXT PRIMARY KEY,
+  proposal_id TEXT NOT NULL REFERENCES field_formal_change_proposals(proposal_id),
+  revision INTEGER NOT NULL CHECK(revision >= 1),
+  decision TEXT NOT NULL CHECK(decision IN ('APPROVED_FOR_IMPLEMENTATION','REJECTED')),
+  approver TEXT NOT NULL,
+  reason TEXT NOT NULL CHECK(length(reason) <= 500),
+  known_at TIMESTAMPTZ NOT NULL,
+  recorded_at TIMESTAMPTZ NOT NULL,
+  content_sha256 TEXT NOT NULL UNIQUE CHECK(length(content_sha256)=64),
+  UNIQUE(proposal_id,revision)
+);
+CREATE INDEX IF NOT EXISTS field_formal_change_decisions_proposal_idx
+  ON field_formal_change_decision_events(proposal_id,revision);
