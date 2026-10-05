@@ -2078,3 +2078,10 @@ OS: Windows 11
 - UTF-8 JSON -> Standard Base64 validated. Connection-test declarations false; nonempty policy_version.
 - Live BUNSEN-PILOT-03: HTTP 201 RECEIVED, identical request replay HTTP 200 ALREADY_RECEIVED. Response request_id and encrypted SHA256 match.
 - Synthetic empty payload only; no business data or Token logged. Existing pilot.18 package not modified.
+
+2026-10-06 pilot.19 distribution
+- Includes Privacy Manifest Standard Base64 fix (live contract: HTTP 201 RECEIVED / HTTP 200 ALREADY_RECEIVED verified previously).
+- ZIP CRC and 2510 hashes PASS, manuals match updated source, no Data/credentials.
+- Frozen synthetic forecast/review/export/feedback/restart PASS.
+- SHA256 39593711fcc80d6a0ddb425a753d029392ef6db4fadba3d2da432fc96c9db177; 56443493 bytes.
+- Removed 38 obsolete local Portable ZIP/checksum files and four old signature folders after validation. Preserved extracted apps and Data. Remote releases unchanged.
