@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
@@ -49,7 +50,9 @@ from .learning_experiment_routes import register_learning_experiment_routes
 from .learning_review_routes import register_learning_review_routes
 from .pilot_closeout_routes import register_pilot_closeout_routes
 from .pilot_evaluation_gate_routes import register_pilot_evaluation_gate_routes
+from .production_handoff import ProductionHandoffError
 from .production_handoff_routes import register_production_handoff_routes
+from .result_feedback_routes import register_result_feedback_routes
 from .runtime_assignment_routes import register_runtime_assignment_routes
 from .runtime_weekly_evaluation_routes import register_runtime_weekly_evaluation_routes
 from .store import RunStore
@@ -156,13 +159,17 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
         if profile:
             label = html.escape(f"{MODES[profile['mode']]} | {profile['terminal_name']} | "
                                 f"{APP_VERSION} | 端末ID: {profile['installation_id']}")
-            page = page.replace("<body>", '<body><aside style="padding:12px;background:#fff3cd">'
+            page = page.replace("<body>", '<body><aside>'
                                 + label + " — このPC専用・他PCと共有しません</aside>", 1)
         return page
 
     @app.get("/app.js")
     def script():
         return FileResponse(STATIC / "app.js", media_type="text/javascript")
+
+    @app.get("/operator-results.js")
+    def operator_script():
+        return FileResponse(STATIC / "operator-results.js", media_type="text/javascript")
 
     @app.get("/review.js")
     def review_script():
@@ -452,6 +459,21 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
         finally:
             with app.state.lock:
                 app.state.active -= 1
+
+    def resolve_operator_results(kind, reference):
+        if kind == "run":
+            return run(reference).get("predictions", [])
+        if kind == "production":
+            try:
+                value = production_workflow.current(reference).get("handoff") or {}
+            except ProductionHandoffError as exc:
+                raise HTTPException(404, str(exc)) from exc
+            if value.get("run_status") != "SUCCEEDED":
+                raise HTTPException(409, "予測の完了後に結果を確認してください")
+            return jsonable_encoder(value.get("point_predictions", []))
+        raise HTTPException(404, "結果の種類を確認してください")
+
+    register_result_feedback_routes(app, paths, resolve_operator_results, _read_limited)
 
     @app.post("/api/control/drain")
     def drain(request: Request):

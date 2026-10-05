@@ -68,6 +68,7 @@ function renderProduction(value) {
     box.appendChild(text);
   }
   if (value.point_predictions?.length) {
+    window.PortableOperatorResults?.show("production", productionBuild);
     const grouped = new Map();
     for (const item of value.point_predictions) {
       if (!grouped.has(item.unique_id)) grouped.set(item.unique_id, []);
@@ -94,7 +95,7 @@ function renderProduction(value) {
   summaryPanel.hidden = value.run_status !== 'SUCCEEDED';
   productionMessage(
     value.run_status === 'SUCCEEDED'
-      ? '正式予測が完了しました。倉庫別の日次サマリーを作成できます。'
+      ? '予測が完了しました。下の結果一覧で確認・修正・フィードバックを保存してください。'
       : statusName(value.run_status),
     value.run_status === 'FAILED' ? 'error' : value.run_status === 'SUCCEEDED' ? 'success' : '',
   );

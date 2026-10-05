@@ -942,12 +942,29 @@ def test_formal_build_is_queued_once_in_existing_production_contracts(tmp_path: 
     assert view["handoff"]["run_status"] == "SUCCEEDED"
     assert len(view["handoff"]["point_predictions"]) == 140
 
+    operator_url = f"/api/operator-results/production/{build_id}"
+    operator_view = client.get(operator_url).json()
+    assert len(operator_view["rows"]) == 140
+    point = operator_view["rows"][0]
+    feedback = client.post(operator_url + "/feedback", json={
+        "unique_id": point["unique_id"], "target_date": point["target_date"],
+        "quantity": 0, "actor": "現場担当者", "reason": "休業", "rating": "HIGH",
+    })
+    assert feedback.status_code == 201, feedback.text
+    exported = client.post(operator_url + "/download", json={
+        "selected": [point["unique_id"]],
+    })
+    assert exported.status_code == 200
+    assert len(list(csv.reader(io.StringIO(exported.content.decode("utf-8-sig"))))) == 15
+
     restarted = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
     restored = restarted.get(
         f"/api/formal-forecast/{build_id}/production-run"
     ).json()["handoff"]
     assert restored["run_status"] == "SUCCEEDED"
     assert restored["run_id"] == receipt["run_id"]
+    assert restarted.get(operator_url).json()["rows"][0]["feedback"]["quantity"] == 0
+    assert restored["point_predictions"][0]["yhat"] == point["yhat"]
 
     projection = restarted.get(
         f"/api/formal-forecast/{build_id}/production-projection"

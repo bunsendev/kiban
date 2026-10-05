@@ -110,6 +110,12 @@ async function loadDailyRequirements(value) {
 }
 
 async function renderDailyRun(value) {
+  if (value.build_id && ['SUMMARY_CONFIRMATION_REQUIRED', 'DECISION_INPUT_REQUIRED',
+    'DECISION_INPUT_BLOCKED', 'DECISION_BLOCKED', 'SHIPMENT_REVIEW_REQUIRED', 'COMPLETED'].includes(value.status)) {
+    dailyPanel.hidden = true;
+    await window.PortableOperatorResults?.show('production', value.build_id);
+    return;
+  }
   dailyPanel.hidden = false;
   dailyAnalysisId = value.analysis_id;
   dailyResult.replaceChildren();
