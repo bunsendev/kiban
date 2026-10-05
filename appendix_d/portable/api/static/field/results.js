@@ -10,7 +10,7 @@ const choices = { ACCEPT: "確認済み", CHANGE: "数量修正", HOLD: "保留"
 export async function results(ctx) {
   ctx.enter(3);
   ctx.dirty = false;
-  el("h1", "3. 分析結果", ctx.root);
+  el("h1", "分析結果", ctx.root);
   el(
     "p",
     "保存した結果版を表示しています。基準日時と予測期間を確認してください。新しい入力の結果に自動で置き換わりません。",
@@ -175,7 +175,10 @@ export async function results(ctx) {
       ["ok", "問題なし", "OK"],
       ["total", "合計", ""],
     ]) {
-      const c = el("div", `${text} ${v.counts[key]}件`, cards);
+      const c = el("div", "", cards);
+      el("span", text, c);
+      const value = el("strong", String(v.counts[key]), c);
+      el("small", "件", value);
       c.className = "card " + cls;
     }
     completion.textContent = `予測できた ${v.counts.forecastable}件／できない ${v.counts.total - v.counts.forecastable}件。判断保存 ${v.counts.saved}件・保留 ${v.counts.held}件・未確認 ${v.counts.pending}件。`;

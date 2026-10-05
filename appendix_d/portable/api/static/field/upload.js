@@ -3,14 +3,18 @@ import { waitJob } from "./progress.js";
 
 export async function upload(ctx) {
   ctx.enter(1);
-  el("h1", "1. データをアップロード", ctx.root);
+  el("h1", "データをアップロード", ctx.root);
+  el("p", "今日のデータを取り込んでください。", ctx.root).className = "intro";
   const drop = el("div", "", ctx.root);
   drop.className = "drop";
-  el("p", "在庫CSVと出荷CSVをまとめたZIPを選んでください", drop);
+  el("span", "", drop).className = "file-icon";
+  el("p", "ここにファイルをドラッグ＆ドロップ", drop).className = "drop-title";
+  el("p", "または", drop);
   const label = el("label", "ファイルを選ぶ（ZIP）", drop),
     input = el("input", "", label);
   input.type = "file";
   input.accept = ".zip";
+  el("small", "対応ファイル：在庫CSVと出荷CSVをまとめたZIP", drop);
   const selected = el("p", "ファイルは未選択です", drop);
   let file = null;
   const choose = (f) => {
@@ -46,7 +50,7 @@ export async function upload(ctx) {
         start.disabled = true;
         ctx.event("ANALYSIS_REQUESTED");
         ctx.enter(2);
-        el("h1", "2. ファイルを送信しています", ctx.root);
+        el("h1", "ファイルを送信しています", ctx.root);
         el("progress", "", ctx.root);
         try {
           const r = await fetch("/api/field/upload", {

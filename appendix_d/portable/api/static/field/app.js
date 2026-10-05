@@ -29,7 +29,10 @@ const ctx = {
     if (ctx.timer) clearTimeout(ctx.timer);
     ctx.timer = null;
     ctx.step = step;
+    root.dataset.step = String(step);
+    root.className = "";
     root.replaceChildren();
+    window.scrollTo(0, 0);
     ctx.message("");
     [...document.querySelectorAll("#steps li")].forEach((n, i) => {
       n.removeAttribute("aria-current");
