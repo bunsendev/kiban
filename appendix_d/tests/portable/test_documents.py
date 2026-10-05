@@ -165,20 +165,29 @@ def test_cloud_payload_and_truncation():
 
 
 def test_inventory_zero_and_exclusion_reason(tmp_path, monkeypatch):
-    inventory = row(kind='inventory', quantity='0', expiry='2026-11-01',
-                    snapshot='2026-10-01', product_code='ARTIFICIAL')
+    inventory = row(
+        kind="inventory",
+        quantity="0",
+        expiry="2026-11-01",
+        snapshot="2026-10-01",
+        product_code="ARTIFICIAL",
+    )
     client, service, identifier = setup(tmp_path, monkeypatch, [inventory])
     service.read(identifier, True)
     with pytest.raises(DocumentError):
-        service.approve(identifier, {'actor': 'test', 'confirmed': True,
-                                    'rows': [{**inventory, 'exclude': True}]})
-    service.approve(identifier, {'actor': 'test', 'confirmed': True,
-                                'rows': [{**inventory, 'case_factor': '1'}]})
+        service.approve(
+            identifier,
+            {"actor": "test", "confirmed": True, "rows": [{**inventory, "exclude": True}]},
+        )
+    service.approve(
+        identifier,
+        {"actor": "test", "confirmed": True, "rows": [{**inventory, "case_factor": "1"}]},
+    )
     service.dispatch(identifier)
-    text = next(service.paths.incoming.glob('*.csv')).read_text(encoding='utf-8-sig')
-    assert '明細バラ数' in text and 'ARTIFICIAL' in text and ',0,' in text
-    original = client.get(f'/api/documents/{identifier}/original')
-    assert original.headers['content-security-policy'].startswith('sandbox')
+    text = next(service.paths.incoming.glob("*.csv")).read_text(encoding="utf-8-sig")
+    assert "明細バラ数" in text and "ARTIFICIAL" in text and ",0," in text
+    original = client.get(f"/api/documents/{identifier}/original")
+    assert original.headers["content-security-policy"].startswith("sandbox")
 
 
 def test_image_payload_and_auth_error():
@@ -186,12 +195,72 @@ def test_image_payload_and_auth_error():
 
     def auth_error(request, timeout):
         payload = json.loads(request.data)
-        source = payload['input'][0]['content'][1]
-        assert source['type'] == 'input_image'
-        assert source['image_url'].startswith('data:image/png;base64,')
-        raise HTTPError('https://api.openai.com/v1/responses', 401, 'secret-test', {}, None)
+        source = payload["input"][0]["content"][1]
+        assert source["type"] == "input_image"
+        assert source["image_url"].startswith("data:image/png;base64,")
+        raise HTTPError("https://api.openai.com/v1/responses", 401, "secret-test", {}, None)
 
-    with pytest.raises(DocumentError, match='APIキーの認証') as failure:
-        document_ai.extract(b'\x89PNG\r\n\x1a\nsynthetic', 'not-a-real-key', opener=auth_error)
-    assert 'not-a-real-key' not in str(failure.value)
-    assert 'secret-test' not in str(failure.value)
+    with pytest.raises(DocumentError, match="APIキーの認証") as failure:
+        document_ai.extract(b"\x89PNG\r\n\x1a\nsynthetic", "not-a-real-key", opener=auth_error)
+    assert "not-a-real-key" not in str(failure.value)
+    assert "secret-test" not in str(failure.value)
+
+
+def test_concurrent_read_only_calls_cloud_once(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    _, service, identifier = setup(tmp_path, monkeypatch)
+    entered, release = Event(), Event()
+    calls = []
+
+    def slow_extract(*args):
+        calls.append(True)
+        entered.set()
+        assert release.wait(5)
+        return {"rows": [row()], "complete": True}
+
+    monkeypatch.setattr("portable.api.document_intake.extract", slow_extract)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(service.read, identifier, True)
+        assert entered.wait(5)
+        second = pool.submit(service.read, identifier, True)
+        release.set()
+        assert first.result()["extraction"] == second.result()["extraction"]
+    assert len(calls) == 1
+
+
+def test_modified_outgoing_csv_is_not_silently_accepted(tmp_path, monkeypatch):
+    _, service, identifier = setup(tmp_path, monkeypatch)
+    service.read(identifier, True)
+    value = service.approve(
+        identifier, {"confirmed": True, "actor": "test", "rows": [{**row(), "case_factor": "1"}]}
+    )
+    target = service.paths.incoming / value["approval"]["files"][0]["name"]
+    target.write_bytes(b"modified by another process")
+    with pytest.raises(DocumentError, match="変更されています"):
+        service.dispatch(identifier)
+    assert "dispatched" not in service.get(identifier)["approval"]
+    assert target.read_bytes() == b"modified by another process"
+
+
+def test_reviewed_document_reaches_existing_archive_analysis(tmp_path, monkeypatch):
+    from datetime import date, timedelta
+
+    rows = [row(date=str(date(2026, 9, 1) + timedelta(days=i)), case_factor='1')
+            for i in range(35)]
+    rows.append(row(kind='inventory', snapshot='2026-10-05', expiry='2026-11-01',
+                    quantity='100', case_factor='1'))
+    client, service, identifier = setup(tmp_path, monkeypatch, rows)
+    service.read(identifier, True)
+    service.approve(identifier, {'confirmed': True, 'actor': 'synthetic', 'rows': rows})
+    service.dispatch(identifier)
+    response = client.post('/api/drop-folder/scan', json={})
+    assert response.status_code == 200
+    receipts = response.json()['recent']
+    assert len(receipts) == 1
+    assert receipts[0]['status'] == 'PROCESSED', receipts
+    assert receipts[0]['analysis_id']
+    assert not list(service.paths.incoming.glob('*.csv'))
+    assert len(list((service.paths.incoming / 'Processed').glob('*.csv'))) == 36
+    assert service.get(identifier)['approval']['rows'][-1]['quantity'] == '100'

@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sqlite3
+import threading
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
@@ -19,6 +20,7 @@ from .document_ai import MAX_BYTES, DocumentError, extract, media_type
 class Documents:
     def __init__(self, paths):
         self.paths = paths
+        self._read_lock = threading.Lock()
         self.path = paths.state / "documents.sqlite3"
         with self.db() as db:
             db.execute(
@@ -67,6 +69,10 @@ class Documents:
     def read(self, identifier, consent):
         if consent is not True:
             raise DocumentError("原本全体をOpenAIへ送ることへの同意が必要です")
+        with self._read_lock:
+            return self._read_once(identifier)
+
+    def _read_once(self, identifier):
         current = self.get(identifier)
         if current["extraction"]:
             return current  # No automatic paid retry or overwrite of extraction.
@@ -204,10 +210,16 @@ class Documents:
             if not approval.get("dispatched"):
                 for item in approval["files"]:
                     target = self.paths.incoming / item["name"]
-                    if not target.exists():
-                        staging = target.with_suffix('.part')
+                    expected = item["csv"].encode("utf-8-sig")
+                    if target.exists():
+                        if target.is_symlink() or target.read_bytes() != expected:
+                            raise DocumentError(
+                                "受渡し先CSVが変更されています。IT担当者に確認してください"
+                            )
+                    else:
+                        staging = target.with_suffix(".part")
                         with staging.open("wb") as stream:
-                            stream.write(item["csv"].encode("utf-8-sig"))
+                            stream.write(expected)
                         os.replace(staging, target)
                 approval["dispatched"] = datetime.now(UTC).isoformat()
                 db.execute(

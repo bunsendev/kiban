@@ -1,3 +1,6 @@
+2026-10-05 Portable pilot.13 追加確認
+Portable+AI回帰97件成功（51.37秒）、ruff成功。重複AI呼出と変更済みCSVの受渡しを修正。模擬抽出36CSVの既存解析接続成功。実手書き精度は未検証。詳細 planning/PORTABLE_PILOT13_VERIFICATION.md。
+
 2026-10-05 Portable pilot.12 手書き画像・PDF adapter
 新規14件を含む93件成功、起動中アプリと競合する固定ポート試験1件は旧アプリ停止後に個別成功。ruff/JS構文成功。実AIの手書き精度は未検証（前回API401）。詳細 planning/PORTABLE_HANDWRITING_INTAKE.md。
 
