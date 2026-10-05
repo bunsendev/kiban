@@ -1,3 +1,6 @@
+2026-10-05 pilot.9 manual1 かんたん操作マニュアル追加
+梱包テスト2件成功。対象ruff成功。アプリ本体を変更せず、既存pilot.9へ説明書を追加。
+
 2026-10-05 Portable pilot.9 配布前検証
 Portable回帰59件成功 + 長パス/カタログ5件成功。ruff成功。
 凍結EXE: 起動/予測/修正/CSV/feedback/再起動復元/localhost限定PASS。

@@ -43,12 +43,15 @@ def sha256(path: Path) -> str:
 
 
 def write_operator_files(output: Path) -> None:
+    guide = Path(__file__).resolve().parents[1] / "docs" / "かんたん操作マニュアル.txt"
+    shutil.copy2(guide, output / "はじめに_かんたん操作マニュアル.txt")
     (output / "ブンセン予測を起動.cmd").write_text(
         '@echo off\r\nstart "" "%~dp0App\\BunsenPortable.exe"\r\n',
         encoding="ascii",
     )
     (output / "START_HERE.txt").write_text(
         "ブンセン予測 Windows Portable\n\n"
+        "操作方法は「はじめに_かんたん操作マニュアル.txt」を開いてください。\n\n"
         "【はじめて使うとき】\n"
         "1. ZIPを右クリックし、［すべて展開］を選びます。\n"
         "2. USBやZIPの中から直接起動せず、展開したフォルダーをPC内に置きます。\n"
@@ -66,7 +69,10 @@ def write_operator_files(output: Path) -> None:
 
 
 def write_manifest(output: Path) -> Path:
-    files = sorted(path for path in output.rglob("*") if path.is_file())
+    files = sorted(
+        path for path in output.rglob("*")
+        if path.is_file() and path != output / "PACKAGE-MANIFEST.json"
+    )
     manifest = {
         "format": "bunsen-portable-package-v1",
         "app_version": APP_VERSION,
