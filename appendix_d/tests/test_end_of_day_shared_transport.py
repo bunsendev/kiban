@@ -1,5 +1,6 @@
 """共有PHP契約と終業時再送を人工Packageで検証する。"""
 
+import base64
 import hashlib
 import json
 import sqlite3
@@ -48,7 +49,9 @@ def test_shared_transport_headers_and_strict_ack(monkeypatch):
     assert headers["X-bunsen-client"] == "BUNSEN-PILOT-01"
     assert headers["X-bunsen-request-id"] == item["package_id"]
     assert headers["X-bunsen-sha256"] == item["sha256"]
-    assert headers["X-bunsen-privacy"] == item["policy_version"]
+    decoded = json.loads(base64.b64decode(headers["X-bunsen-privacy"], validate=True))
+    assert decoded["policy_version"] == item["policy_version"]
+    assert decoded["contains_raw_files"] is True  # Legacy content is unknown.
     assert seen["request"].data == item["envelope"]
 
 
@@ -134,7 +137,9 @@ def test_connection_test_contains_no_business_values(monkeypatch):
         def send(self, item, _token):
             envelope = json.loads(item["envelope"])
             assert envelope["package_id"] == item["package_id"]
-            assert item["policy_version"] == "CONNECTION_TEST"
+            assert item["policy_version"] == "connection-test-v1"
+            assert all(v is False for k, v in item["privacy_manifest"].items()
+                       if k != "policy_version")
             assert b"4901234567890" not in item["envelope"]
             return {"status": "ACCEPTED", "package_id": item["package_id"]}
 
@@ -248,3 +253,33 @@ def test_existing_outbox_migrates_without_losing_encrypted_body(tmp_path):
     assert len(pending) == 1 and pending[0]["envelope"] == body
     assert pending[0]["next_attempt_at"] is None
     assert pending[0]["destination_url"] is None
+
+
+def test_connection_privacy_standard_base64(monkeypatch):
+    def fake_post(request, timeout):
+        headers = dict(request.header_items())
+        encoded = headers["X-bunsen-privacy"]
+        decoded = base64.b64decode(encoded, validate=True)
+        assert base64.b64encode(decoded).decode("ascii") == encoded
+        assert json.loads(decoded.decode("utf-8")) == {
+            "policy_version": "connection-test-v1", "contains_raw_files": False,
+            "contains_jan": False, "contains_product_names": False,
+            "contains_customer_names": False,
+        }
+        return {"ok": True, "status": "ALREADY_RECEIVED",
+                "request_id": headers["X-bunsen-request-id"],
+                "sha256": hashlib.sha256(request.data).hexdigest()}
+    monkeypatch.setattr(module, "_post", fake_post)
+    item = _item()
+    item["policy_version"] = "connection-test-v1"
+    item["privacy_manifest"] = {
+        "policy_version": "connection-test-v1", "contains_raw_files": False,
+        "contains_jan": False, "contains_product_names": False,
+        "contains_customer_names": False,
+    }
+    assert SharedServerTransport("https://server.example/upload.php", "client-a").send(
+        item, "t" * 40,
+    )["status"] == "DUPLICATE"
+    item["privacy_manifest"]["contains_jan"] = "false"
+    with pytest.raises(ValueError, match="FEEDBACK_PRIVACY_HEADER_INVALID"):
+        module.privacy_header(item)

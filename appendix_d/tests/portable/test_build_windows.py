@@ -25,6 +25,8 @@ def test_operator_package_has_launcher_manifest_and_verified_zip(tmp_path: Path)
     (output / "Data").mkdir()
 
     write_operator_files(output)
+    guide = (output / "はじめに_かんたん操作マニュアル.txt").read_text("utf-8-sig")
+    assert "Incoming" in guide and "この中には入れません" in guide
     manifest_path = write_manifest(output)
     archive = write_archive(output)
 
@@ -32,6 +34,10 @@ def test_operator_package_has_launcher_manifest_and_verified_zip(tmp_path: Path)
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["app_version"] == APP_VERSION
     assert manifest["entrypoint"] == "ブンセン予測を起動.cmd"
+    write_manifest(output)
+    assert "PACKAGE-MANIFEST.json" not in json.loads(
+        manifest_path.read_text("utf-8")
+    )["files"]
     assert manifest["files"]["App/BunsenPortable.exe"] == hashlib.sha256(b"test-exe").hexdigest()
     assert archive.with_suffix(".zip.sha256.txt").is_file()
     with zipfile.ZipFile(archive) as bundle:

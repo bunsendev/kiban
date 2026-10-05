@@ -1,20 +1,30 @@
 import { api, el, button } from "./api.js";
 import { waitJob } from "./progress.js";
+import { folderReview } from "./folder-review.js";
+import { documents } from "./documents.js";
+import { operations } from "./operations.js";
 
 export async function upload(ctx) {
   ctx.enter(1);
-  el("h1", "1. データをアップロード", ctx.root);
+  el("h1", "データをアップロード", ctx.root);
+  el("p", "今日のデータを取り込んでください。", ctx.root).className = "intro";
   const drop = el("div", "", ctx.root);
   drop.className = "drop";
-  el("p", "在庫CSVと出荷CSVをまとめたZIPを選んでください", drop);
+  el("span", "", drop).className = "file-icon";
+  el("p", "ここにファイルをドラッグ＆ドロップ", drop).className = "drop-title";
+  el("p", "または", drop);
   const label = el("label", "ファイルを選ぶ（ZIP）", drop),
     input = el("input", "", label);
   input.type = "file";
   input.accept = ".zip";
+  el("small", "対応ファイル：在庫CSVと出荷CSVをまとめたZIP", drop);
   const selected = el("p", "ファイルは未選択です", drop);
+  selected.hidden = true;
   let file = null;
   const choose = (f) => {
     file = f;
+    selected.hidden = !f;
+    start.hidden = !f;
     selected.textContent = f
       ? `${f.name}（${(f.size / 1024 / 1024).toFixed(1)} MB）`
       : "未選択";
@@ -46,7 +56,7 @@ export async function upload(ctx) {
         start.disabled = true;
         ctx.event("ANALYSIS_REQUESTED");
         ctx.enter(2);
-        el("h1", "2. ファイルを送信しています", ctx.root);
+        el("h1", "ファイルを送信しています", ctx.root);
         el("progress", "", ctx.root);
         try {
           const r = await fetch("/api/field/upload", {
@@ -72,6 +82,7 @@ export async function upload(ctx) {
     drop,
   );
   start.disabled = true;
+  start.hidden = true;
   const resume = localStorage.getItem("field-analysis");
   if (resume)
     button(
@@ -91,6 +102,7 @@ export async function upload(ctx) {
   const folder = el("details", "", ctx.root);
   el("summary", "投入フォルダから読み込む", folder);
   const info = el("div", "", folder);
+  const reviewArea = el("div", "", folder);
   async function refresh(scan = false) {
     info.replaceChildren();
     const v = await api(
@@ -103,7 +115,14 @@ export async function upload(ctx) {
       `投入待ち ${v.pending.length}ファイル。コピー完了後に自動分析します。`,
       info,
     );
+    if (v.csv_message) el("p", v.csv_message, info);
+    reviewArea.replaceChildren();
+    await folderReview(ctx, reviewArea, () => ctx.run(() => refresh(true)));
     for (const r of v.recent || []) {
+      if (r.status !== "PROCESSED") {
+        el("p", `${r.filename}：${r.detail}`, info);
+        continue;
+      }
       if (r.analysis_id)
         button(
           r.filename || r.source_name || "受付済みの分析を開く",
@@ -120,7 +139,12 @@ export async function upload(ctx) {
     true,
   );
   await refresh();
-  const history = el("details", "", ctx.root);
+  await documents(ctx, ctx.root);
+  await operations(ctx, ctx.root);
+  const historyGroup = el("details", "", ctx.root);
+  historyGroup.className = "work-history";
+  el("summary", "過去の作業を再開", historyGroup);
+  const history = el("details", "", historyGroup);
   el("summary", "過去の分析を開く", history);
   for (const r of await api("/api/business-archives")) {
     const job = jobs.find((j) => j.analysis_id === r.analysis_id);
@@ -135,7 +159,7 @@ export async function upload(ctx) {
       true,
     );
   }
-  const versions = el("details", "", ctx.root);
+  const versions = el("details", "", historyGroup);
   el("summary", "保存した結果・判断を開く", versions);
   for (const v of await api("/api/field/versions")) {
     button(

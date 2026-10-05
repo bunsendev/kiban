@@ -14,8 +14,14 @@ def snapshot_path(uri: str, allowed_root: Path | None = None) -> Path:
     if os.name == "nt" and len(raw_path) >= 3 and raw_path[0] == "/" and raw_path[2] == ":":
         raw_path = raw_path[1:]
     path = Path(raw_path).resolve()
-    if allowed_root is not None and not path.is_relative_to(allowed_root.resolve()):
-        raise ValueError("snapshotは許可されたroot内に配置してください")
+    if allowed_root is not None:
+        root = allowed_root.resolve()
+        if os.name == "nt":
+            root = Path(str(root).removeprefix("\\\\?\\"))
+        if not path.is_relative_to(root):
+            raise ValueError("snapshotは許可されたroot内に配置してください")
+    if os.name == "nt" and len(str(path)) >= 240 and not str(path).startswith("\\\\?\\"):
+        path = Path("\\\\?\\" + str(path))
     return path
 
 

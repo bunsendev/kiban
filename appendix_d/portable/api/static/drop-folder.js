@@ -8,7 +8,8 @@ function renderDropFolder(value,notify=false){
   dropFolder.textContent=value.folder;
   dropState.textContent=value.pending.length
     ? `${value.pending.length}件をコピー完了まで待っています。`
-    : '投入待ちです。ZIPを置くと自動で分析します。';
+    : '投入待ちです。CSVまたはZIPを置くと自動で分析します。';
+  if(value.csv_message) dropState.textContent += ` ${value.csv_message}`;
   dropRecent.replaceChildren();
   for(const item of value.recent.slice(0,5)){
     const li=document.createElement('li');li.textContent=`${item.filename}：${item.status==='PROCESSED'?'分析受付済み':'受付不可'}（${item.detail}）`;dropRecent.appendChild(li);

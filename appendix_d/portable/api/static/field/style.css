@@ -1,7 +1,7 @@
 :root {
   font-family: "Yu Gothic UI", "Meiryo", sans-serif;
-  color: #102d43;
-  background: #f0f6fa;
+  color: #0b2341;
+  background: #f4f7fa;
   font-size: 18px;
   line-height: 1.7;
 }
@@ -26,7 +26,7 @@ header button {
   margin-left: auto;
 }
 main {
-  max-width: 1280px;
+  max-width: 1180px;
   margin: 24px auto;
   padding: 0 24px;
 }
@@ -50,7 +50,7 @@ nav [aria-current] {
 }
 section {
   background: white;
-  border: 2px solid #829aac;
+  border: 1px solid #bccbd8;
   border-radius: 12px;
   padding: 28px;
 }
@@ -87,7 +87,7 @@ input,
 select,
 textarea {
   font: inherit;
-  color: #102d43;
+  color: #0b2341;
   border: 2px solid #647e91;
   border-radius: 5px;
   padding: 10px;
@@ -115,7 +115,7 @@ label {
   margin: 10px 0;
 }
 fieldset {
-  border: 2px solid #829aac;
+  border: 1px solid #bccbd8;
   margin: 18px 0;
   padding: 18px;
 }

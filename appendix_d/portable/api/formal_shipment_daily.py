@@ -16,7 +16,8 @@ import pandas as pd
 
 from forecast_provider.daily import series_id
 
-from .business_archive import _center_and_file_date, _safe_members
+from .business_archive import _safe_members
+from .source_detection import read_source
 
 MIN_OBSERVED_DAYS = 28
 RECENT_COMPLETE_DAYS = 7
@@ -231,9 +232,11 @@ def _shipment_file_dates(raw: bytes, centers: set[str]) -> dict[str, set[date]]:
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
         for member in _safe_members(archive):
             name = PurePosixPath(member.filename).name
-            if member.is_dir() or not name.lower().endswith(".csv") or "出荷" not in name:
+            if member.is_dir() or not name.lower().endswith(".csv"):
                 continue
-            center, file_date = _center_and_file_date(member.filename)
+            kind, center, file_date, _ = read_source(archive, member)
+            if kind != "shipment":
+                continue
             if center in centers and file_date is not None:
                 output[center].add(file_date)
     return dict(output)

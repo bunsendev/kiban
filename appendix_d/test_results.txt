@@ -1,3 +1,31 @@
+2026-10-05 Portable pilot.15 署名鍵切替
+新規鍵保存/署名/送信関連25件成功（5.50秒）、ruff成功。凍結EXE E2E/再起動PASS。ZIP2505ファイルhash/新公開鍵一致/資格情報不在を確認。公開署名の検証結果は planning/PORTABLE_SIGNED_RELEASE_PILOT15.md 参照。
+
+2026-10-05 Portable pilot.14 ログ提出・署名更新
+Portable+feedback回帰113件成功（54.36秒）、ruff/JS構文成功。暗号化・再送・同意停止・改ざん拒否・バックアップ/復元を検証。凍結EXE E2Eと再起動PASS。ZIP CRC/2505ファイルhash一致。実送信・公開署名Release適用は未実施。詳細 planning/PORTABLE_OPERATIONS_DELIVERY.md。
+
+2026-10-05 Portable pilot.13 追加確認
+Portable+AI回帰97件成功（51.37秒）、ruff成功。重複AI呼出と変更済みCSVの受渡しを修正。模擬抽出36CSVの既存解析接続成功。実手書き精度は未検証。詳細 planning/PORTABLE_PILOT13_VERIFICATION.md。
+
+2026-10-05 Portable pilot.12 手書き画像・PDF adapter
+新規14件を含む93件成功、起動中アプリと競合する固定ポート試験1件は旧アプリ停止後に個別成功。ruff/JS構文成功。実AIの手書き精度は未検証（前回API401）。詳細 planning/PORTABLE_HANDWRITING_INTAKE.md。
+
+2026-10-05 Portable pilot.11 APIキーDPAPI保存
+回帰79成功、固定ポート競合1件は旧アプリ停止後の再実行で成功。ruff/JS構文成功。凍結EXE E2E・再起動・ZIP2502hash成功。保存状態の引継ぎ成功。実AIはHTTP401で未合格。詳細 planning/PORTABLE_PILOT11_ACCEPTANCE.md。
+
+2026-10-05 pilot.9 manual1 かんたん操作マニュアル追加
+梱包テスト2件成功。対象ruff成功。アプリ本体を変更せず、既存pilot.9へ説明書を追加。
+
+2026-10-05 Portable pilot.9 配布前検証
+Portable回帰59件成功 + 長パス/カタログ5件成功。ruff成功。
+凍結EXE: 起動/予測/修正/CSV/feedback/再起動復元/localhost限定PASS。
+ZIP CRCと2500ファイルhash照合PASS。詳細 planning/PORTABLE_PILOT9_ACCEPTANCE.md。
+
+2026-10-05 現場4ステップ参考デザイン調整
+pytest tests/portable/test_field_ui.py: 4 passed (13.33s)
+ruff check .: passed / JavaScript syntax: passed
+ブラウザ: PC幅・狭幅、ラジオ切替と数量入力の有効化、人工データの判断保存を確認。配布物は未更新。
+
 # Windows Portable 現場4ステップUI（2026-10-05 JST）
 
 - Portable回帰: 58 passed、2件は既存依存ライブラリの非推奨警告。最終のCSVファイル配信変更後は新規4件を再実行し合格。
@@ -2002,3 +2030,51 @@ OS: Windows 11
 # Portable高コントラスト調整（2026-10-05）
 - pilot.7: 本文18px、行間1.75、枠線2px、主要ボタン48px、checkbox22px。明るい水色を維持し文字/操作/境界を強化。
 - 主ボタン7.48:1、ヘッダー11.20:1、カード枠3.85:1、無効ボタン文字6.33:1。ブラウザー表示・console errorなし・配信CSS一致を確認。関連pytest3 passed、ruff成功。予測ロジック変更なし。
+
+2026-10-05 content-based folder intake
+- python -m pytest tests/portable -q: 64 passed (30.20s), 2 upstream deprecation warnings
+- python -m ruff check .: All checks passed
+- Generic CSV filenames, formal readers, byte-preserving folder batch, missing metadata and zero-day exclusion verified with synthetic data.
+- Existing pilot.9 ZIP not rebuilt; field-PC and new real-data formats not verified.
+
+2026-10-05 Portable folder review + AI suggestion
+- pytest tests/portable tests/test_field_pilot_ai_intake.py -q: 77 passed (40.38s), 2 upstream deprecation warnings
+- ruff check .: All checks passed
+- Browser: synthetic CSV column mapping, metadata approval and folder intake verified.
+- Cloud transport tested with mocked responses; no live API key used.
+
+- Frozen pilot.10 ZIP: 36 arbitrary-named CSVs / 3 synthetic products; mapping approval and reuse -> inventory -> forecast -> correction/export/feedback -> restart PASS.
+- Archive: 2502 hashes match; CRC OK; 56328400 bytes; no operator data or credentials.
+- SHA256: 868643d5025af815798806ee08cbe4c06ce59084f76414adcc57794177165d0f
+
+2026-10-06 Feedback device provisioning / pilot.16
+- PORTABLE_SMOKE=1 pytest tests/test_end_of_day_shared_transport.py tests/test_feedback_sync.py tests/portable -q: 147 passed, 1 upstream deprecation warning (50.82s).
+- PORTABLE_SMOKE disables startup network/update background checks for deterministic tests. Delivery and retry are invoked explicitly in targeted tests.
+- ruff check .: PASS; git diff --check: PASS; admin/review JS syntax: PASS.
+- Frozen E2E: 36 CSV / 3 synthetic products -> forecast/review/export/feedback/restart PASS.
+- ZIP CRC and 2508 manifest hashes PASS; Data/credentials absent. 56435595 bytes.
+- ZIP SHA256: 34c80ed2ba3af58cd0642c0b32674a459427690cac6854ceee5ff55f30030480
+- Local signed pilot.16 artifacts generated; no new public release published in this task.
+- Live receiver RECEIVED / ALREADY_RECEIVED and field-PC elevated setup: NOT VERIFIED, overall feedback acceptance NO-GO pending those checks.
+
+2026-10-06 pilot.17 installation guide packaging
+- Added UTF-8 installation guide at package root; existing operator manual version updated.
+- ruff and git diff --check PASS. No runtime behavior changes.
+- ZIP CRC, 2509 hashes, installation guide contents PASS; no Data/credentials.
+- Frozen synthetic E2E forecast/review/export/feedback/restart PASS (3 products).
+- ZIP: 56439287 bytes, SHA256 1add2468addbfef90d6fabc3ce90b0a8c65f45dbf1d4696853e40bf44deb92e6.
+- Signature artifacts generated locally; real receiver and field-PC UAC acceptance remain unverified.
+
+2026-10-06 pilot.18 device preset selection
+- pytest tests/portable/test_feedback_provisioning.py tests/portable/test_operations_delivery.py: 27 passed, 1 upstream warning.
+- Encrypted profile persistence/reload, no Token in list API, all-or-nothing validation, explicit consent, device selection, unauthorized endpoints verified.
+- ruff check . and JavaScript module syntax PASS.
+- Device-specific credential JSON excluded from Git and common distribution; not embedded in application.
+- Live receiver test still pending. Test credentials only used in automated tests.
+- pilot.18 frozen E2E forecast/review/export/feedback/restart PASS; ZIP CRC and 2510 hashes PASS. SHA256 34d7fbed0876d7f2ad0c12a0f3c7743c653ea8143793e789fa052a4365574f21. Local signature generated.
+
+2026-10-06 Privacy header contract fix
+- Targeted feedback sync / shared transport / portable provisioning and delivery: 60 passed, 1 upstream warning.
+- UTF-8 JSON -> Standard Base64 validated. Connection-test declarations false; nonempty policy_version.
+- Live BUNSEN-PILOT-03: HTTP 201 RECEIVED, identical request replay HTTP 200 ALREADY_RECEIVED. Response request_id and encrypted SHA256 match.
+- Synthetic empty payload only; no business data or Token logged. Existing pilot.18 package not modified.

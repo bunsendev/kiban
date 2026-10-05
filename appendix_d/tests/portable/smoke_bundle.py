@@ -77,7 +77,12 @@ def listening_addresses(port: int, pid: int) -> list[str]:
     addresses = []
     for line in text.splitlines():
         parts = line.split()
-        if len(parts) >= 5 and parts[1].endswith(f":{port}") and parts[-1] == str(pid):
+        if (
+            len(parts) >= 5
+            and parts[1].endswith(f":{port}")
+            and parts[3] == "LISTENING"
+            and parts[-1] == str(pid)
+        ):
             addresses.append(parts[1].rsplit(":", 1)[0])
     return addresses
 

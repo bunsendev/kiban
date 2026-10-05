@@ -25,8 +25,9 @@ from forecast_provider.inventory_foundation import (
     validate_jan,
 )
 
-from .business_archive import _business_date, _center_and_file_date, _decode, _safe_members
+from .business_archive import _business_date, _decode, _safe_members
 from .business_review import latest_decisions
+from .source_detection import read_source
 
 JST = ZoneInfo("Asia/Tokyo")
 HANDOFF_FORMAT = "portable-formal-inventory-handoff-v1"
@@ -104,9 +105,11 @@ def _latest_inventory_members(archive: zipfile.ZipFile) -> dict[str, tuple[zipfi
     latest: dict[str, tuple[zipfile.ZipInfo, date]] = {}
     for member in _safe_members(archive):
         name = PurePosixPath(member.filename).name
-        if member.is_dir() or not name.lower().endswith(".csv") or "在庫" not in name:
+        if member.is_dir() or not name.lower().endswith(".csv"):
             continue
-        center, file_date = _center_and_file_date(member.filename)
+        kind, center, file_date, _ = read_source(archive, member)
+        if kind != "inventory":
+            continue
         if file_date is None:
             continue
         current = latest.get(center)

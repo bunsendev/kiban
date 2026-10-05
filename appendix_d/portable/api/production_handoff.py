@@ -115,7 +115,7 @@ class PortableProductionHandoff:
         test_end = test_start + timedelta(days=int(manifest["horizon_days"]) - 1)
         snapshot = self.service.create_snapshot(
             SnapshotCreate(
-                data_uri=snapshot_path.resolve().as_uri(),
+                data_uri=Path(str(snapshot_path.resolve()).removeprefix("\\\\?\\")).as_uri(),
                 data_sha256=snapshot_sha,
                 selection_version=manifest["identity_bridge_version"],
                 unique_ids=tuple(sorted(eligible)),
