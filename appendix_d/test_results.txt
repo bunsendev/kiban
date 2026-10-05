@@ -1,3 +1,6 @@
+2026-10-05 Portable pilot.11 APIキーDPAPI保存
+回帰79成功、固定ポート競合1件は旧アプリ停止後の再実行で成功。ruff/JS構文成功。凍結EXE E2E・再起動・ZIP2502hash成功。保存状態の引継ぎ成功。実AIはHTTP401で未合格。詳細 planning/PORTABLE_PILOT11_ACCEPTANCE.md。
+
 2026-10-05 pilot.9 manual1 かんたん操作マニュアル追加
 梱包テスト2件成功。対象ruff成功。アプリ本体を変更せず、既存pilot.9へ説明書を追加。
 

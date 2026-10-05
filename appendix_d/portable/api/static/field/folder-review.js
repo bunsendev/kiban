@@ -7,16 +7,35 @@ const fields = {
 
 export async function folderReview(ctx, parent, refresh) {
   const candidates = await api("/api/drop-folder/review");
-  if (!candidates.length) return;
+
   const group = el("details", "", parent);
   el("summary", "読み取れないCSVの内容を確認・補足する", group);
   el("p", "ファイルは編集不要です。列の対応と不足情報を確認してください。", group);
   const actor = field(group, "確認者");
   const ai = el("details", "", group);
   el("summary", "AIに列の対応を提案してもらう（任意）", ai);
-  el("p", "OpenAIへ送るのは対象CSVの列名だけです。明細・数量・ファイル名は送りません。APIの利用料金が発生します。キーは保存しません。", ai);
+  el("p", "OpenAIへ送るのは対象CSVの列名だけです。明細・数量・ファイル名は送りません。APIの利用料金が発生します。キーはこのPCのWindowsユーザー専用に暗号化して保存できます。", ai);
   const key = field(ai, "OpenAI APIキー", "password", false);
   key.autocomplete = "off";
+  let credentials = await api("/api/ai-credentials");
+  const keyState = el("p", "", ai);
+  function showKeyState() {
+    keyState.textContent = credentials.available
+      ? "APIキーは保存済みです。次回から入力せず使えます。"
+      : credentials.saved ? "保存したキーを開けません。再設定してください。" : "APIキーは未保存です。";
+  }
+  showKeyState();
+  button("このPCに保存・変更", () => ctx.run(async () => {
+    credentials = await api("/api/ai-credentials", {api_key:key.value});
+    key.value = "";
+    showKeyState();
+  }), ai);
+  const remove = field(ai, "保存済みのAPIキーを削除することを確認", "checkbox", false);
+  button("保存したキーを削除", () => ctx.run(async () => {
+    if (!remove.checked) throw new Error("キー削除の確認にチェックしてください");
+    credentials = await api("/api/ai-credentials/delete", {confirm:true});
+    key.value = ""; remove.checked = false; showKeyState();
+  }), ai, true);
   const consent = field(ai, "列名の送信に同意する", "checkbox", false);
   for (const c of candidates) {
     const box = el("details", "", group);
@@ -48,7 +67,7 @@ export async function folderReview(ctx, parent, refresh) {
     el("p", "数量の単位や換算は自動確定しません。取込後の確認画面で確認してください。", box);
     const state = el("p", "", box); state.setAttribute("role", "status");
     button("AIの列対応案を取得", () => ctx.run(async () => {
-      if (!key.value || !consent.checked) throw new Error("APIキーと列名送信の同意を確認してください");
+      if ((!key.value && !credentials.available) || !consent.checked) throw new Error("APIキーと列名送信の同意を確認してください");
       state.textContent = "AIの提案を取得しています…";
       try {
         const result = await api("/api/drop-folder/ai-suggest", {

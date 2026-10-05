@@ -8,6 +8,7 @@ import sqlite3
 from datetime import UTC, date, datetime
 
 from forecast_provider.field_pilot.ai_cloud import suggest_cloud_structure
+from portable.runtime.api_credentials import ApiCredentials
 
 from .business_archive import MAX_ZIP_BYTES, ArchiveError, _decode
 
@@ -31,6 +32,7 @@ def describe(raw):
 class FolderReview:
     def __init__(self, paths):
         self.paths = paths
+        self.credentials = ApiCredentials()
         paths.state.mkdir(parents=True, exist_ok=True)
         self.db_path = paths.state / "folder-review.sqlite3"
         with self.db() as db:
@@ -148,4 +150,4 @@ class FolderReview:
             raise ArchiveError("列名をOpenAIへ送信する確認が必要です")
         _, info = self.source(payload.get("filename"), payload.get("sha256"))
         return suggest_cloud_structure({"headers": info["headers"], "value_types": {}},
-                                       payload.get("api_key"))
+                                       payload.get("api_key") or self.credentials.load())
