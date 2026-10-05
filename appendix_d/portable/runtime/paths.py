@@ -1,5 +1,6 @@
 """Keep immutable application files separate from operator data."""
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -7,6 +8,18 @@ from pathlib import Path
 @dataclass(frozen=True)
 class DataPaths:
     root: Path
+
+    def __post_init__(self) -> None:
+        # Frozen executables cannot rely on the host's LongPathsEnabled setting.
+        # Preserve the same directory, using Win32's extended path namespace.
+        if os.name == "nt":
+            value = str(self.root.resolve())
+            if not value.startswith("\\\\?\\"):
+                value = (
+                    "\\\\?\\UNC\\" + value[2:]
+                    if value.startswith("\\\\") else "\\\\?\\" + value
+                )
+            object.__setattr__(self, "root", Path(value))
 
     @property
     def input(self) -> Path:

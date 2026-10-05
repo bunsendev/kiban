@@ -174,10 +174,12 @@ def launch() -> int:
                 tk.Label(app, text="ブンセン予測を起動しました", font=("Yu Gothic UI", 13)).pack(
                     pady=15
                 )
-                tk.Label(app, text=f"ブラウザー: http://127.0.0.1:{port}/").pack()
+                entry_path = "/field" if profile["mode"] == "FIELD" else "/"
+                browser_url = f"http://127.0.0.1:{port}{entry_path}"
+                tk.Label(app, text=f"ブラウザー: {browser_url}").pack()
 
                 def open_browser():
-                    webbrowser.open(f"http://127.0.0.1:{port}/")
+                    webbrowser.open(browser_url)
 
                 tk.Button(app, text="画面を開く", command=open_browser).pack(pady=7)
 
