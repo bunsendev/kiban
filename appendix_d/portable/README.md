@@ -35,3 +35,7 @@ Windows x64のビルドPCではPython 3.12と固定したPyInstallerをビルド
 人工CSVの最小契約は `ds,unique_id,y`（UTF-8、日付 `YYYY-MM-DD`、数量は0以上）。7日以上の系列が必要です。出荷数量の欠損は拒否し、0は有効です。業務ZIP分析だけでは商品マスタの正式採用、単位換算、正式Snapshot承認を行いません。
 
 開発確認は `python -m pytest tests/portable -q`。配布前は生成ZIPを別フォルダーへ展開し、`tests/portable/smoke_bundle.py`で凍結EXEの起動、Baseline、保存、再起動、localhost限定を確認します。ZIPには`PACKAGE-MANIFEST.json`を含め、アプリ全ファイルのSHA-256を固定します。WindowsのPyInstaller onedirで同梱するため、対象PCへのPythonインストールは必要ありません。`Data` に書けない、あるいは許可ポリシーでEXEが拒否された場合は画面のエラーコードと `Data/Logs` を管理者に渡します。Windows保護機能を無効にする手順はありません。
+
+## 現場画面の配色（pilot.6）
+
+水色のヘッダー、青白色の背景、白い操作カード、青いボタンを使います。共通CSS変数で配色を管理し、入力欄・結果表・計測欄を統一します。注意・エラーの意味色を維持し、キーボードフォーカスを明示します。処理やデータ契約は変更しません。
