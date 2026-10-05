@@ -26,9 +26,6 @@ from forecast_provider.pilot_scope.intake import parse_confirmed_pilot_intake_cs
 
 from .inventory_handoff import HEADERS
 
-MIN_PILOT_PRODUCTS = 10
-MAX_PILOT_PRODUCTS = 20
-
 
 class FormalPipelineError(ValueError):
     pass
@@ -69,8 +66,8 @@ def pipeline_identity(handoff: dict, payload: dict) -> tuple[str, dict]:
             raise FormalPipelineError("試験対象JANを確認してください")
         center = str(item.get("source_center") or "").strip()
         jans = sorted({str(value).strip() for value in item.get("jans", []) if str(value).strip()})
-        if center in seen or not MIN_PILOT_PRODUCTS <= len(jans) <= MAX_PILOT_PRODUCTS:
-            raise FormalPipelineError("各倉庫で10〜20商品のJANを選択してください")
+        if center in seen or not jans:
+            raise FormalPipelineError("各倉庫で1商品以上のJANを選択してください")
         seen.add(center)
         selections.append({"source_center": center, "jans": jans})
     expected = {item["source_center"] for item in handoff["locations"]}
@@ -160,12 +157,14 @@ def prepare_pipeline(handoff: dict, package_dir, approved: dict, *, created_at: 
             pairs=[(jan, location["location_id"]) for jan in sorted(selected)],
             effective_from=date.fromisoformat(target_dates[center]), effective_to=None,
             approved_by=approved["actor"], reason=approved["reason"], created_at=created_at,
+            enforce_pilot_size=False,
         )
         scope_store.put(scope)
         intake_csv = _intake_csv(selected, location)
         intake = parse_confirmed_pilot_intake_csv(
             intake_csv, scope=scope, mapping=mapping, resolver=resolver,
             created_by=approved["actor"], reason=approved["reason"], created_at=created_at,
+            enforce_pilot_size=False,
         )
         scope_store.put_intake(intake)
         content = _candidate_csv(rows)

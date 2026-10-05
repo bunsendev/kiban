@@ -64,8 +64,9 @@ def parse_confirmed_pilot_intake_csv(
     created_by: str,
     reason: str,
     created_at: datetime,
+    enforce_pilot_size: bool = True,
 ) -> PilotIntakeBinding:
-    if not content or len(content) > MAX_BYTES:
+    if not content or (enforce_pilot_size and len(content) > MAX_BYTES):
         raise ValueError("Pilot Intake CSVは1 byte以上1 MiB以下です")
     try:
         reader = csv.DictReader(io.StringIO(content.decode("utf-8-sig")), strict=True)
@@ -74,7 +75,7 @@ def parse_confirmed_pilot_intake_csv(
         rows = list(reader)
     except (UnicodeDecodeError, csv.Error) as exc:
         raise ValueError("Pilot Intake CSVはUTF-8形式で保存してください") from exc
-    if not rows or len(rows) > 200:
+    if not rows or (enforce_pilot_size and len(rows) > 200):
         raise ValueError("Pilot Intake CSVの行数が不正です")
     if any(row.get("確認メモ") != "確認済み" or None in row for row in rows):
         raise ValueError("Pilot Intake CSVの全行を確認済みにしてください")

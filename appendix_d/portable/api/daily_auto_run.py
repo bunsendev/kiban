@@ -183,13 +183,15 @@ class PortableDailyAutoRun:
 
         pipeline_view = self.pipeline.view(handoff_id)
         registration = pipeline_view.get("latest")
+        if not pipeline_view["latest_covers_all"]:
+            registration = None
         if registration is None:
             selections = []
             for location in pipeline_view["locations"]:
-                jans = location["jans"][: pipeline_view["maximum_products_per_location"]]
+                jans = location["jans"]
                 if len(jans) < pipeline_view["minimum_products_per_location"]:
                     raise DailyAutoRunError(
-                        f"{location['source_center']}の試験対象商品が10件未満です"
+                        f"{location['source_center']}に対象商品がありません"
                     )
                 selections.append({"source_center": location["source_center"], "jans": jans})
             registration = self.pipeline.register(handoff_id, {
@@ -212,6 +214,7 @@ class PortableDailyAutoRun:
             "reason": reason,
             "confirm_identity_bridge": True,
             "confirm_zero_policy": True,
+            "batch_size": payload.get("batch_size", 100),
         })
         try:
             self.production.enqueue(forecast["build_id"], {
@@ -257,6 +260,8 @@ class PortableDailyAutoRun:
             return base | {"status": "INVENTORY_BLOCKED", "next_action": "隔離理由を解消"}
         pipeline_view = self.pipeline.view(handoff["handoff_id"])
         registration = pipeline_view.get("latest")
+        if not pipeline_view["latest_covers_all"]:
+            registration = None
         if registration is None:
             return base | {"status": "READY_TO_ADVANCE", "next_action": "確認して予測まで実行"}
         base["registration_id"] = registration["registration_id"]

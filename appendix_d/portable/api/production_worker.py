@@ -9,8 +9,10 @@ from pathlib import Path
 from forecast_provider.catalog import SqliteCatalogStore
 from forecast_provider.executors import BuiltinBaselineExecutor
 from forecast_provider.jobs import SqliteRunStore, resume_run
+from portable.runtime.performance import measure
 
 LOG = logging.getLogger("portable.production_worker")
+RUN_SLOT = threading.Semaphore(1)
 
 
 class PortableProductionWorker:
@@ -45,7 +47,16 @@ class PortableProductionWorker:
             return self._errors.get(run_id)
 
     def _run(self, run_id: str, fingerprint: str) -> None:
+        # Serial execution prevents independent runs from multiplying the working set.
+        with RUN_SLOT, measure(
+            self.database.parent / "Performance" / f"production-{run_id}.json",
+            stage="production_forecast",
+        ) as metrics:
+            metrics["status"] = self._execute(run_id, fingerprint)
+
+    def _execute(self, run_id: str, fingerprint: str) -> str:
         retry = False
+        status = "FAILED"
         try:
             runs = SqliteRunStore(self.database)
             executor = BuiltinBaselineExecutor(
@@ -73,3 +84,4 @@ class PortableProductionWorker:
             timer = threading.Timer(1, self.submit, args=(run_id,))
             timer.daemon = True
             timer.start()
+        return status

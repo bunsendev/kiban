@@ -17,6 +17,7 @@ businessZip.addEventListener('change', () => {
   businessMessage(file ? '分析の準備ができました。' : 'ZIPを選択してください。');
 });
 function showAnalysis(report) {
+  if (currentAnalysis !== report.analysis_id) window.PortableOperatorResults?.clear();
   currentAnalysis=report.analysis_id; document.getElementById('analysis-result').hidden=false;
   document.getElementById('auto-count').textContent=report.rows.auto_confirmed.toLocaleString();
   document.getElementById('review-count').textContent=report.rows.review_required.toLocaleString();
@@ -75,6 +76,7 @@ csv.addEventListener('change', () => {
 });
 function show(record) {
   if (!record.predictions) return;
+  window.PortableOperatorResults?.show("run", record.run_id);
   document.getElementById('result-section').hidden=false;
   document.getElementById('meta').textContent=`実行ID: ${record.run_id}　入力SHA-256: ${record.input_sha256}　結果SHA-256: ${record.result_sha256}`;
   const body=document.getElementById('result'); body.replaceChildren();

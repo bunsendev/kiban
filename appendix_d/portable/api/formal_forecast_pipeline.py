@@ -14,7 +14,7 @@ from forecast_provider.inventory_forecast_bridge import (
 )
 
 from .business_archive import _business_date, _center_and_file_date
-from .forecast import forecast
+from .forecast_batches import forecast_batches, validate_batch_size
 from .formal_pipeline import PortableFormalPipeline
 from .formal_pipeline_contracts import FormalPipelineError
 from .formal_shipment_daily import (
@@ -56,6 +56,7 @@ class PortableFormalForecastPipeline:
         }
 
     def run(self, registration_id: str, payload: dict) -> dict:
+        batch_size = validate_batch_size(payload.get("batch_size", 100))
         registration = self.inventory_pipeline.get_registration(registration_id)
         inventory_view = self.inventory_pipeline.registration_view(registration)
         if inventory_view["status"] != "APPROVED":
@@ -114,13 +115,14 @@ class PortableFormalForecastPipeline:
         if not frame.empty:
             for center, center_frame in frame.groupby("source_center", sort=True):
                 predictions.extend(
-                    forecast(
+                    forecast_batches(
                         center_frame.drop(columns=["source_center"]),
                         self.paths.state,
                         f"{build['build_id']}-{center}",
                         horizon=FORECAST_HORIZON,
                         dataset_snapshot_id=build["build_id"],
                         selection_version=bridge.version.bridge_version,
+                        batch_size=batch_size,
                     )
                 )
             predictions.sort(key=lambda item: (item["unique_id"], item["target_date"]))
