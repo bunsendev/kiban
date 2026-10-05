@@ -1970,3 +1970,7 @@ OS: Windows 11
 - 担当者向け画面入力を正式4 CSV ZIP契約へ変換し、原本SHA-256、隔離、内容アドレス保存、再開性を維持した。複数工場・倉庫別条件・生産予定には既存ZIP入力を残した。
 - 実ブラウザーで既存JavaScriptの同名宣言を検出・修正し、ページに読み込む全scriptの結合構文試験を追加した。Portable回帰37 passed、Ruff、JavaScript結合構文、`git diff --check`に成功した。
 - 既知の固定日付fixtureとWindows非対応Linux RSS試験を除いた最終全回帰は912 passed / 20 skipped / 1 deselected。配布一覧は1026ファイルで全件一致した。実データ、確認値、資格情報はRepositoryと配布物へ含めていない。
+
+# 複数PC独立利用（2026-10-05）
+- Portable 41 passed、ruff成功。FIELD/IT_TEST別の展開先で凍結EXEの予測14件・履歴・再起動に成功。端末ID独立、同入力結果hash一致。
+- 配布pilot.3 ZIP CRC・全manifest照合成功。初回ダイアログ実クリック、物理2台、非管理者、端末保護下は未実施。詳細はWINDOWS_PORTABLE_MULTIPC_AUDIT_20261005.md。

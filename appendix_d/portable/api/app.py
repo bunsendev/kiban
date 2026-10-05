@@ -1,6 +1,7 @@
 """Local P1 UI and API. No production DB, external endpoints, or CDN."""
 
 import hashlib
+import html
 import json
 import logging
 import os
@@ -16,6 +17,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from forecast_provider.providers.builtin_baseline import PROVIDER_VERSION
 from portable import APP_VERSION
+from portable.runtime.installation import MODES, load_profile
 from portable.runtime.paths import DataPaths
 
 from .business_archive import (
@@ -149,7 +151,14 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     def index():
-        return (STATIC / "index.html").read_text(encoding="utf-8")
+        page = (STATIC / "index.html").read_text(encoding="utf-8")
+        profile = load_profile(paths.root)
+        if profile:
+            label = html.escape(f"{MODES[profile['mode']]} | {profile['terminal_name']} | "
+                                f"{APP_VERSION} | 端末ID: {profile['installation_id']}")
+            page = page.replace("<body>", '<body><aside style="padding:12px;background:#fff3cd">'
+                                + label + " — このPC専用・他PCと共有しません</aside>", 1)
+        return page
 
     @app.get("/app.js")
     def script():

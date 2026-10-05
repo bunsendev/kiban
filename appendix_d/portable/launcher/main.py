@@ -21,6 +21,7 @@ from tkinter import messagebox
 import uvicorn
 
 from portable import APP_VERSION
+from portable.runtime.installation import MODES, setup_profile
 from portable.runtime.paths import DataPaths
 from portable.runtime.windows import AlreadyRunning, ChildJob, SingleInstance
 
@@ -157,6 +158,10 @@ def launch() -> int:
     LOG.info("startup app=%s windows=%s", APP_VERSION, platform.platform())
     try:
         with SingleInstance(paths.root):
+            profile = setup_profile(paths.root)
+            if profile is None:
+                return 0
+            LOG.info("installation=%s mode=%s", profile["installation_id"], profile["mode"])
             job = ChildJob()
             child = None
             try:
@@ -164,7 +169,7 @@ def launch() -> int:
                 child, port = start_server(paths, job, token)
                 LOG.info("api_ready pid=%s port=%s", child.pid, port)
                 app = tk.Tk()
-                app.title("ブンセン予測 Portable P1")
+                app.title(f"ブンセン予測 {MODES[profile['mode']]} / {profile['terminal_name']}")
                 app.geometry("430x230")
                 tk.Label(app, text="ブンセン予測を起動しました", font=("Yu Gothic UI", 13)).pack(
                     pady=15
