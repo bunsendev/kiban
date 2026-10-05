@@ -2056,3 +2056,11 @@ OS: Windows 11
 - ZIP SHA256: 34c80ed2ba3af58cd0642c0b32674a459427690cac6854ceee5ff55f30030480
 - Local signed pilot.16 artifacts generated; no new public release published in this task.
 - Live receiver RECEIVED / ALREADY_RECEIVED and field-PC elevated setup: NOT VERIFIED, overall feedback acceptance NO-GO pending those checks.
+
+2026-10-06 pilot.17 installation guide packaging
+- Added UTF-8 installation guide at package root; existing operator manual version updated.
+- ruff and git diff --check PASS. No runtime behavior changes.
+- ZIP CRC, 2509 hashes, installation guide contents PASS; no Data/credentials.
+- Frozen synthetic E2E forecast/review/export/feedback/restart PASS (3 products).
+- ZIP: 56439287 bytes, SHA256 1add2468addbfef90d6fabc3ce90b0a8c65f45dbf1d4696853e40bf44deb92e6.
+- Signature artifacts generated locally; real receiver and field-PC UAC acceptance remain unverified.
