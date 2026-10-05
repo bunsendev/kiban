@@ -10,22 +10,25 @@ const choices = { ACCEPT: "確認済み", CHANGE: "数量修正", HOLD: "保留"
 export async function results(ctx) {
   ctx.enter(3);
   ctx.dirty = false;
-  el("h1", "3. 分析結果", ctx.root);
+  el("h1", "分析結果", ctx.root);
+  el("p", "今回の分析結果を確認してください。", ctx.root).className = "intro";
+  const explanation = el("details", "");
+  el("summary", "結果の見方・予測の対象について", explanation);
   el(
     "p",
     "保存した結果版を表示しています。基準日時と予測期間を確認してください。新しい入力の結果に自動で置き換わりません。",
-    ctx.root,
+    explanation,
   ).className = "muted";
   const endpoint = `/api/field/results/${ctx.resultId}`;
   el(
     "p",
     "期間全体の需要予測です。「今日送る数量」ではありません。修正は担当者の判断として別保存します。",
-    ctx.root,
+    explanation,
   );
   el(
     "p",
     "この画面では推奨出荷量を表示しません。配送・工場・安全在庫の条件を含む出荷判断は、詳細画面で確認してください。",
-    ctx.root,
+    explanation,
   ).className = "notice";
   const cards = el("div", "", ctx.root);
   cards.className = "cards";
@@ -83,6 +86,7 @@ export async function results(ctx) {
   const counter = el("p", "", ctx.root);
   const wrap = el("div", "", ctx.root);
   wrap.className = "table-wrap";
+  ctx.root.append(inputIssues, explanation);
   const table = el("table", "", wrap),
     head = el("tr", "", el("thead", "", table));
   [
@@ -175,7 +179,10 @@ export async function results(ctx) {
       ["ok", "問題なし", "OK"],
       ["total", "合計", ""],
     ]) {
-      const c = el("div", `${text} ${v.counts[key]}件`, cards);
+      const c = el("div", "", cards);
+      el("span", text, c);
+      const value = el("strong", String(v.counts[key]), c);
+      el("small", "件", value);
       c.className = "card " + cls;
     }
     completion.textContent = `予測できた ${v.counts.forecastable}件／できない ${v.counts.total - v.counts.forecastable}件。判断保存 ${v.counts.saved}件・保留 ${v.counts.held}件・未確認 ${v.counts.pending}件。`;
@@ -199,19 +206,21 @@ export async function results(ctx) {
         check.checked ? selected.add(r.item) : selected.delete(r.item);
         ctx.run(load);
       };
-      el("td", `${r.name}\n${r.jan}\n${r.warehouse}`, tr);
+      const product = el("td", "", tr);
+      el("strong", r.name, product);
+      el("small", `${r.jan} / ${r.warehouse}`, product);
+      const inventory = el("td", "", tr);
+      el("strong", `${r.inventory ?? "未計算"} ${r.unit}`, inventory);
+      el("small", displayTime(r.inventory_date), inventory);
+      const prediction = el("td", "", tr);
       el(
-        "td",
-        `${displayTime(r.inventory_date)}／${r.inventory ?? "未計算"} ${r.unit}`,
-        tr,
-      );
-      el(
-        "td",
+        "strong",
         r.forecast === null
           ? "予測できません"
-          : `${r.forecast.toLocaleString()} ${r.unit}\n${r.period.join(" ～ ")}`,
-        tr,
+          : `${r.forecast.toLocaleString()} ${r.unit}`,
+        prediction,
       );
+      el("small", r.period.join(" ～ "), prediction);
       const risk = el(
         "td",
         labels[r.category] + "\n" + r.reasons.join("／"),

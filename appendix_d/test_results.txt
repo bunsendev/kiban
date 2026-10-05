@@ -1,3 +1,8 @@
+2026-10-05 現場4ステップ参考デザイン調整
+pytest tests/portable/test_field_ui.py: 4 passed (13.33s)
+ruff check .: passed / JavaScript syntax: passed
+ブラウザ: PC幅・狭幅、ラジオ切替と数量入力の有効化、人工データの判断保存を確認。配布物は未更新。
+
 # Windows Portable 現場4ステップUI（2026-10-05 JST）
 
 - Portable回帰: 58 passed、2件は既存依存ライブラリの非推奨警告。最終のCSVファイル配信変更後は新規4件を再実行し合格。

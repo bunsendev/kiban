@@ -41,7 +41,13 @@ function check(parent, label) {
 
 export async function waitJob(ctx, id) {
   ctx.enter(2);
-  el("h1", "2. 分析しています", ctx.root);
+  el("h1", "分析しています", ctx.root);
+  el(
+    "p",
+    "データを確認しています。しばらくお待ちください。",
+    ctx.root,
+  ).className = "intro";
+  el("div", "", ctx.root).className = "spinner";
   el("progress", "", ctx.root);
   const status = el("p", "実行状態を確認しています", ctx.root),
     started = Date.now();
@@ -85,7 +91,7 @@ export async function waitJob(ctx, id) {
 
 export async function analysis(ctx) {
   ctx.enter(2);
-  el("h1", "2. 分析・必要な情報の確認", ctx.root);
+  el("h1", "分析・必要な情報の確認", ctx.root);
   const id = ctx.analysisId;
   const report = await api(`/api/business-archives/${id}`),
     state = await api(`/api/daily-runs/${id}`);
