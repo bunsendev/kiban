@@ -7,6 +7,7 @@ import json
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from functools import cached_property
 
 from ..inventory_foundation.domain import canonical_datetime, canonical_decimal, validate_jan
 from .contracts import PilotScopeKind
@@ -74,6 +75,10 @@ class PilotScope:
     version: PilotScopeVersion
     items: tuple[PilotScopeItem, ...]
 
+    @cached_property
+    def product_locations(self):
+        return frozenset((item.jan, item.warehouse_id) for item in self.items)
+
     def is_effective(self, business_date: date) -> bool:
         return self.version.effective_from <= business_date and (
             self.version.effective_to is None or business_date <= self.version.effective_to
@@ -83,7 +88,7 @@ class PilotScope:
         if not self.is_effective(business_date):
             return False
         key = (validate_jan(jan), warehouse_id.strip())
-        return any((item.jan, item.warehouse_id) == key for item in self.items)
+        return key in self.product_locations
 
 
 @dataclass(frozen=True)
@@ -123,6 +128,7 @@ def build_pilot_scope(
     approved_by: str,
     reason: str,
     created_at: datetime,
+    enforce_pilot_size: bool = True,
 ) -> PilotScope:
     approved_by = _required(approved_by, "approved_by")
     reason = _required(reason, "reason")
@@ -137,7 +143,9 @@ def build_pilot_scope(
     if len(normalized) != len(set(normalized)):
         raise ValueError("Pilot ScopeのJAN×WAREHOUSEが重複しています")
     distinct_jans = {jan for jan, _warehouse in normalized}
-    if not 10 <= len(distinct_jans) <= 20:
+    if not distinct_jans:
+        raise ValueError("対象商品のJANを1件以上指定してください")
+    if enforce_pilot_size and not 10 <= len(distinct_jans) <= 20:
         raise ValueError("Pilot Scopeは10〜20商品のJANで作成してください")
     payload = {
         "format_version": "pilot-scope-v1",

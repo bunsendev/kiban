@@ -63,16 +63,17 @@ formalForm.addEventListener('submit',async event=>{
   }catch(error){formalMessage(error.message,'error');}finally{submit.disabled=false;}
 });
 async function loadPipeline(handoffId){
+  if(document.getElementById("performance-panel"))return; // Operator uses the all-product daily workflow.
   try{
     const response=await fetch(`/api/formal-inventory/${encodeURIComponent(handoffId)}/pipeline`);
     const view=await response.json();if(!response.ok)throw new Error(view.detail||'正式在庫Workerの状態を確認できません。');
     pipelinePanel.hidden=false;pilotLocations.replaceChildren();
     for(const location of view.locations){
       const fieldset=document.createElement('fieldset');fieldset.dataset.center=location.source_center;
-      const legend=document.createElement('legend');legend.textContent=`${location.source_center}：試験対象JAN（10〜20件）`;fieldset.appendChild(legend);
+      const legend=document.createElement('legend');legend.textContent=`${location.source_center}：対象JAN（全件選択可）`;fieldset.appendChild(legend);
       const products=document.createElement('div');products.className='pilot-products';
       for(const [index,jan] of location.jans.entries()){
-        const label=document.createElement('label');const box=document.createElement('input');box.type='checkbox';box.value=jan;box.checked=index<20;
+        const label=document.createElement('label');const box=document.createElement('input');box.type='checkbox';box.value=jan;box.checked=true;
         label.append(box,document.createTextNode(jan));products.appendChild(label);
       }
       fieldset.appendChild(products);pilotLocations.appendChild(fieldset);

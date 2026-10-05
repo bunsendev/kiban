@@ -1981,3 +1981,8 @@ OS: Windows 11
 # 複数PC独立利用（2026-10-05）
 - Portable 41 passed、ruff成功。FIELD/IT_TEST別の展開先で凍結EXEの予測14件・履歴・再起動に成功。端末ID独立、同入力結果hash一致。
 - 配布pilot.3 ZIP CRC・全manifest照合成功。初回ダイアログ実クリック、物理2台、非管理者、端末保護下は未実施。詳細はWINDOWS_PORTABLE_MULTIPC_AUDIT_20261005.md。
+
+# Portable全商品・負荷測定（2026-10-05）
+- Portable/共通Pilot回帰69 passed / 1 skipped、ruff全体成功。旧20商品登録から201商品へ移行、中断バッチ再開、一括結果一致、入力変更時再計算を確認。
+- 人工100/500/1000商品で完走。一括/25/100分割を比較。凍結pilot.5 EXEも1000商品・14000行を14.53秒、正式予測RSS最大167.2MBで完走。ブラウザー表示と配布全manifest照合成功。
+- 実データ精度・現場PC受入・全体pytestは未実施。正式予測全体のメモリ制限や自動分割結合は未対応。SCALE_TEST.md参照。

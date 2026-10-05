@@ -53,11 +53,20 @@ class PortableFormalPipeline:
                 registrations.append(item)
         registrations.sort(key=lambda item: item.get("created_at", ""), reverse=True)
         latest = self.registration_view(registrations[0]) if registrations else None
+        locations = eligible_products(handoff, package_dir)
+        covered = {}
+        for item in (latest or {}).get("jobs", []):
+            job = self.inventory_store.get_job(item["job_id"])
+            scope = self.scope_store.get(job.pilot_scope_version) if job else None
+            covered[item["source_center"]] = {p.jan for p in scope.items} if scope else set()
         return {
             "handoff_id": handoff_id,
-            "minimum_products_per_location": 10,
-            "maximum_products_per_location": 20,
-            "locations": eligible_products(handoff, package_dir),
+            "minimum_products_per_location": 1,
+            "maximum_products_per_location": None,
+            "locations": locations,
+            "latest_covers_all": bool(latest) and all(
+                covered.get(item["source_center"]) == set(item["jans"]) for item in locations
+            ),
             "latest": latest,
         }
 

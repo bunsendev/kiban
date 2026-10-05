@@ -180,9 +180,10 @@ dailyForm.addEventListener('submit', async event => {
   if (!dailyAnalysisId) return;
   const button = document.getElementById('daily-run-submit');
   button.disabled = true;
-  dailyStatus.textContent = '正式在庫、出荷日次化、14日予測、Production予測を順番に実行中です。';
+  dailyStatus.textContent = '全商品を処理中です。画面を閉じずにお待ちください。下の計測欄で状態を確認できます。';
   try {
     const payload = {
+      batch_size: Number(document.getElementById("forecast-batch-size").value),
       actor: document.getElementById('daily-run-actor').value,
       reason: document.getElementById('daily-run-reason').value,
       confirm_pilot_scope: document.getElementById('daily-confirm-scope').checked,
