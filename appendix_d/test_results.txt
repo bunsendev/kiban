@@ -1,3 +1,12 @@
+# Windows Portable インストール仕様・凍結配布検証（2026-10-05 JST）
+
+- Windows x64のPyInstaller onedirを版付きZIPとして生成し、別の一時フォルダーへ展開した凍結EXEで起動、人工2系列×7日予測、保存、再起動後履歴、`127.0.0.1`限定listenを確認した。
+- 初回ビルドで不要なTorch/TimesFM/TensorFlow収集と正式取込SQL未同梱を検出し、Portable用依存固定、不要外部model除外、package data収集を追加した。修正後の初回readyは約1.56秒、再起動約1.53秒、予測約0.063秒。
+- 配布候補は`BunsenPortable-0.6.0-pilot.2.zip`、56,059,034 byte、SHA-256 `39e92b1de100b0906cca6b355ae5b90a1dafb561039a8e33ec16f9e01f376d34`。2,483ファイルのmanifest照合、ZIP CRC、別フォルダー展開に成功した。
+- Portable回帰39 passed、`ruff check .`、`git diff --check`に成功した。
+- 全試験の初回は927 passed / 19 skipped / 3 failed。失敗は既存の固定日付鮮度fixture、Windows非対応Linux RSS試験、更新前の配布SHA照合。前2件を明示除外し、配布一覧更新後のWindowsゲートは928 passed / 19 skipped / 2 deselected。
+- EXEのAuthenticodeは`NotSigned`。現場配布前に組織の許可登録またはコード署名が必要であり、Windows保護機能の無効化を導入手順としない。
+
 # Windows Portable 日次Decision接続（2026-10-04 JST）
 
 - 日次実行を14日予測で終えず、既存Production Worker、倉庫別日次サマリー、到着時点在庫、SHADOW推奨出荷、担当者判断まで同じ入力SHA-256で追跡する。

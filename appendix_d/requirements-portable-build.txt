@@ -1,0 +1,5 @@
+-r requirements.txt
+fastapi==0.141.1
+uvicorn==0.53.0
+PyInstaller==6.16.0
+pyinstaller-hooks-contrib==2026.8

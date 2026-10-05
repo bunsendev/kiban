@@ -1,8 +1,8 @@
-# Windows Portable P1 技術PoC
+# Windows Portable 現場Pilot
 
-Docker、WSL、PC側Python、PostgreSQLを使わず、人工CSVから**既存の `builtin-baseline`** の7日先予測を実行する独立したPoCです。正式なField Pilotや業務データ取込の代替ではありません。
+Docker、WSL、PC側Python、PostgreSQLを使わず、業務ZIPの分析、担当者確認、正式在庫取込、14日予測、到着時点在庫、SHADOW推奨出荷、担当者判断までをローカルで実行する現場Pilotです。予測には既存の`builtin-baseline`を使用します。正式な出荷指示は自動発行しません。
 
-Windows x64のビルドPCではPython 3.12とPyInstallerをビルド時だけ使います。`python -m portable.build_windows` で `dist/BunsenPortablePoC` を作ります。配布先では展開後 `App/BunsenPortable.exe` をダブルクリックします。実際の配布物はコード署名と対象PCでの許可確認が必要です。
+Windows x64のビルドPCではPython 3.12と固定したPyInstallerをビルド時だけ使います。`pip install -r requirements-portable-build.txt`の後、`python -m portable.build_windows`で版付きフォルダー、配布ZIP、ZIPのSHA-256を作ります。配布先ではZIPをPC内へ展開し、最上位の`ブンセン予測を起動.cmd`をダブルクリックします。現場PCにPython、Docker、WSL、PostgreSQLは不要です。USBやZIP内から直接起動しません。実際の配布物はコード署名と対象PCでの許可確認が必要です。
 
 画面の先頭では、在庫・出荷CSVを含む100 MB以下のZIPを分析できます。画面選択に加え、ランチャーから開ける `Data/Incoming` への投入も監視します。コピー中のファイルは処理せず、受付済み原本は `Processed`、不正ファイルは理由付きで `Rejected`、受付票は `Receipts` に保存します。13桁JAN、非負数量、賞味期限を検査し、「自動確定」「確認待ち」「隔離」へ分類します。自動確定した出荷は拠点×JAN×日へ集約し、直近35日が揃う拠点では28日学習・7日評価のBaseline参考バックテストを実行できます。12桁JAN、賞味期限欠損、不正な商品コードは勝手に補正しません。結果は過去データの参考評価であり、正式比較、現在予測、出荷指示ではありません。
 
@@ -34,4 +34,4 @@ Windows x64のビルドPCではPython 3.12とPyInstallerをビルド時だけ使
 
 人工CSVの最小契約は `ds,unique_id,y`（UTF-8、日付 `YYYY-MM-DD`、数量は0以上）。7日以上の系列が必要です。出荷数量の欠損は拒否し、0は有効です。業務ZIP分析だけでは商品マスタの正式採用、単位換算、正式Snapshot承認を行いません。
 
-開発確認は `python -m pytest tests/portable -q`。WindowsのPyInstaller onedirで同梱するため、対象PCへのPythonインストールは必要ありません。`Data` に書けない、あるいは許可ポリシーでEXEが拒否された場合は画面のエラーコードと `Data/Logs` を管理者に渡します。Windows保護機能を無効にする手順はありません。
+開発確認は `python -m pytest tests/portable -q`。配布前は生成ZIPを別フォルダーへ展開し、`tests/portable/smoke_bundle.py`で凍結EXEの起動、Baseline、保存、再起動、localhost限定を確認します。ZIPには`PACKAGE-MANIFEST.json`を含め、アプリ全ファイルのSHA-256を固定します。WindowsのPyInstaller onedirで同梱するため、対象PCへのPythonインストールは必要ありません。`Data` に書けない、あるいは許可ポリシーでEXEが拒否された場合は画面のエラーコードと `Data/Logs` を管理者に渡します。Windows保護機能を無効にする手順はありません。
