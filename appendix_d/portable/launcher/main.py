@@ -9,6 +9,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import tkinter as tk
 import traceback
@@ -55,12 +56,14 @@ def available_ports():
         yield port
 
 
-def request_json(port: int, path: str, *, token: str | None = None, method: str = "GET") -> dict:
+def request_json(
+    port: int, path: str, *, token: str | None = None, method: str = "GET", timeout=2
+) -> dict:
     headers = {"X-Portable-Control": token} if token else {}
     request = urllib.request.Request(
         f"http://127.0.0.1:{port}{path}", headers=headers, method=method
     )
-    with urllib.request.urlopen(request, timeout=2) as response:
+    with urllib.request.urlopen(request, timeout=timeout) as response:
         import json
 
         return json.load(response)
@@ -170,7 +173,7 @@ def launch() -> int:
                 LOG.info("api_ready pid=%s port=%s", child.pid, port)
                 app = tk.Tk()
                 app.title(f"ブンセン予測 {MODES[profile['mode']]} / {profile['terminal_name']}")
-                app.geometry("430x230")
+                app.geometry("480x300")
                 tk.Label(app, text="ブンセン予測を起動しました", font=("Yu Gothic UI", 13)).pack(
                     pady=15
                 )
@@ -194,9 +197,39 @@ def launch() -> int:
                         )
 
                 tk.Button(app, text="投入フォルダを開く", command=open_incoming).pack()
-                tk.Button(app, text="終了", command=app.destroy).pack()
+                closing = False
+                finish_text = tk.Label(app, text="")
+                finish_text.pack()
+
+                def finish():
+                    nonlocal closing
+                    if closing:
+                        return
+                    closing = True
+                    finish_text.config(text="ログを送信しています。失敗分は次回再送します。")
+
+                    def send_then_close():
+                        try:
+                            request_json(
+                                port,
+                                "/api/control/finish-day",
+                                token=token,
+                                method="POST",
+                                timeout=60,
+                            )
+                        except Exception:
+                            LOG.warning("feedback_retained_for_retry")
+                        app.after(0, app.destroy)
+
+                    threading.Thread(target=send_then_close, daemon=True).start()
+
+                tk.Button(app, text="終了（ログ送信）", command=finish).pack()
+                app.protocol("WM_DELETE_WINDOW", finish)
 
                 def monitor():
+                    nonlocal closing
+                    if closing:
+                        return
                     if child.poll() is not None:
                         LOG.error(
                             "api_unexpected_exit pid=%s status=%s", child.pid, child.returncode
@@ -207,6 +240,17 @@ def launch() -> int:
                         )
                         app.destroy()
                     else:
+                        try:
+                            state = request_json(port, "/api/control/status", token=token)
+                            if state.get("update_requested"):
+                                from portable.runtime.update_apply import spawn_helper
+
+                                spawn_helper(bundle_root(), state["update_requested"])
+                                closing = True
+                                app.destroy()
+                                return
+                        except Exception:
+                            LOG.warning("update_monitor_unavailable")
                         app.after(1000, monitor)
 
                 app.after(1000, monitor)
@@ -237,7 +281,17 @@ def main() -> int:
     parser.add_argument("--server", action="store_true")
     parser.add_argument("--port", type=int)
     parser.add_argument("--data-root", type=Path)
+    parser.add_argument("--apply-update", type=Path)
+    parser.add_argument("--stage")
+    parser.add_argument("--parent-pid", type=int)
     args = parser.parse_args()
+    if args.apply_update:
+        from portable.runtime.update_apply import run
+
+        if not args.stage or not args.parent_pid:
+            return 2
+        run(args.apply_update, args.stage, args.parent_pid)
+        return 0
     if args.server:
         if not args.port or not args.data_root or args.port not in PORTS:
             return 2

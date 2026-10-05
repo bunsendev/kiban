@@ -50,6 +50,7 @@ from .input_csv import MAX_CSV_BYTES, InputError, parse_csv
 from .inventory_routes import register_inventory_handoff_routes
 from .learning_experiment_routes import register_learning_experiment_routes
 from .learning_review_routes import register_learning_review_routes
+from .operations_routes import register_operations
 from .pilot_closeout_routes import register_pilot_closeout_routes
 from .pilot_evaluation_gate_routes import register_pilot_evaluation_gate_routes
 from .production_handoff import ProductionHandoffError
@@ -82,6 +83,7 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     app.state.active = 0
     app.state.closing = False
     app.state.lock = threading.Lock()
+    register_operations(app, paths, _read_limited, control_token)
 
     def load_analysis(analysis_id: str) -> tuple[dict, Path]:
         if not re.fullmatch(r"[0-9a-f]{64}", analysis_id):
@@ -131,7 +133,8 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     app.state.drop_folder = drop_folder
     register_drop_folder_routes(app, drop_folder)
     register_document_routes(app, paths, drop_folder)
-    app.router.add_event_handler("startup", drop_folder.start)
+    if os.environ.get('PORTABLE_SMOKE') != '1':
+        app.router.add_event_handler("startup", drop_folder.start)
     app.router.add_event_handler("shutdown", drop_folder.stop)
 
     @app.middleware("http")
@@ -497,6 +500,6 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     def status(request: Request):
         if not control_token or request.headers.get("x-portable-control") != control_token:
             raise HTTPException(403, "操作できません")
-        return {"active": app.state.active}
+        return {"active": app.state.active, "update_requested": app.state.update_requested}
 
     return app

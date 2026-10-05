@@ -1,3 +1,6 @@
+2026-10-05 Portable pilot.14 ログ提出・署名更新
+Portable+feedback回帰113件成功（54.36秒）、ruff/JS構文成功。暗号化・再送・同意停止・改ざん拒否・バックアップ/復元を検証。凍結EXE E2Eと再起動PASS。ZIP CRC/2505ファイルhash一致。実送信・公開署名Release適用は未実施。詳細 planning/PORTABLE_OPERATIONS_DELIVERY.md。
+
 2026-10-05 Portable pilot.13 追加確認
 Portable+AI回帰97件成功（51.37秒）、ruff成功。重複AI呼出と変更済みCSVの受渡しを修正。模擬抽出36CSVの既存解析接続成功。実手書き精度は未検証。詳細 planning/PORTABLE_PILOT13_VERIFICATION.md。
 

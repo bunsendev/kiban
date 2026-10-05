@@ -156,6 +156,8 @@ def main() -> None:
         f"{root / 'portable' / 'api' / 'static'};portable/api/static",
         "--add-data",
         f"{root / 'portable' / 'sample'};portable/sample",
+        "--add-data",
+        f"{root / 'portable' / 'runtime' / 'release-update-public.pem'};portable/runtime",
     ]
     for module in EXCLUDED_MODULES:
         command.extend(["--exclude-module", module])
