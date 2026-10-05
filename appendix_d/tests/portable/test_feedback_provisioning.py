@@ -215,3 +215,46 @@ def test_provisioning_directory_excluded_from_source_release():
 
     assert "key" in EXCLUDE_DIRS
     assert all("key" not in path.relative_to(ROOT).parts for path in release_files())
+
+
+def test_device_profiles_encrypted_and_selected_without_token_response(setup, monkeypatch):
+    from portable.runtime.feedback_profiles import FeedbackProfiles
+
+    delivery, config, _ = setup
+    store = FeedbackProfiles(delivery.paths)
+    entry = {k: config[k] for k in ("client_id", "token", "endpoint", "key_id", "public_key")}
+    second = {**entry, "client_id": "SECOND", "token": "synthetic-second-token-" + "B" * 40}
+    result = store.import_profiles(
+        {"format": "bunsen-feedback-profiles-v1", "devices": [entry, second]}
+    )
+    assert config["token"] not in json.dumps(result)
+    assert config["token"].encode() not in store.path.read_bytes()
+    assert "token" not in result[0]
+    monkeypatch.setattr(delivery, "connection_test", lambda: {"status": "CONNECTED"})
+    restarted = FeedbackProfiles(delivery.paths)
+    with pytest.raises(ValueError):
+        restarted.apply(delivery, {"client_id": "SECOND"})
+    assert (
+        restarted.apply(delivery, {"client_id": "SECOND", "consent": True})["status"] == "CONNECTED"
+    )
+    assert delivery.token.load() == second["token"]
+    assert delivery.config()["client_id"] == "SECOND"
+    before = store.path.read_bytes()
+    with pytest.raises(ValueError):
+        store.import_profiles(
+            {
+                "format": "bunsen-feedback-profiles-v1",
+                "devices": [entry, {**second, "public_key": "bad"}],
+            }
+        )
+    assert store.path.read_bytes() == before
+    with pytest.raises(ValueError):
+        restarted.apply(delivery, {"client_id": "UNKNOWN", "consent": True})
+
+
+def test_profiles_api_requires_admin(tmp_path, monkeypatch):
+    monkeypatch.setenv("PORTABLE_SMOKE", "1")
+    with TestClient(create_app(tmp_path / "Data"), base_url="http://127.0.0.1") as client:
+        assert client.get("/api/operations/device-profiles").status_code == 403
+        for action in ("profile-import", "profile-apply"):
+            assert client.post("/api/operations/" + action, json={}).status_code == 403

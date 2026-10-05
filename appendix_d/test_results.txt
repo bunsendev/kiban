@@ -2064,3 +2064,11 @@ OS: Windows 11
 - Frozen synthetic E2E forecast/review/export/feedback/restart PASS (3 products).
 - ZIP: 56439287 bytes, SHA256 1add2468addbfef90d6fabc3ce90b0a8c65f45dbf1d4696853e40bf44deb92e6.
 - Signature artifacts generated locally; real receiver and field-PC UAC acceptance remain unverified.
+
+2026-10-06 pilot.18 device preset selection
+- pytest tests/portable/test_feedback_provisioning.py tests/portable/test_operations_delivery.py: 27 passed, 1 upstream warning.
+- Encrypted profile persistence/reload, no Token in list API, all-or-nothing validation, explicit consent, device selection, unauthorized endpoints verified.
+- ruff check . and JavaScript module syntax PASS.
+- Device-specific credential JSON excluded from Git and common distribution; not embedded in application.
+- Live receiver test still pending. Test credentials only used in automated tests.
+- pilot.18 frozen E2E forecast/review/export/feedback/restart PASS; ZIP CRC and 2510 hashes PASS. SHA256 34d7fbed0876d7f2ad0c12a0f3c7743c653ea8143793e789fa052a4365574f21. Local signature generated.

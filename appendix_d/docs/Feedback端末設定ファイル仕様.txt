@@ -1,0 +1,20 @@
+﻿IT担当者向け：端末設定ファイル
+
+UTF-8 JSON形式。配布アプリには同梱しない資格情報ファイルです。
+各PCに渡すファイルには原則、そのPCの1件だけを登録してください。
+format: bunsen-feedback-profiles-v1
+デバイス配列devicesの各要素には次の5項目を指定します。
+client_id: 発行済み端末ID
+token: その端末専用のToken（32文字以上）
+endpoint: HTTPS受信URL
+key_id: 受信公開鍵の管理ID
+public_key: RSA公開鍵PEM文字列（改行はJSONで\nとして表現）
+
+形式例（実資格情報へ置き換えてIT担当者が作成）：
+{"format":"bunsen-feedback-profiles-v1","devices":[{"client_id":"PC-ID","token":"TOKEN_REPLACE_WITH_ISSUED_VALUE_32_PLUS","endpoint":"https://bun.stock-tools.tech/upload.php","key_id":"REGISTERED-KEY-ID","public_key":"PUBLIC_PEM_REPLACE"}]}
+
+64KB以内、最大20件。全件を検証してから登録します。
+読み込んだ設定は同じWindowsユーザー専用DPAPIで暗号化して保存します。
+一覧APIにTokenは返さず、ブラウザーの永続ストレージに保存しません。
+設定ファイル原本にはTokenが含まれます。IT管理下で保管し、メール等へ不用意に添付しないでください。
+ファイル登録だけでは送信を有効にしません。端末選択・同意・接続操作が必要です。

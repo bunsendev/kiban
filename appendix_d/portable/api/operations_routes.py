@@ -13,11 +13,13 @@ from starlette.concurrency import run_in_threadpool
 from portable import APP_VERSION
 from portable.runtime.feedback_admin import authorized, instance_id
 from portable.runtime.feedback_delivery import FeedbackDelivery, receiver_identity
+from portable.runtime.feedback_profiles import FeedbackProfiles
 from portable.runtime.release_update import ReleaseUpdate
 
 
 def register_operations(app, paths, read_limited, control_token):
     delivery = FeedbackDelivery(paths)
+    profiles = FeedbackProfiles(paths)
     root = (
         Path(sys.executable).resolve().parent.parent
         if getattr(sys, "frozen", False)
@@ -47,6 +49,11 @@ def register_operations(app, paths, read_limited, control_token):
     def admin_config(request: Request):
         require_admin(request)
         return delivery.status()
+
+    @app.get("/api/operations/device-profiles")
+    def device_profiles(request: Request):
+        require_admin(request)
+        return profiles.summaries()
 
     @app.middleware("http")
     async def operation_guard(request, next_handler):
@@ -101,9 +108,14 @@ def register_operations(app, paths, read_limited, control_token):
     @app.post("/api/operations/{action}")
     async def action(action: str, request: Request):
         try:
-            value = json.loads(await read_limited(request, 16384))
+            value = json.loads(await read_limited(request, 65536))
             if not isinstance(value, dict):
                 raise ValueError("入力内容を確認してください")
+            if action in {"profile-import", "profile-apply"}:
+                require_admin(request)
+                if action == "profile-import":
+                    return await run_in_threadpool(profiles.import_profiles, value)
+                return await run_in_threadpool(profiles.apply, delivery, value)
             if action == "configure":
                 require_admin(request)
                 if value.get("enabled") is not False:

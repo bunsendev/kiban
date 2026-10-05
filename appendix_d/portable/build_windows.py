@@ -50,6 +50,10 @@ def write_operator_files(output: Path) -> None:
     guide = Path(__file__).resolve().parents[1] / "docs" / "かんたん操作マニュアル.txt"
     shutil.copy2(guide, output / "はじめに_かんたん操作マニュアル.txt")
     shutil.copy2(guide.parent / "Portable導入手順.txt", output / "最初に読む_インストール手順.txt")
+    shutil.copy2(
+        guide.parent / "Feedback端末設定ファイル仕様.txt",
+        output / "IT担当者_端末設定ファイル仕様.txt",
+    )
     (output / "ブンセン予測を起動.cmd").write_text(
         '@echo off\r\nstart "" "%~dp0App\\BunsenPortable.exe"\r\n',
         encoding="ascii",
