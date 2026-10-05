@@ -1,18 +1,22 @@
-"""Conservative scanner for operator ZIPs placed in Data/Incoming."""
+"""Conservative scanner for operator CSVs and ZIPs placed in Data/Incoming."""
 
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import logging
 import os
 import re
 import threading
 import time
+import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
 from .business_archive import MAX_ZIP_BYTES, ArchiveError
+from .folder_csv import bundle_csv
+from .source_detection import read_source
 
 
 class DropFolderError(ValueError):
@@ -45,6 +49,10 @@ class DropFolderIntake:
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._csv_signature = None
+        self._csv_attempt = None
+        self._csv_changed_at = 0.0
+        self.csv_message = "CSVは在庫・出荷をまとめてコピーしてください。ZIPも使用できます。"
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -79,12 +87,57 @@ class DropFolderIntake:
             self._observed = {
                 key: value for key, value in self._observed.items() if key in current
             }
+            csv_receipt = self._scan_csv(force=force)
+            if csv_receipt:
+                handled.append(csv_receipt)
             return self.view(handled=handled)
+
+    def _scan_csv(self, *, force: bool) -> dict | None:
+        paths = sorted(p for p in self.paths.incoming.iterdir()
+                       if p.is_file() and p.suffix.lower() == ".csv")
+        signature = tuple((str(p), p.stat().st_size, p.stat().st_mtime_ns) for p in paths)
+        unchanged = signature == self._csv_signature
+        self._csv_signature = signature
+        if not unchanged:
+            self._csv_changed_at = time.monotonic()
+        if not paths or (not force and time.monotonic() - self._csv_changed_at < 10):
+            return None
+        if not force and signature == self._csv_attempt:
+            return None
+        self._csv_attempt = signature
+        try:
+            data, originals = bundle_csv(paths)
+            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                kinds = [read_source(archive, member)[0] for member in archive.infolist()]
+            if "shipment" not in kinds:
+                self.csv_message = "出荷CSVを待っています。在庫CSVはそのまま保持しています。"
+                return None
+        except (ArchiveError, OSError) as exc:
+            self.csv_message = str(exc)
+            return None
+        digest = hashlib.sha256(data).hexdigest()
+        target = self.paths.incoming / f"csv-{digest}.zip"
+        if target.exists():
+            self.csv_message = "前回のCSV受付を処理中です。しばらくお待ちください。"
+            return None
+        # Original CSVs remain intact until their byte-preserving ZIP is accepted.
+        with target.open("xb") as stream:
+            stream.write(data)
+        receipt = self._process(target)
+        if receipt["status"] == "PROCESSED":
+            for path, original_hash in originals:
+                if (path.is_file()
+                        and hashlib.sha256(path.read_bytes()).hexdigest() == original_hash):
+                    os.replace(path, self._destination(self.processed, path.name, digest))
+            self.csv_message = "CSVをまとめて分析しました。受付済みの分析を開いてください。"
+        else:
+            self.csv_message = receipt["detail"]
+        return receipt
 
     def view(self, *, handled: list[dict] | None = None) -> dict:
         pending = []
         for path in sorted(self.paths.incoming.iterdir()):
-            if path.is_file() and path.suffix.lower() == ".zip":
+            if path.is_file() and path.suffix.lower() in {".zip", ".csv"}:
                 pending.append({"filename": path.name, "size_bytes": path.stat().st_size})
         recent = []
         for path in sorted(
@@ -99,6 +152,7 @@ class DropFolderIntake:
             "pending": pending,
             "handled": handled or [],
             "recent": recent,
+            "csv_message": self.csv_message,
         }
 
     def _process(self, path: Path) -> dict:

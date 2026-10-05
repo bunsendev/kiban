@@ -111,7 +111,12 @@ export async function upload(ctx) {
       `投入待ち ${v.pending.length}ファイル。コピー完了後に自動分析します。`,
       info,
     );
+    if (v.csv_message) el("p", v.csv_message, info);
     for (const r of v.recent || []) {
+      if (r.status !== "PROCESSED") {
+        el("p", `${r.filename}：${r.detail}`, info);
+        continue;
+      }
       if (r.analysis_id)
         button(
           r.filename || r.source_name || "受付済みの分析を開く",

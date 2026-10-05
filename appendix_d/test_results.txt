@@ -2015,3 +2015,9 @@ OS: Windows 11
 # Portable高コントラスト調整（2026-10-05）
 - pilot.7: 本文18px、行間1.75、枠線2px、主要ボタン48px、checkbox22px。明るい水色を維持し文字/操作/境界を強化。
 - 主ボタン7.48:1、ヘッダー11.20:1、カード枠3.85:1、無効ボタン文字6.33:1。ブラウザー表示・console errorなし・配信CSS一致を確認。関連pytest3 passed、ruff成功。予測ロジック変更なし。
+
+2026-10-05 content-based folder intake
+- python -m pytest tests/portable -q: 64 passed (30.20s), 2 upstream deprecation warnings
+- python -m ruff check .: All checks passed
+- Generic CSV filenames, formal readers, byte-preserving folder batch, missing metadata and zero-day exclusion verified with synthetic data.
+- Existing pilot.9 ZIP not rebuilt; field-PC and new real-data formats not verified.

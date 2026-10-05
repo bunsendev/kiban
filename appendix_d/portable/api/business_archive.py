@@ -16,6 +16,7 @@ from pathlib import Path, PurePosixPath
 import pandas as pd
 
 from .forecast import forecast
+from .source_detection import read_source
 
 MAX_ZIP_BYTES = 100 * 1024 * 1024
 MAX_MEMBERS = 5_000
@@ -38,7 +39,7 @@ def _decode(raw: bytes) -> str:
 
 
 def _business_date(value: str) -> date | None:
-    token = value.strip().split()[0]
+    token = value.strip().split()[0] if value.strip() else ""
     for pattern in ("%Y/%m/%d", "%Y-%m-%d", "%Y%m%d"):
         try:
             return datetime.strptime(token, pattern).date()
@@ -132,27 +133,17 @@ def analyze_archive(data: bytes, prepared_path: Path) -> dict:
             if member.is_dir() or not member.filename.lower().endswith(".csv"):
                 ignored_files += 1
                 continue
-            is_shipment = "出荷" in PurePosixPath(member.filename).name
-            is_inventory = "在庫" in PurePosixPath(member.filename).name
-            if not is_shipment and not is_inventory:
-                ignored_files += 1
-                continue
-            center, file_date = _center_and_file_date(member.filename)
-            with archive.open(member) as stream:
-                reader = csv.DictReader(io.StringIO(_decode(stream.read()), newline=""))
-            headers = set(reader.fieldnames or ())
-            required = REQUIRED_SHIPMENT if is_shipment else REQUIRED_INVENTORY
-            if not required.issubset(headers):
+            kind, center, file_date, reader = read_source(archive, member)
+            if kind is None:
                 quarantine_rows += 1
                 reason_counts["HEADER_MISSING"] += 1
                 issue = _new_issue(
-                    issues,
-                    reason="HEADER_MISSING",
-                    category="file",
+                    issues, reason="HEADER_MISSING", category="file",
                     source_value=member.filename,
                 )
                 issue["count"] += 1
                 continue
+            is_shipment = kind == "shipment"
             if is_shipment:
                 shipment_files += 1
                 if file_date:
