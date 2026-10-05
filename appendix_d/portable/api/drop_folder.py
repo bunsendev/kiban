@@ -16,6 +16,7 @@ from pathlib import Path
 
 from .business_archive import MAX_ZIP_BYTES, ArchiveError
 from .folder_csv import bundle_csv
+from .folder_review import FolderReview
 from .source_detection import read_source
 
 
@@ -39,6 +40,7 @@ class DropFolderIntake:
         self.paths = paths
         self.ingest = ingest
         self.active = active
+        self.review = FolderReview(paths)
         self.interval_seconds = interval_seconds
         self.processed = paths.incoming / "Processed"
         self.rejected = paths.incoming / "Rejected"
@@ -106,9 +108,15 @@ class DropFolderIntake:
             return None
         self._csv_attempt = signature
         try:
-            data, originals = bundle_csv(paths)
+            data, originals = bundle_csv(paths, self.review.transform)
             with zipfile.ZipFile(io.BytesIO(data)) as archive:
-                kinds = [read_source(archive, member)[0] for member in archive.infolist()]
+                kinds = [read_source(archive, member)[0] for member in archive.infolist()
+                         if member.filename.lower().endswith(".csv")]
+            if None in kinds:
+                self.csv_message = (
+                    "種類を判別できないCSVがあります。画面で列の対応を確認してください。"
+                )
+                return None
             if "shipment" not in kinds:
                 self.csv_message = "出荷CSVを待っています。在庫CSVはそのまま保持しています。"
                 return None

@@ -2,12 +2,13 @@
 
 import hashlib
 import io
+import json
 import zipfile
 
 from .business_archive import MAX_ZIP_BYTES, ArchiveError
 
 
-def bundle_csv(paths):
+def bundle_csv(paths, transform=None):
     if sum(path.stat().st_size for path in paths) > MAX_ZIP_BYTES:
         raise ArchiveError("CSVの合計が100 MBを超えています。投入するファイルを分けてください")
     output = io.BytesIO()
@@ -22,5 +23,11 @@ def bundle_csv(paths):
             originals.append((path, hashlib.sha256(raw).hexdigest()))
             info = zipfile.ZipInfo(path.name, date_time=(1980, 1, 1, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
-            archive.writestr(info, raw)
+            normalized, approval = transform(path.name, raw) if transform else (raw, None)
+            archive.writestr(info, normalized)
+            if approval:
+                source = zipfile.ZipInfo(f"Originals/{path.name}.source", (1980, 1, 1, 0, 0, 0))
+                archive.writestr(source, raw)
+                audit = zipfile.ZipInfo(f"Approvals/{path.name}.json", (1980, 1, 1, 0, 0, 0))
+                archive.writestr(audit, json.dumps(approval, ensure_ascii=False, sort_keys=True))
     return output.getvalue(), originals

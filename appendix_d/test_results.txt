@@ -2021,3 +2021,13 @@ OS: Windows 11
 - python -m ruff check .: All checks passed
 - Generic CSV filenames, formal readers, byte-preserving folder batch, missing metadata and zero-day exclusion verified with synthetic data.
 - Existing pilot.9 ZIP not rebuilt; field-PC and new real-data formats not verified.
+
+2026-10-05 Portable folder review + AI suggestion
+- pytest tests/portable tests/test_field_pilot_ai_intake.py -q: 77 passed (40.38s), 2 upstream deprecation warnings
+- ruff check .: All checks passed
+- Browser: synthetic CSV column mapping, metadata approval and folder intake verified.
+- Cloud transport tested with mocked responses; no live API key used.
+
+- Frozen pilot.10 ZIP: 36 arbitrary-named CSVs / 3 synthetic products; mapping approval and reuse -> inventory -> forecast -> correction/export/feedback -> restart PASS.
+- Archive: 2502 hashes match; CRC OK; 56328400 bytes; no operator data or credentials.
+- SHA256: 868643d5025af815798806ee08cbe4c06ce59084f76414adcc57794177165d0f

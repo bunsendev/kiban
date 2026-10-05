@@ -1,5 +1,6 @@
 import { api, el, button } from "./api.js";
 import { waitJob } from "./progress.js";
+import { folderReview } from "./folder-review.js";
 
 export async function upload(ctx) {
   ctx.enter(1);
@@ -99,6 +100,7 @@ export async function upload(ctx) {
   const folder = el("details", "", ctx.root);
   el("summary", "投入フォルダから読み込む", folder);
   const info = el("div", "", folder);
+  const reviewArea = el("div", "", folder);
   async function refresh(scan = false) {
     info.replaceChildren();
     const v = await api(
@@ -112,6 +114,8 @@ export async function upload(ctx) {
       info,
     );
     if (v.csv_message) el("p", v.csv_message, info);
+    reviewArea.replaceChildren();
+    await folderReview(ctx, reviewArea, () => ctx.run(() => refresh(true)));
     for (const r of v.recent || []) {
       if (r.status !== "PROCESSED") {
         el("p", `${r.filename}：${r.detail}`, info);
