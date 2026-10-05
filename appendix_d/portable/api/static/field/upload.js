@@ -16,9 +16,12 @@ export async function upload(ctx) {
   input.accept = ".zip";
   el("small", "対応ファイル：在庫CSVと出荷CSVをまとめたZIP", drop);
   const selected = el("p", "ファイルは未選択です", drop);
+  selected.hidden = true;
   let file = null;
   const choose = (f) => {
     file = f;
+    selected.hidden = !f;
+    start.hidden = !f;
     selected.textContent = f
       ? `${f.name}（${(f.size / 1024 / 1024).toFixed(1)} MB）`
       : "未選択";
@@ -76,6 +79,7 @@ export async function upload(ctx) {
     drop,
   );
   start.disabled = true;
+  start.hidden = true;
   const resume = localStorage.getItem("field-analysis");
   if (resume)
     button(
@@ -124,7 +128,10 @@ export async function upload(ctx) {
     true,
   );
   await refresh();
-  const history = el("details", "", ctx.root);
+  const historyGroup = el("details", "", ctx.root);
+  historyGroup.className = "work-history";
+  el("summary", "過去の作業を再開", historyGroup);
+  const history = el("details", "", historyGroup);
   el("summary", "過去の分析を開く", history);
   for (const r of await api("/api/business-archives")) {
     const job = jobs.find((j) => j.analysis_id === r.analysis_id);
@@ -139,7 +146,7 @@ export async function upload(ctx) {
       true,
     );
   }
-  const versions = el("details", "", ctx.root);
+  const versions = el("details", "", historyGroup);
   el("summary", "保存した結果・判断を開く", versions);
   for (const v of await api("/api/field/versions")) {
     button(
