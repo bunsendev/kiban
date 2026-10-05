@@ -40,6 +40,7 @@ from .change_application_routes import register_change_application_routes
 from .daily_auto_run_routes import register_daily_auto_run_routes
 from .drop_folder import DropFolderBusyError, DropFolderIntake
 from .drop_folder_routes import register_drop_folder_routes
+from .field_routes import register_field_routes
 from .forecast import forecast
 from .formal_change_routes import register_formal_change_routes
 from .formal_forecast_routes import register_formal_forecast_routes
@@ -478,6 +479,9 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
         raise HTTPException(404, "結果の種類を確認してください")
 
     register_result_feedback_routes(app, paths, resolve_operator_results, _read_limited)
+    register_field_routes(
+        app, paths, archive_intake, daily_auto_runs, resolve_operator_results, _read_limited
+    )
 
     @app.post("/api/control/drain")
     def drain(request: Request):
