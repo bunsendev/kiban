@@ -24,6 +24,20 @@ from portable.runtime.api_credentials import ApiCredentials
 DEFAULT_ENDPOINT = "https://bun.stock-tools.tech/upload.php"
 
 
+def receiver_identity(pem):
+    if not isinstance(pem, str) or len(pem) > 8192:
+        raise ValueError("KEY_INVALID")
+    try:
+        key = serialization.load_pem_public_key(pem.encode())
+    except (ValueError, TypeError):
+        raise ValueError("KEY_INVALID") from None
+    if not isinstance(key, rsa.RSAPublicKey) or key.key_size < 3072:
+        raise ValueError("KEY_INVALID")
+    return hashlib.sha256(key.public_bytes(
+        serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo,
+    )).hexdigest()
+
+
 class FeedbackDelivery:
     def __init__(self, paths):
         self.paths = paths
@@ -37,6 +51,13 @@ class FeedbackDelivery:
         self.lock = threading.RLock()
         with self.store._db() as db:
             db.execute("CREATE TABLE IF NOT EXISTS cursors(name TEXT PRIMARY KEY, value INTEGER)")
+            db.execute("CREATE TABLE IF NOT EXISTS change_ledger "
+                       "(id INTEGER PRIMARY KEY,created_at TEXT,event TEXT,metadata TEXT)")
+
+    def record(self, event, metadata):
+        with self.store._db() as db:
+            db.execute("INSERT INTO change_ledger(created_at,event,metadata) VALUES(?,?,?)",
+                       (datetime.now(UTC).isoformat(), event, json.dumps(metadata)))
 
     def config(self):
         if self.config_path.exists():
@@ -55,6 +76,7 @@ class FeedbackDelivery:
             old = self.config()
             if value.get("enabled") is False:
                 atomic_json(self.config_path, {**old, "enabled": False})
+                self.record("DISABLED", {})
                 return self.status()
             if value.get("consent") is not True:
                 raise ValueError("送信内容と送信先への同意を確認してください")
@@ -67,20 +89,35 @@ class FeedbackDelivery:
             token = value.get("token") or self.token.load()
             _endpoint(endpoint, token)
             pem = value.get("public_key", "")
-            if not isinstance(pem, str) or len(pem) > 8192:
-                raise ValueError("受信サーバーの公開鍵を確認してください")
-            key = serialization.load_pem_public_key(pem.encode())
-            if not isinstance(key, rsa.RSAPublicKey) or key.key_size < 3072:
-                raise ValueError("受信サーバーのRSA公開鍵（3072bit以上）が必要です")
+            fingerprint = receiver_identity(pem)
+            key_id = value.get("key_id") or "LEGACY-" + fingerprint[:16]
+            if not isinstance(key_id, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", key_id):
+                raise ValueError("KEY_ID_INVALID")
+            old_fingerprint = receiver_identity(old["public_key"]) if old["public_key"] else None
+            if old_fingerprint and old_fingerprint != fingerprint:
+                if value.get("confirm_key_change") is not True or key_id == old.get("key_id"):
+                    raise ValueError("KEY_ROTATION_APPROVAL_REQUIRED")
             config = {
                 "enabled": True,
                 "endpoint": endpoint,
                 "client_id": client_id,
                 "public_key": pem,
                 "include_comments": value.get("include_comments") is True,
+                "key_id": key_id,
+                "key_fingerprint": fingerprint,
             }
-            revision = hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()[:32]
+            # Receiver key rotation alone does not revoke consent or rewrite old ciphertext.
+            policy = {k: config[k] for k in ("endpoint", "client_id", "include_comments")}
+            revision = hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()[:32]
+            if all(old.get(k) == v for k, v in policy.items()):
+                revision = old["revision"]  # Preserve pre-Key-ID outbox consent versions too.
             config["revision"] = revision
+            self.record("CONFIG_CHANGE_REQUESTED", {
+                "old_client_id": old["client_id"], "new_client_id": client_id,
+                "old_key_fingerprint": old_fingerprint, "new_key_fingerprint": fingerprint,
+                "key_id": key_id, "token_replaced": bool(value.get("token")),
+            })
+            atomic_json(self.config_path, {**old, "enabled": False})
             self.token.save(token)
             # Old consent/destination contents must never escape under new settings.
             with self.store._db() as db:
@@ -89,7 +126,13 @@ class FeedbackDelivery:
                     "WHERE state!='SENT' AND policy_version!=?",
                     (revision,),
                 )
+                if value.get("token"):
+                    db.execute("UPDATE outbox SET state='PENDING',next_attempt_at=NULL "
+                               "WHERE state='REJECTED' AND policy_version=? "
+                               "AND last_error IN ('HTTP_401','AUTH_FAILED')", (revision,))
             atomic_json(self.config_path, config)
+            atomic_json(self.paths.state / "feedback-connection.json", {"status": "NOT_TESTED"})
+            self.record("CONFIG_SAVED", {"key_id": key_id, "fingerprint": fingerprint})
             return self.status()
 
     def status(self):
@@ -104,7 +147,12 @@ class FeedbackDelivery:
             "token_saved": self.token.status()["available"],
             **self.store.status(),
             "last": dict(last) if last else None,
+            "connection": self.connection_status(),
         }
+
+    def connection_status(self):
+        path = self.paths.state / "feedback-connection.json"
+        return json.loads(path.read_text("utf-8")) if path.exists() else {"status": "NOT_TESTED"}
 
     def collect(self):
         """Create one bounded incremental package, advance cursors atomically with queue."""
@@ -184,6 +232,7 @@ class FeedbackDelivery:
             config["public_key"].encode(),
             package_id=identifier,
             client_id=config["client_id"],
+            key_id=config.get("key_id"),
         )
         with self.store._db() as db:
             db.execute(
@@ -232,7 +281,30 @@ class FeedbackDelivery:
             config = self.config()
             if not config["enabled"]:
                 raise ValueError("先に送信設定を確認してください")
-            return connection_test(
+            result = connection_test(
                 {**config, "transport": "shared_php"},
                 self.token.load(), config["public_key"].encode(),
             )
+            atomic_json(self.paths.state / "feedback-connection.json", {
+                **result, "checked_at": datetime.now(UTC).isoformat(),
+                "key_id": config.get("key_id"),
+                "key_fingerprint": receiver_identity(config["public_key"]),
+            })
+            self.record("CONNECTION_TEST", {"status": result["status"]})
+            return result
+
+    def finish_day(self):
+        try:
+            if not self.config()["enabled"]:
+                result = {"status": "LOCAL_ONLY"}
+            else:
+                status = self.send()
+                result = {"status": "SAVED_FOR_RETRY" if status["pending_outbox"]
+                          else "NEEDS_ADMIN" if status["rejected_package"] else "COMPLETED"}
+        except Exception:
+            result = {"status": "NEEDS_ADMIN"}
+        try:
+            self.record("END_OF_DAY", result)
+        except (OSError, sqlite3.Error):
+            result = {"status": "NEEDS_ADMIN"}
+        return result

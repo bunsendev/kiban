@@ -43,6 +43,10 @@ def sha256(path: Path) -> str:
 
 
 def write_operator_files(output: Path) -> None:
+    (output / "Feedback接続設定_管理者.cmd").write_text(
+        '@echo off\r\nstart "" "%~dp0App\\BunsenPortable.exe" --feedback-admin\r\n',
+        encoding="ascii",
+    )
     guide = Path(__file__).resolve().parents[1] / "docs" / "かんたん操作マニュアル.txt"
     shutil.copy2(guide, output / "はじめに_かんたん操作マニュアル.txt")
     (output / "ブンセン予測を起動.cmd").write_text(

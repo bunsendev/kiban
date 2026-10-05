@@ -1362,12 +1362,17 @@ def test_local_boundary_and_result_integrity(tmp_path: Path):
     )
 
 
-def test_port_collision_selects_next_port():
+def test_port_collision_selects_next_port(monkeypatch):
     import socket
 
     with socket.socket() as taken:
-        taken.bind(("127.0.0.1", 48150))
-        assert next(available_ports()) != 48150
+        taken.bind(("127.0.0.1", 0))
+        occupied = taken.getsockname()[1]
+        with socket.socket() as free:
+            free.bind(("127.0.0.1", 0))
+            available = free.getsockname()[1]
+        monkeypatch.setattr("portable.launcher.main.PORTS", [occupied, available])
+        assert list(available_ports()) == [available]
 
 
 def test_mutex_prevents_double_start_and_recovers(tmp_path: Path):

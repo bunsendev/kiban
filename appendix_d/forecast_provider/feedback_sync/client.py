@@ -78,7 +78,7 @@ def connection_test(client: dict, token: str, public_key: bytes, *, transport=No
                "manifest": {"contains_raw_files": False,
                             "created_at": datetime.now(UTC).isoformat()}}
     envelope = encrypt_package(package, public_key, package_id=package_id,
-                               client_id=client["client_id"])
+                               client_id=client["client_id"], key_id=client.get("key_id"))
     item = {"package_id": package_id, "envelope": envelope,
             "sha256": hashlib.sha256(envelope).hexdigest(),
             "policy_version": "CONNECTION_TEST"}

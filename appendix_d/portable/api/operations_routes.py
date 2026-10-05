@@ -11,7 +11,8 @@ from fastapi import HTTPException, Request
 from starlette.concurrency import run_in_threadpool
 
 from portable import APP_VERSION
-from portable.runtime.feedback_delivery import FeedbackDelivery
+from portable.runtime.feedback_admin import authorized, instance_id
+from portable.runtime.feedback_delivery import FeedbackDelivery, receiver_identity
 from portable.runtime.release_update import ReleaseUpdate
 
 
@@ -28,6 +29,24 @@ def register_operations(app, paths, read_limited, control_token):
     update_lock = threading.Lock()
     app.state.update_requested = None
     app.state.operations_writes = 0
+
+    def require_admin(request):
+        if not authorized(paths, request.headers.get("x-feedback-admin", "")):
+            raise HTTPException(403, "管理者用の設定起動から開き直してください（有効期限15分）")
+
+    @app.get("/api/operations/instance")
+    def instance():
+        return {"instance_id": instance_id(paths)}
+
+    @app.get("/feedback-admin")
+    def admin_page():
+        from fastapi.responses import FileResponse
+        return FileResponse(Path(__file__).parent / "static/field/feedback-admin.html")
+
+    @app.get("/api/operations/admin-config")
+    def admin_config(request: Request):
+        require_admin(request)
+        return delivery.status()
 
     @app.middleware("http")
     async def operation_guard(request, next_handler):
@@ -70,8 +89,10 @@ def register_operations(app, paths, read_limited, control_token):
 
     @app.get("/api/operations/status")
     def status():
+        feedback = delivery.status()
+        feedback["config"] = {"enabled": feedback["config"]["enabled"]}
         return {
-            "feedback": delivery.status(),
+            "feedback": feedback,
             "update": updates.status(),
             "can_apply": bool(control_token and getattr(sys, "frozen", False)),
             "version": APP_VERSION,
@@ -84,11 +105,22 @@ def register_operations(app, paths, read_limited, control_token):
             if not isinstance(value, dict):
                 raise ValueError("入力内容を確認してください")
             if action == "configure":
+                require_admin(request)
+                if value.get("enabled") is not False:
+                    if (not value.get("key_id") or value.get("key_fingerprint")
+                            != receiver_identity(value.get("public_key"))):
+                        raise ValueError("KEY_CONFIRMATION_REQUIRED")
                 return await run_in_threadpool(delivery.configure, value)
+            if action == "key-preview":
+                require_admin(request)
+                return {"key_fingerprint": receiver_identity(value.get("public_key"))}
             if action == "send":
                 return await run_in_threadpool(delivery.send, manual=True)
             if action == "connection-test":
+                require_admin(request)
                 return await run_in_threadpool(delivery.connection_test)
+            if action == "finish-day":
+                return await run_in_threadpool(delivery.finish_day)
             if action == "update-check":
                 if not update_lock.acquire(blocking=False):
                     raise ValueError("更新処理中です")
@@ -125,7 +157,7 @@ def register_operations(app, paths, read_limited, control_token):
         if not control_token or request.headers.get("x-portable-control") != control_token:
             raise HTTPException(403)
         try:
-            return await run_in_threadpool(delivery.send)
+            return await run_in_threadpool(delivery.finish_day)
         except Exception:
             return {"status": "SAVED_FOR_RETRY"}
 

@@ -13,10 +13,20 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 
 def encrypt_package(package: dict, public_pem: bytes, *, package_id: str,
-                    client_id: str) -> bytes:
+                    client_id: str, key_id: str | None = None) -> bytes:
     public = serialization.load_pem_public_key(public_pem)
     if not isinstance(public, rsa.RSAPublicKey) or public.key_size < 3072:
         raise ValueError("FEEDBACK_PUBLIC_KEY_INVALID")
+    metadata = {}
+    if key_id is not None:
+        import re
+        if not re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", key_id):
+            raise ValueError("FEEDBACK_KEY_ID_INVALID")
+        fingerprint = hashlib.sha256(public.public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo,
+        )).hexdigest()
+        metadata = {"key_id": key_id, "key_fingerprint": fingerprint}
+        package = {**package, "receiver_key": metadata}
     plain = json.dumps(package, ensure_ascii=False, sort_keys=True,
                        separators=(",", ":")).encode("utf-8")
     limit = 7_500_000 if package.get("category") == "SUPPORT" else 1_000_000
@@ -33,6 +43,7 @@ def encrypt_package(package: dict, public_pem: bytes, *, package_id: str,
                 "wrapped_key": base64.b64encode(wrapped).decode(),
                 "ciphertext": base64.b64encode(ciphertext).decode(),
                 "sha256": hashlib.sha256(ciphertext).hexdigest()}
+    envelope.update(metadata)
     return json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode()
 
 
@@ -54,4 +65,13 @@ def decrypt_package(envelope_bytes: bytes, private_pem: bytes) -> tuple[dict, di
     plain = AESGCM(key).decrypt(base64.b64decode(envelope["nonce"], validate=True),
                                 ciphertext,
                                 f"{envelope['client_id']}:{envelope['package_id']}".encode("ascii"))
-    return envelope, json.loads(plain)
+    package = json.loads(plain)
+    if "receiver_key" in package:
+        metadata = package["receiver_key"]
+        actual = hashlib.sha256(private.public_key().public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo,
+        )).hexdigest()
+        if (metadata != {k: envelope.get(k) for k in ("key_id", "key_fingerprint")}
+                or metadata.get("key_fingerprint") != actual):
+            raise ValueError("FEEDBACK_KEY_METADATA_MISMATCH")
+    return envelope, package

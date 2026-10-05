@@ -39,3 +39,6 @@ deploy/backups/*
 !deploy/backups/.gitkeep
 deploy/recovery-reports/*
 !deploy/recovery-reports/.gitkeep
+
+# Local feedback provisioning credentials (never distribute)
+/key/

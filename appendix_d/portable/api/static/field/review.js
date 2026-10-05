@@ -185,4 +185,14 @@ export async function finish(ctx, counts) {
     true,
   );
   button("開始画面へ", () => ctx.run(() => ctx.home()), ctx.root, true);
+  const endStatus=el("p","",ctx.root);endStatus.setAttribute("role","status");
+  button("本日の作業を完了",()=>{
+    endStatus.textContent="作業は保存済みです。ログの提出状況を確認しています…";
+    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),20000);
+    fetch('/api/operations/finish-day',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:controller.signal})
+      .then(r=>{if(!r.ok)throw new Error();return r.json();})
+      .then(v=>{endStatus.textContent=v.status==='COMPLETED'?'本日の作業は完了しました。ログを提出しました。':v.status==='LOCAL_ONLY'?'本日の作業は完了しました。ログはこのPCに保存しています。':'本日の作業は完了しました。未送信ログを保存しています。必要に応じIT担当者へご連絡ください。';})
+      .catch(()=>{endStatus.textContent='本日の作業は完了しました。送信状況は次回確認します。保存済みの作業は残っています。';})
+      .finally(()=>clearTimeout(timer));
+  },ctx.root);
 }

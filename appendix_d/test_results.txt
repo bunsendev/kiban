@@ -2046,3 +2046,13 @@ OS: Windows 11
 - Frozen pilot.10 ZIP: 36 arbitrary-named CSVs / 3 synthetic products; mapping approval and reuse -> inventory -> forecast -> correction/export/feedback -> restart PASS.
 - Archive: 2502 hashes match; CRC OK; 56328400 bytes; no operator data or credentials.
 - SHA256: 868643d5025af815798806ee08cbe4c06ce59084f76414adcc57794177165d0f
+
+2026-10-06 Feedback device provisioning / pilot.16
+- PORTABLE_SMOKE=1 pytest tests/test_end_of_day_shared_transport.py tests/test_feedback_sync.py tests/portable -q: 147 passed, 1 upstream deprecation warning (50.82s).
+- PORTABLE_SMOKE disables startup network/update background checks for deterministic tests. Delivery and retry are invoked explicitly in targeted tests.
+- ruff check .: PASS; git diff --check: PASS; admin/review JS syntax: PASS.
+- Frozen E2E: 36 CSV / 3 synthetic products -> forecast/review/export/feedback/restart PASS.
+- ZIP CRC and 2508 manifest hashes PASS; Data/credentials absent. 56435595 bytes.
+- ZIP SHA256: 34c80ed2ba3af58cd0642c0b32674a459427690cac6854ceee5ff55f30030480
+- Local signed pilot.16 artifacts generated; no new public release published in this task.
+- Live receiver RECEIVED / ALREADY_RECEIVED and field-PC elevated setup: NOT VERIFIED, overall feedback acceptance NO-GO pending those checks.

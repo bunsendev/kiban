@@ -44,6 +44,7 @@ EXCLUDE_DIRS = {
     "build",
     "dist",
     "secrets",
+    "key",
     "backups",
     "recovery-reports",
 }

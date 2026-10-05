@@ -99,9 +99,23 @@ class SharedServerTransport:
                 "X-Bunsen-Privacy": privacy,
             },
         )
-        response = _post(request, self.timeout)
+        permanent_codes = {"AUTH_FAILED", "CLIENT_NOT_ALLOWED", "KEY_INVALID",
+                           "KEY_NOT_FOUND", "PRIVACY_REJECTED"}
+        try:
+            response = _post(request, self.timeout)
+        except urllib.error.HTTPError as exc:
+            try:
+                body = exc.read(4097)
+                error = json.loads(body).get("error") if len(body) <= 4096 else None
+                if isinstance(error, str) and error in permanent_codes:
+                    raise ValueError(error) from None
+            except (json.JSONDecodeError, UnicodeError, AttributeError, TypeError):
+                pass
+            raise
+        if isinstance(response.get("error"), str) and response["error"] in permanent_codes:
+            raise ValueError(response["error"])
         if response.get("ok") is not True or response.get("status") not in {
-            "RECEIVED", "DUPLICATE",
+            "RECEIVED", "DUPLICATE", "ALREADY_RECEIVED",
         }:
             raise ValueError("FEEDBACK_ACK_REJECTED")
         if response.get("request_id") != package_id:
@@ -137,6 +151,15 @@ def classify_connection_error(exc: Exception) -> str:
     if isinstance(exc, (urllib.error.URLError, TimeoutError, OSError)):
         return "NETWORK"
     if isinstance(exc, ValueError):
+        code = str(exc)
+        if code == "AUTH_FAILED":
+            return "AUTH"
+        if code == "CLIENT_NOT_ALLOWED":
+            return "CLIENT_ID"
+        if code in {"KEY_INVALID", "KEY_NOT_FOUND", "FEEDBACK_PUBLIC_KEY_INVALID"}:
+            return "KEY"
+        if code == "PRIVACY_REJECTED":
+            return "PRIVACY_POLICY"
         return "SERVER"
     return "SERVER"
 
@@ -176,9 +199,15 @@ def send_pending(store: FeedbackStore, *, url: str, token: str,
                 "FEEDBACK_TLS_ENDPOINT_REQUIRED", "FEEDBACK_CREDENTIAL_REQUIRED",
                 "FEEDBACK_CLIENT_INVALID", "FEEDBACK_PRIVACY_HEADER_INVALID",
                 "FEEDBACK_LOCAL_HASH_MISMATCH", "FEEDBACK_REQUEST_ID_INVALID",
+                "AUTH_FAILED", "CLIENT_NOT_ALLOWED", "KEY_INVALID", "KEY_NOT_FOUND",
+                "PRIVACY_REJECTED",
             }
             store.mark(package_id, "REJECTED" if permanent else "FAILED_RETRYABLE",
-                       "LOCAL_CONFIGURATION_INVALID" if permanent else "NETWORK_OR_ACK_ERROR")
+                       (str(exc) if str(exc) in {"AUTH_FAILED", "CLIENT_NOT_ALLOWED",
+                                                "KEY_INVALID", "KEY_NOT_FOUND",
+                                                "PRIVACY_REJECTED"}
+                        else "LOCAL_CONFIGURATION_INVALID") if permanent
+                       else "NETWORK_OR_ACK_ERROR")
             result["rejected" if permanent else "retryable"] += 1
         except (OSError, TimeoutError):
             store.mark(package_id, "FAILED_RETRYABLE", "NETWORK_OR_ACK_ERROR")

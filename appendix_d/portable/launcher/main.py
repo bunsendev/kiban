@@ -279,12 +279,16 @@ def launch() -> int:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--server", action="store_true")
+    parser.add_argument("--feedback-admin", action="store_true")
     parser.add_argument("--port", type=int)
     parser.add_argument("--data-root", type=Path)
     parser.add_argument("--apply-update", type=Path)
     parser.add_argument("--stage")
     parser.add_argument("--parent-pid", type=int)
     args = parser.parse_args()
+    if args.feedback_admin:
+        from portable.runtime.feedback_admin import open_settings
+        return open_settings(bundle_root())
     if args.apply_update:
         from portable.runtime.update_apply import run
 
