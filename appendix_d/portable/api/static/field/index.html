@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ブンセン｜現場担当者の4ステップ</title>
+    <link rel="stylesheet" href="/field/assets/style.css" />
+  </head>
+  <body>
+    <header>
+      <strong>ブンセン</strong><span>出荷予測・現場確認</span
+      ><button id="help" class="secondary">使い方・困ったことを伝える</button>
+    </header>
+    <main>
+      <nav aria-label="操作の流れ">
+        <ol id="steps">
+          <li>1 データをアップロード</li>
+          <li>2 分析・確認</li>
+          <li>3 結果を見る</li>
+          <li>4 判断を保存</li>
+        </ol>
+      </nav>
+      <p id="status" role="status" aria-live="polite"></p>
+      <section id="screen" aria-label="作業画面"></section>
+      <dialog id="help-dialog">
+        <h2>使い方・困ったことを伝える</h2>
+        <p>
+          ZIPを選ぶ → 分析中の確認事項を確認する → 結果を見る →
+          判断を保存する、の順に進めます。
+        </p>
+        <p>
+          予測は参考値です。数量の修正は担当者の判断として保存され、出荷指示や元の予測は変更しません。
+        </p>
+        <form id="help-form">
+          <label
+            >困ったこと・改善してほしいこと<textarea
+              name="comment"
+              required
+              maxlength="2000"
+            ></textarea>
+          </label>
+          <p>このPCに保存します。秘密情報は入力しないでください。</p>
+          <button>意見を保存</button
+          ><button type="button" id="help-close" class="secondary">
+            閉じる
+          </button>
+          <p id="help-status" role="status"></p>
+        </form>
+      </dialog>
+      <footer>
+        このPCの作業データです。別のPCとは共有しません。<a
+          href="/"
+          target="_blank"
+          rel="noopener"
+          >IT担当者向けの詳細画面</a
+        >
+      </footer>
+    </main>
+    <script src="/review.js"></script>
+    <script type="module" src="/field/assets/app.js"></script>
+  </body>
+</html>
