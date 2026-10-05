@@ -161,6 +161,7 @@ def main() -> None:
     shutil.copy2(root / "portable" / "P1_FIELD_ACCEPTANCE.md", output / "P1_FIELD_ACCEPTANCE.md")
     write_samples(output / "ScaleSamples")
     shutil.copy2(root / "portable" / "SCALE_TEST.md", output / "SCALE_TEST.md")
+    shutil.copy2(root / "docs" / "Portable_現場4ステップ操作.md", output / "現場操作手順.md")
     (output / "Data").mkdir()
     write_operator_files(output)
     write_manifest(output)

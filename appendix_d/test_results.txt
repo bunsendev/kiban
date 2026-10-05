@@ -1,3 +1,8 @@
+2026-10-05 Portable pilot.9 配布前検証
+Portable回帰59件成功 + 長パス/カタログ5件成功。ruff成功。
+凍結EXE: 起動/予測/修正/CSV/feedback/再起動復元/localhost限定PASS。
+ZIP CRCと2500ファイルhash照合PASS。詳細 planning/PORTABLE_PILOT9_ACCEPTANCE.md。
+
 2026-10-05 現場4ステップ参考デザイン調整
 pytest tests/portable/test_field_ui.py: 4 passed (13.33s)
 ruff check .: passed / JavaScript syntax: passed
