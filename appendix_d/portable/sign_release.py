@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from portable import APP_VERSION
+from portable.runtime.api_credentials import ApiCredentials
 from portable.runtime.release_update import unpack, version
 
 
@@ -49,8 +50,15 @@ def main():
     parser.add_argument("--private-key", type=Path, required=True)
     parser.add_argument("--minimum-version", default=APP_VERSION)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--credential-file", type=Path, help="このWindowsユーザーのDPAPI署名パスフレーズ保存先"
+    )
     args = parser.parse_args()
-    password = getpass.getpass("署名秘密鍵のパスフレーズ（画面・ログに表示しません）: ")
+    password = (
+        ApiCredentials(args.credential_file).load()
+        if args.credential_file
+        else getpass.getpass("署名秘密鍵のパスフレーズ（画面・ログに表示しません）: ")
+    )
     sign(args.package, args.private_key, password.encode(), args.minimum_version, args.output)
     print("署名ファイルを作成しました。秘密鍵を配布しないでください。")
 

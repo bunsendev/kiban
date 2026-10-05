@@ -1,3 +1,6 @@
+2026-10-05 Portable pilot.15 署名鍵切替
+新規鍵保存/署名/送信関連25件成功（5.50秒）、ruff成功。凍結EXE E2E/再起動PASS。ZIP2505ファイルhash/新公開鍵一致/資格情報不在を確認。公開署名の検証結果は planning/PORTABLE_SIGNED_RELEASE_PILOT15.md 参照。
+
 2026-10-05 Portable pilot.14 ログ提出・署名更新
 Portable+feedback回帰113件成功（54.36秒）、ruff/JS構文成功。暗号化・再送・同意停止・改ざん拒否・バックアップ/復元を検証。凍結EXE E2Eと再起動PASS。ZIP CRC/2505ファイルhash一致。実送信・公開署名Release適用は未実施。詳細 planning/PORTABLE_OPERATIONS_DELIVERY.md。
 
