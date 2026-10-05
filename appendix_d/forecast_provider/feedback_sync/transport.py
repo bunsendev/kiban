@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import re
@@ -27,6 +28,25 @@ def _endpoint(url: str, token: str) -> None:
         raise ValueError("FEEDBACK_TLS_ENDPOINT_REQUIRED")
     if not token or len(token) < 32 or "\r" in token or "\n" in token:
         raise ValueError("FEEDBACK_CREDENTIAL_REQUIRED")
+
+
+def privacy_header(item: dict) -> str:
+    """Serialize the receiver contract; never assert absent business data by default."""
+    policy = item["policy_version"]
+    fields = {"contains_raw_files", "contains_jan", "contains_product_names",
+              "contains_customer_names"}
+    value = item.get("privacy_manifest")
+    if value is None:
+        # Older encrypted outbox entries carry no inspectable content declaration.
+        # Conservatively flag unknown contents instead of declaring them absent.
+        value = {"policy_version": policy, **dict.fromkeys(fields, True)}
+    if (not isinstance(value, dict) or set(value) != fields | {"policy_version"}
+            or value["policy_version"] != policy
+            or any(type(value[k]) is not bool for k in fields)):
+        raise ValueError("FEEDBACK_PRIVACY_HEADER_INVALID")
+    return base64.b64encode(json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+    ).encode("utf-8")).decode("ascii")
 
 
 class FeedbackTransport(Protocol):
@@ -96,7 +116,7 @@ class SharedServerTransport:
                 "X-Bunsen-Client": self.client_id,
                 "X-Bunsen-Request-Id": package_id,
                 "X-Bunsen-Sha256": digest,
-                "X-Bunsen-Privacy": privacy,
+                "X-Bunsen-Privacy": privacy_header(item),
             },
         )
         permanent_codes = {"AUTH_FAILED", "CLIENT_NOT_ALLOWED", "KEY_INVALID",

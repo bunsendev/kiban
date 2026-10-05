@@ -58,3 +58,20 @@ Tokenを含む原本は共通配布ZIPへ入れず、対象PC分だけIT担当�
 読込後はDPAPI暗号化保存、API一覧はTokenを返さない。設定原本は自動削除しない。
 現場担当者には新規設定操作を求めず、既存の操作記録と終業送信を利用する。
 27件の関連テスト成功。実サーバー受信確認は依然未実施。
+
+## 2026-10-06 07:51 JST 実サーバー接続確認（契約修正後）
+
+X-Bunsen-PrivacyをUTF-8 JSON → Standard Base64として送信。
+Connection Testはpolicy_version=connection-test-v1、原本/JAN/商品名/顧客名の4宣言をfalseとする。
+業務データなし、Token非出力で BUNSEN-PILOT-03 から確認した。
+
+- 初回 HTTP 201 / ok=true / RECEIVED。
+- 同じ暗号文・request_idを再送: HTTP 200 / ok=true / ALREADY_RECEIVED。
+- request_id: 7da838ebc55444d9849ab94635b4695f
+- 両応答のSHA256が送信暗号文と一致。
+- 接続テストの判定はPASS。以前の「実受信確認待ち」はこの確認により解消。
+- 現場PCの管理者起動と通常業務パッケージの受入は今回の確認に含まない。
+
+宣言のない既存暗号化outboxは中身を確認できないため、欠如をfalseと偽らず4項目をtrueとして保守的に送る。
+業務側のmanifest生成・outboxスキーマ変更は今回の範囲外。通常業務の受入GOとは区別する。
+署名済みpilot.18 ZIPにはこのソース修正は未反映（既存ZIPは変更しない）。

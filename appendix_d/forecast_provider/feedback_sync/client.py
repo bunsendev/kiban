@@ -74,14 +74,17 @@ def connection_test(client: dict, token: str, public_key: bytes, *, transport=No
     if client.get("transport") != "shared_php":
         return {"status": "UNSUPPORTED"}
     package_id = uuid.uuid4().hex
+    privacy = {"policy_version": "connection-test-v1", "contains_raw_files": False,
+               "contains_jan": False, "contains_product_names": False,
+               "contains_customer_names": False}
     package = {"category": "CONNECTION_TEST", "payload": {},
-               "manifest": {"contains_raw_files": False,
+               "manifest": {**privacy,
                             "created_at": datetime.now(UTC).isoformat()}}
     envelope = encrypt_package(package, public_key, package_id=package_id,
                                client_id=client["client_id"], key_id=client.get("key_id"))
     item = {"package_id": package_id, "envelope": envelope,
             "sha256": hashlib.sha256(envelope).hexdigest(),
-            "policy_version": "CONNECTION_TEST"}
+            "policy_version": "connection-test-v1", "privacy_manifest": privacy}
     try:
         response = (transport or transport_for(client)).send(item, token)
         return {"status": "CONNECTED" if response["status"] in {

@@ -2072,3 +2072,9 @@ OS: Windows 11
 - Device-specific credential JSON excluded from Git and common distribution; not embedded in application.
 - Live receiver test still pending. Test credentials only used in automated tests.
 - pilot.18 frozen E2E forecast/review/export/feedback/restart PASS; ZIP CRC and 2510 hashes PASS. SHA256 34d7fbed0876d7f2ad0c12a0f3c7743c653ea8143793e789fa052a4365574f21. Local signature generated.
+
+2026-10-06 Privacy header contract fix
+- Targeted feedback sync / shared transport / portable provisioning and delivery: 60 passed, 1 upstream warning.
+- UTF-8 JSON -> Standard Base64 validated. Connection-test declarations false; nonempty policy_version.
+- Live BUNSEN-PILOT-03: HTTP 201 RECEIVED, identical request replay HTTP 200 ALREADY_RECEIVED. Response request_id and encrypted SHA256 match.
+- Synthetic empty payload only; no business data or Token logged. Existing pilot.18 package not modified.
