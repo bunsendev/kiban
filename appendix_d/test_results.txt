@@ -1,3 +1,6 @@
+2026-10-05 Portable pilot.12 手書き画像・PDF adapter
+新規14件を含む93件成功、起動中アプリと競合する固定ポート試験1件は旧アプリ停止後に個別成功。ruff/JS構文成功。実AIの手書き精度は未検証（前回API401）。詳細 planning/PORTABLE_HANDWRITING_INTAKE.md。
+
 2026-10-05 Portable pilot.11 APIキーDPAPI保存
 回帰79成功、固定ポート競合1件は旧アプリ停止後の再実行で成功。ruff/JS構文成功。凍結EXE E2E・再起動・ZIP2502hash成功。保存状態の引継ぎ成功。実AIはHTTP401で未合格。詳細 planning/PORTABLE_PILOT11_ACCEPTANCE.md。
 

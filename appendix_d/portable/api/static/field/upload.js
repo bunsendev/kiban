@@ -1,6 +1,7 @@
 import { api, el, button } from "./api.js";
 import { waitJob } from "./progress.js";
 import { folderReview } from "./folder-review.js";
+import { documents } from "./documents.js";
 
 export async function upload(ctx) {
   ctx.enter(1);
@@ -137,6 +138,7 @@ export async function upload(ctx) {
     true,
   );
   await refresh();
+  await documents(ctx, ctx.root);
   const historyGroup = el("details", "", ctx.root);
   historyGroup.className = "work-history";
   el("summary", "過去の作業を再開", historyGroup);

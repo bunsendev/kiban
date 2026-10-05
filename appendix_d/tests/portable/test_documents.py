@@ -1,0 +1,197 @@
+import io
+import json
+import zipfile
+
+import pytest
+from fastapi.testclient import TestClient
+
+from portable.api import document_ai
+from portable.api.app import create_app
+from portable.api.document_ai import DocumentError
+from portable.api.source_detection import read_source
+
+
+def row(**kwargs):
+    return {
+        **dict.fromkeys(document_ai.FIELDS, ""),
+        "kind": "shipment",
+        "jan": "4901234567894",
+        "product_name": "人工商品",
+        "date": "2026-10-01",
+        "quantity": "2",
+        "unit": "くくり",
+        "location": "人工倉庫",
+        "page": "1",
+        **kwargs,
+    }
+
+
+def setup(tmp_path, monkeypatch, rows=None, complete=True):
+    app = create_app(tmp_path / "Data")
+    service = app.state.documents
+    monkeypatch.setattr("portable.api.document_intake.ApiCredentials.load", lambda _: "synthetic")
+    monkeypatch.setattr(
+        "portable.api.document_intake.extract",
+        lambda *_: {"rows": rows or [row()], "complete": complete},
+    )
+    client = TestClient(app, base_url="http://127.0.0.1")
+    result = client.post(
+        "/api/documents/upload", content=b"%PDF-synthetic", headers={"x-file-name": "synthetic.pdf"}
+    ).json()
+    return client, service, result["id"]
+
+
+def test_consent_review_conversion_and_restart(tmp_path, monkeypatch):
+    client, service, identifier = setup(tmp_path, monkeypatch, [row(), row(quantity="")])
+    url = f"/api/documents/{identifier}"
+    assert not list(service.paths.incoming.glob("*.csv"))
+    assert client.post(url + "/extract", json={}).status_code == 422
+    assert client.post(url + "/extract", json={"consent": True}).status_code == 200
+    assert not list(service.paths.incoming.glob("*.csv"))
+    approved = {
+        "confirmed": True,
+        "actor": "人工確認者",
+        "rows": [
+            {**row(), "case_factor": "3"},
+            {**row(quantity=""), "exclude": True, "reason": "判読不能"},
+        ],
+    }
+    assert client.post(url + "/approve", json=approved).status_code == 200
+    assert not list(service.paths.incoming.glob("*.csv"))
+    assert client.post(url + "/dispatch", json={}).status_code == 200
+    files = list(service.paths.incoming.glob("*.csv"))
+    assert len(files) == 1
+    contents = files[0].read_bytes()
+    assert "6" in contents.decode("utf-8-sig")
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as z:
+        z.writestr(files[0].name, contents)
+    with zipfile.ZipFile(buffer) as z:
+        kind, center, _day, reader = read_source(z, z.infolist()[0])
+        assert kind == "shipment" and center == "人工倉庫"
+        assert next(iter(reader))["数量"] == "6"
+    files[0].unlink()  # Simulate scanner moving accepted input.
+    fresh = TestClient(create_app(service.paths.root), base_url="http://127.0.0.1")
+    assert fresh.post(url + "/dispatch", json={}).status_code == 200
+    assert not list(service.paths.incoming.glob("*.csv"))
+    history = fresh.get("/api/documents").json()[0]
+    assert history["extraction"]["rows"][0]["quantity"] == "2"
+    assert history["approval"]["rows"][1]["reason"] == "判読不能"
+    assert fresh.get(url + "/original").content == b"%PDF-synthetic"
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"quantity": ""},
+        {"quantity": "NaN"},
+        {"quantity": "-1"},
+        {"case_factor": ""},
+        {"case_factor": "0"},
+        {"jan": "4901234567890"},
+        {"date": "invalid"},
+        {"unit": ""},
+        {"location": ""},
+    ],
+)
+def test_invalid_rows_never_publish(tmp_path, monkeypatch, change):
+    client, service, identifier = setup(tmp_path, monkeypatch)
+    service.read(identifier, True)
+    r = client.post(
+        f"/api/documents/{identifier}/approve",
+        json={
+            "confirmed": True,
+            "actor": "人工",
+            "rows": [{**row(), "case_factor": "1", **change}],
+        },
+    )
+    assert r.status_code == 422
+    assert service.get(identifier)["approval"] is None
+    assert not list(service.paths.incoming.glob("*.csv"))
+
+
+def test_incomplete_and_external_origin_and_file_type(tmp_path, monkeypatch):
+    client, service, identifier = setup(tmp_path, monkeypatch, complete=False)
+    service.read(identifier, True)
+    assert (
+        client.post(
+            f"/api/documents/{identifier}/approve",
+            json={"confirmed": True, "actor": "人工", "rows": [row()]},
+        ).status_code
+        == 422
+    )
+    assert client.post("/api/documents/upload", content=b"<html>bad</html>").status_code == 422
+    assert (
+        client.post(
+            "/api/documents/upload", content=b"%PDF-test", headers={"Origin": "https://other.test"}
+        ).status_code
+        == 403
+    )
+
+
+def test_cloud_payload_and_truncation():
+    def opener(request, timeout):
+        payload = json.loads(request.data)
+        assert payload["store"] is False
+        assert payload["input"][0]["content"][1]["type"] == "input_file"
+        return io.BytesIO(
+            json.dumps(
+                {
+                    "status": "completed",
+                    "output": [
+                        {
+                            "type": "message",
+                            "content": [
+                                {
+                                    "type": "output_text",
+                                    "text": json.dumps({"complete": True, "rows": [row()]}),
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ).encode()
+        )
+
+    assert (
+        document_ai.extract(b"%PDF-synthetic", "fake", opener=opener)["rows"][0]["quantity"] == "2"
+    )
+    with pytest.raises(DocumentError):
+        document_ai.extract(
+            b"%PDF-test",
+            "fake",
+            opener=lambda *_args, **_kw: io.BytesIO(b'{"status":"incomplete","output":[]}'),
+        )
+
+
+def test_inventory_zero_and_exclusion_reason(tmp_path, monkeypatch):
+    inventory = row(kind='inventory', quantity='0', expiry='2026-11-01',
+                    snapshot='2026-10-01', product_code='ARTIFICIAL')
+    client, service, identifier = setup(tmp_path, monkeypatch, [inventory])
+    service.read(identifier, True)
+    with pytest.raises(DocumentError):
+        service.approve(identifier, {'actor': 'test', 'confirmed': True,
+                                    'rows': [{**inventory, 'exclude': True}]})
+    service.approve(identifier, {'actor': 'test', 'confirmed': True,
+                                'rows': [{**inventory, 'case_factor': '1'}]})
+    service.dispatch(identifier)
+    text = next(service.paths.incoming.glob('*.csv')).read_text(encoding='utf-8-sig')
+    assert '明細バラ数' in text and 'ARTIFICIAL' in text and ',0,' in text
+    original = client.get(f'/api/documents/{identifier}/original')
+    assert original.headers['content-security-policy'].startswith('sandbox')
+
+
+def test_image_payload_and_auth_error():
+    from urllib.error import HTTPError
+
+    def auth_error(request, timeout):
+        payload = json.loads(request.data)
+        source = payload['input'][0]['content'][1]
+        assert source['type'] == 'input_image'
+        assert source['image_url'].startswith('data:image/png;base64,')
+        raise HTTPError('https://api.openai.com/v1/responses', 401, 'secret-test', {}, None)
+
+    with pytest.raises(DocumentError, match='APIキーの認証') as failure:
+        document_ai.extract(b'\x89PNG\r\n\x1a\nsynthetic', 'not-a-real-key', opener=auth_error)
+    assert 'not-a-real-key' not in str(failure.value)
+    assert 'secret-test' not in str(failure.value)

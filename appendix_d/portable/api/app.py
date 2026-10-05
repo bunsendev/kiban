@@ -38,6 +38,7 @@ from .business_review import (
 from .candidate_package_routes import register_candidate_package_routes
 from .change_application_routes import register_change_application_routes
 from .daily_auto_run_routes import register_daily_auto_run_routes
+from .document_routes import register_document_routes
 from .drop_folder import DropFolderBusyError, DropFolderIntake
 from .drop_folder_routes import register_drop_folder_routes
 from .field_routes import register_field_routes
@@ -129,6 +130,7 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     drop_folder = DropFolderIntake(paths, archive_intake.ingest, active=drop_active)
     app.state.drop_folder = drop_folder
     register_drop_folder_routes(app, drop_folder)
+    register_document_routes(app, paths, drop_folder)
     app.router.add_event_handler("startup", drop_folder.start)
     app.router.add_event_handler("shutdown", drop_folder.stop)
 
@@ -143,7 +145,7 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Content-Security-Policy"] = (
+        response.headers.setdefault("Content-Security-Policy",
             "default-src 'self'; script-src 'self'; style-src 'self'; "
             "connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'"
         )
