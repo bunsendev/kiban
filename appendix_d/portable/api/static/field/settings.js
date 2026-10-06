@@ -3,6 +3,7 @@ import {operations} from './operations.js';
 
 export function settings(ctx,parent){
  const bar=el('nav','',parent);bar.setAttribute('aria-label','このPCの設定');bar.className='device-settings';
+ const guide=el('a','操作マニュアル',bar);guide.href='/field/manual';guide.target='_blank';guide.rel='noopener';
  function open(title,render){
   const dialog=el('dialog','',parent);dialog.setAttribute('aria-label',title);
   dialog.style.maxWidth='min(760px, 92vw)';dialog.style.maxHeight='85vh';

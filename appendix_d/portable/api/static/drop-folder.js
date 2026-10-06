@@ -38,3 +38,8 @@ dropScan.addEventListener('click',async()=>{
 
 refreshDropFolder(false);
 setInterval(()=>refreshDropFolder(true),5000);
+
+document.getElementById('drop-folder-open').addEventListener('click',async()=>{
+ try{const r=await fetch('/api/drop-folder/open',{method:'POST'});if(!r.ok)throw new Error('投入フォルダを開けません。起動画面からお試しください。');dropState.textContent='投入フォルダを開きました。CSVまたはZIPを直下に置いてください。';}
+ catch(e){dropState.textContent=e.message;}
+});

@@ -64,6 +64,14 @@ def register_field_routes(app, paths, intake, daily, resolve, read_limited):
     def index():
         return FileResponse(STATIC / "index.html", media_type="text/html")
 
+    @app.get("/field/manual")
+    def manual():
+        return FileResponse(STATIC / "manual.html", media_type="text/html")
+
+    @app.get("/field/manual.css")
+    def manual_style():
+        return FileResponse(STATIC / "manual.css", media_type="text/css")
+
     @app.get("/field/assets/{name}")
     def asset(name: str):
         if name not in {p.name for p in STATIC.iterdir() if p.suffix in {".js", ".css"}}:

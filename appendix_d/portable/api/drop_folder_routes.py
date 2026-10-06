@@ -1,6 +1,7 @@
 """HTTP read and manual rescan boundary for the Portable drop folder."""
 
 import json
+import os
 
 from fastapi import HTTPException, Request
 from starlette.concurrency import run_in_threadpool
@@ -26,6 +27,15 @@ def register_drop_folder_routes(app, service) -> None:
             return value
         except (ValueError, UnicodeError) as exc:
             raise HTTPException(422, "画面を更新して入力し直してください") from exc
+
+    @app.post("/api/drop-folder/open")
+    def open_incoming():
+        try:
+            service.paths.incoming.mkdir(parents=True, exist_ok=True)
+            os.startfile(service.paths.incoming)
+        except (OSError, AttributeError):
+            raise HTTPException(503, "フォルダーを開けません。起動画面からお試しください") from None
+        return {"status": "OPENED"}
 
     @app.get("/api/ai-credentials")
     def credential_status():

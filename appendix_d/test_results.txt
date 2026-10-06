@@ -2091,3 +2091,10 @@ OS: Windows 11
 - API credentials and operations regression: 15 passed, 1 upstream warning; JS syntax and ruff PASS.
 - ZIP CRC / 2511 manifest hashes PASS; 56446092 bytes, SHA256 6757a334e63a83a9af38647c6ba043f4f948c43785fbbf1156708b63ee863ee8.
 - Frozen synthetic forecast/review/export/feedback/restart PASS.
+
+2026-10-06 pilot.21 Incoming opener + HTML manual
+- Added adjacent open-folder button to field and detailed screens; POST opens only configured Incoming.
+- Two API tests PASS: fixed destination, external Origin blocked, GET rejected, safe OS failure, manual routes.
+- ruff, JS syntax, internal HTML links PASS. ZIP CRC / 2515 hashes PASS; manual HTML/CSS match sources.
+- ZIP SHA256 fed7000820ca213b3c2adfa8ce3c9d94d616ec773f6859a1e5a7464c725c7e43; 56456442 bytes. Signed locally.
+- Preview-server launch command rejected by automatic approval policy; no workaround attempted. Native Explorer opening and rendered browser QA not verified this turn.

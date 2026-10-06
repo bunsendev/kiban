@@ -133,12 +133,20 @@ export async function upload(ctx) {
         );
     }
   }
+  const folderActions = el("div", "", folder);
+  folderActions.style.display = "flex";
+  folderActions.style.flexWrap = "wrap";
+  folderActions.style.gap = "12px";
   button(
     "投入ファイルを確認",
     () => ctx.run(() => refresh(true)),
-    folder,
+    folderActions,
     true,
   );
+  button("投入フォルダを開く", () => ctx.run(async () => {
+    await api("/api/drop-folder/open", {});
+    ctx.message("投入フォルダを開きました。CSVまたはZIPを直下に置いてください。");
+  }), folderActions, true);
   await refresh();
   await documents(ctx, ctx.root);
 
