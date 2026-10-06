@@ -2,10 +2,11 @@ import { api, el, button } from "./api.js";
 import { waitJob } from "./progress.js";
 import { folderReview } from "./folder-review.js";
 import { documents } from "./documents.js";
-import { operations } from "./operations.js";
+import { settings } from "./settings.js";
 
 export async function upload(ctx) {
   ctx.enter(1);
+  settings(ctx, ctx.root);
   el("h1", "データをアップロード", ctx.root);
   el("p", "今日のデータを取り込んでください。", ctx.root).className = "intro";
   const drop = el("div", "", ctx.root);
@@ -140,7 +141,7 @@ export async function upload(ctx) {
   );
   await refresh();
   await documents(ctx, ctx.root);
-  await operations(ctx, ctx.root);
+
   const historyGroup = el("details", "", ctx.root);
   historyGroup.className = "work-history";
   el("summary", "過去の作業を再開", historyGroup);

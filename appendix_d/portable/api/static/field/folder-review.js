@@ -67,6 +67,7 @@ export async function folderReview(ctx, parent, refresh) {
     el("p", "数量の単位や換算は自動確定しません。取込後の確認画面で確認してください。", box);
     const state = el("p", "", box); state.setAttribute("role", "status");
     button("AIの列対応案を取得", () => ctx.run(async () => {
+      credentials = await api("/api/ai-credentials");
       if ((!key.value && !credentials.available) || !consent.checked) throw new Error("APIキーと列名送信の同意を確認してください");
       state.textContent = "AIの提案を取得しています…";
       try {

@@ -2085,3 +2085,9 @@ OS: Windows 11
 - Frozen synthetic forecast/review/export/feedback/restart PASS.
 - SHA256 39593711fcc80d6a0ddb425a753d029392ef6db4fadba3d2da432fc96c9db177; 56443493 bytes.
 - Removed 38 obsolete local Portable ZIP/checksum files and four old signature folders after validation. Preserved extracted apps and Data. Remote releases unchanged.
+
+2026-10-06 pilot.20 accessible device settings
+- Browser verified top-level AI/API settings and log/update dialogs; saved credential status visible without key exposure.
+- API credentials and operations regression: 15 passed, 1 upstream warning; JS syntax and ruff PASS.
+- ZIP CRC / 2511 manifest hashes PASS; 56446092 bytes, SHA256 6757a334e63a83a9af38647c6ba043f4f948c43785fbbf1156708b63ee863ee8.
+- Frozen synthetic forecast/review/export/feedback/restart PASS.
