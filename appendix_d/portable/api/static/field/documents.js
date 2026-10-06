@@ -10,6 +10,12 @@ export async function documents(ctx, parent) {
   el('p','PDF・PNG・JPEG（1ファイル10 MBまで）。読み取り後に原本を確認し、修正してから分析へ進めます。',group);
   const input=field(group,'原本を選ぶ','file'); input.accept='.pdf,.png,.jpg,.jpeg';
   const list=el('div','',group);
+  const notice=el('p','',group);notice.setAttribute('role','status');
+  function showKeyStatus(v){notice.textContent=v.available?'APIキーは保存済み・読込確認済みです。原本を登録し、送信同意後に読み取れます。':'APIキーが未設定、または読込できません。画面上部のAI・API設定で保存してください。';}
+  async function keyStatus(){const v=await api('/api/ai-credentials');showKeyStatus(v);return v;}
+  const updateKeyStatus=e=>{if(group.isConnected)showKeyStatus(e.detail);else document.removeEventListener('portable-api-key-status',updateKeyStatus);};
+  document.addEventListener('portable-api-key-status',updateKeyStatus);
+  await keyStatus();
   button('原本を登録する',()=>ctx.run(async()=>{
     const f=input.files[0]; if(!f) throw new Error('原本を選択してください');
     if(f.size>10*1024*1024) throw new Error('10 MB以内で選択してください');
@@ -29,13 +35,16 @@ export async function documents(ctx, parent) {
       if(doc.mime.startsWith('image/')){const img=el('img','',box);img.src=link.href;img.alt='確認用の原本';img.style.maxWidth='100%';img.loading='lazy';}
       if(!doc.extraction){
         el('p','この原本全体（手書き・明細・数量を含む）をOpenAIへ送信します。API料金が発生します。保存済みAPIキーを使用します。',box);
+        box.open=true;
         const consent=field(box,'この原本全体のOpenAIへの送信に同意する','checkbox',false);
         const status=el('p','',box);
         const read=button('AIで読み取る',()=>ctx.run(async()=>{
           if(!consent.checked) throw new Error('送信への同意を確認してください');
+          if(!(await keyStatus()).available)throw new Error('APIキーを利用できません。画面上部のAI・API設定で保存してから、もう一度お試しください。');
           read.disabled=true;status.textContent='読み取り中です。最大90秒ほどお待ちください。';
           try{await api(`/api/documents/${doc.id}/extract`,{consent:true});await refresh();}
-          finally{read.disabled=false;status.textContent='';}
+          catch(e){status.textContent=e.message||'読み取りできませんでした。再試行できます。';throw e;}
+          finally{read.disabled=false;}
         }),box);continue;
       }
       if(!doc.extraction.complete){el('p','全明細を読み取れていません。原本を分割するか鮮明に撮影して再投入してください。自動取込はしません。',box);continue;}

@@ -3,6 +3,12 @@ import {operations} from './operations.js';
 
 export function settings(ctx,parent){
  const bar=el('nav','',parent);bar.setAttribute('aria-label','このPCの設定');bar.className='device-settings';
+ const savedState=el('p','APIキーの保存状態を確認中…',parent);savedState.setAttribute('role','status');
+ async function savedStatus(){
+  try{const v=await api('/api/ai-credentials');savedState.textContent=v.available?'APIキー：保存済み・このユーザーで読込確認済み':v.saved?'APIキー：保存済みですが読込できません。AI・API設定から再設定してください。':'APIキー：未設定。PDF・画像のAI読み取りには設定が必要です。';document.dispatchEvent(new CustomEvent('portable-api-key-status',{detail:v}));return v;}
+  catch{savedState.textContent='APIキーの保存状態を確認できません。画面を再読込してください。';throw new Error('保存状態を確認できません');}
+ }
+ savedStatus().catch(()=>{});
  const guide=el('a','操作マニュアル',bar);guide.href='/field/manual';guide.target='_blank';guide.rel='noopener';
  function open(title,render){
   const dialog=el('dialog','',parent);dialog.setAttribute('aria-label',title);
@@ -18,13 +24,14 @@ export function settings(ctx,parent){
   el('p','OpenAI APIの利用料金が発生します。原本の送信は、読み取り時に同意してから行います。',body);
   const state=el('p','確認中…',body);state.setAttribute('role','status');
   const key=field(body,'OpenAI APIキー','password',false);key.autocomplete='off';
-  async function refresh(){const v=await api('/api/ai-credentials');state.textContent=v.available?'APIキーは保存済みです。このWindowsユーザーで次回も利用できます。':v.saved?'保存済みキーを利用できません。再設定してください。':'APIキーは未設定です。';}
+  async function refresh(){const v=await savedStatus();state.textContent=v.available?'APIキーは保存済みです。このWindowsユーザーで次回も利用できます。':v.saved?'保存済みキーを利用できません。再設定してください。':'APIキーは未設定です。';}
   const save=button('このPCに保存・変更',async()=>{
    save.disabled=true;
-   try{await api('/api/ai-credentials',{api_key:key.value});await refresh();}
-   catch{state.textContent='保存できませんでした。APIキーと端末の設定を確認してください。';}
-   finally{key.value='';save.disabled=false;}
+   try{const result=await api('/api/ai-credentials',{api_key:key.value.trim()});if(!result.available)throw new Error('保存したキーを読み込めません。Windowsユーザーを確認してください。');await refresh();key.value='';}
+   catch(e){state.textContent=e.message||'保存できませんでした。APIキーと端末の設定を確認してください。';}
+   finally{save.disabled=false;}
   },body);
+  button('保存状態を再確認',()=>refresh().catch(()=>{state.textContent='保存状態を確認できません。画面を再読込してください。';}),body,true);
   const confirmed=field(body,'保存したキーを削除する','checkbox',false);
   button('APIキーを削除',async()=>{
    if(!confirmed.checked){state.textContent='削除の確認にチェックしてください。';return;}

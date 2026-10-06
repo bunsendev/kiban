@@ -264,3 +264,34 @@ def test_reviewed_document_reaches_existing_archive_analysis(tmp_path, monkeypat
     assert not list(service.paths.incoming.glob('*.csv'))
     assert len(list((service.paths.incoming / 'Processed').glob('*.csv'))) == 36
     assert service.get(identifier)['approval']['rows'][-1]['quantity'] == '100'
+
+
+def test_pdf_saved_key_restart_and_auth_failure(tmp_path, monkeypatch):
+    from portable.runtime.api_credentials import ApiCredentials
+
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "profile"))
+    client = TestClient(create_app(tmp_path / "Data"), base_url="http://127.0.0.1")
+    saved = client.post("/api/ai-credentials", json={"api_key": "sk-synthetic-pdf"})
+    assert saved.json()["available"]
+    fresh = TestClient(create_app(tmp_path / "Data"), base_url="http://127.0.0.1")
+    assert fresh.get("/api/ai-credentials").json() == {"saved": True, "available": True}
+    raw = b"%PDF-synthetic-persistence"
+    uploaded = fresh.post("/api/documents/upload", content=raw,
+                          headers={"x-file-name": "test.pdf"}).json()
+    identifier = uploaded["id"]
+
+    def fail_extract(source, key):
+        assert key == "sk-synthetic-pdf" and source == raw
+        raise DocumentError("APIキーの認証に失敗しました。キー設定を確認してください")
+
+    monkeypatch.setattr("portable.api.document_intake.extract", fail_extract)
+    url = f"/api/documents/{identifier}"
+    failed = fresh.post(url + "/extract", json={"consent": True})
+    assert failed.status_code == 422 and "認証" in failed.text
+    assert "sk-synthetic-pdf" not in failed.text
+    assert fresh.get(url + "/original").content == raw
+    assert fresh.get("/api/documents").json()[0]["extraction"] is None
+    assert ApiCredentials().status()["available"]
+    monkeypatch.setattr("portable.api.document_intake.extract",
+                        lambda source, key: {"rows": [row()], "complete": True})
+    assert fresh.post(url + "/extract", json={"consent": True}).status_code == 200

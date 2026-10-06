@@ -24,7 +24,10 @@ def test_open_fixed_folder_and_origin_guard(tmp_path, monkeypatch):
         assert client.get("/field/manual.css").status_code == 200
         # Both UI entry points must serve the shared settings module and its imports.
         assert '/field/assets/detailed-settings.js' in client.get('/').text
-        for asset in ('detailed-settings.js', 'settings.js', 'operations.js', 'api.js'):
+        assert 'document-intake' in client.get('/').text
+        for asset in (
+            'detailed-settings.js', 'settings.js', 'operations.js', 'api.js', 'documents.js'
+        ):
             result = client.get('/field/assets/' + asset)
             assert result.status_code == 200
             assert 'javascript' in result.headers['content-type']

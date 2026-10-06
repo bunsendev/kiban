@@ -2100,3 +2100,5 @@ OS: Windows 11
 - Preview-server launch command rejected by automatic approval policy; no workaround attempted. Native Explorer opening and rendered browser QA not verified this turn.
 
 2026-10-06 Portable pilot.22: detailed UI shared AI/API settings, logs/update and HTML manual entry. pytest open_incoming/api_credentials/operations_delivery/field_ui: 21 passed. ruff portable + changed test: passed. node --check detailed-settings.js: passed. Both UI module routes verified with TestClient. Native browser/frozen launch not repeated (prior automatic approval policy block). No real API key changed.
+
+2026-10-06 Portable pilot.23: PDF/image adapter added to detailed UI; API credential status visible, saved credentials reloaded before success, safe validation/write-permission errors, extraction failure retained for retry. pytest api_credentials/documents/open_incoming: 24 passed; Ruff portable + changed tests: passed; node syntax checks passed. Mock DOM workflow passed: save state, trimmed key save, PDF registration, consent, auth error, retry. No real credential changed; cloud extraction mocked, field-PC actual PDF and live API acceptance remain to verify.
