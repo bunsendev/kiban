@@ -22,6 +22,13 @@ def test_open_fixed_folder_and_origin_guard(tmp_path, monkeypatch):
         assert client.get("/api/drop-folder/open").status_code == 405
         assert client.get("/field/manual").status_code == 200
         assert client.get("/field/manual.css").status_code == 200
+        # Both UI entry points must serve the shared settings module and its imports.
+        assert '/field/assets/detailed-settings.js' in client.get('/').text
+        for asset in ('detailed-settings.js', 'settings.js', 'operations.js', 'api.js'):
+            result = client.get('/field/assets/' + asset)
+            assert result.status_code == 200
+            assert 'javascript' in result.headers['content-type']
+        assert "settings(ctx" in client.get('/field/assets/upload.js').text
 
 
 def test_open_error_is_safe(tmp_path, monkeypatch):

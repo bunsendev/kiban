@@ -2098,3 +2098,5 @@ OS: Windows 11
 - ruff, JS syntax, internal HTML links PASS. ZIP CRC / 2515 hashes PASS; manual HTML/CSS match sources.
 - ZIP SHA256 fed7000820ca213b3c2adfa8ce3c9d94d616ec773f6859a1e5a7464c725c7e43; 56456442 bytes. Signed locally.
 - Preview-server launch command rejected by automatic approval policy; no workaround attempted. Native Explorer opening and rendered browser QA not verified this turn.
+
+2026-10-06 Portable pilot.22: detailed UI shared AI/API settings, logs/update and HTML manual entry. pytest open_incoming/api_credentials/operations_delivery/field_ui: 21 passed. ruff portable + changed test: passed. node --check detailed-settings.js: passed. Both UI module routes verified with TestClient. Native browser/frozen launch not repeated (prior automatic approval policy block). No real API key changed.
