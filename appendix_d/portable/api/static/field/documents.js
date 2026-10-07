@@ -1,10 +1,6 @@
 import { api, el, field, button, saveWithNotice } from './api.js';
-import { masterPanel, masterChoice } from './document-master.js';
-
-const labels = {page:'原本ページ番号',note:'確認メモ',kind:'データの種類',jan:'JAN',product_code:'商品コード',
-  product_name:'商品名',date:'出荷日',expiry:'賞味期限',quantity:'原本の数量',unit:'原本の単位',
-  location:'倉庫',snapshot:'在庫基準日',case_factor:'1単位あたりの箱数（単独数量の場合）',
-  case_quantity:'現在ケース数（併記の場合）',loose_quantity:'現在バラ数（空欄は未確認）',units_per_case:'1箱あたりのバラ数（換算を確認）'};
+import { masterPanel } from './document-master.js';
+import { reviewTable, serializeControls } from './document-review-table.js';
 
 export async function documents(ctx, parent) {
   const group=el('details','',parent);
@@ -72,32 +68,14 @@ export async function documents(ctx, parent) {
         continue;
       }
       el('p','全行を原本と照合してください。不明な行は理由を付けて除外できます。箱なら換算1、くくり・パレットは1単位あたりの箱数を入力してください。勝手な換算はしません。',box);
-      const edits=[];const rowsParent=el('div','',box);
-      function addRow(row,i){
-        const section=el('details','',rowsParent);el('summary',`${i+1}行目：${row.product_name||row.jan||'商品不明'} ／ 原本${row.page||'?'}ページ`,section);
-        el('p',`読み取り時の注意：${row.note||'記載なし（原本確認は必要）'}`,section);
-        const controls={};
-        for(const [k,label] of Object.entries(labels)){
-          let n;
-          if(k==='kind'){
-            n=el('select','',el('label',label,section));
-            for(const [v,t] of [['unknown','選択してください'],['shipment','出荷実績'],['inventory','倉庫在庫']]){const o=el('option',t,n);o.value=v;}
-          }else n=field(section,label,['date','expiry','snapshot'].includes(k)?'date':'text',false);
-          n.value=row[k]||'';controls[k]=n;
-        }
-        controls.component_confirmed=field(section,'ケース・バラの列の意味と空欄を確認した（空欄は必要なら明示的に0を入力）','checkbox',false);
-        masterChoice(ctx,section,controls,master);
-        controls.exclude=field(section,'この行を除外する','checkbox',false);
-        controls.reason=field(section,'除外理由','text',false);edits.push(controls);
-      }
-      doc.extraction.rows.forEach(addRow);
-      button('原本から明細を追加する',()=>addRow({},edits.length),box,true);
+      box.open=true;
+      const {edits}=reviewTable(ctx,box,doc.extraction.rows,master);
       const partial=field(box,'未読取部分を保留し、確認できた明細だけ採用する','checkbox',false);
       const partialReason=field(box,'未読取部分の扱い・採用範囲の理由','text',false);
       const actor=field(box,'原本の確認者');
       const confirm=field(box,'すべての行を原本と照合し、単位・換算・除外を確認した','checkbox',false);
       button('修正内容を確認して保存',()=>ctx.run(async()=>{
-        const rows=edits.map(cs=>Object.fromEntries(Object.entries(cs).map(([k,n])=>[k,['exclude','component_confirmed'].includes(k)?n.checked:n.value])));
+        const rows=edits.map(serializeControls);
         await saveWithNotice(()=>api(`/api/documents/${doc.id}/approve`,{actor:actor.value,confirmed:confirm.checked,rows,revision:doc.extraction.revision,partial_confirmed:partial.checked,partial_reason:partialReason.value}),partial.checked?'確認した範囲を保存しました。未読取部分は保留のままです。':'原本の確認内容と修正を保存しました。分析へ渡す操作に進めます。');await refresh();
       }),box);
     }

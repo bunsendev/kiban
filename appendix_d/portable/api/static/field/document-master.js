@@ -39,7 +39,7 @@ export function masterChoice(ctx,parent,controls,state){
     el('p','原本の日付に適した版か確認して選んでください。候補がない場合はJANを手入力し、確認します。',list);
     if(!response.candidates.length)el('p','候補がありません。名前の表記を確認してください。',list);
     for(const p of response.candidates)button(`${p.product_name} ／ ${p.product_code} ／ ${p.jan}`,()=>{
-      controls.jan.value=p.jan;controls.product_code.value=p.product_code;version.value=v;source.value=p.cell;
+      controls.jan.value=p.jan;controls.product_code.value=p.product_code;version.value=v;source.value=p.cell;controls.jan.dispatchEvent(new Event('input',{bubbles:true}));
       ctx.message('候補を入力しました。原本と商品・JANを照合してから保存してください。');
     },list,true);
   }),parent,true);
