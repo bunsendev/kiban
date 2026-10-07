@@ -1,4 +1,4 @@
-import { api } from "./api.js";
+import { api, saveWithNotice } from "./api.js";
 import { upload } from "./upload.js";
 import { analysis } from "./progress.js";
 import { results } from "./results.js";
@@ -95,11 +95,11 @@ document.getElementById("help-form").onsubmit = async (e) => {
   e.preventDefault();
   const msg = document.getElementById("help-status");
   try {
-    await api("/api/field/feedback", {
+    await saveWithNotice(() => api("/api/field/feedback", {
       comment: e.target.elements.comment.value,
       step: ctx.step,
       analysis_id: ctx.analysisId,
-    });
+    }), "改善意見をこのPCに保存しました。ご協力ありがとうございます。");
     msg.textContent = "このPCに保存しました。ご協力ありがとうございます。";
     e.target.reset();
   } catch (err) {

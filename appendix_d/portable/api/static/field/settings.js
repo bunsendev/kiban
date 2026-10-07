@@ -1,4 +1,4 @@
-import {api,el,field,button} from './api.js';
+import {api,el,field,button,saveWithNotice} from './api.js';
 import {operations} from './operations.js';
 
 export function settings(ctx,parent){
@@ -27,7 +27,7 @@ export function settings(ctx,parent){
   async function refresh(){const v=await savedStatus();state.textContent=v.available?'APIキーは保存済みです。このWindowsユーザーで次回も利用できます。':v.saved?'保存済みキーを利用できません。再設定してください。':'APIキーは未設定です。';}
   const save=button('このPCに保存・変更',async()=>{
    save.disabled=true;
-   try{const result=await api('/api/ai-credentials',{api_key:key.value.trim()});if(!result.available)throw new Error('保存したキーを読み込めません。Windowsユーザーを確認してください。');await refresh();key.value='';}
+   try{await saveWithNotice(async()=>{const result=await api('/api/ai-credentials',{api_key:key.value.trim()});if(!result.available)throw new Error('保存したキーを読み込めません。Windowsユーザーを確認してください。');key.value='';},'APIキーをこのPCに保存しました。読込も確認できました。\nAPIへの接続確認は、読み取り時に行います。');await refresh();}
    catch(e){state.textContent=e.message||'保存できませんでした。APIキーと端末の設定を確認してください。';}
    finally{save.disabled=false;}
   },body);
@@ -35,7 +35,7 @@ export function settings(ctx,parent){
   const confirmed=field(body,'保存したキーを削除する','checkbox',false);
   button('APIキーを削除',async()=>{
    if(!confirmed.checked){state.textContent='削除の確認にチェックしてください。';return;}
-   try{await api('/api/ai-credentials/delete',{confirm:true});key.value='';confirmed.checked=false;await refresh();}
+   try{await saveWithNotice(()=>api('/api/ai-credentials/delete',{confirm:true}),'保存したAPIキーを削除しました。');key.value='';confirmed.checked=false;await refresh();}
    catch{state.textContent='削除できませんでした。もう一度お試しください。';}
   },body,true);
   el('p','キーはこのPCのWindowsユーザー専用に暗号化保存され、再表示されません。保存は接続成功の確認ではありません。',body);

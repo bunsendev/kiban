@@ -1,4 +1,4 @@
-import { api, el, field, button } from './api.js';
+import { api, el, field, button, saveWithNotice } from './api.js';
 import { masterPanel, masterChoice } from './document-master.js';
 
 const labels = {page:'原本ページ番号',note:'確認メモ',kind:'データの種類',jan:'JAN',product_code:'商品コード',
@@ -98,7 +98,7 @@ export async function documents(ctx, parent) {
       const confirm=field(box,'すべての行を原本と照合し、単位・換算・除外を確認した','checkbox',false);
       button('修正内容を確認して保存',()=>ctx.run(async()=>{
         const rows=edits.map(cs=>Object.fromEntries(Object.entries(cs).map(([k,n])=>[k,['exclude','component_confirmed'].includes(k)?n.checked:n.value])));
-        await api(`/api/documents/${doc.id}/approve`,{actor:actor.value,confirmed:confirm.checked,rows,revision:doc.extraction.revision,partial_confirmed:partial.checked,partial_reason:partialReason.value});await refresh();
+        await saveWithNotice(()=>api(`/api/documents/${doc.id}/approve`,{actor:actor.value,confirmed:confirm.checked,rows,revision:doc.extraction.revision,partial_confirmed:partial.checked,partial_reason:partialReason.value}),partial.checked?'確認した範囲を保存しました。未読取部分は保留のままです。':'原本の確認内容と修正を保存しました。分析へ渡す操作に進めます。');await refresh();
       }),box);
     }
   }

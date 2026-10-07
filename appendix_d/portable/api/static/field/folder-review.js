@@ -1,4 +1,4 @@
-import { api, el, field, button } from "./api.js";
+import { api, el, field, button, saveWithNotice } from "./api.js";
 
 const fields = {
   shipment: ["出荷日", "JAN", "数量", "商品名", "倉庫", "基準日"],
@@ -26,14 +26,14 @@ export async function folderReview(ctx, parent, refresh) {
   }
   showKeyState();
   button("このPCに保存・変更", () => ctx.run(async () => {
-    credentials = await api("/api/ai-credentials", {api_key:key.value});
+    credentials = await saveWithNotice(async () => {const v = await api("/api/ai-credentials", {api_key:key.value});if (!v.available) throw new Error("保存したキーを読み込めません");key.value = "";return v;}, "APIキーをこのPCに保存しました。読込も確認できました。接続確認は読み取り時に行います。");
     key.value = "";
     showKeyState();
   }), ai);
   const remove = field(ai, "保存済みのAPIキーを削除することを確認", "checkbox", false);
   button("保存したキーを削除", () => ctx.run(async () => {
     if (!remove.checked) throw new Error("キー削除の確認にチェックしてください");
-    credentials = await api("/api/ai-credentials/delete", {confirm:true});
+    credentials = await saveWithNotice(() => api("/api/ai-credentials/delete", {confirm:true}), "保存したAPIキーを削除しました。");
     key.value = ""; remove.checked = false; showKeyState();
   }), ai, true);
   const consent = field(ai, "列名の送信に同意する", "checkbox", false);
@@ -88,10 +88,10 @@ export async function folderReview(ctx, parent, refresh) {
     button("この内容を確認して保存", () => ctx.run(async () => {
       const mapping = Object.fromEntries(Object.entries(selections)
         .filter(([, v]) => v.value).map(([k, v]) => [k, v.value]));
-      await api("/api/drop-folder/approve", {
+      await saveWithNotice(() => api("/api/drop-folder/approve", {
         filename: c.filename, sha256: c.sha256, kind: kind.value, mapping,
         center: center.value, day: day.value, actor: actor.value, remember: remember.checked,
-      });
+      }), "列の対応と補足情報を保存しました。他のCSVも確認してください。");
       state.textContent = "保存しました。他のCSVも確認後、投入ファイルを確認してください。";
     }), box);
   }

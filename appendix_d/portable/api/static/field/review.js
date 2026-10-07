@@ -1,4 +1,4 @@
-import { api, el, button, field, download, displayTime } from "./api.js";
+import { api, el, button, field, download, displayTime, saveWithNotice } from "./api.js";
 import { results } from "./results.js";
 
 export async function review(ctx, row) {
@@ -97,7 +97,7 @@ export async function review(ctx, row) {
     save.disabled = true;
     ctx.run(async () => {
       try {
-        await api(`/api/field/results/${ctx.resultId}/review`, {
+        await saveWithNotice(() => api(`/api/field/results/${ctx.resultId}/review`, {
           item: row.item,
           revision: row.review?.revision || 0,
           actor: actor.value,
@@ -105,7 +105,7 @@ export async function review(ctx, row) {
           quantity: choice.value === "CHANGE" ? Number(quantity.value) : null,
           reason: reason.value,
           comment: comment.value,
-        });
+        }), "担当者の判断を保存しました。次の確認へ進みます。");
         ctx.dirty = false;
         sessionStorage.setItem("field-actor", actor.value);
         const v = await api(`/api/field/results/${ctx.resultId}/next-review`);

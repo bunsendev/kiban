@@ -50,10 +50,13 @@ function buildBusinessDecisionForm(report,issue,onUpdated){
   form.addEventListener('submit',async event=>{
     event.preventDefault();submit.disabled=true;status.textContent='保存中です。';
     try{
+      const {saveWithNotice}=await import('/field/assets/api.js');
+      const result=await saveWithNotice(async()=>{
       const response=await fetch(`/api/business-archives/${encodeURIComponent(report.analysis_id)}/issues/${encodeURIComponent(issue.issue_id)}`,{
         method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:select.value,corrected_jan:jan.value,note:note.value,remember:remember.checked})
       });
-      const result=await response.json();if(!response.ok)throw new Error(result.detail||'判断を保存できませんでした。');
+      const value=await response.json();if(!response.ok)throw new Error(value.detail||'判断を保存できませんでした。');return value;
+      },'商品情報の確認・判断を保存しました。');
       await onUpdated(result);
     }catch(error){status.textContent=error.message;status.className='decision-status error';submit.disabled=false;}
   });

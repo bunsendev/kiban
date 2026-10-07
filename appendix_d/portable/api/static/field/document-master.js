@@ -1,4 +1,4 @@
-import { api, el, field, button } from './api.js';
+import { api, el, field, button, saveWithNotice } from './api.js';
 
 export async function masterPanel(ctx,parent){
   const box=el('details','',parent);el('summary','JANマスターを登録・選択する',box);
@@ -23,7 +23,7 @@ export async function masterPanel(ctx,parent){
   }),box,true);
   button('この版を登録する',()=>ctx.run(async()=>{
     if(!sheet.value||!day.value)throw new Error('シートと適用開始日を指定してください');
-    const v=await upload({'X-Master-Sheet':encodeURIComponent(sheet.value),'X-Effective-Date':day.value});
+    const v=await saveWithNotice(()=>upload({'X-Master-Sheet':encodeURIComponent(sheet.value),'X-Effective-Date':day.value}),'JANマスターを登録しました。候補の採用には原本確認が必要です。');
     await refresh();choice.value=v.version;ctx.message(`${v.count}件を登録しました。無効な明細：${v.invalid_rows}件。候補を選んでも原本確認は必要です。`);
   }),box);await refresh();return state;
 }

@@ -2112,3 +2112,11 @@ OS: Windows 11
 - Added tests cover partial scope, manual additions, missing-vs-zero, exact conversion, interrupted page reads/resume, cached pages, explicit retry without duplicates, stale review rejection, approved history protection, versioned masters and formula exclusion.
 - Real source/extraction/master data remains outside Repository and distribution. No business-data approval fabricated. Native preview/frozen runtime launch not repeated due prior automatic approval policy rejection.
 - pilot.24 ZIP: CRC and all 2517 manifest hashes PASS, manuals/UI sources match, Data/credentials absent. Frozen module inventory includes PDF/XLSX adapters; Ed25519 signature verified against bundled public key. 57709695 bytes; SHA256 7360c4a4357cba6b1ddb148dd0fd8c4e09949e8991f8973e3fa13800d51969f4. Not published remotely.
+
+2026-10-07 Portable pilot.25 save acknowledgement dialogs
+- Node behavioral test PASS: no acknowledgement before write completion; success only after verified key write/readback; rejected write or unreadable key never displays success; failure dialog does not expose exception contents; key delete acknowledged.
+- Targeted pytest: 17 passed. Ruff whole repository PASS.
+- New key live retest (pilot.24): API authentication succeeds. Printed-table cloud column errors and scanned handwriting omissions remain; no real data automatically approved. Native pilot.24 EXE startup and API settings verified on this PC.
+- Full Portable regression: 134 passed. One pre-existing updater background thread hit a temporary-file sharing error during the combined run; isolated operations_delivery rerun with unhandled-thread warnings treated as errors: 12 passed. Upstream TestClient deprecation remains. JavaScript syntax checks PASS.
+- pilot.25 frozen EXE started on 127.0.0.1:48151, separate IT_TEST Data. Existing user-scoped saved API key is available; not modified. Real browser saved a clearly synthetic feedback entry: native alert observed, dismissed, persistent saved status verified.
+- Final ZIP verified: CRC, every manifest hash, all UI sources including detailed result review, both manuals, no Data/credentials. SHA256 7d993b3694a70132ac30dad623a3cf4e4b6db834684c975ea86af69a07f5c16d. Not published remotely. Field UI rerun: 4 passed.
