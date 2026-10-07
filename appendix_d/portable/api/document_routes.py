@@ -11,6 +11,7 @@ from portable.runtime.api_credentials import CredentialError
 
 from .document_ai import MAX_BYTES, DocumentError
 from .document_intake import Documents
+from .document_master import candidates, parse_master, sheets
 
 
 def register_document_routes(app, paths, drop_folder):
@@ -52,6 +53,59 @@ def register_document_routes(app, paths, drop_folder):
                 continue
         return {"count": count}
 
+    @app.post("/api/document-master")
+    async def import_master(request: Request):
+        raw = await body(request, MAX_BYTES)
+        try:
+            sheet = unquote(request.headers.get("x-master-sheet", ""))
+            if not sheet:
+                return {"sheets": sheets(raw)}
+            value = parse_master(raw, sheet, request.headers.get("x-effective-date", ""))
+            with service.db() as db:
+                db.execute(
+                    "INSERT OR IGNORE INTO document_masters VALUES(?,?)",
+                    (value["version"], json.dumps(value, ensure_ascii=False)),
+                )
+            return {k: v for k, v in value.items() if k != "products"} | {
+                "count": len(value["products"])
+            }
+        except DocumentError as exc:
+            raise HTTPException(422, str(exc)) from None
+
+    @app.get("/api/document-master")
+    def masters():
+        with service.db() as db:
+            values = [
+                json.loads(r[0])
+                for r in db.execute("SELECT contents FROM document_masters ORDER BY rowid DESC")
+            ]
+        return [
+            {k: v for k, v in item.items() if k != "products"} | {"count": len(item["products"])}
+            for item in values
+        ]
+
+    @app.post("/api/document-master/candidates")
+    async def master_candidates(request: Request):
+        try:
+            value = json.loads(await body(request, 4096))
+            with service.db() as db:
+                stored = db.execute(
+                    "SELECT contents FROM document_masters WHERE version=?", (value.get("version"),)
+                ).fetchone()
+            if not stored or not isinstance(value.get("row"), dict):
+                raise DocumentError("登録済みのマスター版を選んでください")
+            return {"candidates": candidates(json.loads(stored[0]), value["row"])}
+        except (DocumentError, ValueError, TypeError, AttributeError) as exc:
+            message = str(exc) if isinstance(exc, DocumentError) else "入力内容を確認してください"
+            raise HTTPException(422, message) from None
+
+    @app.get("/api/documents/{identifier}/history")
+    def history(identifier: str):
+        try:
+            return service.history(identifier)
+        except DocumentError as exc:
+            raise HTTPException(404, str(exc)) from None
+
     @app.get("/api/documents/{identifier}/original")
     def original(identifier: str):
         try:
@@ -73,8 +127,18 @@ def register_document_routes(app, paths, drop_folder):
             value = json.loads(await body(request, 2 * 1024 * 1024))
             if not isinstance(value, dict):
                 raise DocumentError("入力内容を確認してください")
+            if action == "local":
+                return await run_in_threadpool(service.read_local, identifier)
             if action == "extract":
-                return await run_in_threadpool(service.read, identifier, value.get("consent"))
+                if value.get("retry", False) not in (False, True):
+                    raise DocumentError("再読取の指定を確認してください")
+                return await run_in_threadpool(
+                    service.read,
+                    identifier,
+                    value.get("consent"),
+                    value.get("retry", False),
+                    value.get("page"),
+                )
             if action == "approve":
                 return await run_in_threadpool(service.approve, identifier, value)
             if action == "dispatch":
