@@ -953,7 +953,7 @@
   "scripts/manual/capture_easy_manual.cjs": "4a205c62da0a131a9e9f5916c06a42201f1a71e9e7db5ce544433a9acbd7448c",
   "scripts/manual/render_easy_manual.py": "dd006dccfa93c6ebd093c034b8ea011b897f00bb9922e66576bd963481b88881",
   "scripts/manual/render_easy_narration.ps1": "39560d01c0226a62d0072a3dfd8c472a3befcae67332e370066fa2d0380c3566",
-  "test_results.txt": "3d4ffd79659c3aa8ec35913ea438f3e66ca9cd7c0675ab09553eecaa97a1da88",
+  "test_results.txt": "189c22f41cf83f296f483128cdc365852e004bbf49c277e3a0b97c9010eb83ad",
   "tests/__init__.py": "aced5d4628664e605cac89be5ea20e022f0c5ec6d342c046b14646a424daff69",
   "tests/acceptance_support.py": "1f0c33e6053bc41309ad175582ebcce29cfce08b5fddb76d81def05f4b0cee27",
   "tests/conftest.py": "1d25aeaa8bc10cf8fe2d54e5b82dcba1e318e2a8a83e2071e6e9d39aba6ec3b0",
