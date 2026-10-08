@@ -1,7 +1,7 @@
 import {el,field,button} from './api.js';
 import {masterChoice} from './document-master.js';
 
-export const labels={page:'原本ページ番号',note:'確認メモ',kind:'データの種類',jan:'JAN',product_code:'商品コード',product_name:'商品名',date:'出荷日',expiry:'賞味期限',quantity:'原本の数量',unit:'原本の単位',location:'倉庫',snapshot:'在庫基準日',case_factor:'1単位あたりの箱数（単独数量の場合）',case_quantity:'現在ケース数（併記の場合）',loose_quantity:'現在バラ数（空欄は未確認）',units_per_case:'1箱あたりのバラ数（換算を確認）'};
+export const labels={page:'原本ページ番号',note:'確認メモ',kind:'データの種類',jan:'JAN',product_code:'商品コード',product_name:'商品名',date:'出荷日',expiry:'賞味期限',quantity:'原本の数量',unit:'原本の単位',location:'倉庫',snapshot:'在庫基準日',case_factor:'1単位あたりの箱数（単独数量の場合）',case_quantity:'ケース数（現在／当出）',loose_quantity:'バラ数（現在／当出・空欄は未確認）',units_per_case:'1箱あたりのバラ数（換算を確認）'};
 const text=v=>String(v??'').trim();
 const numeric=(v,max,positive=false)=>text(v)!==''&&/^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:e[+-]?[0-9]+)?$/i.test(text(v))&&Number.isFinite(Number(v))&&Number(v)>=0&&Number(v)<=max&&(!positive||Number(v)>0);
 const validDate=v=>Number(v.slice(0,4))>=1&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v+'T00:00:00Z'))&&new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;
@@ -54,6 +54,8 @@ export function reviewTable(ctx,parent,sourceRows,master){
   let errorCount=0,warningCount=0,excludedCount=0,visible=0;
   for(const entry of entries){
    const row=serializeControls(entry.controls),p=rowProblems(row);entry.problems=p;
+   const hasComponents=['case_quantity','loose_quantity'].some(k=>text(row[k])!=='');
+   entry.single.hidden=hasComponents;
    if(p.errors.length)errorCount++;if(row.exclude)excludedCount++;else if(p.warnings.length)warningCount++;
    for(const n of Object.values(entry.controls))n.removeAttribute('aria-invalid');
    for(const e of p.errors)entry.controls[e.key]?.setAttribute('aria-invalid','true');
@@ -95,7 +97,7 @@ export function reviewTable(ctx,parent,sourceRows,master){
   masterChoice(ctx,jan,controls,master);
   controls.exclude=field(exclude,'この行を除外する','checkbox',false);controls.exclude.checked=row.exclude===true;
   controls.reason=field(exclude,'除外理由','text',false);controls.reason.value=row.reason??'';
-  entries.push({tr,controls,state,dateGroups});edits.push(controls);
+  entries.push({tr,controls,state,dateGroups,single});edits.push(controls);
   tr.addEventListener('input',update);tr.addEventListener('change',update);
   if(refresh)update();return tr;
  }

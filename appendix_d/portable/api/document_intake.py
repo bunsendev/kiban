@@ -136,8 +136,15 @@ class Documents:
                 return current
             revision = uuid.uuid4().hex
             try:
-                key = ApiCredentials().load()
-                value = extract(raw, key, embedded_text=embedded) if embedded else extract(raw, key)
+                # A recognised text-layer report is more reliable than visual OCR:
+                # its JAN may be clipped on screen but intact in the source text.
+                if mime == "application/pdf" and "在庫集計日" in embedded and "現在" in embedded:
+                    value = extract_inventory(raw)
+                else:
+                    key = ApiCredentials().load()
+                    value = (
+                        extract(raw, key, embedded_text=embedded) if embedded else extract(raw, key)
+                    )
             except DocumentError as exc:
                 with self.db() as db:
                     db.execute(
@@ -157,6 +164,7 @@ class Documents:
                         ),
                     )
                 raise
+            model = value.get("model", "gpt-4.1-mini")
             if page is not None:
                 for item in value["rows"]:
                     item["page"] = str(page)
@@ -183,7 +191,7 @@ class Documents:
                 }
             if len(value["rows"]) > 1000:
                 raise DocumentError("明細が1000行を超えました。文書を分割してください")
-            value.update(model="gpt-4.1-mini", at=datetime.now(UTC).isoformat(), revision=revision)
+            value.update(model=model, at=datetime.now(UTC).isoformat(), revision=revision)
             with self.db() as db:
                 db.execute("BEGIN IMMEDIATE")
                 stored = db.execute(
@@ -216,12 +224,12 @@ class Documents:
                 )
             return self.get(identifier)
 
-    def read_local(self, identifier):
+    def read_local(self, identifier, retry=False):
         with self._read_lock:
             current = self.get(identifier)
             if current["approval"]:
                 raise DocumentError("確認済みの原本は変更できません")
-            if current["extraction"]:
+            if current["extraction"] and not retry:
                 raise DocumentError("既に読取済みです。指定ページの再読取を使用してください")
             raw, mime = self.get(identifier, original=True)
             if mime != "application/pdf":
@@ -229,6 +237,23 @@ class Documents:
             value = extract_inventory(raw)
             value.update(at=datetime.now(UTC).isoformat(), revision=uuid.uuid4().hex)
             with self.db() as db:
+                db.execute("BEGIN IMMEDIATE")
+                stored = db.execute(
+                    "SELECT approval,extraction FROM documents WHERE id=?", (identifier,)
+                ).fetchone()
+                if (
+                    stored[0]
+                    or (json.loads(stored[1]) if stored[1] else None) != current["extraction"]
+                ):
+                    raise DocumentError("別の画面で更新されています。画面を更新してください")
+                previous = current["extraction"]
+                if previous:
+                    db.execute(
+                        "INSERT OR IGNORE INTO document_attempts VALUES(?,?,?)",
+                        (identifier, previous.get("revision", "legacy-" + identifier),
+                         json.dumps(previous, ensure_ascii=False)),
+                    )
+                    db.execute("DELETE FROM document_pages WHERE document_id=?", (identifier,))
                 for p in value["pages_read"]:
                     rows = [r for r in value["rows"] if r["page"] == str(p)]
                     db.execute(

@@ -128,7 +128,11 @@ def register_document_routes(app, paths, drop_folder):
             if not isinstance(value, dict):
                 raise DocumentError("入力内容を確認してください")
             if action == "local":
-                return await run_in_threadpool(service.read_local, identifier)
+                if type(value.get("retry", False)) is not bool:
+                    raise DocumentError("再読取の指定を確認してください")
+                return await run_in_threadpool(
+                    service.read_local, identifier, value.get("retry", False)
+                )
             if action == "extract":
                 if value.get("retry", False) not in (False, True):
                     raise DocumentError("再読取の指定を確認してください")

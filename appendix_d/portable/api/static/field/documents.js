@@ -32,7 +32,7 @@ export async function documents(ctx, parent) {
       const box=el('details','',list); el('summary',`${doc.name} ／ ${doc.approval?'確認済み':doc.extraction?'確認待ち':'未読取'}`,box);
       const link=el('a','原本を別タブで開く',box); link.href=`/api/documents/${doc.id}/original`;link.target='_blank';link.rel='noopener';
       if(doc.mime.startsWith('image/')){const img=el('img','',box);img.src=link.href;img.alt='確認用の原本';img.style.maxWidth='100%';img.loading='lazy';}
-      if(!doc.extraction && doc.mime==='application/pdf')button('印刷在庫表を読み取る（API不要）',()=>ctx.run(async()=>{await api(`/api/documents/${doc.id}/local`,{});await refresh();}),box);
+      if(!doc.approval && doc.mime==='application/pdf')button(doc.extraction?'印刷在庫表の列を取り直す（API不要）':'印刷在庫表を読み取る（API不要）',()=>ctx.run(async()=>{await api(`/api/documents/${doc.id}/local`,{retry:!!doc.extraction});await refresh();}),box);
       if(!doc.approval){
         el('p',`原本は${doc.page_count||1}ページ。ページごとに読み取り・保存します。失敗時も成功したページは残ります。OpenAIに原本と補助テキストを送信し、API料金が発生します。`,box);
         if(!doc.extraction)box.open=true;
