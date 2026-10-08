@@ -27,6 +27,8 @@ def test_operator_package_has_launcher_manifest_and_verified_zip(tmp_path: Path)
     write_operator_files(output)
     guide = (output / "はじめに_かんたん操作マニュアル.txt").read_text("utf-8-sig")
     assert "Incoming" in guide and "この中には入れません" in guide
+    assert APP_VERSION in (output / "START_HERE.txt").read_text("utf-8-sig")
+    assert APP_VERSION in (output / "最初に読む_インストール手順.txt").read_text("utf-8-sig")
     manifest_path = write_manifest(output)
     archive = write_archive(output)
 

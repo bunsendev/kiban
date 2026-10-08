@@ -1,7 +1,9 @@
 import {el,field,button,saveWithNotice} from './api.js';
+import {showVersion} from './version.js';
 const adminToken=location.hash.slice(1);
 history.replaceState(null,'',location.pathname);
 const root=document.querySelector('#admin'),status=document.querySelector('#admin-status');
+showVersion(root);
 async function request(action,body){
  const response=await fetch('/api/operations/'+action,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-Feedback-Admin':adminToken},body:body===undefined?undefined:JSON.stringify(body)});
  const v=await response.json();if(!response.ok)throw new Error(v.detail||'設定を確認してください');return v;

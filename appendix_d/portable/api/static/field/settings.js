@@ -1,7 +1,9 @@
 import {api,el,field,button,saveWithNotice} from './api.js';
 import {operations} from './operations.js';
+import {showVersion} from './version.js';
 
 export function settings(ctx,parent){
+ showVersion(parent);
  const bar=el('nav','',parent);bar.setAttribute('aria-label','このPCの設定');bar.className='device-settings';
  const savedState=el('p','APIキーの保存状態を確認中…',parent);savedState.setAttribute('role','status');
  async function savedStatus(){

@@ -62,7 +62,7 @@ def write_operator_files(output: Path) -> None:
         encoding="ascii",
     )
     (output / "START_HERE.txt").write_text(
-        "ブンセン予測 Windows Portable\n\n"
+        f"ブンセン予測 Windows Portable\nバージョン: {APP_VERSION}\n\n"
         "操作方法は「はじめに_かんたん操作マニュアル.txt」を開いてください。\n\n"
         "【はじめて使うとき】\n"
         "1. ZIPを右クリックし、［すべて展開］を選びます。\n"
