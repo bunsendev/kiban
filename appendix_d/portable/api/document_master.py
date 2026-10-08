@@ -103,10 +103,20 @@ def candidates(master, row):
         str(row.get(k) or "").strip() for k in ("product_code", "product_name", "jan")
     ]
     result = []
+    digits = unicodedata.normalize("NFKC", jan)
+    suffix = digits[-6:] if re.fullmatch(r"[0-9]{6,13}", digits) else ""
     for product in master["products"]:
-        match = (jan and product["jan"] == jan) or (code and product["product_code"] == code)
+        exact = bool(digits and product["jan"] == digits)
+        suffix_match = bool(suffix and product["jan"].endswith(suffix))
+        code_match = bool(code and product["product_code"] == code)
         label = normalized(product["product_name"])
         query = normalized(name)
-        if match or (query and label and (query in label or label in query)):
-            result.append(product)
-    return result[:30]
+        name_match = bool(query and label and (query in label or label in query))
+        if exact or suffix_match or code_match or name_match:
+            basis = (
+                "JAN完全一致" if exact else "JAN下6桁一致" if suffix_match
+                else "商品コード一致" if code_match else "商品名候補"
+            )
+            result.append({**product, "match_basis": basis})
+    priority = {"JAN完全一致": 0, "JAN下6桁一致": 1, "商品コード一致": 2, "商品名候補": 3}
+    return sorted(result, key=lambda p: priority[p["match_basis"]])[:30]
