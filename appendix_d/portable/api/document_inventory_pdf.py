@@ -6,7 +6,7 @@ from .document_ai import FIELDS, DocumentError
 from .document_pages import page_source, pdf_reader
 
 
-def extract_inventory(raw):
+def extract_inventory(raw, *, blank_current_zero=False):
     count = len(pdf_reader(raw).pages)
     rows = []
     complete = True
@@ -22,7 +22,7 @@ def extract_inventory(raw):
         loose_columns = [m.start() for m in re.finditer("バラ", header)]
         snapshot = re.search(r"在庫集計日[：:]\s*(\d{4})/(\d{2})/(\d{2})", text)
         warehouse = re.search(r"㈱ムロオ\s*(\S+)", text)
-        for line in lines:
+        for index, line in enumerate(lines):
             jan = re.match(r"^\s*([0-9]{13})\s+", line)
             if not jan:
                 continue
@@ -31,8 +31,13 @@ def extract_inventory(raw):
                 complete = False
             before = line[jan.end() : expiry.start() if expiry else cases].strip()
             pack = re.search(r"\s+(\d+)\s*$", before)
+            detail_date = re.fullmatch(
+                r"\s*\((\d{4})/(\d{2})/(\d{2})\)\s*",
+                lines[index + 1] if index + 1 < len(lines) else "",
+            )
             row = dict.fromkeys(FIELDS, "")
             row.update(
+                source_detail_date="-".join(detail_date.groups()) if detail_date else "",
                 kind="inventory",
                 jan=jan[1],
                 page=str(number),
@@ -52,6 +57,18 @@ def extract_inventory(raw):
             ):
                 complete = False
                 row["note"] += " 数量欄に判読不能部分があります。"
+            if blank_current_zero:
+                row["source_current_case"] = row["case_quantity"]
+                row["source_current_loose"] = row["loose_quantity"]
+                empty = not row["case_quantity"] and not row["loose_quantity"]
+                row["case_quantity"] = row["case_quantity"] or "0"
+                row["loose_quantity"] = row["loose_quantity"] or "0"
+                if empty:
+                    row.update(
+                        exclude=True,
+                        reason="この帳票の現在両欄の空欄を0として除外（担当者指定）",
+                    )
+                row["note"] += " 担当者指定：現在欄の空欄は0。元の空欄は抽出履歴に保持。"
             rows.append(row)
             # The movement report's 当出 is the day's shipment, never 当入.
             # Missing cells remain missing; do not manufacture zero shipments.
@@ -64,6 +81,7 @@ def extract_inventory(raw):
                         kind="shipment", date=row["snapshot"], snapshot="", expiry="",
                         case_quantity=out_cases, loose_quantity=out_loose,
                         unit="当出ケース / 当出バラ",
+                        exclude=False, reason="",
                         note="PDF埋込文字の当出欄。出荷日は在庫集計日の候補。原本と業務上の日付を照合。空欄は未確認。",
                     )
                     if any(v and not re.fullmatch(r"[0-9]+", v) for v in (out_cases, out_loose)):
@@ -76,5 +94,8 @@ def extract_inventory(raw):
         "rows": rows,
         "page_count": count,
         "pages_read": list(range(1, count + 1)),
-        "model": "printed-inventory-movement-v2",
+        "model": "printed-inventory-movement-v3",
+        "blank_current_policy": (
+            "CURRENT_BLANK_ZERO_EXCLUDE_EMPTY" if blank_current_zero else "UNKNOWN"
+        ),
     }

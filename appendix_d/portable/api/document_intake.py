@@ -45,6 +45,11 @@ class Documents:
                 "(version TEXT PRIMARY KEY, contents TEXT)"
             )
 
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS document_controls "
+                "(document_id TEXT PRIMARY KEY, generation INTEGER, cancelled INTEGER)"
+            )
+
     @contextmanager
     def db(self):
         db = sqlite3.connect(self.path, timeout=30)
@@ -86,6 +91,7 @@ class Documents:
             "extraction": json.loads(row[4]) if row[4] else None,
             "approval": json.loads(row[5]) if row[5] else None,
             "created": row[6],
+            "cancelled": self.control(identifier)[1],
         }
 
     def list(self):
@@ -93,10 +99,51 @@ class Documents:
             ids = [r[0] for r in db.execute("SELECT id FROM documents ORDER BY created DESC")]
         return [self.get(i) for i in ids]
 
+    def control(self, identifier):
+        with self.db() as db:
+            value = db.execute(
+                "SELECT generation,cancelled FROM document_controls WHERE document_id=?",
+                (identifier,),
+            ).fetchone()
+        return (value[0], bool(value[1])) if value else (0, False)
+
+    def check_control(self, db, identifier, generation):
+        value = db.execute(
+            "SELECT generation,cancelled FROM document_controls WHERE document_id=?",
+            (identifier,),
+        ).fetchone()
+        if value and (value[0] != generation or value[1]):
+            raise DocumentError("読み取りを取りやめました。送信済みのAPI処理・料金は取り消せません")
+
+    def set_cancelled(self, identifier, cancelled=True):
+        with self.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT approval FROM documents WHERE id=?", (identifier,)).fetchone()
+            if row is None:
+                raise DocumentError("原本が見つかりません")
+            if row[0]:
+                raise DocumentError("確認済みデータは取りやめできません。判断履歴は変更しません")
+            db.execute(
+                "INSERT INTO document_controls VALUES(?,1,?) "
+                "ON CONFLICT(document_id) DO UPDATE SET generation=generation+1,cancelled=?",
+                (identifier, int(cancelled), int(cancelled)),
+            )
+            db.execute(
+                "INSERT INTO document_attempts VALUES(?,?,?)",
+                (identifier, uuid.uuid4().hex, json.dumps({
+                    "status": "cancelled" if cancelled else "resumed",
+                    "at": datetime.now(UTC).isoformat(),
+                })),
+            )
+        return self.get(identifier)
+
     def read(self, identifier, consent, retry=False, page=None):
         if consent is not True:
             raise DocumentError("原本全体をOpenAIへ送ることへの同意が必要です")
+        generation = self.control(identifier)[0]
         with self._read_lock:
+            with self.db() as db:
+                self.check_control(db, identifier, generation)
             current = self.get(identifier)
             if current["approval"]:
                 raise DocumentError("確認済みの原本は再読取できません。判断履歴は変更しません")
@@ -169,10 +216,9 @@ class Documents:
                 for item in value["rows"]:
                     item["page"] = str(page)
                 with self.db() as db:
-                    db.execute(
-                        "INSERT OR REPLACE INTO document_pages VALUES(?,?,?)",
-                        (identifier, page, json.dumps(value, ensure_ascii=False)),
-                    )
+                    db.execute("BEGIN IMMEDIATE")
+                    self.check_control(db, identifier, generation)
+                    page_result = json.dumps(value, ensure_ascii=False)
                     pages = {
                         p: json.loads(r)
                         for p, r in db.execute(
@@ -181,6 +227,7 @@ class Documents:
                             (identifier,),
                         )
                     }
+                    pages[page] = value
                     if sum(len(v["rows"]) for v in pages.values()) > 1000:
                         raise DocumentError("明細が1000行を超えました。文書を分割してください")
                 value = {
@@ -194,6 +241,7 @@ class Documents:
             value.update(model=model, at=datetime.now(UTC).isoformat(), revision=revision)
             with self.db() as db:
                 db.execute("BEGIN IMMEDIATE")
+                self.check_control(db, identifier, generation)
                 stored = db.execute(
                     "SELECT approval,extraction FROM documents WHERE id=?", (identifier,)
                 ).fetchone()
@@ -203,6 +251,11 @@ class Documents:
                 ):
                     raise DocumentError(
                         "別の画面で更新されています。再読取結果は採用せず画面を更新してください"
+                    )
+                if page is not None:
+                    db.execute(
+                        "INSERT OR REPLACE INTO document_pages VALUES(?,?,?)",
+                        (identifier, page, page_result),
                     )
                 previous = current["extraction"]
                 if previous:
@@ -224,8 +277,11 @@ class Documents:
                 )
             return self.get(identifier)
 
-    def read_local(self, identifier, retry=False):
+    def read_local(self, identifier, retry=False, blank_current_zero=False):
+        generation = self.control(identifier)[0]
         with self._read_lock:
+            with self.db() as db:
+                self.check_control(db, identifier, generation)
             current = self.get(identifier)
             if current["approval"]:
                 raise DocumentError("確認済みの原本は変更できません")
@@ -234,10 +290,12 @@ class Documents:
             raw, mime = self.get(identifier, original=True)
             if mime != "application/pdf":
                 raise DocumentError("印刷在庫表PDFを選んでください")
-            value = extract_inventory(raw)
+            value = (extract_inventory(raw, blank_current_zero=True)
+                     if blank_current_zero else extract_inventory(raw))
             value.update(at=datetime.now(UTC).isoformat(), revision=uuid.uuid4().hex)
             with self.db() as db:
                 db.execute("BEGIN IMMEDIATE")
+                self.check_control(db, identifier, generation)
                 stored = db.execute(
                     "SELECT approval,extraction FROM documents WHERE id=?", (identifier,)
                 ).fetchone()
@@ -295,6 +353,9 @@ class Documents:
         current = self.get(identifier)
         if current["approval"]:
             return current
+        if current["cancelled"]:
+            raise DocumentError("取りやめ済みです。再開してから確認してください")
+        generation = self.control(identifier)[0]
         extraction = current["extraction"]
         if not extraction:
             raise DocumentError("先に原本を読み取ってください")
@@ -374,6 +435,7 @@ class Documents:
                 record.update(
                     {
                         "商品コード": row["product_code"].strip() or jan,
+                        "商品名下の日付（意味未確認）": str(row.get("source_detail_date") or ""),
                         "JAN": jan,
                         "明細バラ数": str(quantity),
                         "賞味期限": row["expiry"],
@@ -402,6 +464,7 @@ class Documents:
             )
         with self.db() as db:
             db.execute("BEGIN IMMEDIATE")
+            self.check_control(db, identifier, generation)
             stored = db.execute(
                 "SELECT extraction,approval FROM documents WHERE id=?", (identifier,)
             ).fetchone()

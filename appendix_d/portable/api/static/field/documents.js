@@ -1,4 +1,5 @@
 import { api, el, field, button, saveWithNotice } from './api.js';
+import {cancelControl} from './document-cancel.js';
 import { masterPanel } from './document-master.js';
 import { reviewTable, serializeControls } from './document-review-table.js';
 
@@ -29,10 +30,23 @@ export async function documents(ctx, parent) {
   async function refresh(){
     list.replaceChildren();
     for(const doc of await api('/api/documents')){
-      const box=el('details','',list); el('summary',`${doc.name} ／ ${doc.approval?'確認済み':doc.extraction?'確認待ち':'未読取'}`,box);
+      const box=el('details','',list); el('summary',`${doc.name} ／ ${doc.approval?'確認済み':doc.cancelled?'取りやめ済み':doc.extraction?'確認待ち':'未読取'}`,box);
+      let stopped=!!doc.cancelled;
+      if(!doc.approval){
+        if(doc.cancelled){
+          el('p','取りやめ済みです。原本・保存済みの読取結果は残っています。',box);
+          button('このファイルの確認を再開',()=>ctx.run(async()=>{await api(`/api/documents/${doc.id}/resume`,{});await refresh();}),box,true);
+        }else cancelControl(ctx,box,doc.id,value=>{stopped=value;},refresh);
+      }
       const link=el('a','原本を別タブで開く',box); link.href=`/api/documents/${doc.id}/original`;link.target='_blank';link.rel='noopener';
       if(doc.mime.startsWith('image/')){const img=el('img','',box);img.src=link.href;img.alt='確認用の原本';img.style.maxWidth='100%';img.loading='lazy';}
-      if(!doc.approval && doc.mime==='application/pdf')button(doc.extraction?'印刷在庫表の列を取り直す（API不要）':'印刷在庫表を読み取る（API不要）',()=>ctx.run(async()=>{await api(`/api/documents/${doc.id}/local`,{retry:!!doc.extraction});await refresh();}),box);
+      if(doc.cancelled)continue;
+      let zeroCurrent;
+      if(!doc.approval && doc.mime==='application/pdf'){
+        zeroCurrent=field(box,'この帳票の「現在」欄は空欄＝0、両欄空欄の明細は取込対象外にする（当出・他の帳票には適用しない）','checkbox',false);
+        zeroCurrent.checked=doc.extraction?.blank_current_policy==='CURRENT_BLANK_ZERO_EXCLUDE_EMPTY';
+        button(doc.extraction?'印刷在庫表の列を取り直す（API不要）':'印刷在庫表を読み取る（API不要）',()=>ctx.run(async()=>{await api(`/api/documents/${doc.id}/local`,{retry:!!doc.extraction,blank_current_zero:zeroCurrent.checked});if(!stopped)await refresh();}),box);
+      }
       if(!doc.approval){
         el('p',`原本は${doc.page_count||1}ページ。ページごとに読み取り・保存します。失敗時も成功したページは残ります。OpenAIに原本と補助テキストを送信し、API料金が発生します。`,box);
         if(!doc.extraction)box.open=true;
@@ -45,10 +59,10 @@ export async function documents(ctx, parent) {
           read.disabled=true;again.disabled=true;bulk.disabled=true;
           try{
             const pages=all?Array.from({length:doc.page_count||1},(_,i)=>i+1):[Number(page.value)];
-            for(const p of pages){status.textContent=`${p} / ${doc.page_count||1}ページを読み取り中です。1ページ最大90秒ほどお待ちください。`;
+            for(const p of pages){if(stopped)break;status.textContent=`${p} / ${doc.page_count||1}ページを読み取り中です。1ページ最大90秒ほどお待ちください。`;
               await api(`/api/documents/${doc.id}/extract`,{consent:true,page:p,retry});}
-            await refresh();
-          }catch(e){status.textContent=e.message;if(all)await refresh();throw e;}
+            if(!stopped)await refresh();
+          }catch(e){if(stopped)return;status.textContent=e.message;throw e;}
           finally{read.disabled=false;again.disabled=false;bulk.disabled=false;}
         }
         const read=button('AIで読み取る',()=>ctx.run(()=>readPages(false,false)),box);
@@ -56,7 +70,7 @@ export async function documents(ctx, parent) {
         const again=button('指定ページを再読取する（追加料金）',()=>ctx.run(()=>readPages(true,false)),box,true);
         if(doc.extraction)button('読取履歴を確認',()=>ctx.run(async()=>{
           const history=await api(`/api/documents/${doc.id}/history`);
-          status.textContent=history.map(v=>`${v.at} ／ ${v.status==='failed'?'失敗（以前の結果を保持）':`${v.rows.length}行を保存`}`).join('\n');
+          status.textContent=history.map(v=>`${v.at} ／ ${v.status==='failed'?'失敗（以前の結果を保持）':v.status==='cancelled'?'取りやめ':v.status==='resumed'?'再開':`${v.rows.length}行を保存`}`).join('\n');
         }),box,true);
       }
       if(!doc.extraction)continue;

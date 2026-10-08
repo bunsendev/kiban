@@ -1,7 +1,7 @@
 import {el,field,button} from './api.js';
 import {masterChoice} from './document-master.js';
 
-export const labels={page:'原本ページ番号',note:'確認メモ',kind:'データの種類',jan:'JAN',product_code:'商品コード',product_name:'商品名',date:'出荷日',expiry:'賞味期限',quantity:'原本の数量',unit:'原本の単位',location:'倉庫',snapshot:'在庫基準日',case_factor:'1単位あたりの箱数（単独数量の場合）',case_quantity:'ケース数（現在／当出）',loose_quantity:'バラ数（現在／当出・空欄は未確認）',units_per_case:'1箱あたりのバラ数（換算を確認）'};
+export const labels={source_detail_date:'商品名下の日付（意味未確認）',page:'原本ページ番号',note:'確認メモ',kind:'データの種類',jan:'JAN',product_code:'商品コード',product_name:'商品名',date:'出荷日',expiry:'賞味期限',quantity:'原本の数量',unit:'原本の単位',location:'倉庫',snapshot:'在庫基準日',case_factor:'1単位あたりの箱数（単独数量の場合）',case_quantity:'ケース数（現在／当出）',loose_quantity:'バラ数（現在／当出・空欄は未確認）',units_per_case:'1箱あたりのバラ数（換算を確認）'};
 const text=v=>String(v??'').trim();
 const numeric=(v,max,positive=false)=>text(v)!==''&&/^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:e[+-]?[0-9]+)?$/i.test(text(v))&&Number.isFinite(Number(v))&&Number(v)>=0&&Number(v)<=max&&(!positive||Number(v)>0);
 const validDate=v=>Number(v.slice(0,4))>=1&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v+'T00:00:00Z'))&&new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;
@@ -93,6 +93,7 @@ export function reviewTable(ctx,parent,sourceRows,master){
   const components=el('div','',quantity);components.className='document-quantity-grid';for(const k of ['case_quantity','loose_quantity','units_per_case'])input(k,components);
   controls.component_confirmed=field(quantity,'ケース・バラの列の意味と空欄を確認した（空欄は必要なら明示的に0を入力）','checkbox',false);controls.component_confirmed.checked=row.component_confirmed===true;
   input('kind',dates);for(const k of ['date','snapshot','expiry'])input(k,dates);
+  input('source_detail_date',dates);
   input('location',location);input('page',origin);input('note',origin);
   masterChoice(ctx,jan,controls,master);
   controls.exclude=field(exclude,'この行を除外する','checkbox',false);controls.exclude.checked=row.exclude===true;

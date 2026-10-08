@@ -127,11 +127,18 @@ def register_document_routes(app, paths, drop_folder):
             value = json.loads(await body(request, 2 * 1024 * 1024))
             if not isinstance(value, dict):
                 raise DocumentError("入力内容を確認してください")
+            if action in {"cancel", "resume"}:
+                return await run_in_threadpool(
+                    service.set_cancelled, identifier, action == "cancel"
+                )
             if action == "local":
                 if type(value.get("retry", False)) is not bool:
                     raise DocumentError("再読取の指定を確認してください")
+                if type(value.get("blank_current_zero", False)) is not bool:
+                    raise DocumentError("現在欄の空欄ルールを確認してください")
                 return await run_in_threadpool(
-                    service.read_local, identifier, value.get("retry", False)
+                    service.read_local, identifier, value.get("retry", False),
+                    value.get("blank_current_zero", False),
                 )
             if action == "extract":
                 if value.get("retry", False) not in (False, True):
