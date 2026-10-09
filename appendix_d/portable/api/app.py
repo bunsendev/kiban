@@ -171,6 +171,10 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     def operator_script():
         return FileResponse(STATIC / "operator-results.js", media_type="text/javascript")
 
+    @app.get("/performance.js")
+    def performance_script():
+        return FileResponse(STATIC / "performance.js", media_type="text/javascript")
+
     @app.get("/review.js")
     def review_script():
         return FileResponse(STATIC / "review.js", media_type="text/javascript")

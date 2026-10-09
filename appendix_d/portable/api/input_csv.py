@@ -8,7 +8,6 @@ from forecast_provider.frames import validate_train_frame
 
 MAX_CSV_BYTES = 1_000_000
 MAX_ROWS = 20_000
-MAX_SERIES = 100
 
 
 class InputError(ValueError):
@@ -26,8 +25,8 @@ def parse_csv(data: bytes) -> pd.DataFrame:
         raise InputError("列は ds,unique_id,y の順に指定してください")
     if frame.empty or len(frame) > MAX_ROWS:
         raise InputError("データ行数が範囲外です")
-    if frame["unique_id"].isna().any() or frame["unique_id"].nunique() > MAX_SERIES:
-        raise InputError("系列IDが空、または系列が多すぎます")
+    if frame["unique_id"].isna().any():
+        raise InputError("系列IDが空です")
     try:
         frame["ds"] = pd.to_datetime(frame["ds"], format="%Y-%m-%d", errors="raise")
         frame["y"] = pd.to_numeric(frame["y"], errors="raise")

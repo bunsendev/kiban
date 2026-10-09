@@ -1,11 +1,16 @@
 """HTTP boundary for resumable daily Portable runs."""
 
 import json
+import re
 from contextlib import contextmanager
 
 from fastapi import HTTPException, Request
+from starlette.concurrency import run_in_threadpool
+
+from portable.runtime.performance import measure
 
 from .daily_auto_run import DailyAutoRunError, PortableDailyAutoRun
+from .forecast_batches import validate_batch_size
 
 
 def register_daily_auto_run_routes(
@@ -44,10 +49,48 @@ def register_daily_auto_run_routes(
             payload = json.loads(await read_limited(request, 16 * 1024) or b"{}")
             if not isinstance(payload, dict):
                 raise DailyAutoRunError("確認内容を確認してください")
-            with exclusive_operation():
-                return service.advance(analysis_id, payload)
-        except (DailyAutoRunError, json.JSONDecodeError) as exc:
+            validate_batch_size(payload.get("batch_size", 100))
+            if not re.fullmatch(r"[0-9a-f]{64}", analysis_id):
+                raise DailyAutoRunError("分析IDを確認してください")
+
+            def execute():
+                with (
+                    exclusive_operation(),
+                    measure(
+                        paths.state / "Performance" / f"{analysis_id}.json",
+                        stage="inventory_and_reference",
+                        details={"batch_size": payload.get("batch_size", 100)},
+                    ) as metrics,
+                ):
+                    result = service.advance(analysis_id, payload)
+                    metrics.update(
+                        series_count=result.get("eligible_series_count"),
+                        production_run_id=result.get("production_run_id"),
+                    )
+                    return result
+
+            return await run_in_threadpool(execute)
+        except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
+
+    @app.get("/api/performance/{analysis_id}")
+    def performance(analysis_id: str):
+        if not re.fullmatch(r"[0-9a-f]{64}", analysis_id):
+            raise HTTPException(404, "分析IDを確認してください")
+        path = paths.state / "Performance" / f"{analysis_id}.json"
+        if not path.is_file():
+            return {"stages": []}
+        try:
+            first = json.loads(path.read_text(encoding="utf-8"))
+            stages = [first]
+            run_id = first.get("production_run_id", "") or ""
+            if re.fullmatch(r"[0-9a-f-]{36}", run_id):
+                production = path.with_name(f"production-{run_id}.json")
+                if production.is_file():
+                    stages.append(json.loads(production.read_text(encoding="utf-8")))
+            return {"stages": stages}
+        except (OSError, ValueError) as exc:
+            raise HTTPException(503, "計測結果を再取得してください") from exc
 
     @app.post("/api/daily-runs/{analysis_id}/daily-summary", status_code=201)
     async def prepare_daily_decision(analysis_id: str, request: Request):
@@ -63,9 +106,7 @@ def register_daily_auto_run_routes(
     @app.post("/api/daily-runs/{analysis_id}/decision-inputs", status_code=201)
     async def submit_daily_decision_inputs(analysis_id: str, request: Request):
         try:
-            payload = json.loads(
-                await read_limited(request, 8 * 1024 * 1024) or b"{}"
-            )
+            payload = json.loads(await read_limited(request, 8 * 1024 * 1024) or b"{}")
             if not isinstance(payload, dict):
                 raise DailyAutoRunError("正式Decision入力を確認してください")
             with exclusive_operation():
@@ -80,9 +121,7 @@ def register_daily_auto_run_routes(
         except DailyAutoRunError as exc:
             raise HTTPException(422, str(exc)) from exc
 
-    @app.post(
-        "/api/daily-runs/{analysis_id}/decision-inputs/guided", status_code=201
-    )
+    @app.post("/api/daily-runs/{analysis_id}/decision-inputs/guided", status_code=201)
     async def submit_guided_daily_decision_inputs(analysis_id: str, request: Request):
         try:
             payload = json.loads(await read_limited(request, 2 * 1024 * 1024) or b"{}")

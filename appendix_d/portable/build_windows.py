@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from portable import APP_VERSION
+from portable.scale_samples import write_samples
 
 # The Portable application intentionally supports the built-in Baseline only.  A
 # developer environment may also contain the comparison workers; letting
@@ -158,6 +159,8 @@ def main() -> None:
     shutil.copytree(package / "BunsenPortable", app)
     shutil.copytree(root / "portable" / "sample", output / "Sample")
     shutil.copy2(root / "portable" / "P1_FIELD_ACCEPTANCE.md", output / "P1_FIELD_ACCEPTANCE.md")
+    write_samples(output / "ScaleSamples")
+    shutil.copy2(root / "portable" / "SCALE_TEST.md", output / "SCALE_TEST.md")
     (output / "Data").mkdir()
     write_operator_files(output)
     write_manifest(output)
