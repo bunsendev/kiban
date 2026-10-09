@@ -2153,3 +2153,9 @@ OS: Windows 11
 - Real local-only extraction: current stock 123 -> 103 rows (20 excluded), 113 -> 104 rows (9 excluded); all 123/113 product-under-name dates read. 12/16 same-JAN/location/expiry groups contain distinct detail dates. No cloud calls or business approvals. Date meaning remains unconfirmed; formal Phase3S identity/migration not extended to manufacture date.
 - Browser preview initially confirmed controls/date column, found a native-confirm shadowing issue and replaced it with inline confirmation, verified with Node. Later native-browser verification was blocked by a stuck dialog; no final visual acceptance claim. Automatic approval review rejected the packaged-EXE launch command without a detailed reason; frozen restart acceptance remains untested for this version.
 - Final ZIP CRC/all manifest hashes/all field assets/no Data or keys PASS; 57725376 bytes; SHA256 3d0b2ce56a6f5a6c73cd2a74a52eebe4a73a29e54957ddb8cf863e34efc73576. Not signed/published remotely.
+
+2026-10-09 Portable pilot.31 warehouse receipt-date clarification
+- 43 document/build regression tests PASS; Ruff PASS; Node review-table and cancellation behavior PASS.
+- UI and confirmed inventory CSV label source_detail_date as Muroo warehouse receipt date; existing internal key preserved. Not manufacture date, shipment date or lot identity.
+- Real PDFs re-read locally: 123/123 and 113/113 receipt dates present; 103 and 104 stock rows retained with report-specific blank-current-zero policy. No API calls or business approvals.
+- Packaged EXE restart acceptance remains untested; prior automatic approval review rejected launch without detailed reason.

@@ -435,7 +435,7 @@ class Documents:
                 record.update(
                     {
                         "商品コード": row["product_code"].strip() or jan,
-                        "商品名下の日付（意味未確認）": str(row.get("source_detail_date") or ""),
+                        "ムロオ倉庫入庫日": str(row.get("source_detail_date") or ""),
                         "JAN": jan,
                         "明細バラ数": str(quantity),
                         "賞味期限": row["expiry"],

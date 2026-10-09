@@ -171,6 +171,7 @@ def test_inventory_zero_and_exclusion_reason(tmp_path, monkeypatch):
         expiry="2026-11-01",
         snapshot="2026-10-01",
         product_code="ARTIFICIAL",
+        source_detail_date="2026-09-29",
     )
     client, service, identifier = setup(tmp_path, monkeypatch, [inventory])
     service.read(identifier, True)
@@ -186,6 +187,8 @@ def test_inventory_zero_and_exclusion_reason(tmp_path, monkeypatch):
     service.dispatch(identifier)
     text = next(service.paths.incoming.glob("*.csv")).read_text(encoding="utf-8-sig")
     assert "明細バラ数" in text and "ARTIFICIAL" in text and ",0," in text
+    assert "ムロオ倉庫入庫日" in text and "2026-09-29" in text
+    assert "意味未確認" not in text
     original = client.get(f"/api/documents/{identifier}/original")
     assert original.headers["content-security-policy"].startswith("sandbox")
 
