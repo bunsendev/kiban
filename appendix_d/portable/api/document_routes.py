@@ -150,6 +150,8 @@ def register_document_routes(app, paths, drop_folder):
                     value.get("retry", False),
                     value.get("page"),
                 )
+            if action == "draft":
+                return await run_in_threadpool(service.save_draft, identifier, value)
             if action == "approve":
                 return await run_in_threadpool(service.approve, identifier, value)
             if action == "dispatch":

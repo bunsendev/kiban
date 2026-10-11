@@ -37,6 +37,8 @@ def extract_inventory(raw, *, blank_current_zero=False):
             )
             row = dict.fromkeys(FIELDS, "")
             row.update(
+                source_adjustment_case=line[case_columns[3]:loose_columns[3]].strip(),
+                source_adjustment_loose=line[loose_columns[3]:cases].strip(),
                 source_detail_date="-".join(detail_date.groups()) if detail_date else "",
                 kind="inventory",
                 jan=jan[1],
@@ -69,6 +71,11 @@ def extract_inventory(raw, *, blank_current_zero=False):
                         reason="この帳票の現在両欄の空欄を0として除外（担当者指定）",
                     )
                 row["note"] += " 担当者指定：現在欄の空欄は0。元の空欄は抽出履歴に保持。"
+            if row["source_adjustment_case"] or row["source_adjustment_loose"]:
+                row["note"] += (
+                    " 調整欄あり：現在欄を使用し、調整を再加算しません。"
+                    "原本の調整理由は業務確認が必要です。"
+                )
             rows.append(row)
             # The movement report's 当出 is the day's shipment, never 当入.
             # Missing cells remain missing; do not manufacture zero shipments.

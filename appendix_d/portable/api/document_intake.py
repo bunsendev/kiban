@@ -50,6 +50,37 @@ class Documents:
                 "(document_id TEXT PRIMARY KEY, generation INTEGER, cancelled INTEGER)"
             )
 
+    def save_draft(self, identifier, value):
+        if not isinstance(value.get("rows"), list) or len(value["rows"]) > 1000:
+            raise DocumentError("明細は1000行以内で保存してください")
+        with self.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT extraction,approval FROM documents WHERE id=?", (identifier,)
+            ).fetchone()
+            if not row or not row[0] or row[1]:
+                raise DocumentError("未承認の読取結果だけ途中保存できます")
+            extraction = json.loads(row[0])
+            if value.get("revision") != extraction.get("revision"):
+                raise DocumentError("読取結果が更新されています。再表示してください")
+            if not all(isinstance(r, dict) for r in value["rows"]):
+                raise DocumentError("明細の形式を確認してください")
+            self.check_control(db, identifier, self.control(identifier)[0])
+            draft = {
+                "rows": value["rows"],
+                "revision": value["revision"],
+                "actor": str(value.get("actor") or "")[:100],
+                "at": datetime.now(UTC).isoformat(),
+            }
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS document_drafts (document_id TEXT, contents TEXT)"
+            )
+            db.execute(
+                "INSERT INTO document_drafts VALUES(?,?)",
+                (identifier, json.dumps(draft, ensure_ascii=False)),
+            )
+        return draft
+
     @contextmanager
     def db(self):
         db = sqlite3.connect(self.path, timeout=30)
@@ -83,7 +114,21 @@ class Documents:
             count = len(pdf_reader(row[2]).pages) if row[3] == "application/pdf" else 1
         except DocumentError:
             count = 1
+        with self.db() as db:
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS document_drafts (document_id TEXT, contents TEXT)"
+            )
+            saved = db.execute(
+                "SELECT contents FROM document_drafts WHERE document_id=? "
+                "ORDER BY rowid DESC LIMIT 1",
+                (identifier,),
+            ).fetchone()
+        extraction = json.loads(row[4]) if row[4] else None
+        draft = json.loads(saved[0]) if saved else None
+        if draft and (not extraction or draft["revision"] != extraction.get("revision")):
+            draft = None
         return {
+            "draft": draft,
             "page_count": count,
             "id": row[0],
             "name": row[1],
@@ -130,10 +175,16 @@ class Documents:
             )
             db.execute(
                 "INSERT INTO document_attempts VALUES(?,?,?)",
-                (identifier, uuid.uuid4().hex, json.dumps({
-                    "status": "cancelled" if cancelled else "resumed",
-                    "at": datetime.now(UTC).isoformat(),
-                })),
+                (
+                    identifier,
+                    uuid.uuid4().hex,
+                    json.dumps(
+                        {
+                            "status": "cancelled" if cancelled else "resumed",
+                            "at": datetime.now(UTC).isoformat(),
+                        }
+                    ),
+                ),
             )
         return self.get(identifier)
 
@@ -290,8 +341,11 @@ class Documents:
             raw, mime = self.get(identifier, original=True)
             if mime != "application/pdf":
                 raise DocumentError("印刷在庫表PDFを選んでください")
-            value = (extract_inventory(raw, blank_current_zero=True)
-                     if blank_current_zero else extract_inventory(raw))
+            value = (
+                extract_inventory(raw, blank_current_zero=True)
+                if blank_current_zero
+                else extract_inventory(raw)
+            )
             value.update(at=datetime.now(UTC).isoformat(), revision=uuid.uuid4().hex)
             with self.db() as db:
                 db.execute("BEGIN IMMEDIATE")
@@ -308,8 +362,11 @@ class Documents:
                 if previous:
                     db.execute(
                         "INSERT OR IGNORE INTO document_attempts VALUES(?,?,?)",
-                        (identifier, previous.get("revision", "legacy-" + identifier),
-                         json.dumps(previous, ensure_ascii=False)),
+                        (
+                            identifier,
+                            previous.get("revision", "legacy-" + identifier),
+                            json.dumps(previous, ensure_ascii=False),
+                        ),
                     )
                     db.execute("DELETE FROM document_pages WHERE document_id=?", (identifier,))
                 for p in value["pages_read"]:

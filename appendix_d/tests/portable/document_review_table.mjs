@@ -44,3 +44,16 @@ assert.equal(serializeControls(table.edits[0]).quantity,'0');
 all(host).find(n=>n.textContent==='原本から明細を追加する').onclick();
 assert.equal(table.edits.length,3);assert(rows.every(r=>!r.hidden));
 console.log('PASS: JAN/date/quantity checks, blank vs zero, component confirmation, exclusion, visible table errors, filter/search/edit/new row');
+
+const batchHost=new Element('main');
+const batchTable=reviewTable({run:fn=>fn(),message:()=>{}},batchHost,[
+ {...valid,case_quantity:'12',loose_quantity:'',units_per_case:'20',component_confirmed:false},
+ {...valid,kind:'shipment',case_quantity:'3',loose_quantity:'',component_confirmed:false}
+],{choice:{value:''}});
+all(batchHost).find(n=>n.textContent==='表示中の在庫の空欄を0にする').onclick();
+assert.equal(batchTable.edits[0].loose_quantity.value,'0');
+assert.equal(batchTable.edits[1].loose_quantity.value,'');
+all(batchHost).find(n=>n.textContent==='表示中のケース・バラの意味を確認済みにする').onclick();
+assert.equal(batchTable.edits[0].component_confirmed.checked,true);
+assert.equal(batchTable.edits[0].product_name.tagName,'textarea');
+console.log('PASS: explicit batch inventory zero preserves shipment blanks and batch confirmation');

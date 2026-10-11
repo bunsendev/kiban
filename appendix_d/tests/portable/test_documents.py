@@ -250,23 +250,29 @@ def test_modified_outgoing_csv_is_not_silently_accepted(tmp_path, monkeypatch):
 def test_reviewed_document_reaches_existing_archive_analysis(tmp_path, monkeypatch):
     from datetime import date, timedelta
 
-    rows = [row(date=str(date(2026, 9, 1) + timedelta(days=i)), case_factor='1')
-            for i in range(35)]
-    rows.append(row(kind='inventory', snapshot='2026-10-05', expiry='2026-11-01',
-                    quantity='100', case_factor='1'))
+    rows = [row(date=str(date(2026, 9, 1) + timedelta(days=i)), case_factor="1") for i in range(35)]
+    rows.append(
+        row(
+            kind="inventory",
+            snapshot="2026-10-05",
+            expiry="2026-11-01",
+            quantity="100",
+            case_factor="1",
+        )
+    )
     client, service, identifier = setup(tmp_path, monkeypatch, rows)
     service.read(identifier, True)
-    service.approve(identifier, {'confirmed': True, 'actor': 'synthetic', 'rows': rows})
+    service.approve(identifier, {"confirmed": True, "actor": "synthetic", "rows": rows})
     service.dispatch(identifier)
-    response = client.post('/api/drop-folder/scan', json={})
+    response = client.post("/api/drop-folder/scan", json={})
     assert response.status_code == 200
-    receipts = response.json()['recent']
+    receipts = response.json()["recent"]
     assert len(receipts) == 1
-    assert receipts[0]['status'] == 'PROCESSED', receipts
-    assert receipts[0]['analysis_id']
-    assert not list(service.paths.incoming.glob('*.csv'))
-    assert len(list((service.paths.incoming / 'Processed').glob('*.csv'))) == 36
-    assert service.get(identifier)['approval']['rows'][-1]['quantity'] == '100'
+    assert receipts[0]["status"] == "PROCESSED", receipts
+    assert receipts[0]["analysis_id"]
+    assert not list(service.paths.incoming.glob("*.csv"))
+    assert len(list((service.paths.incoming / "Processed").glob("*.csv"))) == 36
+    assert service.get(identifier)["approval"]["rows"][-1]["quantity"] == "100"
 
 
 def test_pdf_saved_key_restart_and_auth_failure(tmp_path, monkeypatch):
@@ -279,8 +285,9 @@ def test_pdf_saved_key_restart_and_auth_failure(tmp_path, monkeypatch):
     fresh = TestClient(create_app(tmp_path / "Data"), base_url="http://127.0.0.1")
     assert fresh.get("/api/ai-credentials").json() == {"saved": True, "available": True}
     raw = b"%PDF-synthetic-persistence"
-    uploaded = fresh.post("/api/documents/upload", content=raw,
-                          headers={"x-file-name": "test.pdf"}).json()
+    uploaded = fresh.post(
+        "/api/documents/upload", content=raw, headers={"x-file-name": "test.pdf"}
+    ).json()
     identifier = uploaded["id"]
 
     def fail_extract(source, key):
@@ -295,6 +302,39 @@ def test_pdf_saved_key_restart_and_auth_failure(tmp_path, monkeypatch):
     assert fresh.get(url + "/original").content == raw
     assert fresh.get("/api/documents").json()[0]["extraction"] is None
     assert ApiCredentials().status()["available"]
-    monkeypatch.setattr("portable.api.document_intake.extract",
-                        lambda source, key: {"rows": [row()], "complete": True})
+    monkeypatch.setattr(
+        "portable.api.document_intake.extract",
+        lambda source, key: {"rows": [row()], "complete": True},
+    )
     assert fresh.post(url + "/extract", json={"consent": True}).status_code == 200
+
+
+def test_draft_restart_and_stale_read_are_not_approval(tmp_path, monkeypatch):
+    client, service, identifier = setup(tmp_path, monkeypatch)
+    service.read(identifier, True)
+    revision = service.get(identifier)["extraction"]["revision"]
+    url = f"/api/documents/{identifier}/draft"
+    edited = row(quantity="", product_name="途中の人工商品")
+    value = {"rows": [edited], "revision": revision, "actor": "人工確認者"}
+    assert client.post(url, json=value).status_code == 200
+    fresh = TestClient(create_app(service.paths.root), base_url="http://127.0.0.1")
+    result = fresh.get("/api/documents").json()[0]
+    assert result["draft"]["rows"][0]["quantity"] == ""
+    assert result["approval"] is None
+    assert not list(service.paths.incoming.glob("*.csv"))
+    service.read(identifier, True, retry=True)
+    assert service.get(identifier)["draft"] is None
+    assert fresh.post(url, json=value).status_code == 422
+
+
+def test_draft_denies_cancelled_document(tmp_path, monkeypatch):
+    client, service, identifier = setup(tmp_path, monkeypatch)
+    service.read(identifier, True)
+    revision = service.get(identifier)["extraction"]["revision"]
+    service.set_cancelled(identifier)
+    assert (
+        client.post(
+            f"/api/documents/{identifier}/draft", json={"rows": [row()], "revision": revision}
+        ).status_code
+        == 422
+    )

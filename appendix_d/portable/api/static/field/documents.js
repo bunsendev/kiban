@@ -83,11 +83,15 @@ export async function documents(ctx, parent) {
       }
       el('p','全行を原本と照合してください。不明な行は理由を付けて除外できます。箱なら換算1、くくり・パレットは1単位あたりの箱数を入力してください。勝手な換算はしません。',box);
       box.open=true;
-      const {edits}=reviewTable(ctx,box,doc.extraction.rows,master);
+      const {edits}=reviewTable(ctx,box,doc.draft?.rows||doc.extraction.rows,master);
       const partial=field(box,'未読取部分を保留し、確認できた明細だけ採用する','checkbox',false);
       const partialReason=field(box,'未読取部分の扱い・採用範囲の理由','text',false);
+      for(const n of [partial,partialReason]){n.parentElement.style.display='block';n.parentElement.style.marginBottom='12px';}
       const actor=field(box,'原本の確認者');
+      if(doc.draft){actor.value=doc.draft.actor;el('p','途中保存した内容を復元しました。正式採用はまだ行っていません。',box);}
+      button('途中保存する（未完成でも保存可）',()=>ctx.run(async()=>{await saveWithNotice(()=>api(`/api/documents/${doc.id}/draft`,{rows:edits.map(serializeControls),actor:actor.value,revision:doc.extraction.revision}),'途中保存しました。後から再開できます。');}),box,true);
       const confirm=field(box,'すべての行を原本と照合し、単位・換算・除外を確認した','checkbox',false);
+      for(const n of [actor,confirm]){n.parentElement.style.display='block';n.parentElement.style.marginBottom='12px';}
       button('修正内容を確認して保存',()=>ctx.run(async()=>{
         const rows=edits.map(serializeControls);
         await saveWithNotice(()=>api(`/api/documents/${doc.id}/approve`,{actor:actor.value,confirmed:confirm.checked,rows,revision:doc.extraction.revision,partial_confirmed:partial.checked,partial_reason:partialReason.value}),partial.checked?'確認した範囲を保存しました。未読取部分は保留のままです。':'原本の確認内容と修正を保存しました。分析へ渡す操作に進めます。');await refresh();

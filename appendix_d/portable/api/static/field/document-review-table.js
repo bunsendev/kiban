@@ -50,6 +50,11 @@ export function reviewTable(ctx,parent,sourceRows,master){
  const header=el('tr','',el('thead','',table));
  for(const label of ['行・確認状況','商品名・コード','JAN・候補','数量・単位・換算','種類・日付','倉庫','原本・メモ','除外'])el('th',label,header).setAttribute('scope','col');
  const body=el('tbody','',table), entries=[],edits=[];
+ const batch=el('div','',section);
+ el('p','一括操作は表示中の行だけに適用します。数量・換算を原本と照合してから実行してください。除外した行はチェックを外すと再び対象になります。',batch);
+ button('表示中の在庫の空欄を0にする',()=>{for(const e of entries){if(e.tr.hidden||e.controls.exclude.checked||e.controls.kind.value!=='inventory')continue;for(const k of ['case_quantity','loose_quantity'])if(!text(e.controls[k].value))e.controls[k].value='0';}update();},batch,true);
+ button('表示中のケース・バラの意味を確認済みにする',()=>{for(const e of entries){if(!e.tr.hidden&&!e.controls.exclude.checked&&['case_quantity','loose_quantity'].some(k=>text(e.controls[k].value)))e.controls.component_confirmed.checked=true;}update();},batch,true);
+
  function update(){
   let errorCount=0,warningCount=0,excludedCount=0,visible=0;
   for(const entry of entries){
@@ -80,7 +85,8 @@ export function reviewTable(ctx,parent,sourceRows,master){
    let n;
    if(key==='kind'){
     n=el('select','',el('label',labels[key],host));for(const [v,t] of [['unknown','選択してください'],['inventory','倉庫在庫'],['shipment','出荷実績']]){const o=el('option',t,n);o.value=v;}
-   }else n=field(host,labels[key],['date','expiry','snapshot'].includes(key)?'date':'text',false);
+   }else if(key==='product_name'){n=el('textarea','',el('label',labels[key],host));n.rows=3;}
+   else n=field(host,labels[key],['date','expiry','snapshot'].includes(key)?'date':'text',false);
    n.value=key==='kind'?(['shipment','inventory'].includes(row.kind)?row.kind:'unknown'):(row[key]??'');n.setAttribute('aria-label',`${i+1}行目 ${labels[key]}`);controls[key]=n;
    if(['date','expiry','snapshot'].includes(key)){
     dateGroups[key]=n.parentElement;

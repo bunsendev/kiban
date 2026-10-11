@@ -2159,3 +2159,9 @@ OS: Windows 11
 - UI and confirmed inventory CSV label source_detail_date as Muroo warehouse receipt date; existing internal key preserved. Not manufacture date, shipment date or lot identity.
 - Real PDFs re-read locally: 123/123 and 113/113 receipt dates present; 103 and 104 stock rows retained with report-specific blank-current-zero policy. No API calls or business approvals.
 - Packaged EXE restart acceptance remains untested; prior automatic approval review rejected launch without detailed reason.
+
+2026-10-11 Field PDF usability feedback implementation
+- Document regressions 41 PASS, Ruff PASS, Node review table and explicit batch behavior PASS.
+- Append-only draft save/restart, stale-revision rejection and cancelled-document rejection tested. No approval/CSV emission during draft.
+- Inventory batch blank-zero never modifies shipment blanks. Product names use multiline controls. Real PDF TV hijiki 3 rows retained full names and separate receipt dates.
+- CASE confirmation wording corrected for converted CSV, adjustment fields retained without re-adding to current stock. Distribution ZIP and browser acceptance not performed in this change.
