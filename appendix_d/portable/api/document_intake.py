@@ -50,6 +50,48 @@ class Documents:
                 "(document_id TEXT PRIMARY KEY, generation INTEGER, cancelled INTEGER)"
             )
 
+    def correction(self, identifier, value):
+        actor = str(value.get("actor") or "").strip()
+        reason = str(value.get("reason") or "").strip()
+        if not actor or not reason or len(actor) > 100 or len(reason) > 500:
+            raise DocumentError("訂正の確認者と理由を入力してください")
+        with self._read_lock, self.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT * FROM documents WHERE id=?", (identifier,)).fetchone()
+            if not row or not row[5]:
+                raise DocumentError("確認済みの原本を選んでください")
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS document_corrections "
+                "(parent TEXT UNIQUE, child TEXT UNIQUE, actor TEXT, reason TEXT, at TEXT)"
+            )
+            previous = db.execute(
+                "SELECT child FROM document_corrections WHERE parent=?", (identifier,)
+            ).fetchone()
+            if previous:
+                child = previous[0]
+            else:
+                child = uuid.uuid4().hex
+                extraction = json.loads(row[4])
+                extraction["rows"] = json.loads(row[5])["rows"]
+                extraction["revision"] = uuid.uuid4().hex
+                at = datetime.now(UTC).isoformat()
+                db.execute(
+                    "INSERT INTO documents VALUES(?,?,?,?,?,NULL,?)",
+                    (
+                        child,
+                        row[1] + "（訂正）",
+                        row[2],
+                        row[3],
+                        json.dumps(extraction, ensure_ascii=False),
+                        at,
+                    ),
+                )
+                db.execute(
+                    "INSERT INTO document_corrections VALUES(?,?,?,?,?)",
+                    (identifier, child, actor, reason, at),
+                )
+        return self.get(child)
+
     def save_draft(self, identifier, value):
         if not isinstance(value.get("rows"), list) or len(value["rows"]) > 1000:
             raise DocumentError("明細は1000行以内で保存してください")
@@ -127,7 +169,20 @@ class Documents:
         draft = json.loads(saved[0]) if saved else None
         if draft and (not extraction or draft["revision"] != extraction.get("revision")):
             draft = None
+        with self.db() as db:
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS document_corrections "
+                "(parent TEXT UNIQUE, child TEXT UNIQUE, actor TEXT, reason TEXT, at TEXT)"
+            )
+            parent = db.execute(
+                "SELECT parent FROM document_corrections WHERE child=?", (identifier,)
+            ).fetchone()
+            child = db.execute(
+                "SELECT child FROM document_corrections WHERE parent=?", (identifier,)
+            ).fetchone()
         return {
+            "correction_of": parent[0] if parent else None,
+            "superseded_by": child[0] if child else None,
             "draft": draft,
             "page_count": count,
             "id": row[0],
@@ -503,7 +558,7 @@ class Documents:
             "actor": actor,
             "at": datetime.now(UTC).isoformat(),
             "rows": rows,
-            "source_sha": identifier,
+            "source_sha": hashlib.sha256(self.get(identifier, original=True)[0]).hexdigest(),
             "extraction_revision": extraction.get("revision"),
             "partial_confirmed": value.get("partial_confirmed") is True,
             "partial_reason": str(value.get("partial_reason") or ""),
@@ -546,6 +601,27 @@ class Documents:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT approval FROM documents WHERE id=?", (identifier,)).fetchone()
             approval = json.loads(row[0])
+            child = db.execute(
+                "SELECT child FROM document_corrections WHERE parent=?", (identifier,)
+            ).fetchone()
+            if child:
+                raise DocumentError("訂正版があります。元の版は再受渡しできません")
+            parent = db.execute(
+                "SELECT parent FROM document_corrections WHERE child=?", (identifier,)
+            ).fetchone()
+            while parent:
+                old = json.loads(
+                    db.execute(
+                        "SELECT approval FROM documents WHERE id=?", (parent[0],)
+                    ).fetchone()[0]
+                )
+                if old.get("dispatched"):
+                    raise DocumentError(
+                        "元の版は分析へ受渡し済みです。二重計上を防ぐため訂正版の受渡しはIT担当者による元入力の差替えが必要です"
+                    )
+                parent = db.execute(
+                    "SELECT parent FROM document_corrections WHERE child=?", (parent[0],)
+                ).fetchone()
             if not approval.get("dispatched"):
                 for item in approval["files"]:
                     target = self.paths.incoming / item["name"]

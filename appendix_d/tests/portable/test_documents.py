@@ -338,3 +338,40 @@ def test_draft_denies_cancelled_document(tmp_path, monkeypatch):
         ).status_code
         == 422
     )
+
+
+@pytest.mark.parametrize("dispatched", [False, True])
+def test_correction_preserves_original_and_blocks_double_count(tmp_path, monkeypatch, dispatched):
+    _client, service, identifier = setup(tmp_path, monkeypatch)
+    service.read(identifier, True)
+    service.approve(
+        identifier, {"actor": "人工", "confirmed": True, "rows": [{**row(), "case_factor": "1"}]}
+    )
+    if dispatched:
+        service.dispatch(identifier)
+    original = service.get(identifier)["approval"]
+    corrected = service.correction(identifier, {"actor": "人工", "reason": "数量訂正"})
+    assert corrected["id"] != identifier and corrected["correction_of"] == identifier
+    assert service.get(identifier)["approval"] == original
+    assert service.get(corrected["id"], original=True) == service.get(identifier, original=True)
+    assert (
+        service.correction(identifier, {"actor": "人工", "reason": "再操作"})["id"]
+        == corrected["id"]
+    )
+    with pytest.raises(DocumentError):
+        service.dispatch(identifier)
+    service.approve(
+        corrected["id"],
+        {
+            "actor": "人工",
+            "confirmed": True,
+            "revision": corrected["extraction"]["revision"],
+            "rows": [{**row(quantity="4"), "case_factor": "1"}],
+        },
+    )
+    if dispatched:
+        with pytest.raises(DocumentError, match="二重計上"):
+            service.dispatch(corrected["id"])
+    else:
+        service.dispatch(corrected["id"])
+        assert service.get(corrected["id"])["approval"]["dispatched"]

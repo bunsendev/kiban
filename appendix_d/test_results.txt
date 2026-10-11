@@ -2165,3 +2165,9 @@ OS: Windows 11
 - Append-only draft save/restart, stale-revision rejection and cancelled-document rejection tested. No approval/CSV emission during draft.
 - Inventory batch blank-zero never modifies shipment blanks. Product names use multiline controls. Real PDF TV hijiki 3 rows retained full names and separate receipt dates.
 - CASE confirmation wording corrected for converted CSV, adjustment fields retained without re-adding to current stock. Distribution ZIP and browser acceptance not performed in this change.
+
+2026-10-11 pilot32 document correction and distribution
+- Regression suite 47 PASS; latest correction dispatch checks 2 PASS; Ruff and Node batch review PASS.
+- Browser source preview: batch confirmation, draft save dialog, reload restoration, approval and correction creation verified with synthetic local PDF; no AI request or real-data publication.
+- Original approval remains immutable, correction reuse idempotent, ancestor dispatch fences duplicate publication. Raw source SHA retained.
+- Packaged EXE restart remains untested (prior automatic approval review rejected launch with no detailed reason).

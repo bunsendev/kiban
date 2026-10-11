@@ -41,6 +41,7 @@ export async function documents(ctx, parent) {
       const link=el('a','原本を別タブで開く',box); link.href=`/api/documents/${doc.id}/original`;link.target='_blank';link.rel='noopener';
       if(doc.mime.startsWith('image/')){const img=el('img','',box);img.src=link.href;img.alt='確認用の原本';img.style.maxWidth='100%';img.loading='lazy';}
       if(doc.cancelled)continue;
+      if(doc.correction_of)el('p','訂正版です。除外チェックを外して再対象化できます。元入力が受渡し済みの場合は二重計上防止のためIT担当者による差替えが必要です。',box);
       let zeroCurrent;
       if(!doc.approval && doc.mime==='application/pdf'){
         zeroCurrent=field(box,'この帳票の「現在」欄は空欄＝0、両欄空欄の明細は取込対象外にする（当出・他の帳票には適用しない）','checkbox',false);
@@ -76,6 +77,11 @@ export async function documents(ctx, parent) {
       if(!doc.extraction)continue;
       if(!doc.extraction.complete)el('p','全明細を読み取れていません。読めた行を修正・確認して採用できます。未読取部分は理由を残して保留し、原本全体の確認完了とは扱いません。',box);
       if(doc.approval){
+        if(doc.superseded_by)el('p','訂正版を作成済みです。「訂正」の付いたファイルを開いてください。元の履歴は保持します。',box);
+        else {
+          const correctionActor=field(box,'訂正の確認者'),correctionReason=field(box,'訂正理由（例：除外商品を対象へ戻す）');
+          button('履歴を残して訂正する',()=>ctx.run(async()=>{await api(`/api/documents/${doc.id}/correction`,{actor:correctionActor.value,reason:correctionReason.value});await refresh();}),box,true);
+        }
         el('p',`確認者：${doc.approval.actor} ／ ${doc.approval.at}。原本・AI抽出・修正内容を保存済みです。`,box);
         if(!doc.approval.dispatched) button('確認済みデータを分析へ渡す',()=>ctx.run(async()=>{await api(`/api/documents/${doc.id}/dispatch`,{});await refresh();}),box);
         else el('p','分析へ受け渡し済み。「投入フォルダから読み込む」で受付結果を開いてください。JAN・単位・履歴不足などは既存の確認画面で続けて確認します。',box);
