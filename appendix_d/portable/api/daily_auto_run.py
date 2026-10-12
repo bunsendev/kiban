@@ -279,7 +279,11 @@ class PortableDailyAutoRun:
         base["build_id"] = latest["build_id"]
         base["blockers"] = [
             {"jan": item["jan"], "source_center": item["source_center"],
-             "reason_codes": item["blocking_reasons"]}
+             "reason_codes": item["blocking_reasons"],
+             "observed_day_count": item.get("observed_day_count"),
+             "confirmed_zero_day_count": item.get("confirmed_zero_day_count"),
+             "train_start": item.get("train_start"), "train_end": item.get("train_end"),
+             "inventory_snapshot_date": item.get("inventory_snapshot_date")}
             for item in latest.get("series", []) if item.get("blocking_reasons")
         ]
         base |= {

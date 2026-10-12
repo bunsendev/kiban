@@ -2176,3 +2176,8 @@ OS: Windows 11
 - test_forecast_blocked + full test_p1_flow: 40 PASS. Ruff PASS. Separate build tests with blocker tests: 5 PASS.
 - Valid BLOCKED manifest is data insufficiency, not corruption; modified daily bytes still rejected. No production enqueue for BLOCKED; inventory-only ZIP has dedicated guidance.
 - Final rebuild required after ZIP guidance and UI blocker-list changes. Packaged EXE startup not tested; previous automatic approval rejection had no detailed reason. No field input/manifest received, so actual field blocker remains unconfirmed.
+
+2026-10-13 pilot34 detailed forecast blocker guidance
+- Forecast/p1/build regression suite 42 PASS; whole repository Ruff PASS. Node blocker rendering PASS including 1 observed day -> 27 missing days, period, inventory date, missing-source guidance.
+- Old detailed-screen count-only warning replaced with warehouse/JAN detail table and actions. Daily status includes observed/confirmed-zero counts and periods; unknown legacy values remain unknown. No source-data repair or forced-zero conversion.
+- Final packaged assets compared with current source. Frozen EXE startup remains untested; prior approval review rejected launch with no detailed reason.
