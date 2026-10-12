@@ -75,7 +75,9 @@ class PortableProductionHandoff:
 
         try:
             runtime_resolutions = self.runtime_assignments.resolve_execution(
-                build_id, self._pilot_scope_versions(manifest), actor,
+                build_id,
+                self._pilot_scope_versions(manifest),
+                actor,
             )
         except RuntimeAssignmentError as exc:
             raise ProductionHandoffError(str(exc)) from exc
@@ -83,16 +85,12 @@ class PortableProductionHandoff:
         if blocked:
             reasons = "、".join(sorted({item["reason_code"] for item in blocked}))
             raise ProductionHandoffError(f"実行時の候補版選択を確認できません: {reasons}")
-        runtime_hashes = {
-            item["selected_configuration_sha256"] for item in runtime_resolutions
-        }
+        runtime_hashes = {item["selected_configuration_sha256"] for item in runtime_resolutions}
         if len(runtime_hashes) != 1:
             raise ProductionHandoffError("実行時設定を単一の予測Runへ固定できません")
         runtime_configuration = runtime_resolutions[0]["selected_configuration"]
 
-        eligible = {
-            item["unique_id"] for item in manifest["series"] if item["forecast_eligible"]
-        }
+        eligible = {item["unique_id"] for item in manifest["series"] if item["forecast_eligible"]}
         if any(item["status"] == "CANDIDATE_SELECTED" for item in runtime_resolutions):
             try:
                 train_start = date.fromisoformat(manifest["train_start"])
@@ -162,9 +160,7 @@ class PortableProductionHandoff:
             "reason": reason,
             "eligible_series": sorted(eligible),
             "blocked_series": sorted(
-                item["unique_id"]
-                for item in manifest["series"]
-                if not item["forecast_eligible"]
+                item["unique_id"] for item in manifest["series"] if not item["forecast_eligible"]
             ),
         }
         receipt["receipt_sha256"] = sha256(canonical_json(receipt))
@@ -196,7 +192,8 @@ class PortableProductionHandoff:
         if run.status == "SUCCEEDED":
             result = self.service.runs.get_run_results(run.run_id) or {}
             points = [
-                item for item in result.get("values", [])
+                item
+                for item in result.get("values", [])
                 if item["forecast_kind"] == "POINT" and item["quantile"] is None
             ]
             output["point_predictions"] = points
@@ -212,13 +209,16 @@ class PortableProductionHandoff:
             manifest = json.loads(manifest_bytes)
         except (OSError, json.JSONDecodeError) as exc:
             raise ProductionHandoffError("日次buildが見つかりません") from exc
-        if (
-            manifest.get("build_id") != build_id
-            or manifest.get("daily_data_sha256") != sha256(daily)
-            or manifest.get("status")
-            not in {"FORECAST_COMPLETED", "FORECAST_COMPLETED_WITH_BLOCKERS"}
+        if manifest.get("build_id") != build_id or manifest.get("daily_data_sha256") != sha256(
+            daily
         ):
             raise ProductionHandoffError("日次buildの整合性を確認できません")
+        if manifest.get("status") == "BLOCKED":
+            raise ProductionHandoffError(
+                "予測対象がありません。出荷履歴28日以上、直近の欠測、在庫・出荷の基準日を確認してください"
+            )
+        if manifest.get("status") not in {"FORECAST_COMPLETED", "FORECAST_COMPLETED_WITH_BLOCKERS"}:
+            raise ProductionHandoffError("日次buildの状態を確認できません")
         return manifest, daily
 
     def _receipt_path(self, build_id: str) -> Path:
@@ -242,8 +242,14 @@ def _production_csv(raw: bytes, eligible: set[str]) -> bytes:
     try:
         reader = csv.DictReader(io.StringIO(raw.decode("utf-8-sig")), strict=True)
         required = {
-            "unique_id", "canonical_product_id", "center_id", "ds", "y",
-            "state", "raw_quantity", "issue",
+            "unique_id",
+            "canonical_product_id",
+            "center_id",
+            "ds",
+            "y",
+            "state",
+            "raw_quantity",
+            "issue",
         }
         if not required.issubset(reader.fieldnames or ()):
             raise ProductionHandoffError("日次CSVの列が一致しません")
@@ -254,18 +260,30 @@ def _production_csv(raw: bytes, eligible: set[str]) -> bytes:
         raise ProductionHandoffError("予測対象系列の日次データが不足しています")
     target = io.StringIO(newline="")
     fields = (
-        "unique_id", "canonical_product_id", "center_id", "ds", "y",
-        "daily_state", "raw_quantity", "issue",
+        "unique_id",
+        "canonical_product_id",
+        "center_id",
+        "ds",
+        "y",
+        "daily_state",
+        "raw_quantity",
+        "issue",
     )
     writer = csv.DictWriter(target, fieldnames=fields, lineterminator="\n")
     writer.writeheader()
     for row in sorted(rows, key=lambda item: (item["unique_id"], item["ds"])):
-        writer.writerow({
-            "unique_id": row["unique_id"], "canonical_product_id": row["canonical_product_id"],
-            "center_id": row["center_id"], "ds": row["ds"], "y": row["y"],
-            "daily_state": row["state"], "raw_quantity": row["raw_quantity"],
-            "issue": row["issue"],
-        })
+        writer.writerow(
+            {
+                "unique_id": row["unique_id"],
+                "canonical_product_id": row["canonical_product_id"],
+                "center_id": row["center_id"],
+                "ds": row["ds"],
+                "y": row["y"],
+                "daily_state": row["state"],
+                "raw_quantity": row["raw_quantity"],
+                "issue": row["issue"],
+            }
+        )
     return target.getvalue().encode("utf-8")
 
 

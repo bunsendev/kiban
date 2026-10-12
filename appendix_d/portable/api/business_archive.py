@@ -138,7 +138,9 @@ def analyze_archive(data: bytes, prepared_path: Path) -> dict:
                 quarantine_rows += 1
                 reason_counts["HEADER_MISSING"] += 1
                 issue = _new_issue(
-                    issues, reason="HEADER_MISSING", category="file",
+                    issues,
+                    reason="HEADER_MISSING",
+                    category="file",
                     source_value=member.filename,
                 )
                 issue["count"] += 1
@@ -229,7 +231,31 @@ def analyze_archive(data: bytes, prepared_path: Path) -> dict:
                         issue["count"] += 1
 
     if not shipment_files:
-        raise ArchiveError("出荷CSVが見つかりません")
+        manifest_name = next(
+            (
+                m.filename
+                for m in archive.infolist()
+                if PurePosixPath(m.filename).name == "manifest.json"
+            ),
+            None,
+        )
+        if manifest_name:
+            try:
+                with zipfile.ZipFile(io.BytesIO(data)) as manifest_archive:
+                    manifest = json.loads(manifest_archive.read(manifest_name))
+            except (ValueError, UnicodeError):
+                manifest = {}
+            if (
+                isinstance(manifest, dict)
+                and manifest.get("format") == "portable-formal-inventory-handoff-v1"
+            ):
+                raise ArchiveError(
+                    "このZIPは正式在庫取込専用で、予測用の入力ZIPではありません。"
+                    "元の在庫・出荷ZIPを選ぶか、PDF確認後の「確認済みデータを分析へ渡す」を使用してください"
+                )
+        raise ArchiveError(
+            "出荷CSVが見つかりません。在庫と過去の出荷CSVをまとめたZIPを選んでください"
+        )
     matched = inventory_codes & shipment_jans
     for code, count in inventory_valid_rows.items():
         missing_expiry = inventory_missing_expiry[code]

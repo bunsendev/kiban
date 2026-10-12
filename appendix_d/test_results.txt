@@ -2171,3 +2171,8 @@ OS: Windows 11
 - Browser source preview: batch confirmation, draft save dialog, reload restoration, approval and correction creation verified with synthetic local PDF; no AI request or real-data publication.
 - Original approval remains immutable, correction reuse idempotent, ancestor dispatch fences duplicate publication. Raw source SHA retained.
 - Packaged EXE restart remains untested (prior automatic approval review rejected launch with no detailed reason).
+
+2026-10-12 pilot33 forecast blocked and inventory-only ZIP
+- test_forecast_blocked + full test_p1_flow: 40 PASS. Ruff PASS. Separate build tests with blocker tests: 5 PASS.
+- Valid BLOCKED manifest is data insufficiency, not corruption; modified daily bytes still rejected. No production enqueue for BLOCKED; inventory-only ZIP has dedicated guidance.
+- Final rebuild required after ZIP guidance and UI blocker-list changes. Packaged EXE startup not tested; previous automatic approval rejection had no detailed reason. No field input/manifest received, so actual field blocker remains unconfirmed.

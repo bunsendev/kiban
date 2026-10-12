@@ -180,6 +180,12 @@ export async function analysis(ctx) {
       `未解決の条件が${state.blockers.length}件あります。計算できない商品を問題なしとして扱いません。`,
       ctx.root,
     );
+    const reasons={HISTORY_LESS_THAN_28_DAYS:'確認済み出荷履歴が28日未満です。過去の出荷CSVを追加してください',RECENT_SOURCE_DAYS_MISSING:'直近の出荷データに欠測があります。日別CSVを確認してください',INVENTORY_SHIPMENT_AS_OF_MISMATCH:'在庫基準日と出荷履歴の最終日が違います。同じ基準日のデータを揃えてください'};
+    const list=el('ul','',ctx.root);
+    for(const item of state.blockers){
+      const explanation=(item.reason_codes||[]).map(code=>reasons[code]||code).join('／');
+      el('li',`${item.source_center||''} ${item.jan||''}：${explanation||item.detail||item.status||'入力条件を確認してください'}`,list);
+    }
   }
   button(
     "状態を再確認",

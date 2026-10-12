@@ -216,6 +216,8 @@ class PortableDailyAutoRun:
             "confirm_zero_policy": True,
             "batch_size": payload.get("batch_size", 100),
         })
+        if forecast.get("status") == "BLOCKED":
+            return self.view(analysis_id)
         try:
             self.production.enqueue(forecast["build_id"], {
                 "actor": actor,
