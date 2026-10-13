@@ -102,6 +102,10 @@ export function reviewTable(ctx,parent,sourceRows,master){
   input('source_detail_date',dates);
   input('location',location);input('page',origin);input('note',origin);
   masterChoice(ctx,jan,controls,master);
+  for(const key of ['master_version','master_cell'])controls[key].value=row[key]||'';
+  for(const key of ['source_jan','source_adjustment_case','source_adjustment_loose','source_current_case','source_current_loose']){
+   const hidden=el('input','',origin);hidden.type='hidden';hidden.value=row[key]||'';controls[key]=hidden;
+  }
   controls.exclude=field(exclude,'この行を除外する','checkbox',false);controls.exclude.checked=row.exclude===true;
   controls.reason=field(exclude,'除外理由','text',false);controls.reason.value=row.reason??'';
   entries.push({tr,controls,state,dateGroups,single});edits.push(controls);

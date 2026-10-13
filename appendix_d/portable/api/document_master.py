@@ -6,6 +6,7 @@ import re
 import unicodedata
 import zipfile
 from datetime import date
+from difflib import SequenceMatcher
 
 from openpyxl import load_workbook
 
@@ -47,10 +48,22 @@ def parse_master(raw, sheet, effective_date):
             raise DocumentError("マスターは10000行・50列以内にしてください")
         rows = list(tab.iter_rows())
         columns = []
+        layouts = {}
         for line in rows[:10]:
             for i, cell in enumerate(line):
                 if str(cell.value or "").replace(" ", "") in ("JAN", "JANコード") and i >= 2:
                     columns.append(i)
+                    following = next(
+                        (
+                            j
+                            for j in range(i + 1, len(line))
+                            if str(line[j].value or "").startswith("商品コード")
+                        ),
+                        None,
+                    )
+                    if following == i + 1:
+                        layouts[i] = (i - 1, following, i)
+
         columns = sorted(set(columns))
         if not columns:
             raise DocumentError("商品名・商品コード・JANコードの順の列が必要です")
@@ -58,7 +71,7 @@ def parse_master(raw, sheet, effective_date):
         invalid = 0
         for line in rows:
             for i in columns:
-                cells = line[i - 2 : i + 1]
+                cells = [line[j] for j in layouts[i]] if i in layouts else line[i - 2 : i + 1]
                 if len(cells) != 3 or cells[2].value in (None, "", "JAN", "JANコード"):
                     continue
                 name, code, jan = [str(c.value or "").strip() for c in cells]
@@ -112,11 +125,31 @@ def candidates(master, row):
         label = normalized(product["product_name"])
         query = normalized(name)
         name_match = bool(query and label and (query in label or label in query))
-        if exact or suffix_match or code_match or name_match:
+        similar = bool(
+            query
+            and label
+            and len(query) >= 5
+            and re.findall(r"\d+", query) == re.findall(r"\d+", label)
+            and SequenceMatcher(None, query, label).ratio() >= 0.85
+        )
+        if exact or suffix_match or code_match or name_match or similar:
             basis = (
-                "JAN完全一致" if exact else "JAN下6桁一致" if suffix_match
-                else "商品コード一致" if code_match else "商品名候補"
+                "JAN完全一致"
+                if exact
+                else "JAN下6桁一致"
+                if suffix_match
+                else "商品コード一致"
+                if code_match
+                else "商品名候補"
+                if name_match
+                else "商品名類似（原本確認）"
             )
             result.append({**product, "match_basis": basis})
-    priority = {"JAN完全一致": 0, "JAN下6桁一致": 1, "商品コード一致": 2, "商品名候補": 3}
+    priority = {
+        "JAN完全一致": 0,
+        "JAN下6桁一致": 1,
+        "商品コード一致": 2,
+        "商品名候補": 3,
+        "商品名類似（原本確認）": 4,
+    }
     return sorted(result, key=lambda p: priority[p["match_basis"]])[:30]

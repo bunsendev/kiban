@@ -12,6 +12,7 @@ from portable.runtime.api_credentials import CredentialError
 from .document_ai import MAX_BYTES, DocumentError
 from .document_intake import Documents
 from .document_master import candidates, parse_master, sheets
+from .document_suggestions import suggest_rows
 
 
 def register_document_routes(app, paths, drop_folder):
@@ -71,6 +72,35 @@ def register_document_routes(app, paths, drop_folder):
             }
         except DocumentError as exc:
             raise HTTPException(422, str(exc)) from None
+
+    @app.post("/api/document-master/suggest-rows")
+    async def suggest_products(request: Request):
+        try:
+            value = json.loads(await body(request, 2 * 1024 * 1024))
+            rows = value.get("rows")
+            if (
+                not isinstance(rows, list)
+                or len(rows) > 1000
+                or not all(isinstance(r, dict) for r in rows)
+            ):
+                raise DocumentError("確認一覧は1000行以内で選んでください")
+            with service.db() as db:
+                stored = db.execute(
+                    "SELECT contents FROM document_masters WHERE version=?", (value.get("version"),)
+                ).fetchone()
+                approvals = db.execute(
+                    "SELECT approval FROM documents WHERE approval IS NOT NULL "
+                    "ORDER BY created DESC LIMIT 100"
+                ).fetchall()
+            if not stored:
+                raise DocumentError("照合に使うマスター版を選んでください")
+            master = json.loads(stored[0])
+            prior = [r for item in approvals for r in json.loads(item[0])["rows"]]
+            return {"rows": suggest_rows(rows, master, prior)}
+        except (DocumentError, ValueError, TypeError, AttributeError) as exc:
+            raise HTTPException(
+                422, str(exc) if isinstance(exc, DocumentError) else "入力内容を確認してください"
+            ) from None
 
     @app.get("/api/document-master")
     def masters():
@@ -137,7 +167,9 @@ def register_document_routes(app, paths, drop_folder):
                 if type(value.get("blank_current_zero", False)) is not bool:
                     raise DocumentError("現在欄の空欄ルールを確認してください")
                 return await run_in_threadpool(
-                    service.read_local, identifier, value.get("retry", False),
+                    service.read_local,
+                    identifier,
+                    value.get("retry", False),
                     value.get("blank_current_zero", False),
                 )
             if action == "extract":

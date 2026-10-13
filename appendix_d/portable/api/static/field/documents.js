@@ -89,7 +89,13 @@ export async function documents(ctx, parent) {
       }
       el('p','全行を原本と照合してください。不明な行は理由を付けて除外できます。箱なら換算1、くくり・パレットは1単位あたりの箱数を入力してください。勝手な換算はしません。',box);
       box.open=true;
-      const {edits}=reviewTable(ctx,box,doc.draft?.rows||doc.extraction.rows,master);
+      const {edits,update}=reviewTable(ctx,box,doc.draft?.rows||doc.extraction.rows,master);
+      button('一覧の商品候補をまとめて補完（API送信なし）',()=>ctx.run(async()=>{
+        if(!master.choice.value)throw new Error('照合に使うJANマスター版を選んでください');
+        const result=await api('/api/document-master/suggest-rows',{version:master.choice.value,rows:edits.map(serializeControls)});
+        for(let i=0;i<edits.length;i++)for(const key of ['jan','product_code','master_version','master_cell','note','source_jan'])if(edits[i][key]&&result.rows[i][key]!==undefined)edits[i][key].value=result.rows[i][key];
+        update();ctx.message('一意に照合できる商品候補を入力しました。数量・日付は変更していません。原本確認後に保存してください。');
+      }),box,true);
       const partial=field(box,'未読取部分を保留し、確認できた明細だけ採用する','checkbox',false);
       const partialReason=field(box,'未読取部分の扱い・採用範囲の理由','text',false);
       for(const n of [partial,partialReason]){n.parentElement.style.display='block';n.parentElement.style.marginBottom='12px';}

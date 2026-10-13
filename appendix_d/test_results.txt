@@ -2181,3 +2181,10 @@ OS: Windows 11
 - Forecast/p1/build regression suite 42 PASS; whole repository Ruff PASS. Node blocker rendering PASS including 1 observed day -> 27 missing days, period, inventory date, missing-source guidance.
 - Old detailed-screen count-only warning replaced with warehouse/JAN detail table and actions. Daily status includes observed/confirmed-zero counts and periods; unknown legacy values remain unknown. No source-data repair or forced-zero conversion.
 - Final packaged assets compared with current source. Frozen EXE startup remains untested; prior approval review rejected launch with no detailed reason.
+
+2026-10-13 pilot35 PDF product assistance
+- 53 document/master/cancel/movement/build regressions PASS; upstream TestClient warning only. Whole-repository Ruff PASS. Node review table PASS.
+- New master layout and legacy grouped headers tested. Actual master 58 accepted records, 1 excluded by validation; no business data committed.
+- Local selected-master product suggestions preserve quantities/dates/approval, avoid ambiguous variants, reuse approved same-version aliases. Fuzzy suggestions preserve numeric pack sizes and are never bulk-adopted.
+- Browser artificial PDF: selected master, batch-filled JAN/code, quantities unchanged; no AI request. Handwritten extraction prompt improved, but fresh real-PDF API accuracy not measured and physical region splitting not implemented.
+- Packaged EXE launch not tested: prior automatic approval rejection had no detailed reason.

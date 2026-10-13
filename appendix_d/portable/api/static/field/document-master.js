@@ -2,7 +2,7 @@ import { api, el, field, button, saveWithNotice } from './api.js';
 
 export async function masterPanel(ctx,parent){
   const box=el('details','',parent);el('summary','JANマスターを登録・選択する',box);
-  el('p','XLSXの使用シートと適用開始日を指定してください。商品名・商品コード・JANコードの順の列に対応します。過去シートは混ぜません。候補は原本と照合して選びます。',box);
+  el('p','XLSXの使用シートと適用開始日を指定してください。商品名・商品コード・JANコードの順、または商品名・JANコード・商品コードの表に対応します。過去シートは混ぜません。候補は原本と照合して選びます。',box);
   const file=field(box,'JANマスター（XLSX）','file');file.accept='.xlsx';
   const sheet=el('select','',el('label','使用シート',box));
   const day=field(box,'このマスターの適用開始日','date');
