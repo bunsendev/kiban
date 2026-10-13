@@ -1,6 +1,7 @@
 import {api,el,field,button,saveWithNotice} from './api.js';
 import {operations} from './operations.js';
 import {showVersion} from './version.js';
+import {aiUsage} from './ai-usage.js';
 
 export function settings(ctx,parent){
  showVersion(parent);
@@ -42,6 +43,7 @@ export function settings(ctx,parent){
   },body,true);
   el('p','キーはこのPCのWindowsユーザー専用に暗号化保存され、再表示されません。保存は接続成功の確認ではありません。',body);
   await refresh();
+  await aiUsage(body);
  }),bar);
  button('ログ提出・アップデート',()=>open('ログ提出・アップデート',async body=>{
   await operations(ctx,body);const details=body.querySelector('details');if(details)details.open=true;

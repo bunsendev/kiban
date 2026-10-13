@@ -2204,3 +2204,11 @@ OS: Windows 11
 - Preview never registers; explicit source confirmation required, partial extraction requires partial registration consent. Original source retained locally and linked to registration history. No live AI accuracy claim.
 - Supported formats JSON/CSV/PDF/PNG/JPEG; API costs and explicit consent for external extraction. No real data committed.
 - Node exclusion-panel syntax PASS; existing review table/batch/exclusion filter checks PASS; repository Ruff PASS; git diff check PASS.
+
+2026-10-13 pilot38 AI model settings and local cost accounting
+- Portable + Field Pilot AI regression suite: 186 PASS. Warnings: upstream TestClient deprecation and existing updater status-file contention in background thread; updater concurrency not changed.
+- 11 new tests: persisted isolated settings; all four model payloads; cache-read/write and reasoning cost; incomplete paid responses; unknown usage/tier/large context; month rollover; secret suppression.
+- Node model dropdown/save success/failure, estimate/unknown-cost display, existing key save/readback/delete PASS. Repository Ruff PASS. No live API calls or accuracy claims.
+- Previous automatic approval review rejected frozen EXE launch without detailed reason; current packaged startup not tested.
+- Targeted installer/open-folder recheck: 4 PASS; updater thread contention not reproduced in isolated checks. Version/build/settings checks: 13 PASS.
+- pilot38 distribution built: ZIP CRC, every package-manifest hash, all packaged static source equality, inherited exclusion22 profile and no user Data/private credentials verified. Installation/update HTML and operation manual included.

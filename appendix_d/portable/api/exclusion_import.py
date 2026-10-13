@@ -7,6 +7,7 @@ import json
 import re
 from pathlib import Path
 
+from portable.runtime.ai_usage import AiUsage
 from portable.runtime.api_credentials import ApiCredentials
 
 from .document_ai import MAX_BYTES, DocumentError, extract
@@ -77,10 +78,12 @@ def _preview_list(raw, name, paths, *, consent=False, master=None):
         if value is None:
             if consent is not True:
                 raise DocumentError("画像・手書きPDFはAI送信への同意が必要です")
-            key = ApiCredentials(paths.state).load()
+            key = ApiCredentials().load()
             if not key:
                 raise DocumentError("AI・API設定でキーを保存してください")
-            value = extract(raw, key, purpose="exclusions")
+            value = AiUsage(paths.state).invoke(
+                "exclusion-list", lambda: extract(raw, key, purpose="exclusions")
+            )
             method = "ai"
         rows = [
             {**row, "exclude": True, "reason": "担当者確認による対象外"} for row in value["rows"]

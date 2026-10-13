@@ -28,6 +28,18 @@ def register_document_routes(app, paths, drop_folder):
                 raise HTTPException(413, "容量が大きすぎます。文書を分割してください")
         return bytes(result)
 
+    @app.get("/api/ai-settings")
+    def ai_settings():
+        return service.ai.summary()
+
+    @app.post("/api/ai-settings")
+    async def save_ai_settings(request: Request):
+        try:
+            service.ai.save(json.loads(await body(request, 32768)))
+            return service.ai.summary()
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(422, "モデル・為替・月間回数・予算を確認してください") from exc
+
     @app.get("/api/product-exclusions")
     def excluded_products():
         return service.exclusions.list()

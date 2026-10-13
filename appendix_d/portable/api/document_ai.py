@@ -6,6 +6,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from forecast_provider.field_pilot.ai_cloud import ENDPOINT, MODEL
+from forecast_provider.field_pilot.ai_request import observe, options
 
 FIELDS = (
     "kind",
@@ -45,7 +46,7 @@ def extract(raw, key, *, opener=None, embedded_text="", purpose="inventory"):
     mime, ext = media_type(raw)
     encoded = f"data:{mime};base64," + base64.b64encode(raw).decode("ascii")
     source = (
-        {"type": "input_file", "filename": "document.pdf", "file_data": encoded}
+        {"type": "input_file", "filename": "document.pdf", "file_data": encoded, "detail": "high"}
         if ext == "pdf"
         else {"type": "input_image", "image_url": encoded, "detail": "high"}
     )
@@ -107,9 +108,8 @@ def extract(raw, key, *, opener=None, embedded_text="", purpose="inventory"):
         ENDPOINT,
         data=json.dumps(
             {
-                "model": MODEL,
+                **options(MODEL),
                 "store": False,
-                "temperature": 0,
                 "max_output_tokens": 12000,
                 "input": [
                     {"role": "user", "content": [{"type": "input_text", "text": prompt}, source]}
@@ -132,6 +132,7 @@ def extract(raw, key, *, opener=None, embedded_text="", purpose="inventory"):
         if len(body) > 1024 * 1024:
             raise DocumentError("抽出結果が大きすぎます。文書を分割してください")
         result = json.loads(body)
+        observe(result)
         texts = [
             c["text"]
             for item in result.get("output", [])

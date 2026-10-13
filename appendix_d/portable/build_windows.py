@@ -182,6 +182,8 @@ def main() -> None:
     write_samples(output / "ScaleSamples")
     shutil.copy2(root / "portable" / "SCALE_TEST.md", output / "SCALE_TEST.md")
     shutil.copy2(root / "docs" / "Portable_現場4ステップ操作.md", output / "現場操作手順.md")
+    for guide in ("Portable_AIモデルと費用.md", "Portable_除外リスト登録.md"):
+        shutil.copy2(root / "docs" / guide, output / guide)
     (output / "Data").mkdir()
     write_operator_files(output)
     write_manifest(output)

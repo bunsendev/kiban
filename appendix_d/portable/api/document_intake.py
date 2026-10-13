@@ -12,6 +12,7 @@ import uuid
 from contextlib import contextmanager
 from datetime import UTC, date, datetime
 
+from portable.runtime.ai_usage import AiUsage
 from portable.runtime.api_credentials import ApiCredentials
 
 from .document_ai import MAX_BYTES, DocumentError, extract, media_type
@@ -24,6 +25,7 @@ from .product_exclusions import ProductExclusions
 class Documents:
     def __init__(self, paths):
         self.paths = paths
+        self.ai = AiUsage(paths.state)
         self.exclusions = ProductExclusions(paths)
         self._read_lock = threading.Lock()
         self.path = paths.state / "documents.sqlite3"
@@ -304,8 +306,13 @@ class Documents:
                     value = extract_inventory(raw)
                 else:
                     key = ApiCredentials().load()
-                    value = (
-                        extract(raw, key, embedded_text=embedded) if embedded else extract(raw, key)
+                    value = self.ai.invoke(
+                        "document",
+                        lambda: (
+                            extract(raw, key, embedded_text=embedded)
+                            if embedded
+                            else extract(raw, key)
+                        ),
                     )
             except DocumentError as exc:
                 with self.db() as db:
