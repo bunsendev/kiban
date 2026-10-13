@@ -13,6 +13,7 @@ from .document_ai import MAX_BYTES, DocumentError
 from .document_intake import Documents
 from .document_master import candidates, parse_master, sheets
 from .document_suggestions import suggest_rows
+from .exclusion_import import preview_list
 
 
 def register_document_routes(app, paths, drop_folder):
@@ -40,6 +41,37 @@ def register_document_routes(app, paths, drop_folder):
             raise HTTPException(
                 422, str(exc) if isinstance(exc, DocumentError) else "設定内容を確認してください"
             ) from None
+
+    @app.post("/api/product-exclusions/preview")
+    async def preview_exclusions(request: Request):
+        try:
+            raw = await body(request, MAX_BYTES)
+            name = unquote(request.headers.get("x-file-name", ""))
+            version = request.headers.get("x-master-version", "")
+            master = None
+            if version:
+                with service.db() as db:
+                    stored = db.execute(
+                        "SELECT contents FROM document_masters WHERE version=?", (version,)
+                    ).fetchone()
+                if not stored:
+                    raise DocumentError("登録済みマスター版を選んでください")
+                master = json.loads(stored[0])
+            result = await run_in_threadpool(
+                lambda: preview_list(
+                    raw,
+                    name,
+                    paths,
+                    consent=request.headers.get("x-ai-consent") == "true",
+                    master=master,
+                )
+            )
+            service.exclusions.record_preview(raw, result)
+            return result
+        except (DocumentError, CredentialError) as exc:
+            raise HTTPException(422, str(exc)) from None
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise HTTPException(422, "ファイルの内容を確認してください") from exc
 
     @app.post("/api/product-exclusions/import")
     async def import_excluded_products(request: Request):

@@ -18,6 +18,11 @@ class ProductExclusions:
                 "(jan TEXT, name TEXT, active INTEGER, reason TEXT, actor TEXT, at TEXT)"
             )
             db.execute("CREATE TABLE IF NOT EXISTS imports (sha TEXT PRIMARY KEY)")
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS previews "
+                "(sha TEXT PRIMARY KEY, name TEXT, original BLOB, result TEXT)"
+            )
+            db.execute("CREATE TABLE IF NOT EXISTS event_sources (event_rowid INTEGER, sha TEXT)")
         seed = paths.root.parent / "対象外商品設定.json"
         if seed.is_file():
             self.import_file(seed.read_bytes())
@@ -61,8 +66,39 @@ class ProductExclusions:
                 )
             )
         with sqlite3.connect(self.path) as db:
-            db.executemany("INSERT INTO events VALUES(?,?,?,?,?,?)", validated)
+            source = value.get("source_sha256")
+            if source and value.get("confirmed") is not True:
+                raise DocumentError("原本との照合確認が必要です")
+            if (
+                source
+                and not db.execute("SELECT 1 FROM previews WHERE sha=?", (source,)).fetchone()
+            ):
+                raise DocumentError("読取元を確認できません。ファイルを読み取り直してください")
+            if source:
+                preview = json.loads(
+                    db.execute("SELECT result FROM previews WHERE sha=?", (source,)).fetchone()[0]
+                )
+                if not preview["complete"] and value.get("allow_partial") is not True:
+                    raise DocumentError(
+                        "未取得明細があります。確認済み商品の部分登録を確認してください"
+                    )
+            for record in validated:
+                cursor = db.execute("INSERT INTO events VALUES(?,?,?,?,?,?)", record)
+                if source:
+                    db.execute("INSERT INTO event_sources VALUES(?,?)", (cursor.lastrowid, source))
         return self.list()
+
+    def record_preview(self, raw, result):
+        with sqlite3.connect(self.path) as db:
+            db.execute(
+                "INSERT OR IGNORE INTO previews VALUES(?,?,?,?)",
+                (
+                    result["source_sha256"],
+                    result["source_name"],
+                    raw,
+                    json.dumps(result, ensure_ascii=False),
+                ),
+            )
 
     def import_file(self, raw):
         digest = hashlib.sha256(raw).hexdigest()

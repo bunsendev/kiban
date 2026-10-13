@@ -2198,3 +2198,9 @@ OS: Windows 11
 - UI labels changed from case to business term ball (1 ball = 1 CASE). Internal CASE contracts, original units, quantities and conversion logic unchanged.
 - Review/build tests 15 PASS; Node review batch/filter behaviors PASS; whole repository Ruff PASS.
 - Prior 22 exclusions carried in deployment configuration only; no business JANs committed. Frozen EXE startup untested due prior approval rejection without detailed reason.
+
+2026-10-13 exclusion-list adapters
+- CSV/JSON/native PDF/image consent/preview source audit tests 7 PASS; combined documents/exclusions/suggestions/review/cancel regressions 53 PASS.
+- Preview never registers; explicit source confirmation required, partial extraction requires partial registration consent. Original source retained locally and linked to registration history. No live AI accuracy claim.
+- Supported formats JSON/CSV/PDF/PNG/JPEG; API costs and explicit consent for external extraction. No real data committed.
+- Node exclusion-panel syntax PASS; existing review table/batch/exclusion filter checks PASS; repository Ruff PASS; git diff check PASS.

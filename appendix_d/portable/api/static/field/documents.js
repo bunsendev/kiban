@@ -111,6 +111,6 @@ export async function documents(ctx, parent) {
       }),box);
     }
   }
-  await exclusionsPanel(ctx,group,refresh);
+  await exclusionsPanel(ctx,group,refresh,master);
   await refresh();
 }
