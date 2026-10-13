@@ -43,8 +43,8 @@ export function reviewTable(ctx,parent,sourceRows,master){
  const toolbar=el('div','',section);toolbar.className='document-review-tools';
  const search=field(toolbar,'商品名・コード・JAN・倉庫を検索','search',false);
  const filter=el('select','',el('label','表示する行',toolbar));filter.setAttribute('aria-label','表示する行');
- for(const [v,label] of [['all','すべて'],['errors','不足・形式エラーのみ'],['warnings','読取メモ・商品名の確認が必要'],['excluded','除外予定のみ']]){const o=el('option',label,filter);o.value=v;}
- filter.value='all';
+ for(const [v,label] of [['active','対象商品のみ'],['all','すべて（対象外を含む）'],['errors','不足・形式エラーのみ'],['warnings','読取メモ・商品名の確認が必要'],['excluded','除外予定のみ']]){const o=el('option',label,filter);o.value=v;}
+ filter.value='active';
  const wrap=el('div','',section);wrap.className='document-review-scroll';wrap.tabIndex=0;wrap.setAttribute('aria-label','読み取り結果の一覧（横・縦にスクロールできます）');
  const table=el('table','',wrap);table.className='document-review-table';el('caption','原本と照合しながら一覧で修正できます。入力OKは業務上正しいことの保証ではありません。',table);
  const header=el('tr','',el('thead','',table));
@@ -72,7 +72,7 @@ export function reviewTable(ctx,parent,sourceRows,master){
    entry.dateGroups.date.hidden=row.kind==='inventory';entry.dateGroups.snapshot.hidden=row.kind==='shipment';entry.dateGroups.expiry.hidden=row.kind==='shipment';
    const needle=search.value.trim().toLowerCase();
    const matches=!needle||['product_name','product_code','jan','location','note'].some(k=>text(row[k]).toLowerCase().includes(needle));
-   const category=filter.value==='all'||filter.value==='errors'&&p.errors.length||filter.value==='warnings'&&!row.exclude&&p.warnings.length||filter.value==='excluded'&&row.exclude;
+   const category=filter.value==='active'&&!row.exclude||filter.value==='all'||filter.value==='errors'&&p.errors.length||filter.value==='warnings'&&!row.exclude&&p.warnings.length||filter.value==='excluded'&&row.exclude;
    entry.tr.hidden=!(matches&&category);if(!entry.tr.hidden)visible++;
   }
   totals.textContent=`全${entries.length}行 ／ 不足・形式エラー ${errorCount}行 ／ 読取メモ・商品名の確認 ${warningCount}行 ／ 除外予定 ${excludedCount}行 ／ 表示 ${visible}行`;
@@ -103,7 +103,7 @@ export function reviewTable(ctx,parent,sourceRows,master){
   input('location',location);input('page',origin);input('note',origin);
   masterChoice(ctx,jan,controls,master);
   for(const key of ['master_version','master_cell'])controls[key].value=row[key]||'';
-  for(const key of ['source_jan','source_adjustment_case','source_adjustment_loose','source_current_case','source_current_loose']){
+  for(const key of ['registered_exclusion','exclusion_before','source_jan','source_adjustment_case','source_adjustment_loose','source_current_case','source_current_loose']){
    const hidden=el('input','',origin);hidden.type='hidden';hidden.value=row[key]||'';controls[key]=hidden;
   }
   controls.exclude=field(exclude,'この行を除外する','checkbox',false);controls.exclude.checked=row.exclude===true;

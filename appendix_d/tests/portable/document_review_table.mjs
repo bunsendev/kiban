@@ -57,3 +57,12 @@ all(batchHost).find(n=>n.textContent==='表示中のケース・バラの意味�
 assert.equal(batchTable.edits[0].component_confirmed.checked,true);
 assert.equal(batchTable.edits[0].product_name.tagName,'textarea');
 console.log('PASS: explicit batch inventory zero preserves shipment blanks and batch confirmation');
+
+const exclusionHost=new Element('main');
+reviewTable({run:fn=>fn(),message:()=>{}},exclusionHost,[{...valid,exclude:true,reason:'人工対象外',registered_exclusion:true}],{choice:{value:''}});
+const excludedRow=all(exclusionHost).find(n=>n.tagName==='tbody').children[0];
+assert.equal(excludedRow.hidden,true);
+const excludedFilter=all(exclusionHost).find(n=>n.tagName==='select'&&n.children.some(c=>c.value==='excluded'));
+excludedFilter.value='excluded';excludedFilter.dispatchEvent(new Event('change'));
+assert.equal(excludedRow.hidden,false);
+console.log('PASS default target-only filter and excluded-list visibility');

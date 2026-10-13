@@ -27,6 +27,27 @@ def register_document_routes(app, paths, drop_folder):
                 raise HTTPException(413, "容量が大きすぎます。文書を分割してください")
         return bytes(result)
 
+    @app.get("/api/product-exclusions")
+    def excluded_products():
+        return service.exclusions.list()
+
+    @app.post("/api/product-exclusions")
+    async def save_excluded_products(request: Request):
+        try:
+            value = json.loads(await body(request, 1024 * 1024))
+            return service.exclusions.save(value)
+        except (DocumentError, ValueError, TypeError, AttributeError) as exc:
+            raise HTTPException(
+                422, str(exc) if isinstance(exc, DocumentError) else "設定内容を確認してください"
+            ) from None
+
+    @app.post("/api/product-exclusions/import")
+    async def import_excluded_products(request: Request):
+        try:
+            return service.exclusions.import_file(await body(request, 1024 * 1024))
+        except DocumentError as exc:
+            raise HTTPException(422, str(exc)) from None
+
     @app.get("/api/documents")
     def documents():
         return service.list()

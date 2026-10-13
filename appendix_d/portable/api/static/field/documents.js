@@ -1,4 +1,5 @@
 import { api, el, field, button, saveWithNotice } from './api.js';
+import {exclusionsPanel} from './product-exclusions.js';
 import {cancelControl} from './document-cancel.js';
 import { masterPanel } from './document-master.js';
 import { reviewTable, serializeControls } from './document-review-table.js';
@@ -110,5 +111,6 @@ export async function documents(ctx, parent) {
       }),box);
     }
   }
+  await exclusionsPanel(ctx,group,refresh);
   await refresh();
 }

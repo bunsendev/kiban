@@ -18,11 +18,13 @@ from .document_ai import MAX_BYTES, DocumentError, extract, media_type
 from .document_inventory_pdf import extract_inventory
 from .document_pages import page_source, pdf_reader
 from .document_quantity import case_quantity
+from .product_exclusions import ProductExclusions
 
 
 class Documents:
     def __init__(self, paths):
         self.paths = paths
+        self.exclusions = ProductExclusions(paths)
         self._read_lock = threading.Lock()
         self.path = paths.state / "documents.sqlite3"
         with self.db() as db:
@@ -188,7 +190,7 @@ class Documents:
             "id": row[0],
             "name": row[1],
             "mime": row[3],
-            "extraction": json.loads(row[4]) if row[4] else None,
+            "extraction": extraction,
             "approval": json.loads(row[5]) if row[5] else None,
             "created": row[6],
             "cancelled": self.control(identifier)[1],
@@ -197,7 +199,14 @@ class Documents:
     def list(self):
         with self.db() as db:
             ids = [r[0] for r in db.execute("SELECT id FROM documents ORDER BY created DESC")]
-        return [self.get(i) for i in ids]
+        result = [self.get(i) for i in ids]
+        for value in result:
+            if not value["approval"]:
+                if value["extraction"]:
+                    value["extraction"]["rows"] = self.exclusions.apply(value["extraction"]["rows"])
+                if value["draft"]:
+                    value["draft"]["rows"] = self.exclusions.apply(value["draft"]["rows"])
+        return result
 
     def control(self, identifier):
         with self.db() as db:
@@ -498,6 +507,7 @@ class Documents:
             or not len(extraction["rows"]) <= len(rows) <= 1000
         ):
             raise DocumentError("確認者と全行の原本確認を入力してください")
+        rows = self.exclusions.apply(rows)
         groups = {}
         for index, row in enumerate(rows):
             if not isinstance(row, dict):

@@ -2188,3 +2188,8 @@ OS: Windows 11
 - Local selected-master product suggestions preserve quantities/dates/approval, avoid ambiguous variants, reuse approved same-version aliases. Fuzzy suggestions preserve numeric pack sizes and are never bulk-adopted.
 - Browser artificial PDF: selected master, batch-filled JAN/code, quantities unchanged; no AI request. Handwritten extraction prompt improved, but fresh real-PDF API accuracy not measured and physical region splitting not implemented.
 - Packaged EXE launch not tested: prior automatic approval rejection had no detailed reason.
+
+2026-10-13 pilot36 persistent product exclusions
+- Document/exclusion/cancel/review/build regressions: 42 PASS; upstream TestClient warning only. Node target-only filter and excluded-list visibility PASS. Ruff PASS.
+- Full-JAN policy, reversible event history, seed-import-once and release preservation, immutable original extraction, approval exclusion enforced. Actual requested profile 22 products verified against source PDF; 59 detail rows excluded, 27 remaining JANs. Real profile stored outside Git and included only in local deployment artifact.
+- Policy applies to unapproved PDF review and document approval; existing approved datasets/predictions and direct raw CSV selection not rewritten. Frozen EXE startup untested due prior approval rejection without a detailed reason.
