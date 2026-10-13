@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from fastapi.testclient import TestClient
 
-from forecast_provider.field_pilot.ai_request import CURRENT, observe, options
+from forecast_provider.field_pilot.ai_request import CURRENT, observe, options, sent
 from portable.api.app import create_app
 from portable.api.document_ai import FIELDS, DocumentError, extract
 from portable.runtime.ai_usage import DEFAULT, AiUsage, counts
@@ -106,6 +106,7 @@ def test_failed_response_is_accounted_and_missing_usage_unknown(tmp_path):
         meter.invoke("document", fail)
 
     def network_fail():
+        sent()
         raise DocumentError("network failure")
 
     with pytest.raises(DocumentError):

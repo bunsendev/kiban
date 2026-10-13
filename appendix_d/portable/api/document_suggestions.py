@@ -1,5 +1,8 @@
 """Local, review-required product suggestions; never quantity or date inference."""
 
+import re
+
+from .document_evidence import valid_jan
 from .document_master import normalized
 
 
@@ -8,11 +11,19 @@ def suggest_rows(rows, master, approved_rows=()):
     output = []
     for original in rows:
         row = dict(original)
-        if row.get("exclude") or (row.get("jan", "").isdigit() and len(row["jan"]) in (8, 13)):
+        if row.get("exclude") or valid_jan(row.get("jan", "")):
             output.append(row)
             continue
         name = normalized(row.get("product_name", ""))
         matches = [p for p in products if name and normalized(p["product_name"]) == name]
+        raw_jan = str(row.get("jan") or row.get("source_jan") or "")
+        suffix = raw_jan[-6:] if re.fullmatch(r"[0-9]{6,13}", raw_jan) else ""
+        suffix_matches = [p for p in products if suffix and p["jan"].endswith(suffix)]
+        if suffix_matches:
+            if matches:
+                matches = [p for p in matches if p in suffix_matches]
+            else:
+                matches = suffix_matches
         for prior in approved_rows:
             if (
                 not prior.get("exclude")
@@ -30,7 +41,7 @@ def suggest_rows(rows, master, approved_rows=()):
         if len(unique) == 1:
             product = next(iter(unique.values()))
             row.update(
-                source_jan=row.get("jan", ""),
+                source_jan=row.get("source_jan") or row.get("jan", ""),
                 jan=product["jan"],
                 product_code=product["product_code"],
                 master_version=master["version"],

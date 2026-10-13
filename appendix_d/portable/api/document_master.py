@@ -113,7 +113,8 @@ def normalized(value):
 
 def candidates(master, row):
     code, name, jan = [
-        str(row.get(k) or "").strip() for k in ("product_code", "product_name", "jan")
+        str(row.get(k) or (row.get("source_jan") if k == "jan" else "") or "").strip()
+        for k in ("product_code", "product_name", "jan")
     ]
     result = []
     digits = unicodedata.normalize("NFKC", jan)

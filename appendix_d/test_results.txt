@@ -2212,3 +2212,11 @@ OS: Windows 11
 - Previous automatic approval review rejected frozen EXE launch without detailed reason; current packaged startup not tested.
 - Targeted installer/open-folder recheck: 4 PASS; updater thread contention not reproduced in isolated checks. Version/build/settings checks: 13 PASS.
 - pilot38 distribution built: ZIP CRC, every package-manifest hash, all packaged static source equality, inherited exclusion22 profile and no user Data/private credentials verified. Installation/update HTML and operation manual included.
+
+2026-10-13 pilot39 handwritten-layout repair
+- Whole Portable + Field Pilot AI regressions: 194 PASS before adding pre-send accounting case; targeted layout/cancel/documents/build checks 35 PASS after raw-page audit retention. Repository Ruff and Node review table/batch/filter PASS.
+- Physical overview/left/right raster views (10% overlap), one Responses call, evidence-bound review, missing region/warehouse and duplicate warnings, no invented date/year/quantity, exact selected-master/suffix candidates.
+- Original bytes and pre-normalization raw rows retained across reread history. Renderer failure before transport not counted as an API call. No live API or real-PDF precision claim.
+- Frozen EXE startup not tested: prior automatic approval review rejected launch without a detailed reason.
+- Final Portable + Field Pilot AI suite: 195 PASS, upstream TestClient deprecation warning only. Layout preview geometry visually inspected; original bytes unchanged.
+- pilot39 ZIP CRC/all manifest hashes/static source equality/PDFium and Pillow native dependency presence/exclusion22/no user Data or private credentials verified; HTML manual and improvement/update guide included.

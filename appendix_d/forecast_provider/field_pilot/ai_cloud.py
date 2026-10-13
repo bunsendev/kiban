@@ -13,7 +13,7 @@ from .ai_intake import (
     prepare_suggestion,
     validate_suggestion,
 )
-from .ai_request import observe, options
+from .ai_request import observe, options, sent
 from .learning_candidate import ALIASES
 
 ENDPOINT = "https://api.openai.com/v1/responses"
@@ -46,6 +46,7 @@ def suggest_cloud_structure(structure: dict, api_key: str, *, opener=None) -> di
                  "Authorization": f"Bearer {api_key}"},
     )
     try:
+        sent()
         with (opener or urlopen)(request, timeout=20) as response:
             raw = response.read(MAX_RESPONSE_BYTES + 1)
         if len(raw) > MAX_RESPONSE_BYTES:

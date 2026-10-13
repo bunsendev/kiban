@@ -159,21 +159,25 @@ class AiUsage:
             )
             compatible = compatible and (not values or values["input"] <= 100_000)
             amount = cost(values, rates) if values is not None and compatible else None
-            with self.db() as db:
-                db.execute(
-                    "INSERT INTO events VALUES(?,?,?,?,?,?,?,?,?)",
-                    (
-                        now().isoformat(),
-                        setting["model"],
-                        kind,
-                        status,
-                        round(time.monotonic() - started, 3),
-                        json.dumps(values),
-                        amount,
-                        PRICE_DATE,
-                        json.dumps(rates),
-                    ),
-                )
+            if context.get("sent") or context["response"] is not None:
+                self.record(setting["model"], kind, status, started, values, amount, rates)
+
+    def record(self, model, kind, status, started, values, amount, rates):
+        with self.db() as db:
+            db.execute(
+                "INSERT INTO events VALUES(?,?,?,?,?,?,?,?,?)",
+                (
+                    now().isoformat(),
+                    model,
+                    kind,
+                    status,
+                    round(time.monotonic() - started, 3),
+                    json.dumps(values),
+                    amount,
+                    PRICE_DATE,
+                    json.dumps(rates),
+                ),
+            )
 
     def summary(self, at=None):
         at = at or now()

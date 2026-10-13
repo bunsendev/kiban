@@ -246,6 +246,8 @@ def register_document_routes(app, paths, drop_folder):
                     value.get("consent"),
                     value.get("retry", False),
                     value.get("page"),
+                    value.get("layout", "whole"),
+                    value.get("master_version", ""),
                 )
             if action == "correction":
                 with drop_folder._lock:

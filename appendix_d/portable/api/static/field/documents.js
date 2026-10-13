@@ -53,6 +53,8 @@ export async function documents(ctx, parent) {
         el('p',`原本は${doc.page_count||1}ページ。ページごとに読み取り・保存します。失敗時も成功したページは残ります。OpenAIに原本と補助テキストを送信し、API料金が発生します。`,box);
         if(!doc.extraction)box.open=true;
         const consent=field(box,'この原本全体のOpenAIへの送信に同意する','checkbox',false);
+        const split=field(box,'手書きの左右2表を拡大して読む（全体・左・右の3画像を送信。入力量・料金が増える場合があります）','checkbox',false);
+        split.checked=doc.extraction?.page_reviews?.some(v=>v.layout==='two_tables')||doc.extraction?.layout==='two_tables';
         const page=field(box,'読み取るページ番号','number',false);page.min=1;page.max=doc.page_count||1;page.value=1;
         const status=el('p',doc.extraction?.pages_read?`読取済みページ：${doc.extraction.pages_read.join('、')}`:'',box);
         async function readPages(retry,all){
@@ -62,7 +64,7 @@ export async function documents(ctx, parent) {
           try{
             const pages=all?Array.from({length:doc.page_count||1},(_,i)=>i+1):[Number(page.value)];
             for(const p of pages){if(stopped)break;status.textContent=`${p} / ${doc.page_count||1}ページを読み取り中です。1ページ最大90秒ほどお待ちください。`;
-              await api(`/api/documents/${doc.id}/extract`,{consent:true,page:p,retry});}
+              await api(`/api/documents/${doc.id}/extract`,{consent:true,page:p,retry,layout:split.checked?'two_tables':'whole',master_version:master.choice.value||''});}
             if(!stopped)await refresh();
           }catch(e){if(stopped)return;status.textContent=e.message;throw e;}
           finally{read.disabled=false;again.disabled=false;bulk.disabled=false;}
@@ -76,6 +78,10 @@ export async function documents(ctx, parent) {
         }),box,true);
       }
       if(!doc.extraction)continue;
+      for(const review of doc.extraction.page_reviews||[doc.extraction]){
+        if(review.layout==='two_tables')el('p',`${review.page||''}ページ：左右拡大読取 ／ ${review.model||'モデル未確認'}`,box);
+        for(const warning of review.quality_warnings||[])el('p','読取確認：'+warning,box);
+      }
       if(!doc.extraction.complete)el('p','全明細を読み取れていません。読めた行を修正・確認して採用できます。未読取部分は理由を残して保留し、原本全体の確認完了とは扱いません。',box);
       if(doc.approval){
         if(doc.superseded_by)el('p','訂正版を作成済みです。「訂正」の付いたファイルを開いてください。元の履歴は保持します。',box);

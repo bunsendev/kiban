@@ -82,7 +82,8 @@ def write_operator_files(output: Path) -> None:
 
 def write_manifest(output: Path) -> Path:
     files = sorted(
-        path for path in output.rglob("*")
+        path
+        for path in output.rglob("*")
         if path.is_file() and path != output / "PACKAGE-MANIFEST.json"
     )
     manifest = {
@@ -91,10 +92,7 @@ def write_manifest(output: Path) -> Path:
         "built_at": datetime.now(UTC).isoformat(),
         "architecture": "windows-x64",
         "entrypoint": "ブンセン予測を起動.cmd",
-        "files": {
-            path.relative_to(output).as_posix(): sha256(path)
-            for path in files
-        },
+        "files": {path.relative_to(output).as_posix(): sha256(path) for path in files},
     }
     target = output / "PACKAGE-MANIFEST.json"
     target.write_text(
@@ -182,7 +180,11 @@ def main() -> None:
     write_samples(output / "ScaleSamples")
     shutil.copy2(root / "portable" / "SCALE_TEST.md", output / "SCALE_TEST.md")
     shutil.copy2(root / "docs" / "Portable_現場4ステップ操作.md", output / "現場操作手順.md")
-    for guide in ("Portable_AIモデルと費用.md", "Portable_除外リスト登録.md"):
+    for guide in (
+        "Portable_AIモデルと費用.md",
+        "Portable_除外リスト登録.md",
+        "Portable_手書き読取改善.md",
+    ):
         shutil.copy2(root / "docs" / guide, output / guide)
     (output / "Data").mkdir()
     write_operator_files(output)

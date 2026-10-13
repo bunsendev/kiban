@@ -17,3 +17,9 @@ def observe(response):
     context = CURRENT.get()
     if context:
         context["response"] = response
+
+
+def sent():
+    context = CURRENT.get()
+    if context:
+        context["sent"] = True

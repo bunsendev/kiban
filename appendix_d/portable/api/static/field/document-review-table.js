@@ -101,9 +101,10 @@ export function reviewTable(ctx,parent,sourceRows,master){
   input('kind',dates);for(const k of ['date','snapshot','expiry'])input(k,dates);
   input('source_detail_date',dates);
   input('location',location);input('page',origin);input('note',origin);
+  if(row.source_region)el('small',`原記載：${row.source_region==='left'?'左表':row.source_region==='right'?'右表':'領域未確定'} ／ 倉庫 ${row.source_location||'不明'} ／ 数量 ${row.source_quantity||'空欄・不明'} ／ 日付 ${row.source_date||row.source_snapshot||'不明'} ／ 賞味期限 ${row.source_expiry||'不明'}`,origin);
   masterChoice(ctx,jan,controls,master);
   for(const key of ['master_version','master_cell'])controls[key].value=row[key]||'';
-  for(const key of ['registered_exclusion','exclusion_before','source_jan','source_adjustment_case','source_adjustment_loose','source_current_case','source_current_loose']){
+  for(const key of ['source_quantity','quantity_status','source_ai_quantity','source_ai_case_quantity','source_ai_loose_quantity','source_ai_units_per_case','source_region','source_date','source_expiry','source_snapshot','source_location','source_kind','source_ai_date','source_ai_expiry','source_ai_snapshot','source_ai_location','registered_exclusion','exclusion_before','source_jan','source_adjustment_case','source_adjustment_loose','source_current_case','source_current_loose']){
    const hidden=el('input','',origin);hidden.type='hidden';hidden.value=row[key]||'';controls[key]=hidden;
   }
   controls.exclude=field(exclude,'この行を除外する','checkbox',false);controls.exclude.checked=row.exclude===true;

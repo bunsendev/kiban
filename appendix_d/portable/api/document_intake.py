@@ -19,6 +19,7 @@ from .document_ai import MAX_BYTES, DocumentError, extract, media_type
 from .document_inventory_pdf import extract_inventory
 from .document_pages import page_source, pdf_reader
 from .document_quantity import case_quantity
+from .document_suggestions import suggest_rows
 from .product_exclusions import ProductExclusions
 
 
@@ -254,7 +255,20 @@ class Documents:
             )
         return self.get(identifier)
 
-    def read(self, identifier, consent, retry=False, page=None):
+    def read(self, identifier, consent, retry=False, page=None, layout="whole", master_version=""):
+        if layout not in ("whole", "two_tables"):
+            raise DocumentError("帳票の読取方式を確認してください")
+        if not isinstance(master_version, str) or len(master_version) > 128:
+            raise DocumentError("登録済みマスターの版を確認してください")
+        master = None
+        if master_version:
+            with self.db() as db:
+                stored = db.execute(
+                    "SELECT contents FROM document_masters WHERE version=?", (master_version,)
+                ).fetchone()
+            if not stored:
+                raise DocumentError("照合に使う登録済みマスターを選んでください")
+            master = json.loads(stored[0])
         if consent is not True:
             raise DocumentError("原本全体をOpenAIへ送ることへの同意が必要です")
         generation = self.control(identifier)[0]
@@ -302,14 +316,21 @@ class Documents:
             try:
                 # A recognised text-layer report is more reliable than visual OCR:
                 # its JAN may be clipped on screen but intact in the source text.
-                if mime == "application/pdf" and "在庫集計日" in embedded and "現在" in embedded:
+                if (
+                    layout == "whole"
+                    and mime == "application/pdf"
+                    and "在庫集計日" in embedded
+                    and "現在" in embedded
+                ):
                     value = extract_inventory(raw)
                 else:
                     key = ApiCredentials().load()
                     value = self.ai.invoke(
                         "document",
                         lambda: (
-                            extract(raw, key, embedded_text=embedded)
+                            extract(raw, key, embedded_text=embedded, layout=layout)
+                            if layout == "two_tables"
+                            else extract(raw, key, embedded_text=embedded)
                             if embedded
                             else extract(raw, key)
                         ),
@@ -333,6 +354,8 @@ class Documents:
                         ),
                     )
                 raise
+            if master:
+                value["rows"] = suggest_rows(value["rows"], master)
             model = value.get("model", "gpt-4.1-mini")
             if page is not None:
                 for item in value["rows"]:
@@ -357,6 +380,19 @@ class Documents:
                     "complete": len(pages) == count and all(v["complete"] for v in pages.values()),
                     "pages_read": sorted(pages),
                     "page_count": count,
+                    "raw_pages": [
+                        {"page": p, "rows": v.get("raw_rows", v["rows"])} for p, v in pages.items()
+                    ],
+                    "page_reviews": [
+                        {
+                            "page": p,
+                            "layout": v.get("layout", "whole"),
+                            "model": v.get("model", "unknown"),
+                            "view_hashes": v.get("view_hashes", []),
+                            "quality_warnings": v.get("quality_warnings", []),
+                        }
+                        for p, v in pages.items()
+                    ],
                 }
             if len(value["rows"]) > 1000:
                 raise DocumentError("明細が1000行を超えました。文書を分割してください")
