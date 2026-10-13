@@ -2193,3 +2193,8 @@ OS: Windows 11
 - Document/exclusion/cancel/review/build regressions: 42 PASS; upstream TestClient warning only. Node target-only filter and excluded-list visibility PASS. Ruff PASS.
 - Full-JAN policy, reversible event history, seed-import-once and release preservation, immutable original extraction, approval exclusion enforced. Actual requested profile 22 products verified against source PDF; 59 detail rows excluded, 27 remaining JANs. Real profile stored outside Git and included only in local deployment artifact.
 - Policy applies to unapproved PDF review and document approval; existing approved datasets/predictions and direct raw CSV selection not rewritten. Frozen EXE startup untested due prior approval rejection without a detailed reason.
+
+2026-10-13 pilot37 case display alias
+- UI labels changed from case to business term ball (1 ball = 1 CASE). Internal CASE contracts, original units, quantities and conversion logic unchanged.
+- Review/build tests 15 PASS; Node review batch/filter behaviors PASS; whole repository Ruff PASS.
+- Prior 22 exclusions carried in deployment configuration only; no business JANs committed. Frozen EXE startup untested due prior approval rejection without detailed reason.

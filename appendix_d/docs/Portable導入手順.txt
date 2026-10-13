@@ -1,8 +1,8 @@
 ﻿ブンセン予測 Portable版　インストール・初期設定手順
-対象：Windows x64 / 0.6.0-pilot.36
+対象：Windows x64 / 0.6.0-pilot.37
 
 ■ 1. 現場PCへ渡すもの
-BunsenPortable-0.6.0-pilot.36.zip を渡してください。
+BunsenPortable-0.6.0-pilot.37.zip を渡してください。
 Token・受信秘密鍵をZIPに入れないでください。TokenはIT担当者が別途管理します。
 この版はフォルダーを展開して使うPortable版です。Docker・Pythonの別途インストールは不要です。
 AI・ログ送信・更新確認にはインターネット接続が必要です。

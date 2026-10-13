@@ -1,7 +1,7 @@
 import {el,field,button} from './api.js';
 import {masterChoice} from './document-master.js';
 
-export const labels={source_detail_date:'ムロオ倉庫入庫日',page:'原本ページ番号',note:'確認メモ',kind:'データの種類',jan:'JAN',product_code:'商品コード',product_name:'商品名',date:'出荷日',expiry:'賞味期限',quantity:'原本の数量',unit:'原本の単位',location:'倉庫',snapshot:'在庫基準日',case_factor:'1単位あたりの箱数（単独数量の場合）',case_quantity:'ケース数（現在／当出）',loose_quantity:'バラ数（現在／当出・空欄は未確認）',units_per_case:'1箱あたりのバラ数（換算を確認）'};
+export const labels={source_detail_date:'ムロオ倉庫入庫日',page:'原本ページ番号',note:'確認メモ',kind:'データの種類',jan:'JAN',product_code:'商品コード',product_name:'商品名',date:'出荷日',expiry:'賞味期限',quantity:'原本の数量',unit:'原本の単位',location:'倉庫',snapshot:'在庫基準日',case_factor:'1単位あたりのボール数（単独数量の場合）',case_quantity:'ボール数（現在／当出）',loose_quantity:'バラ数（現在／当出・空欄は未確認）',units_per_case:'1ボールあたりのバラ数（換算を確認）'};
 const text=v=>String(v??'').trim();
 const numeric=(v,max,positive=false)=>text(v)!==''&&/^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:e[+-]?[0-9]+)?$/i.test(text(v))&&Number.isFinite(Number(v))&&Number(v)>=0&&Number(v)<=max&&(!positive||Number(v)>0);
 const validDate=v=>Number(v.slice(0,4))>=1&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v+'T00:00:00Z'))&&new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;
@@ -20,16 +20,16 @@ export function rowProblems(row){
  }
  const components=['case_quantity','loose_quantity'].some(k=>text(row[k])!=='');
  if(components){
-  for(const [k,label] of [['case_quantity','ケース数'],['loose_quantity','バラ数']])if(!numeric(row[k],1e12))add(k,label+'を数値で確認（空欄≠0）');
-  if(numeric(row.loose_quantity,1e12)&&Number(row.loose_quantity)>0&&!numeric(row.units_per_case,1e6,true))add('units_per_case','1箱あたりのバラ数を確認');
-  if(!row.component_confirmed)add('component_confirmed','ケース・バラ欄の意味が未確認');
+  for(const [k,label] of [['case_quantity','ボール数'],['loose_quantity','バラ数']])if(!numeric(row[k],1e12))add(k,label+'を数値で確認（空欄≠0）');
+  if(numeric(row.loose_quantity,1e12)&&Number(row.loose_quantity)>0&&!numeric(row.units_per_case,1e6,true))add('units_per_case','1ボールあたりのバラ数を確認');
+  if(!row.component_confirmed)add('component_confirmed','ボール・バラ欄の意味が未確認');
  }else{
   if(!numeric(row.quantity,1e12))add('quantity','数量を数値で確認（空欄≠0）');
-  if(!numeric(row.case_factor,1e6,true))add('case_factor','箱への換算が未確認・不正');
+  if(!numeric(row.case_factor,1e6,true))add('case_factor','ボールへの換算が未確認・不正');
  }
  for(const k of ['jan','product_code','product_name','location','unit'])if(text(row[k]).length>200)add(k,'入力は200文字以内');
  if(!text(row.product_name))warnings.push('商品名が未入力');
- if(text(row.unit)&&!['箱','CASE','ケース','くくり','パレット','バラ','個'].includes(text(row.unit)))warnings.push('原本の単位を確認：'+text(row.unit));
+ if(text(row.unit)&&!['箱','ボール','CASE','ケース','くくり','パレット','バラ','個'].includes(text(row.unit)))warnings.push('原本の単位を確認：'+text(row.unit));
  if(text(row.note))warnings.push('読取メモあり：'+text(row.note));
  return {errors,warnings};
 }
@@ -53,7 +53,7 @@ export function reviewTable(ctx,parent,sourceRows,master){
  const batch=el('div','',section);
  el('p','一括操作は表示中の行だけに適用します。数量・換算を原本と照合してから実行してください。除外した行はチェックを外すと再び対象になります。',batch);
  button('表示中の在庫の空欄を0にする',()=>{for(const e of entries){if(e.tr.hidden||e.controls.exclude.checked||e.controls.kind.value!=='inventory')continue;for(const k of ['case_quantity','loose_quantity'])if(!text(e.controls[k].value))e.controls[k].value='0';}update();},batch,true);
- button('表示中のケース・バラの意味を確認済みにする',()=>{for(const e of entries){if(!e.tr.hidden&&!e.controls.exclude.checked&&['case_quantity','loose_quantity'].some(k=>text(e.controls[k].value)))e.controls.component_confirmed.checked=true;}update();},batch,true);
+ button('表示中のボール・バラの意味を確認済みにする',()=>{for(const e of entries){if(!e.tr.hidden&&!e.controls.exclude.checked&&['case_quantity','loose_quantity'].some(k=>text(e.controls[k].value)))e.controls.component_confirmed.checked=true;}update();},batch,true);
 
  function update(){
   let errorCount=0,warningCount=0,excludedCount=0,visible=0;
@@ -97,7 +97,7 @@ export function reviewTable(ctx,parent,sourceRows,master){
   input('product_name',product);input('product_code',product);input('jan',jan);
   const single=el('div','',quantity);single.className='document-quantity-grid';for(const k of ['quantity','unit','case_factor'])input(k,single);
   const components=el('div','',quantity);components.className='document-quantity-grid';for(const k of ['case_quantity','loose_quantity','units_per_case'])input(k,components);
-  controls.component_confirmed=field(quantity,'ケース・バラの列の意味と空欄を確認した（空欄は必要なら明示的に0を入力）','checkbox',false);controls.component_confirmed.checked=row.component_confirmed===true;
+  controls.component_confirmed=field(quantity,'ボール・バラの列の意味と空欄を確認した（空欄は必要なら明示的に0を入力）','checkbox',false);controls.component_confirmed.checked=row.component_confirmed===true;
   input('kind',dates);for(const k of ['date','snapshot','expiry'])input(k,dates);
   input('source_detail_date',dates);
   input('location',location);input('page',origin);input('note',origin);

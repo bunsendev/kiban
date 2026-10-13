@@ -207,7 +207,7 @@ async function inventoryForm(ctx, id) {
     base = formBase(ctx, "在庫の拠点・時刻・数量単位を確認");
   el(
     "p",
-    "取込用CSVの数量を箱（CASE）で確認します。PDFのバラ数は、原本確認でケース数＋バラ数÷1箱あたりのバラ数に換算した数量です。バラをそのまま箱とみなす操作ではありません。",
+    "取込用CSVの数量をボール（CASE）で確認します。PDFのバラ数は、原本確認でボール数＋バラ数÷1ボールあたりのバラ数に換算した数量です。バラをそのままボールとみなす操作ではありません。",
     base.f,
   );
   const inputs = data.centers.map((c) => {
@@ -219,7 +219,7 @@ async function inventoryForm(ctx, id) {
     name.value = c.source_center;
     return { source_center: c.source_center, code, name, time };
   });
-  const confirmed = check(base.f, "この在庫数量の業務単位は箱（CASE）です");
+  const confirmed = check(base.f, "この在庫数量の業務単位はボール（CASE）です");
   submitForm(ctx, base, "確認して在庫を準備する", async () => {
     await api(`/api/business-archives/${id}/formal-inventory`, {
       actor: base.actor.value,

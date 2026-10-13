@@ -88,7 +88,7 @@ export async function documents(ctx, parent) {
         else el('p','分析へ受け渡し済み。「投入フォルダから読み込む」で受付結果を開いてください。JAN・単位・履歴不足などは既存の確認画面で続けて確認します。',box);
         continue;
       }
-      el('p','全行を原本と照合してください。不明な行は理由を付けて除外できます。箱なら換算1、くくり・パレットは1単位あたりの箱数を入力してください。勝手な換算はしません。',box);
+      el('p','全行を原本と照合してください。不明な行は理由を付けて除外できます。ボール（ケース）なら換算1、くくり・パレットは1単位あたりのボール数を入力してください。勝手な換算はしません。',box);
       box.open=true;
       const {edits,update}=reviewTable(ctx,box,doc.draft?.rows||doc.extraction.rows,master);
       button('一覧の商品候補をまとめて補完（API送信なし）',()=>ctx.run(async()=>{
