@@ -7,6 +7,7 @@ import sqlite3
 from datetime import UTC, datetime
 
 from .document_ai import DocumentError
+from .document_evidence import valid_jan
 
 
 class ProductExclusions:
@@ -19,6 +20,10 @@ class ProductExclusions:
             )
             db.execute("CREATE TABLE IF NOT EXISTS imports (sha TEXT PRIMARY KEY)")
             db.execute(
+                "CREATE TABLE IF NOT EXISTS prefix_events "
+                "(prefix TEXT, active INTEGER, reason TEXT, actor TEXT, at TEXT)"
+            )
+            db.execute(
                 "CREATE TABLE IF NOT EXISTS previews "
                 "(sha TEXT PRIMARY KEY, name TEXT, original BLOB, result TEXT)"
             )
@@ -29,7 +34,7 @@ class ProductExclusions:
 
     def list(self):
         with sqlite3.connect(self.path) as db:
-            return [
+            exact = [
                 dict(
                     zip(["jan", "product_name", "exclude", "reason", "actor", "at"], r, strict=True)
                 )
@@ -38,6 +43,16 @@ class ProductExclusions:
                     "WHERE rowid IN (SELECT MAX(rowid) FROM events GROUP BY jan) ORDER BY jan"
                 )
             ]
+            prefixes = [
+                {"jan": r[0], "product_name": "JAN先頭7桁の条件", "exclude": r[1],
+                 "reason": r[2], "actor": r[3], "at": r[4], "match_type": "prefix"}
+                for r in db.execute(
+                    "SELECT prefix,active,reason,actor,at FROM prefix_events "
+                    "WHERE rowid IN (SELECT MAX(rowid) FROM prefix_events GROUP BY prefix) "
+                    "ORDER BY prefix"
+                )
+            ]
+            return prefixes + exact
 
     def save(self, value):
         rows = value.get("products")
@@ -45,16 +60,27 @@ class ProductExclusions:
         if not actor or len(actor) > 100 or not isinstance(rows, list) or len(rows) > 1000:
             raise DocumentError("対象外商品の確認者と1000件以内の設定を確認してください")
         validated = []
+        prefix_records = []
         for row in rows:
+            if not isinstance(row, dict):
+                raise DocumentError("対象外設定の各行を確認してください")
             jan = str(row.get("jan") or "")
             reason = str(row.get("reason") or "").strip()
-            if not re.fullmatch(r"[0-9]{13}", jan) or not reason or len(reason) > 500:
+            match_type = row.get("match_type", "exact")
+            if match_type not in ("exact", "prefix"):
+                raise DocumentError("個別JANまたは先頭7桁の条件を確認してください")
+            if not reason or len(reason) > 500:
                 raise DocumentError("13桁JANと対象外・解除の理由を確認してください")
-            d = list(map(int, jan))
-            if (sum(d[-2::-2]) * 3 + sum(d[-3::-2]) + d[-1]) % 10:
+            if match_type == "prefix" and not re.fullmatch(r"[0-9]{7}", jan):
+                raise DocumentError("JAN先頭7桁は半角数字7文字で指定してください")
+            if match_type == "exact" and (len(jan) != 13 or not valid_jan(jan)):
                 raise DocumentError("JANのチェック桁が不正です")
             if type(row.get("exclude")) is not bool:
                 raise DocumentError("対象外の指定を確認してください")
+            if match_type == "prefix":
+                prefix_records.append((jan, int(row["exclude"]), reason, actor,
+                                       datetime.now(UTC).isoformat()))
+                continue
             validated.append(
                 (
                     jan,
@@ -86,6 +112,7 @@ class ProductExclusions:
                 cursor = db.execute("INSERT INTO events VALUES(?,?,?,?,?,?)", record)
                 if source:
                     db.execute("INSERT INTO event_sources VALUES(?,?)", (cursor.lastrowid, source))
+            db.executemany("INSERT INTO prefix_events VALUES(?,?,?,?,?)", prefix_records)
         return self.list()
 
     def record_preview(self, raw, result):
@@ -107,9 +134,22 @@ class ProductExclusions:
                 return self.list()
         try:
             value = json.loads(raw)
-            if value.get("format") != "bunsen-product-exclusions-v1":
+            if value.get("format") not in (
+                "bunsen-product-exclusions-v1", "bunsen-product-exclusions-v2"
+            ):
                 raise ValueError()
-            result = self.save({"actor": "担当者指定の設定ファイル", "products": value["products"]})
+            rows = value["products"]
+            if not isinstance(rows, list):
+                raise ValueError()
+            if value.get("prefixes") and value["format"] != "bunsen-product-exclusions-v2":
+                raise ValueError()
+            prefixes = value.get("prefixes", [])
+            if not isinstance(prefixes, list):
+                raise ValueError()
+            rows = rows + [
+                {**r, "jan": r["prefix"], "match_type": "prefix"} for r in prefixes
+            ]
+            result = self.save({"actor": "担当者指定の設定ファイル", "products": rows})
             with sqlite3.connect(self.path) as db:
                 db.execute("INSERT OR IGNORE INTO imports VALUES(?)", (digest,))
             return result
@@ -117,11 +157,16 @@ class ProductExclusions:
             raise DocumentError("対象外商品設定JSONの形式を確認してください") from None
 
     def apply(self, rows):
-        active = {r["jan"]: r for r in self.list() if r["exclude"]}
+        rules = self.list()
+        active = {r["jan"]: r for r in rules if r["exclude"] and r.get("match_type") != "prefix"}
+        prefixes = {r["jan"]: r for r in rules if r["exclude"] and r.get("match_type") == "prefix"}
         result = []
         for source in rows:
             row = dict(source)
             rule = active.get(row.get("jan"))
+            jan = str(row.get("jan") or "")
+            if len(jan) == 13 and valid_jan(jan) and jan[:7] in prefixes:
+                rule = prefixes[jan[:7]]
             if row.get("registered_exclusion") and not rule:
                 before = json.loads(row.get("exclusion_before") or "{}")
                 row.update(

@@ -38,9 +38,15 @@ def _preview_list(raw, name, paths, *, consent=False, master=None):
     if suffix == ".json":
         try:
             value = json.loads(raw)
+            if value.get("format") == "bunsen-product-exclusions-v2":
+                raise DocumentError(
+                    "先頭7桁条件を含む設定JSONは「設定JSONを登録」で登録してください"
+                )
             if value.get("format") != "bunsen-product-exclusions-v1":
                 raise ValueError()
             rows = value["products"]
+        except DocumentError:
+            raise
         except (ValueError, KeyError, TypeError, AttributeError):
             raise DocumentError("除外リストJSONの形式を確認してください") from None
     elif suffix == ".csv":

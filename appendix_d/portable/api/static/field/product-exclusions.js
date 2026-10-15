@@ -2,16 +2,23 @@ import {api,el,field,button,saveWithNotice} from './api.js';
 export async function exclusionsPanel(ctx,parent,refreshDocuments,master){
  const box=el('details','',parent);el('summary','対象外商品の登録・解除',box);
  el('p','JSON・CSV・PDF・PNG・JPEG（10 MB以内）から読み取り、原本と一覧を確認して登録します。CSVはJAN、商品名、理由の見出しに対応します。原本と除外履歴は残します。',box);
+ el('p','「JAN先頭7桁」の条件は、未登録の新しい商品にも適用します。個別商品の除外を解除しても先頭7桁の条件が有効なら対象外です。条件を解除する場合は、その条件の解除ボタンを使います。',box);
  const file=field(box,'対象外商品リスト','file',false);file.accept='.json,.csv,.pdf,.png,.jpg,.jpeg';
  const consent=field(box,'画像・手書きPDFをOpenAIへ送信することに同意する（API料金が発生）','checkbox',false);
  const actor=field(box,'設定の確認者','text',false),preview=el('div','',box),list=el('div','',box);
  let result=null,edits=[];
  const partial=field(box,'全明細を読めていない場合、選択した確認済み商品だけ登録する','checkbox',false);
- const confirmed=field(box,'選択した商品のJAN・対象外指定を原本と照合した','checkbox',false);
+ const confirmed=field(box,'商品のJANまたは先頭7桁の条件・対象外指定を原本／設定JSONと照合した','checkbox',false);
  async function refresh(){list.replaceChildren();for(const row of await api('/api/product-exclusions')){
-  const line=el('div',`${row.exclude?'対象外':'解除済み'}：${row.product_name} ／ ${row.jan} ／ ${row.reason}`,list);
-  if(row.exclude)button('対象へ戻す',()=>ctx.run(async()=>{if(!actor.value)throw new Error('確認者を入力してください');await saveWithNotice(()=>api('/api/product-exclusions',{actor:actor.value,products:[{...row,exclude:false,reason:'担当者が対象外設定を解除'}]}),'対象外設定を解除しました。');await refresh();await refreshDocuments();}),line,true);
+  const line=el('div',`${row.exclude?'対象外':'解除済み'}：${row.match_type==='prefix'?'JAN先頭7桁に一致する全商品':row.product_name} ／ ${row.jan} ／ ${row.reason}`,list);
+  if(row.exclude)button(row.match_type==='prefix'?'先頭7桁の条件を解除':'個別の除外を解除',()=>ctx.run(async()=>{if(!actor.value)throw new Error('確認者を入力してください');await saveWithNotice(()=>api('/api/product-exclusions',{actor:actor.value,products:[{...row,exclude:false,reason:'担当者が対象外設定を解除'}]}),'この設定を解除しました。ほかの有効な除外条件に一致する商品は対象外のままです。');await refresh();await refreshDocuments();}),line,true);
  }}
+ button('設定JSONを登録（個別・先頭7桁条件）',()=>ctx.run(async()=>{
+  const f=file.files[0];if(!f||!f.name.toLowerCase().endsWith('.json')||f.size>1024*1024)throw new Error('1 MB以内の対象外設定JSONを選択してください');
+  if(!confirmed.checked)throw new Error('設定JSONのJAN・先頭7桁条件と対象外指定の確認にチェックしてください');
+  const r=await fetch('/api/product-exclusions/import',{method:'POST',body:f});const v=await r.json();if(!r.ok)throw new Error(v.detail||'設定できませんでした');
+  window.alert('対象外設定JSONを登録しました。');await refresh();await refreshDocuments();
+ }),box,true);
  button('ファイルから候補を読み取る',()=>ctx.run(async()=>{
   const f=file.files[0];if(!f||f.size>10*1024*1024)throw new Error('10 MB以内の対応ファイルを選んでください');
   result=null;edits=[];preview.replaceChildren();confirmed.checked=false;partial.checked=false;

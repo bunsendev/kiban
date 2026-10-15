@@ -2228,3 +2228,10 @@ OS: Windows 11
 - Private 17 PDF / 137 page validation: all 2048 inventory + 705 shipment candidate fields unchanged; conditional movement balance 2048 match; exclusion22 separates 578 inventory rows. Source API real PDF local read HTTP200 / 113 inventory match / no automatic approval; diagnostic JS asset HTTP200. Not full visual ground truth or model training.
 - Windows build completed. Frozen archive confirms new diagnostics module and pilot.40 constant. Frozen EXE launch not tested: earlier automatic approval review rejected executable startup without detailed reason; no bypass attempted.
 - Distribution includes private confirmed exclusion seed and updated instructions; user Data, raw training sources, API keys and tokens excluded. ZIP CRC / manifest hashes / packaged static equality verification recorded in build/pilot40-package-result.json. GitHub update release publishing not performed.
+
+
+2026-10-15 Portable pilot.41 prefix exclusions
+- Portable + Field Pilot AI regression 210 PASS (75.64s). Upstream TestClient deprecation and existing updater status.tmp contention warning occurred. Targeted installation + prefix suite (including one additional legacy-DB migration case) 13 PASS, no contention warning. Unique tested cases total 211.
+- Valid full JAN prefix matching; unknown-product matching; invalid/partial JAN not hidden; source row immutability; individual and prefix release precedence; atomic validation; v1/v2 seed idempotence; HTTP import/list/release; legacy exact-event retention verified.
+- Repository Ruff / Node prefix-panel syntax and review-table/batch/filter PASS. Real private checks: all specified 16 products excluded; 9702 inventory candidates unchanged; 2894 excluded with latest private24 exact +1 prefix rules. Raw sources and credentials not committed.
+- Windows build completed. Private seed and update HTML included in local distribution; CRC / manifest hashes / static equality / embedded version/module checks recorded in build/pilot41-package-result.json. Frozen EXE startup not tested after prior automatic approval rejection; no bypass attempted. GitHub update release not published.
