@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {rowProblems,reviewTable,serializeControls} from '../../portable/api/static/field/document-review-table.js';
+import {inventoryCheckPanel} from '../../portable/api/static/field/document-inventory-checks.js';
 const valid={kind:'inventory',jan:'4901234567894',product_name:'テスト商品',product_code:'P1',quantity:'0',unit:'箱',case_factor:'1',location:'テスト倉庫',snapshot:'2026-10-07',expiry:'2026-12-31',page:'1'};
 assert.equal(rowProblems(valid).errors.length,0);
 assert(rowProblems({...valid,jan:''}).errors.some(e=>e.key==='jan'));
@@ -27,6 +28,13 @@ class Element extends EventTarget {
  scrollIntoView(){}
 }
 globalThis.document={createElement:tag=>new Element(tag)};
+const checkHost=new Element('main');
+inventoryCheckPanel(checkHost,{inventory_checks:{inventory_rows:2,match:1,mismatch:1,unverifiable:0,unchecked:0,basis:'読取時',assumption:'診断用',field_issues:[],repeated_buckets:[],movement_rows:[{page:'2',jan:'4901234567894',status:'mismatch',difference:-20}]}});
+assert.equal(checkHost.children.length,1);
+const messages=n=>[n.textContent||'',...n.children.flatMap(messages)];
+assert(messages(checkHost).some(s=>s.includes('不一致 1行')));
+assert(messages(checkHost).some(s=>s.includes('2ページ')&&s.includes('-20')));
+const oldHost=new Element('main');inventoryCheckPanel(oldHost,{});assert.equal(oldHost.children.length,0);
 const all=n=>[n,...n.children.flatMap(all)],host=new Element('main');
 const table=reviewTable({run:fn=>fn(),message:()=>{}},host,[valid,{...valid,jan:'',expiry:'',location:''}],{choice:{value:''}});
 const rows=all(host).filter(n=>n.tagName==='tbody')[0].children;

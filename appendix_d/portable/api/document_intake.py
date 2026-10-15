@@ -16,6 +16,7 @@ from portable.runtime.ai_usage import AiUsage
 from portable.runtime.api_credentials import ApiCredentials
 
 from .document_ai import MAX_BYTES, DocumentError, extract, media_type
+from .document_inventory_checks import inventory_checks
 from .document_inventory_pdf import extract_inventory
 from .document_pages import page_source, pdf_reader
 from .document_quantity import case_quantity
@@ -360,6 +361,12 @@ class Documents:
             if page is not None:
                 for item in value["rows"]:
                     item["page"] = str(page)
+                if value.get("inventory_checks"):
+                    for item in value["inventory_checks"]["movement_rows"]:
+                        item["page"] = str(page)
+                    value["inventory_checks"] = inventory_checks(
+                        value["rows"], value["inventory_checks"]["movement_rows"]
+                    )
                 with self.db() as db:
                     db.execute("BEGIN IMMEDIATE")
                     self.check_control(db, identifier, generation)
@@ -394,6 +401,12 @@ class Documents:
                         for p, v in pages.items()
                     ],
                 }
+                movements = [
+                    r for v in pages.values()
+                    for r in v.get("inventory_checks", {}).get("movement_rows", [])
+                ]
+                if movements:
+                    value["inventory_checks"] = inventory_checks(value["rows"], movements)
             if len(value["rows"]) > 1000:
                 raise DocumentError("明細が1000行を超えました。文書を分割してください")
             value.update(model=model, at=datetime.now(UTC).isoformat(), revision=revision)
@@ -484,7 +497,14 @@ class Documents:
                             identifier,
                             p,
                             json.dumps(
-                                {"rows": rows, "complete": value["complete"]}, ensure_ascii=False
+                                {"rows": rows, "complete": value["complete"],
+                                 "model": value["model"],
+                                 "inventory_checks": inventory_checks(rows, [
+                                     r for r in value.get("inventory_checks", {}).get(
+                                         "movement_rows", []
+                                     )
+                                     if r["page"] == str(p)
+                                 ])}, ensure_ascii=False
                             ),
                         ),
                     )

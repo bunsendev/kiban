@@ -2220,3 +2220,11 @@ OS: Windows 11
 - Frozen EXE startup not tested: prior automatic approval review rejected launch without a detailed reason.
 - Final Portable + Field Pilot AI suite: 195 PASS, upstream TestClient deprecation warning only. Layout preview geometry visually inspected; original bytes unchanged.
 - pilot39 ZIP CRC/all manifest hashes/static source equality/PDFium and Pillow native dependency presence/exclusion22/no user Data or private credentials verified; HTML manual and improvement/update guide included.
+
+
+2026-10-15 Portable pilot.40 native inventory diagnostics
+- Final Portable + Field Pilot AI regression: 200 PASS (68.71s), upstream TestClient deprecation warning only. Repository Ruff PASS. Node review-table/batch/filter and diagnostic-panel mismatch/legacy rendering PASS.
+- New tests cover conditional blank-zero diagnostics without source mutation, signed adjustment once, invalid pack/date, same receipt bucket retention, page retry/cache/history persistence. Legacy extraction compatibility fixed and rechecked.
+- Private 17 PDF / 137 page validation: all 2048 inventory + 705 shipment candidate fields unchanged; conditional movement balance 2048 match; exclusion22 separates 578 inventory rows. Source API real PDF local read HTTP200 / 113 inventory match / no automatic approval; diagnostic JS asset HTTP200. Not full visual ground truth or model training.
+- Windows build completed. Frozen archive confirms new diagnostics module and pilot.40 constant. Frozen EXE launch not tested: earlier automatic approval review rejected executable startup without detailed reason; no bypass attempted.
+- Distribution includes private confirmed exclusion seed and updated instructions; user Data, raw training sources, API keys and tokens excluded. ZIP CRC / manifest hashes / packaged static equality verification recorded in build/pilot40-package-result.json. GitHub update release publishing not performed.

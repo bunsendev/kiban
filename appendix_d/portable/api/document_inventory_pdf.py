@@ -3,12 +3,14 @@
 import re
 
 from .document_ai import FIELDS, DocumentError
+from .document_inventory_checks import inventory_checks, movement_check
 from .document_pages import page_source, pdf_reader
 
 
 def extract_inventory(raw, *, blank_current_zero=False):
     count = len(pdf_reader(raw).pages)
     rows = []
+    movements = []
     complete = True
     for number in range(1, count + 1):
         _, text, _ = page_source(raw, number)
@@ -71,6 +73,7 @@ def extract_inventory(raw, *, blank_current_zero=False):
                         reason="この帳票の現在両欄の空欄を0として除外（担当者指定）",
                     )
                 row["note"] += " 担当者指定：現在欄の空欄は0。元の空欄は抽出履歴に保持。"
+            movements.append(movement_check(line, case_columns, loose_columns, row))
             if row["source_adjustment_case"] or row["source_adjustment_loose"]:
                 row["note"] += (
                     " 調整欄あり：現在欄を使用し、調整を再加算しません。"
@@ -102,6 +105,7 @@ def extract_inventory(raw, *, blank_current_zero=False):
         "page_count": count,
         "pages_read": list(range(1, count + 1)),
         "model": "printed-inventory-movement-v3",
+        "inventory_checks": inventory_checks(rows, movements),
         "blank_current_policy": (
             "CURRENT_BLANK_ZERO_EXCLUDE_EMPTY" if blank_current_zero else "UNKNOWN"
         ),

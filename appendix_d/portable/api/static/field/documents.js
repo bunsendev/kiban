@@ -1,5 +1,6 @@
 import { api, el, field, button, saveWithNotice } from './api.js';
 import {exclusionsPanel} from './product-exclusions.js';
+import {inventoryCheckPanel} from './document-inventory-checks.js';
 import {cancelControl} from './document-cancel.js';
 import { masterPanel } from './document-master.js';
 import { reviewTable, serializeControls } from './document-review-table.js';
@@ -78,6 +79,7 @@ export async function documents(ctx, parent) {
         }),box,true);
       }
       if(!doc.extraction)continue;
+      inventoryCheckPanel(box,doc.extraction);
       for(const review of doc.extraction.page_reviews||[doc.extraction]){
         if(review.layout==='two_tables')el('p',`${review.page||''}ページ：左右拡大読取 ／ ${review.model||'モデル未確認'}`,box);
         for(const warning of review.quality_warnings||[])el('p','読取確認：'+warning,box);

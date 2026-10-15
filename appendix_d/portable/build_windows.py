@@ -184,6 +184,7 @@ def main() -> None:
         "Portable_AIモデルと費用.md",
         "Portable_除外リスト登録.md",
         "Portable_手書き読取改善.md",
+        "Portable_印刷在庫表の点検.md",
     ):
         shutil.copy2(root / "docs" / guide, output / guide)
     (output / "Data").mkdir()
