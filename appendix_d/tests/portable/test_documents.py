@@ -171,6 +171,7 @@ def test_inventory_zero_and_exclusion_reason(tmp_path, monkeypatch):
         expiry="2026-11-01",
         snapshot="2026-10-01",
         product_code="ARTIFICIAL",
+        source_detail_date="2026-09-29",
     )
     client, service, identifier = setup(tmp_path, monkeypatch, [inventory])
     service.read(identifier, True)
@@ -186,6 +187,8 @@ def test_inventory_zero_and_exclusion_reason(tmp_path, monkeypatch):
     service.dispatch(identifier)
     text = next(service.paths.incoming.glob("*.csv")).read_text(encoding="utf-8-sig")
     assert "明細バラ数" in text and "ARTIFICIAL" in text and ",0," in text
+    assert "ムロオ倉庫入庫日" in text and "2026-09-29" in text
+    assert "意味未確認" not in text
     original = client.get(f"/api/documents/{identifier}/original")
     assert original.headers["content-security-policy"].startswith("sandbox")
 
@@ -247,20 +250,128 @@ def test_modified_outgoing_csv_is_not_silently_accepted(tmp_path, monkeypatch):
 def test_reviewed_document_reaches_existing_archive_analysis(tmp_path, monkeypatch):
     from datetime import date, timedelta
 
-    rows = [row(date=str(date(2026, 9, 1) + timedelta(days=i)), case_factor='1')
-            for i in range(35)]
-    rows.append(row(kind='inventory', snapshot='2026-10-05', expiry='2026-11-01',
-                    quantity='100', case_factor='1'))
+    rows = [row(date=str(date(2026, 9, 1) + timedelta(days=i)), case_factor="1") for i in range(35)]
+    rows.append(
+        row(
+            kind="inventory",
+            snapshot="2026-10-05",
+            expiry="2026-11-01",
+            quantity="100",
+            case_factor="1",
+        )
+    )
     client, service, identifier = setup(tmp_path, monkeypatch, rows)
     service.read(identifier, True)
-    service.approve(identifier, {'confirmed': True, 'actor': 'synthetic', 'rows': rows})
+    service.approve(identifier, {"confirmed": True, "actor": "synthetic", "rows": rows})
     service.dispatch(identifier)
-    response = client.post('/api/drop-folder/scan', json={})
+    response = client.post("/api/drop-folder/scan", json={})
     assert response.status_code == 200
-    receipts = response.json()['recent']
+    receipts = response.json()["recent"]
     assert len(receipts) == 1
-    assert receipts[0]['status'] == 'PROCESSED', receipts
-    assert receipts[0]['analysis_id']
-    assert not list(service.paths.incoming.glob('*.csv'))
-    assert len(list((service.paths.incoming / 'Processed').glob('*.csv'))) == 36
-    assert service.get(identifier)['approval']['rows'][-1]['quantity'] == '100'
+    assert receipts[0]["status"] == "PROCESSED", receipts
+    assert receipts[0]["analysis_id"]
+    assert not list(service.paths.incoming.glob("*.csv"))
+    assert len(list((service.paths.incoming / "Processed").glob("*.csv"))) == 36
+    assert service.get(identifier)["approval"]["rows"][-1]["quantity"] == "100"
+
+
+def test_pdf_saved_key_restart_and_auth_failure(tmp_path, monkeypatch):
+    from portable.runtime.api_credentials import ApiCredentials
+
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "profile"))
+    client = TestClient(create_app(tmp_path / "Data"), base_url="http://127.0.0.1")
+    saved = client.post("/api/ai-credentials", json={"api_key": "sk-synthetic-pdf"})
+    assert saved.json()["available"]
+    fresh = TestClient(create_app(tmp_path / "Data"), base_url="http://127.0.0.1")
+    assert fresh.get("/api/ai-credentials").json() == {"saved": True, "available": True}
+    raw = b"%PDF-synthetic-persistence"
+    uploaded = fresh.post(
+        "/api/documents/upload", content=raw, headers={"x-file-name": "test.pdf"}
+    ).json()
+    identifier = uploaded["id"]
+
+    def fail_extract(source, key):
+        assert key == "sk-synthetic-pdf" and source == raw
+        raise DocumentError("APIキーの認証に失敗しました。キー設定を確認してください")
+
+    monkeypatch.setattr("portable.api.document_intake.extract", fail_extract)
+    url = f"/api/documents/{identifier}"
+    failed = fresh.post(url + "/extract", json={"consent": True})
+    assert failed.status_code == 422 and "認証" in failed.text
+    assert "sk-synthetic-pdf" not in failed.text
+    assert fresh.get(url + "/original").content == raw
+    assert fresh.get("/api/documents").json()[0]["extraction"] is None
+    assert ApiCredentials().status()["available"]
+    monkeypatch.setattr(
+        "portable.api.document_intake.extract",
+        lambda source, key: {"rows": [row()], "complete": True},
+    )
+    assert fresh.post(url + "/extract", json={"consent": True}).status_code == 200
+
+
+def test_draft_restart_and_stale_read_are_not_approval(tmp_path, monkeypatch):
+    client, service, identifier = setup(tmp_path, monkeypatch)
+    service.read(identifier, True)
+    revision = service.get(identifier)["extraction"]["revision"]
+    url = f"/api/documents/{identifier}/draft"
+    edited = row(quantity="", product_name="途中の人工商品")
+    value = {"rows": [edited], "revision": revision, "actor": "人工確認者"}
+    assert client.post(url, json=value).status_code == 200
+    fresh = TestClient(create_app(service.paths.root), base_url="http://127.0.0.1")
+    result = fresh.get("/api/documents").json()[0]
+    assert result["draft"]["rows"][0]["quantity"] == ""
+    assert result["approval"] is None
+    assert not list(service.paths.incoming.glob("*.csv"))
+    service.read(identifier, True, retry=True)
+    assert service.get(identifier)["draft"] is None
+    assert fresh.post(url, json=value).status_code == 422
+
+
+def test_draft_denies_cancelled_document(tmp_path, monkeypatch):
+    client, service, identifier = setup(tmp_path, monkeypatch)
+    service.read(identifier, True)
+    revision = service.get(identifier)["extraction"]["revision"]
+    service.set_cancelled(identifier)
+    assert (
+        client.post(
+            f"/api/documents/{identifier}/draft", json={"rows": [row()], "revision": revision}
+        ).status_code
+        == 422
+    )
+
+
+@pytest.mark.parametrize("dispatched", [False, True])
+def test_correction_preserves_original_and_blocks_double_count(tmp_path, monkeypatch, dispatched):
+    _client, service, identifier = setup(tmp_path, monkeypatch)
+    service.read(identifier, True)
+    service.approve(
+        identifier, {"actor": "人工", "confirmed": True, "rows": [{**row(), "case_factor": "1"}]}
+    )
+    if dispatched:
+        service.dispatch(identifier)
+    original = service.get(identifier)["approval"]
+    corrected = service.correction(identifier, {"actor": "人工", "reason": "数量訂正"})
+    assert corrected["id"] != identifier and corrected["correction_of"] == identifier
+    assert service.get(identifier)["approval"] == original
+    assert service.get(corrected["id"], original=True) == service.get(identifier, original=True)
+    assert (
+        service.correction(identifier, {"actor": "人工", "reason": "再操作"})["id"]
+        == corrected["id"]
+    )
+    with pytest.raises(DocumentError):
+        service.dispatch(identifier)
+    service.approve(
+        corrected["id"],
+        {
+            "actor": "人工",
+            "confirmed": True,
+            "revision": corrected["extraction"]["revision"],
+            "rows": [{**row(quantity="4"), "case_factor": "1"}],
+        },
+    )
+    if dispatched:
+        with pytest.raises(DocumentError, match="二重計上"):
+            service.dispatch(corrected["id"])
+    else:
+        service.dispatch(corrected["id"])
+        assert service.get(corrected["id"])["approval"]["dispatched"]

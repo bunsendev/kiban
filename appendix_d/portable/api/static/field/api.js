@@ -59,3 +59,16 @@ export function displayTime(value) {
     "（日本時間）"
   );
 }
+
+// Acknowledge only a completed write, never a button click or a pending request.
+export async function saveWithNotice(action, message = "保存しました。") {
+  let value;
+  try {
+    value = await action();
+  } catch (error) {
+    window.alert("保存を確認できませんでした。画面の案内を確認して、もう一度お試しください。");
+    throw error;
+  }
+  window.alert(message);
+  return value;
+}

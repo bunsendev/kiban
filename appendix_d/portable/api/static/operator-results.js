@@ -107,11 +107,12 @@
     event.preventDefault(); if (!editing) return;
     const currentSource = source; save.disabled = true;
     try {
-      await request(`${currentSource}/feedback`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({
+      const {saveWithNotice}=await import('/field/assets/api.js');
+      await saveWithNotice(()=>request(`${currentSource}/feedback`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({
         unique_id: editing.unique_id, target_date: editing.target_date, revision: editing.feedback?.revision || 0,
         quantity: quantity.value === '' ? null : Number(quantity.value), actor: actor.value,
         rating: rating.value, reason: reason.value, comment: comment.value,
-      })});
+      })}),'結果の修正とフィードバックを保存しました。元の予測は変更していません。');
       if (source !== currentSource) return;
       form.hidden = true; await reload(currentSource); status.textContent = '保存しました。修正はこの結果への担当者判断として記録されます。';
     } catch (error) {status.textContent = error.message;}

@@ -1,6 +1,7 @@
 """HTTP read and manual rescan boundary for the Portable drop folder."""
 
 import json
+import os
 
 from fastapi import HTTPException, Request
 from starlette.concurrency import run_in_threadpool
@@ -27,6 +28,15 @@ def register_drop_folder_routes(app, service) -> None:
         except (ValueError, UnicodeError) as exc:
             raise HTTPException(422, "画面を更新して入力し直してください") from exc
 
+    @app.post("/api/drop-folder/open")
+    def open_incoming():
+        try:
+            service.paths.incoming.mkdir(parents=True, exist_ok=True)
+            os.startfile(service.paths.incoming)
+        except (OSError, AttributeError):
+            raise HTTPException(503, "フォルダーを開けません。起動画面からお試しください") from None
+        return {"status": "OPENED"}
+
     @app.get("/api/ai-credentials")
     def credential_status():
         return service.review.credentials.status()
@@ -36,10 +46,12 @@ def register_drop_folder_routes(app, service) -> None:
         value = await payload(request, source=False)
         try:
             return service.review.credentials.save(value.get("api_key"))
-        except (CredentialError, OSError) as exc:
+        except CredentialError as exc:
+            raise HTTPException(422, str(exc)) from None
+        except OSError:
             raise HTTPException(
-                422, "キーを保存できません。入力内容とWindowsユーザーを確認してください"
-            ) from exc
+                422, "キーの保存先へ書き込めません。Windowsユーザーと書き込み権限を確認してください"
+            ) from None
 
     @app.post("/api/ai-credentials/delete")
     async def credential_delete(request: Request):

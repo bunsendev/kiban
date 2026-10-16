@@ -50,3 +50,10 @@ th{background:#c5e9ff;font-weight:700}
 #performance-panel{border-width:2px}
 :where(button,a,input,select,textarea,summary):focus-visible{outline:4px solid #003f60;outline-offset:4px}
 @media(max-width:640px){main{padding:16px}header,section{padding:20px}h1{font-size:1.8rem}h2{font-size:1.4rem}}
+
+.device-settings{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.device-settings a{font-weight:700;text-decoration:underline;padding:12px}
+#device-settings-panel dialog{border:2px solid #225675;border-radius:12px;padding:24px;color:#123047;background:#fff;overflow:auto}
+#device-settings-panel dialog::backdrop{background:rgba(10,30,50,.5)}
+#device-settings-panel dialog label{display:block;margin:16px 0 8px}
+#device-settings-panel dialog input[type=password]{display:block;box-sizing:border-box;width:100%}

@@ -60,3 +60,24 @@ def test_saved_key_used_server_side(tmp_path, monkeypatch):
     monkeypatch.setattr("portable.api.folder_review.suggest_cloud_structure", fake_cloud)
     assert review.suggest({"filename": "test.csv", "sha256": info["sha256"],
                            "consent": True}) == {"needs_review": True}
+
+
+def test_save_verification_and_safe_permission_error(tmp_path, monkeypatch):
+    store = ApiCredentials(tmp_path / "synthetic.dpapi")
+    monkeypatch.setattr(store, "status", lambda: {"saved": True, "available": False})
+    with pytest.raises(CredentialError, match="Windows"):
+        store.save("sk-synthetic-verification")
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "profile"))
+    client = TestClient(create_app(tmp_path / "data"), base_url="http://127.0.0.1")
+    invalid = client.post("/api/ai-credentials", json={"api_key": "synthetic key"})
+    assert invalid.status_code == 422
+    assert "空白" in invalid.json()["detail"]
+
+    def failure(*args):
+        raise PermissionError("private path sk-do-not-show")
+
+    monkeypatch.setattr(ApiCredentials, "save", failure)
+    denied = client.post("/api/ai-credentials", json={"api_key": "sk-synthetic"})
+    assert denied.status_code == 422
+    assert "書き込み権限" in denied.json()["detail"]
+    assert "sk-do-not-show" not in denied.text

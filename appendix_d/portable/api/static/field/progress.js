@@ -180,6 +180,12 @@ export async function analysis(ctx) {
       `未解決の条件が${state.blockers.length}件あります。計算できない商品を問題なしとして扱いません。`,
       ctx.root,
     );
+    const reasons={HISTORY_LESS_THAN_28_DAYS:'確認済み出荷履歴が28日未満です。過去の出荷CSVを追加してください',RECENT_SOURCE_DAYS_MISSING:'直近の出荷データに欠測があります。日別CSVを確認してください',INVENTORY_SHIPMENT_AS_OF_MISMATCH:'在庫基準日と出荷履歴の最終日が違います。同じ基準日のデータを揃えてください'};
+    const list=el('ul','',ctx.root);
+    for(const item of state.blockers){
+      const explanation=(item.reason_codes||[]).map(code=>reasons[code]||code).join('／');
+      el('li',`${item.source_center||''} ${item.jan||''}：${explanation||item.detail||item.status||'入力条件を確認してください'}`,list);
+    }
   }
   button(
     "状態を再確認",
@@ -201,7 +207,7 @@ async function inventoryForm(ctx, id) {
     base = formBase(ctx, "在庫の拠点・時刻・数量単位を確認");
   el(
     "p",
-    "「明細バラ数」などの名称だけでは単位を判断しません。箱として扱えることを確認してください。換算未確定ならここで止め、IT担当者へ確認してください。",
+    "取込用CSVの数量をボール（CASE）で確認します。PDFのバラ数は、原本確認でボール数＋バラ数÷1ボールあたりのバラ数に換算した数量です。バラをそのままボールとみなす操作ではありません。",
     base.f,
   );
   const inputs = data.centers.map((c) => {
@@ -213,7 +219,7 @@ async function inventoryForm(ctx, id) {
     name.value = c.source_center;
     return { source_center: c.source_center, code, name, time };
   });
-  const confirmed = check(base.f, "この在庫数量の業務単位は箱（CASE）です");
+  const confirmed = check(base.f, "この在庫数量の業務単位はボール（CASE）です");
   submitForm(ctx, base, "確認して在庫を準備する", async () => {
     await api(`/api/business-archives/${id}/formal-inventory`, {
       actor: base.actor.value,

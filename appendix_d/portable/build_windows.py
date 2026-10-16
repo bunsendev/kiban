@@ -47,6 +47,9 @@ def write_operator_files(output: Path) -> None:
         '@echo off\r\nstart "" "%~dp0App\\BunsenPortable.exe" --feedback-admin\r\n',
         encoding="ascii",
     )
+    manual = Path(__file__).parent / "api/static/field"
+    shutil.copy2(manual / "manual.html", output / "操作マニュアル.html")
+    shutil.copy2(manual / "manual.css", output / "manual.css")
     guide = Path(__file__).resolve().parents[1] / "docs" / "かんたん操作マニュアル.txt"
     shutil.copy2(guide, output / "はじめに_かんたん操作マニュアル.txt")
     shutil.copy2(guide.parent / "Portable導入手順.txt", output / "最初に読む_インストール手順.txt")
@@ -59,7 +62,7 @@ def write_operator_files(output: Path) -> None:
         encoding="ascii",
     )
     (output / "START_HERE.txt").write_text(
-        "ブンセン予測 Windows Portable\n\n"
+        f"ブンセン予測 Windows Portable\nバージョン: {APP_VERSION}\n\n"
         "操作方法は「はじめに_かんたん操作マニュアル.txt」を開いてください。\n\n"
         "【はじめて使うとき】\n"
         "1. ZIPを右クリックし、［すべて展開］を選びます。\n"
@@ -79,7 +82,8 @@ def write_operator_files(output: Path) -> None:
 
 def write_manifest(output: Path) -> Path:
     files = sorted(
-        path for path in output.rglob("*")
+        path
+        for path in output.rglob("*")
         if path.is_file() and path != output / "PACKAGE-MANIFEST.json"
     )
     manifest = {
@@ -88,10 +92,7 @@ def write_manifest(output: Path) -> Path:
         "built_at": datetime.now(UTC).isoformat(),
         "architecture": "windows-x64",
         "entrypoint": "ブンセン予測を起動.cmd",
-        "files": {
-            path.relative_to(output).as_posix(): sha256(path)
-            for path in files
-        },
+        "files": {path.relative_to(output).as_posix(): sha256(path) for path in files},
     }
     target = output / "PACKAGE-MANIFEST.json"
     target.write_text(
@@ -179,6 +180,13 @@ def main() -> None:
     write_samples(output / "ScaleSamples")
     shutil.copy2(root / "portable" / "SCALE_TEST.md", output / "SCALE_TEST.md")
     shutil.copy2(root / "docs" / "Portable_現場4ステップ操作.md", output / "現場操作手順.md")
+    for guide in (
+        "Portable_AIモデルと費用.md",
+        "Portable_除外リスト登録.md",
+        "Portable_手書き読取改善.md",
+        "Portable_印刷在庫表の点検.md",
+    ):
+        shutil.copy2(root / "docs" / guide, output / guide)
     (output / "Data").mkdir()
     write_operator_files(output)
     write_manifest(output)

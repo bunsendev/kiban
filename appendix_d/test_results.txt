@@ -2078,3 +2078,160 @@ OS: Windows 11
 - UTF-8 JSON -> Standard Base64 validated. Connection-test declarations false; nonempty policy_version.
 - Live BUNSEN-PILOT-03: HTTP 201 RECEIVED, identical request replay HTTP 200 ALREADY_RECEIVED. Response request_id and encrypted SHA256 match.
 - Synthetic empty payload only; no business data or Token logged. Existing pilot.18 package not modified.
+
+2026-10-06 pilot.19 distribution
+- Includes Privacy Manifest Standard Base64 fix (live contract: HTTP 201 RECEIVED / HTTP 200 ALREADY_RECEIVED verified previously).
+- ZIP CRC and 2510 hashes PASS, manuals match updated source, no Data/credentials.
+- Frozen synthetic forecast/review/export/feedback/restart PASS.
+- SHA256 39593711fcc80d6a0ddb425a753d029392ef6db4fadba3d2da432fc96c9db177; 56443493 bytes.
+- Removed 38 obsolete local Portable ZIP/checksum files and four old signature folders after validation. Preserved extracted apps and Data. Remote releases unchanged.
+
+2026-10-06 pilot.20 accessible device settings
+- Browser verified top-level AI/API settings and log/update dialogs; saved credential status visible without key exposure.
+- API credentials and operations regression: 15 passed, 1 upstream warning; JS syntax and ruff PASS.
+- ZIP CRC / 2511 manifest hashes PASS; 56446092 bytes, SHA256 6757a334e63a83a9af38647c6ba043f4f948c43785fbbf1156708b63ee863ee8.
+- Frozen synthetic forecast/review/export/feedback/restart PASS.
+
+2026-10-06 pilot.21 Incoming opener + HTML manual
+- Added adjacent open-folder button to field and detailed screens; POST opens only configured Incoming.
+- Two API tests PASS: fixed destination, external Origin blocked, GET rejected, safe OS failure, manual routes.
+- ruff, JS syntax, internal HTML links PASS. ZIP CRC / 2515 hashes PASS; manual HTML/CSS match sources.
+- ZIP SHA256 fed7000820ca213b3c2adfa8ce3c9d94d616ec773f6859a1e5a7464c725c7e43; 56456442 bytes. Signed locally.
+- Preview-server launch command rejected by automatic approval policy; no workaround attempted. Native Explorer opening and rendered browser QA not verified this turn.
+
+2026-10-06 Portable pilot.22: detailed UI shared AI/API settings, logs/update and HTML manual entry. pytest open_incoming/api_credentials/operations_delivery/field_ui: 21 passed. ruff portable + changed test: passed. node --check detailed-settings.js: passed. Both UI module routes verified with TestClient. Native browser/frozen launch not repeated (prior automatic approval policy block). No real API key changed.
+
+2026-10-06 Portable pilot.23: PDF/image adapter added to detailed UI; API credential status visible, saved credentials reloaded before success, safe validation/write-permission errors, extraction failure retained for retry. pytest api_credentials/documents/open_incoming: 24 passed; Ruff portable + changed tests: passed; node syntax checks passed. Mock DOM workflow passed: save state, trimmed key save, PDF registration, consent, auth error, retry. No real credential changed; cloud extraction mocked, field-PC actual PDF and live API acceptance remain to verify.
+
+2026-10-07 Portable pilot.24 document review improvements
+- Portable regression: 134 passed; final documents/review/credentials/open-folder: 37 passed (one upstream TestClient deprecation warning). Ruff whole repository PASS.
+- Mock DOM PASS: credential state/save, PDF registration, consent, authentication error, partial-review controls, manual row addition and paid page retry entry.
+- Real printed PDFs: all 8 pages each, 113 and 123 detail rows, 43 and 52 unique JAN; current CASE/remainder separation and first-row dates verified. Quantity/warehouse business approval remains human review.
+- Real XLSX selected sheet: 75 master rows, zero invalid JAN; separate product codes with duplicate JAN preserved. No historical sheets merged.
+- Real OpenAI extraction for the three PDFs' first pages: HTTP 401 authentication failure; DPAPI key loading succeeds but stored key is not accepted. Handwriting cloud accuracy is NOT verified. No key or response body logged.
+- Added tests cover partial scope, manual additions, missing-vs-zero, exact conversion, interrupted page reads/resume, cached pages, explicit retry without duplicates, stale review rejection, approved history protection, versioned masters and formula exclusion.
+- Real source/extraction/master data remains outside Repository and distribution. No business-data approval fabricated. Native preview/frozen runtime launch not repeated due prior automatic approval policy rejection.
+- pilot.24 ZIP: CRC and all 2517 manifest hashes PASS, manuals/UI sources match, Data/credentials absent. Frozen module inventory includes PDF/XLSX adapters; Ed25519 signature verified against bundled public key. 57709695 bytes; SHA256 7360c4a4357cba6b1ddb148dd0fd8c4e09949e8991f8973e3fa13800d51969f4. Not published remotely.
+
+2026-10-07 Portable pilot.25 save acknowledgement dialogs
+- Node behavioral test PASS: no acknowledgement before write completion; success only after verified key write/readback; rejected write or unreadable key never displays success; failure dialog does not expose exception contents; key delete acknowledged.
+- Targeted pytest: 17 passed. Ruff whole repository PASS.
+- New key live retest (pilot.24): API authentication succeeds. Printed-table cloud column errors and scanned handwriting omissions remain; no real data automatically approved. Native pilot.24 EXE startup and API settings verified on this PC.
+- Full Portable regression: 134 passed. One pre-existing updater background thread hit a temporary-file sharing error during the combined run; isolated operations_delivery rerun with unhandled-thread warnings treated as errors: 12 passed. Upstream TestClient deprecation remains. JavaScript syntax checks PASS.
+- pilot.25 frozen EXE started on 127.0.0.1:48151, separate IT_TEST Data. Existing user-scoped saved API key is available; not modified. Real browser saved a clearly synthetic feedback entry: native alert observed, dismissed, persistent saved status verified.
+- Final ZIP verified: CRC, every manifest hash, all UI sources including detailed result review, both manuals, no Data/credentials. SHA256 7d993b3694a70132ac30dad623a3cf4e4b6db834684c975ea86af69a07f5c16d. Not published remotely. Field UI rerun: 4 passed.
+
+2026-10-07 Portable pilot.26 document confirmation table
+- Node behavioral PASS: JAN check digit, actual calendar date, missing vs zero, quantity conversion/column confirmation, exclusion reason, per-field error display, live correction, filter/search, new row, hidden rows retained in edits. Save-notice regression PASS.
+- Existing DB, source/extraction provenance, approval revision and human confirmation contracts unchanged. Client checks flag obvious input problems; backend remains authoritative for exact conversion and approval. Plausible AI errors still require original comparison.
+- Targeted document_review/documents/field_ui pytest: 35 passed; one upstream TestClient deprecation warning. Whole repository Ruff PASS.
+- Frozen pilot.26 desktop UI with separate IT_TEST Data: three cached real PDF extraction results displayed without cloud calls or approvals. Scanned 34-row result exposes missing JAN/conversion/date fields; product search shows 4 matching rows, excluded filter 0, clearing filters restores all 34. Desktop width verified and corrected; existing operator Data unchanged.
+- Final ZIP: CRC, every manifest hash and every UI asset match source; no Data/credentials. 57966672 bytes; SHA256 8720c627b1ef7549b9800980eb134e96b906e22c0cabc3522f275060e4beeb70. Not signed/published remotely. Cached AI errors remain unapproved and require original comparison.
+
+2026-10-08 Portable pilot.27 printed PDF movement repair
+- Targeted document movement/review/documents/field UI: 37 passed. Full Portable: 136 passed. Upstream TestClient warning and an existing updater temporary-file sharing warning occurred; isolated operations_delivery with thread warnings treated as errors: 12 passed. Ruff whole repository PASS; Node document table behavior PASS.
+- Real local-only extraction of both 8-page printed reports: 123/113 inventory rows, 52/43 inventory JAN, 56/45 nonempty shipment movement rows. All 179/158 resulting JAN values are 13 digits. Original first-page current 316 vs outbound 239 and current 72 CASE + 3 loose vs outbound 6 CASE + 6 loose, C入12, verified. No cloud calls, business approval, fabricated zero or independent product codes.
+- Existing AI extraction can be replaced by local text extraction only before approval; previous revision is retained. Approved/stale review protections remain. Hidden single-quantity conversion is not required for component rows. Shipment date is explicitly an inventory-report date candidate for operator confirmation.
+- pilot.27 frozen EXE started on 48153 using isolated IT_TEST Data. Native browser verifies full JAN, current/outbound rows, remainder and date; previous Data unchanged. Preview Data was populated only after ZIP creation and is absent from archive.
+- ZIP CRC, every manifest hash and all UI source bytes PASS; no Data/credentials. 57968610 bytes; SHA256 4c44c5a208d256473ca9eb8bd6c1f06cad7b16a824ac73543ca347f7cd0fe489. No signed remote update published. Handwriting accuracy and blank-cell/date business rules remain unresolved.
+
+2026-10-08 Portable pilot.28 JAN suffix master candidates
+- Document suffix/review/API regression: 33 passed; final synthetic suffix collision fixtures rerun: 2 passed. Whole repository Ruff and document-master JavaScript syntax PASS. Existing exact/code/name candidate behavior retained, exact JAN ranked first, suffix leading zeros/fullwidth digits preserved, conflicting suffix candidates never auto-selected.
+- Real selected master: 75 records, five distinct seven-digit prefixes. Real printed report contains three prefixes. Actual six-digit query returns the existing master candidate; no prefix invented or globally applied. Native frozen 48154 browser verifies candidate reason, full JAN and independent product code, without business approval or cloud calls. Master version/cell references carried into the pending edit.
+- ZIP CRC/every manifest hash/all UI assets PASS, no Data or credentials. 57969797 bytes; SHA256 ddb44424c85601f8360a6ba1201e2a0db13a86ddc30cfe09a361337f04ebf87d. Separate IT_TEST preview populated only after archive creation; actual master/source data not committed or distributed. No signed remote release published.
+
+2026-10-08 Portable pilot.29 installed version display
+- Settings in field/detailed UI and Feedback administrator UI show the running APP_VERSION from /ready, independently of folder names. No credential or operational behavior changes.
+- Related build/field UI/operations regression: 18 passed; final package guide assertions: 2 passed. Node live-version/offline/missing-version checks PASS. Whole repository Ruff PASS.
+- Frozen 48155 browser confirms 0.6.0-pilot.29 in field and administrator pages using separate test Data; existing operator Data unchanged.
+- ZIP CRC, all manifest hashes and field assets, version in installation guides, no Data/keys PASS. ZIP 57719737 bytes; SHA256 7e93e87055735da7cf6aa628b1266e5af397464feb47174015744ed0c3d55cf9. Not signed/published remotely.
+
+2026-10-09 Portable pilot.30 document cancellation / report-specific current stock policy
+- Document/build regression: 43 passed, upstream TestClient deprecation warning only. Whole repository Ruff PASS. Node review-table and inline cancel/back/network-failure behavior PASS.
+- Cancel/resume persist generation fencing and history, preserve originals/published results, block approvals while cancelled, and protect approved originals. Page cache and extraction commit atomically; cancelled late API responses are not adopted. Sent API work/fees cannot be undone.
+- Synthetic four-row image example: first both-blank current row excluded; 427 CASE + 2 loose, 576 CASE + 0 loose, 632 CASE + 0 loose retained. Only explicit report-specific current-stock policy treats blank as zero; outbound/general CSV/AI missing data semantics remain unchanged. Original blank values retained as source_current_case/source_current_loose.
+- Real local-only extraction: current stock 123 -> 103 rows (20 excluded), 113 -> 104 rows (9 excluded); all 123/113 product-under-name dates read. 12/16 same-JAN/location/expiry groups contain distinct detail dates. No cloud calls or business approvals. Date meaning remains unconfirmed; formal Phase3S identity/migration not extended to manufacture date.
+- Browser preview initially confirmed controls/date column, found a native-confirm shadowing issue and replaced it with inline confirmation, verified with Node. Later native-browser verification was blocked by a stuck dialog; no final visual acceptance claim. Automatic approval review rejected the packaged-EXE launch command without a detailed reason; frozen restart acceptance remains untested for this version.
+- Final ZIP CRC/all manifest hashes/all field assets/no Data or keys PASS; 57725376 bytes; SHA256 3d0b2ce56a6f5a6c73cd2a74a52eebe4a73a29e54957ddb8cf863e34efc73576. Not signed/published remotely.
+
+2026-10-09 Portable pilot.31 warehouse receipt-date clarification
+- 43 document/build regression tests PASS; Ruff PASS; Node review-table and cancellation behavior PASS.
+- UI and confirmed inventory CSV label source_detail_date as Muroo warehouse receipt date; existing internal key preserved. Not manufacture date, shipment date or lot identity.
+- Real PDFs re-read locally: 123/123 and 113/113 receipt dates present; 103 and 104 stock rows retained with report-specific blank-current-zero policy. No API calls or business approvals.
+- Packaged EXE restart acceptance remains untested; prior automatic approval review rejected launch without detailed reason.
+
+2026-10-11 Field PDF usability feedback implementation
+- Document regressions 41 PASS, Ruff PASS, Node review table and explicit batch behavior PASS.
+- Append-only draft save/restart, stale-revision rejection and cancelled-document rejection tested. No approval/CSV emission during draft.
+- Inventory batch blank-zero never modifies shipment blanks. Product names use multiline controls. Real PDF TV hijiki 3 rows retained full names and separate receipt dates.
+- CASE confirmation wording corrected for converted CSV, adjustment fields retained without re-adding to current stock. Distribution ZIP and browser acceptance not performed in this change.
+
+2026-10-11 pilot32 document correction and distribution
+- Regression suite 47 PASS; latest correction dispatch checks 2 PASS; Ruff and Node batch review PASS.
+- Browser source preview: batch confirmation, draft save dialog, reload restoration, approval and correction creation verified with synthetic local PDF; no AI request or real-data publication.
+- Original approval remains immutable, correction reuse idempotent, ancestor dispatch fences duplicate publication. Raw source SHA retained.
+- Packaged EXE restart remains untested (prior automatic approval review rejected launch with no detailed reason).
+
+2026-10-12 pilot33 forecast blocked and inventory-only ZIP
+- test_forecast_blocked + full test_p1_flow: 40 PASS. Ruff PASS. Separate build tests with blocker tests: 5 PASS.
+- Valid BLOCKED manifest is data insufficiency, not corruption; modified daily bytes still rejected. No production enqueue for BLOCKED; inventory-only ZIP has dedicated guidance.
+- Final rebuild required after ZIP guidance and UI blocker-list changes. Packaged EXE startup not tested; previous automatic approval rejection had no detailed reason. No field input/manifest received, so actual field blocker remains unconfirmed.
+
+2026-10-13 pilot34 detailed forecast blocker guidance
+- Forecast/p1/build regression suite 42 PASS; whole repository Ruff PASS. Node blocker rendering PASS including 1 observed day -> 27 missing days, period, inventory date, missing-source guidance.
+- Old detailed-screen count-only warning replaced with warehouse/JAN detail table and actions. Daily status includes observed/confirmed-zero counts and periods; unknown legacy values remain unknown. No source-data repair or forced-zero conversion.
+- Final packaged assets compared with current source. Frozen EXE startup remains untested; prior approval review rejected launch with no detailed reason.
+
+2026-10-13 pilot35 PDF product assistance
+- 53 document/master/cancel/movement/build regressions PASS; upstream TestClient warning only. Whole-repository Ruff PASS. Node review table PASS.
+- New master layout and legacy grouped headers tested. Actual master 58 accepted records, 1 excluded by validation; no business data committed.
+- Local selected-master product suggestions preserve quantities/dates/approval, avoid ambiguous variants, reuse approved same-version aliases. Fuzzy suggestions preserve numeric pack sizes and are never bulk-adopted.
+- Browser artificial PDF: selected master, batch-filled JAN/code, quantities unchanged; no AI request. Handwritten extraction prompt improved, but fresh real-PDF API accuracy not measured and physical region splitting not implemented.
+- Packaged EXE launch not tested: prior automatic approval rejection had no detailed reason.
+
+2026-10-13 pilot36 persistent product exclusions
+- Document/exclusion/cancel/review/build regressions: 42 PASS; upstream TestClient warning only. Node target-only filter and excluded-list visibility PASS. Ruff PASS.
+- Full-JAN policy, reversible event history, seed-import-once and release preservation, immutable original extraction, approval exclusion enforced. Actual requested profile 22 products verified against source PDF; 59 detail rows excluded, 27 remaining JANs. Real profile stored outside Git and included only in local deployment artifact.
+- Policy applies to unapproved PDF review and document approval; existing approved datasets/predictions and direct raw CSV selection not rewritten. Frozen EXE startup untested due prior approval rejection without a detailed reason.
+
+2026-10-13 pilot37 case display alias
+- UI labels changed from case to business term ball (1 ball = 1 CASE). Internal CASE contracts, original units, quantities and conversion logic unchanged.
+- Review/build tests 15 PASS; Node review batch/filter behaviors PASS; whole repository Ruff PASS.
+- Prior 22 exclusions carried in deployment configuration only; no business JANs committed. Frozen EXE startup untested due prior approval rejection without detailed reason.
+
+2026-10-13 exclusion-list adapters
+- CSV/JSON/native PDF/image consent/preview source audit tests 7 PASS; combined documents/exclusions/suggestions/review/cancel regressions 53 PASS.
+- Preview never registers; explicit source confirmation required, partial extraction requires partial registration consent. Original source retained locally and linked to registration history. No live AI accuracy claim.
+- Supported formats JSON/CSV/PDF/PNG/JPEG; API costs and explicit consent for external extraction. No real data committed.
+- Node exclusion-panel syntax PASS; existing review table/batch/exclusion filter checks PASS; repository Ruff PASS; git diff check PASS.
+
+2026-10-13 pilot38 AI model settings and local cost accounting
+- Portable + Field Pilot AI regression suite: 186 PASS. Warnings: upstream TestClient deprecation and existing updater status-file contention in background thread; updater concurrency not changed.
+- 11 new tests: persisted isolated settings; all four model payloads; cache-read/write and reasoning cost; incomplete paid responses; unknown usage/tier/large context; month rollover; secret suppression.
+- Node model dropdown/save success/failure, estimate/unknown-cost display, existing key save/readback/delete PASS. Repository Ruff PASS. No live API calls or accuracy claims.
+- Previous automatic approval review rejected frozen EXE launch without detailed reason; current packaged startup not tested.
+- Targeted installer/open-folder recheck: 4 PASS; updater thread contention not reproduced in isolated checks. Version/build/settings checks: 13 PASS.
+- pilot38 distribution built: ZIP CRC, every package-manifest hash, all packaged static source equality, inherited exclusion22 profile and no user Data/private credentials verified. Installation/update HTML and operation manual included.
+
+2026-10-13 pilot39 handwritten-layout repair
+- Whole Portable + Field Pilot AI regressions: 194 PASS before adding pre-send accounting case; targeted layout/cancel/documents/build checks 35 PASS after raw-page audit retention. Repository Ruff and Node review table/batch/filter PASS.
+- Physical overview/left/right raster views (10% overlap), one Responses call, evidence-bound review, missing region/warehouse and duplicate warnings, no invented date/year/quantity, exact selected-master/suffix candidates.
+- Original bytes and pre-normalization raw rows retained across reread history. Renderer failure before transport not counted as an API call. No live API or real-PDF precision claim.
+- Frozen EXE startup not tested: prior automatic approval review rejected launch without a detailed reason.
+- Final Portable + Field Pilot AI suite: 195 PASS, upstream TestClient deprecation warning only. Layout preview geometry visually inspected; original bytes unchanged.
+- pilot39 ZIP CRC/all manifest hashes/static source equality/PDFium and Pillow native dependency presence/exclusion22/no user Data or private credentials verified; HTML manual and improvement/update guide included.
+
+
+2026-10-15 Portable pilot.40 native inventory diagnostics
+- Final Portable + Field Pilot AI regression: 200 PASS (68.71s), upstream TestClient deprecation warning only. Repository Ruff PASS. Node review-table/batch/filter and diagnostic-panel mismatch/legacy rendering PASS.
+- New tests cover conditional blank-zero diagnostics without source mutation, signed adjustment once, invalid pack/date, same receipt bucket retention, page retry/cache/history persistence. Legacy extraction compatibility fixed and rechecked.
+- Private 17 PDF / 137 page validation: all 2048 inventory + 705 shipment candidate fields unchanged; conditional movement balance 2048 match; exclusion22 separates 578 inventory rows. Source API real PDF local read HTTP200 / 113 inventory match / no automatic approval; diagnostic JS asset HTTP200. Not full visual ground truth or model training.
+- Windows build completed. Frozen archive confirms new diagnostics module and pilot.40 constant. Frozen EXE launch not tested: earlier automatic approval review rejected executable startup without detailed reason; no bypass attempted.
+- Distribution includes private confirmed exclusion seed and updated instructions; user Data, raw training sources, API keys and tokens excluded. ZIP CRC / manifest hashes / packaged static equality verification recorded in build/pilot40-package-result.json. GitHub update release publishing not performed.
+
+
+2026-10-15 Portable pilot.41 prefix exclusions
+- Portable + Field Pilot AI regression 210 PASS (75.64s). Upstream TestClient deprecation and existing updater status.tmp contention warning occurred. Targeted installation + prefix suite (including one additional legacy-DB migration case) 13 PASS, no contention warning. Unique tested cases total 211.
+- Valid full JAN prefix matching; unknown-product matching; invalid/partial JAN not hidden; source row immutability; individual and prefix release precedence; atomic validation; v1/v2 seed idempotence; HTTP import/list/release; legacy exact-event retention verified.
+- Repository Ruff / Node prefix-panel syntax and review-table/batch/filter PASS. Real private checks: all specified 16 products excluded; 9702 inventory candidates unchanged; 2894 excluded with latest private24 exact +1 prefix rules. Raw sources and credentials not committed.
+- Windows build completed. Private seed and update HTML included in local distribution; CRC / manifest hashes / static equality / embedded version/module checks recorded in build/pilot41-package-result.json. Frozen EXE startup not tested after prior automatic approval rejection; no bypass attempted. GitHub update release not published.

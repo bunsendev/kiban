@@ -76,7 +76,7 @@ def _config(payload: dict, centers: set[str]) -> tuple[dict[str, dict], dict]:
     if not actor or not reason:
         raise InventoryHandoffError("確認者と確認理由を入力してください")
     if not bool(payload.get("confirm_case")):
-        raise InventoryHandoffError("明細バラ数を箱（CASE）として扱う確認が必要です")
+        raise InventoryHandoffError("取込用CSVの数量が箱（CASE）であることの確認が必要です")
     rows = payload.get("locations")
     if not isinstance(rows, list):
         raise InventoryHandoffError("拠点設定を確認してください")

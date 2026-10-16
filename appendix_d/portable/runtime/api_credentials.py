@@ -100,7 +100,12 @@ class ApiCredentials:
         finally:
             if temporary and temporary.exists():
                 temporary.unlink()
-        return self.status()
+        result = self.status()
+        if not result["available"]:
+            raise CredentialError(
+                "保存したキーを読み込めません。このWindowsユーザーで再設定してください"
+            )
+        return result
 
     def delete(self):
         if self.path:
