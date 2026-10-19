@@ -15,6 +15,8 @@ from forecast_provider.api.schemas import ExperimentCreate, SnapshotCreate
 from forecast_provider.api.service import ApplicationService
 from forecast_provider.catalog import SqliteCatalogStore
 from forecast_provider.jobs import SqliteRunStore
+from forecast_provider.providers.history_algorithms import MODELS as HISTORY_MODELS
+from forecast_provider.providers.history_algorithms import window_start
 
 from .formal_pipeline import PortableFormalPipeline
 from .formal_shipment_daily import canonical_json, sha256
@@ -92,9 +94,19 @@ class PortableProductionHandoff:
         runtime_configuration = runtime_resolutions[0]["selected_configuration"]
 
         eligible = {item["unique_id"] for item in manifest["series"] if item["forecast_eligible"]}
+        model = runtime_configuration["model_name"]
+        input_start = date.fromisoformat(manifest["train_start"])
+        if model in HISTORY_MODELS:
+            input_start = max(
+                input_start, window_start(manifest["train_end"], HISTORY_MODELS[model]).date()
+            )
+        elif any(item["status"] == "CANDIDATE_SELECTED" for item in runtime_resolutions):
+            input_start = max(
+                input_start, date.fromisoformat(manifest["train_end"]) - timedelta(days=399)
+            )
         if any(item["status"] == "CANDIDATE_SELECTED" for item in runtime_resolutions):
             try:
-                train_start = date.fromisoformat(manifest["train_start"])
+                train_start = input_start
                 train_end_for_limit = date.fromisoformat(manifest["train_end"])
                 enforce_resource_limits(
                     runtime_configuration,
@@ -104,7 +116,7 @@ class PortableProductionHandoff:
                 )
             except ValueError as exc:
                 raise ProductionHandoffError(str(exc)) from exc
-        snapshot_bytes = _production_csv(daily, eligible)
+        snapshot_bytes = _production_csv(daily, eligible, input_start.isoformat())
         snapshot_sha = sha256(snapshot_bytes)
         snapshot_path = self.snapshot_root / f"{snapshot_sha}.csv"
         _atomic_bytes(snapshot_path, snapshot_bytes)
@@ -118,7 +130,7 @@ class PortableProductionHandoff:
                 data_sha256=snapshot_sha,
                 selection_version=manifest["identity_bridge_version"],
                 unique_ids=tuple(sorted(eligible)),
-                train_start=date.fromisoformat(manifest["train_start"]),
+                train_start=input_start,
                 train_end=train_end,
                 test_start=test_start,
                 test_end=test_end,
@@ -145,6 +157,10 @@ class PortableProductionHandoff:
         receipt = {
             "format": "portable-production-handoff-v1",
             "verification_capture_version": 1,
+            "input_train_start": input_start.isoformat(),
+            "input_train_end": manifest["train_end"],
+            "input_daily_rows": len(snapshot_bytes.decode("utf-8").splitlines()) - 1,
+            "history_model_version": "history-models-v1" if model in HISTORY_MODELS else None,
             "build_id": build_id,
             "source_manifest_sha256": sha256(canonical_json(manifest)),
             "source_daily_sha256": manifest["daily_data_sha256"],
@@ -216,8 +232,16 @@ class PortableProductionHandoff:
                     "created_at": created_at,
                     "unit": "CASE",
                     "scope": "formal-jan-warehouse",
-                    "train_start": manifest["train_start"],
-                    "train_end": manifest["train_end"],
+                    "train_start": receipt.get("input_train_start", manifest["train_start"]),
+                    "train_end": receipt.get("input_train_end", manifest["train_end"]),
+                    **(
+                        {
+                            "input_daily_rows": receipt["input_daily_rows"],
+                            "history_model_version": receipt.get("history_model_version"),
+                        }
+                        if "input_daily_rows" in receipt
+                        else {}
+                    ),
                     "model": receipt["provider_id"] + ":" + receipt["model_name"],
                     "runtime_version": receipt["runtime_version"],
                 },
@@ -263,7 +287,7 @@ class PortableProductionHandoff:
         return value
 
 
-def _production_csv(raw: bytes, eligible: set[str]) -> bytes:
+def _production_csv(raw: bytes, eligible: set[str], start: str | None = None) -> bytes:
     try:
         reader = csv.DictReader(io.StringIO(raw.decode("utf-8-sig")), strict=True)
         required = {
@@ -278,7 +302,11 @@ def _production_csv(raw: bytes, eligible: set[str]) -> bytes:
         }
         if not required.issubset(reader.fieldnames or ()):
             raise ProductionHandoffError("日次CSVの列が一致しません")
-        rows = [row for row in reader if row["unique_id"] in eligible]
+        rows = [
+            row
+            for row in reader
+            if row["unique_id"] in eligible and (start is None or row["ds"] >= start)
+        ]
     except (UnicodeDecodeError, csv.Error) as exc:
         raise ProductionHandoffError("日次CSVを読み込めません") from exc
     if {row["unique_id"] for row in rows} != eligible:

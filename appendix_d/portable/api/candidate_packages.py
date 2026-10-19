@@ -25,6 +25,7 @@ from .runtime_profiles import (
     BASELINE_CONFIGURATION,
     RESOURCE_LIMITS,
     SUPPORTED_BASELINE_MODELS,
+    limits_for,
     supported_configuration,
 )
 
@@ -107,7 +108,7 @@ class PortableCandidatePackages:
             "runtime_configuration": configuration,
             "runtime_configuration_sha256": sha256(canonical_json(configuration)),
             "adapter": ADAPTER,
-            "resource_limits": RESOURCE_LIMITS,
+            "resource_limits": limits_for(configuration),
             "rollback": {
                 "target_version": proposal["rollback_target_version"],
                 "baseline_configuration_sha256": sha256(
@@ -133,7 +134,7 @@ class PortableCandidatePackages:
             "model_name": configuration["model_name"],
             "manifest_sha256": manifest_sha,
             "manifest_path": f"RuntimeCandidates/{manifest_path.name}",
-            "resource_limits": RESOURCE_LIMITS,
+            "resource_limits": limits_for(configuration),
             "rollback_target_version": proposal["rollback_target_version"],
             "smoke_test": smoke,
             "actor": actor,

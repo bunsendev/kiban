@@ -21,7 +21,8 @@ from .source_detection import read_source
 
 MIN_OBSERVED_DAYS = 28
 RECENT_COMPLETE_DAYS = 7
-MAX_HISTORY_DAYS = 365
+MAX_HISTORY_DAYS = 1096
+HISTORY_POLICY_VERSION = "three-calendar-years-v1"
 
 
 class FormalShipmentBuildError(ValueError):
@@ -58,9 +59,7 @@ def build_daily_shipment(
     if not prepared_path.is_file():
         raise FormalShipmentBuildError("確認済み出荷データが見つかりません")
     prepared_bytes = prepared_path.read_bytes()
-    selected = {
-        (item["source_center"], item["jan"]): item for item in identities
-    }
+    selected = {(item["source_center"], item["jan"]): item for item in identities}
     invalid_occurrences = invalid_occurrences or set()
     invalid_file_dates = invalid_file_dates or set()
     snapshot_dates_by_center = snapshot_dates_by_center or {}
@@ -75,7 +74,10 @@ def build_daily_shipment(
         raise FormalShipmentBuildError("出荷CSVがない倉庫があります")
     center_windows = {
         center: {
-            "train_start": max(min(days), max(days) - timedelta(days=364)),
+            "train_start": max(
+                min(days),
+                (pd.Timestamp(max(days)) - pd.DateOffset(years=3) + pd.Timedelta(days=1)).date(),
+            ),
             "train_end": max(days),
         }
         for center, days in window_dates.items()
@@ -98,7 +100,9 @@ def build_daily_shipment(
             quantity = quantities.get((center, jan, current))
             issue = None
             if (center, current) in invalid_file_dates or (
-                center, jan, current
+                center,
+                jan,
+                current,
             ) in invalid_occurrences:
                 state = "PARTIAL_OR_INVALID"
                 quantity = None
@@ -140,17 +144,24 @@ def build_daily_shipment(
             }
             rows.append(row)
             frame_rows.append(
-                {"ds": pd.Timestamp(current), "unique_id": uid,
-                 "source_center": center,
-                 "y": None if quantity is None else float(quantity)}
+                {
+                    "ds": pd.Timestamp(current),
+                    "unique_id": uid,
+                    "source_center": center,
+                    "y": None if quantity is None else float(quantity),
+                }
             )
             current += timedelta(days=1)
         required_start = origin - timedelta(days=MIN_OBSERVED_DAYS - 1)
-        required_rows = [r for r in rows if r["unique_id"] == uid
-                         and required_start.isoformat() <= r["ds"] <= origin.isoformat()]
+        required_rows = [
+            r
+            for r in rows
+            if r["unique_id"] == uid and required_start.isoformat() <= r["ds"] <= origin.isoformat()
+        ]
         recognized_dates = {r["ds"] for r in required_rows if r["y"] is not None}
-        required_dates = [(required_start + timedelta(days=i)).isoformat()
-                          for i in range(MIN_OBSERVED_DAYS)]
+        required_dates = [
+            (required_start + timedelta(days=i)).isoformat() for i in range(MIN_OBSERVED_DAYS)
+        ]
         missing_required = [day for day in required_dates if day not in recognized_dates]
         blockers = []
         if missing_required:
@@ -188,6 +199,7 @@ def build_daily_shipment(
     prepared_sha = sha256(prepared_bytes)
     identity_payload = {
         "format": "portable-formal-shipment-daily-v1",
+        "history_policy_version": HISTORY_POLICY_VERSION,
         "registration_id": registration_id,
         "source_archive_sha256": handoff["source_archive_sha256"],
         "prepared_sha256": prepared_sha,
@@ -207,7 +219,8 @@ def build_daily_shipment(
                 "train_end": window["train_end"].isoformat(),
                 "inventory_snapshot_date": (
                     snapshot_dates_by_center[center].isoformat()
-                    if center in snapshot_dates_by_center else None
+                    if center in snapshot_dates_by_center
+                    else None
                 ),
             }
             for center, window in sorted(center_windows.items())
@@ -232,8 +245,16 @@ def build_daily_shipment(
 def daily_csv(build: dict) -> bytes:
     target = io.StringIO(newline="")
     fields = (
-        "canonical_product_id", "center_id", "jan", "source_center", "ds",
-        "unique_id", "raw_quantity", "y", "state", "issue",
+        "canonical_product_id",
+        "center_id",
+        "jan",
+        "source_center",
+        "ds",
+        "unique_id",
+        "raw_quantity",
+        "y",
+        "state",
+        "issue",
     )
     writer = csv.DictWriter(target, fieldnames=fields, lineterminator="\n")
     writer.writeheader()
@@ -241,8 +262,9 @@ def daily_csv(build: dict) -> bytes:
     return target.getvalue().encode("utf-8-sig")
 
 
-def _shipment_file_dates(raw: bytes, centers: set[str], *, include_observed=False
-                         ) -> dict[str, set[date]]:
+def _shipment_file_dates(
+    raw: bytes, centers: set[str], *, include_observed=False
+) -> dict[str, set[date]]:
     output: dict[str, set[date]] = defaultdict(set)
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
         for member in _safe_members(archive):
@@ -256,6 +278,7 @@ def _shipment_file_dates(raw: bytes, centers: set[str], *, include_observed=Fals
                 output[center].add(file_date)
             if center in centers and include_observed:
                 from .business_archive import _business_date
+
                 for row in reader:
                     day = _business_date(str(row.get("出荷日") or ""))
                     if day is not None:

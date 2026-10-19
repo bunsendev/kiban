@@ -37,6 +37,8 @@ from ..frames import (
 )
 from ..run_context import validate_context_ref
 from . import baseline_algorithms
+from .history_algorithms import MODELS as HISTORY_MODELS
+from .history_algorithms import predict_path
 
 _historical_forecast = baseline_algorithms.historical_forecast
 _observed_residual_quantiles = baseline_algorithms.observed_residual_quantiles
@@ -79,6 +81,17 @@ MODEL_METADATA: tuple[ModelMetadata, ...] = (
         supports_intervals=True,
         primary=False,
     ),
+)
+MODEL_METADATA += tuple(
+    ModelMetadata(
+        model_id=name,
+        display_name=name,
+        min_history_days=28,
+        supported_horizons=(1, 28),
+        supports_intervals=False,
+        primary=False,
+    )
+    for name in HISTORY_MODELS
 )
 SUPPORTED_MODELS: dict[str, ModelMetadata] = {m.model_id: m for m in MODEL_METADATA}
 DEFAULT_MODEL = "seasonal_naive_7"
@@ -148,6 +161,14 @@ class BuiltinBaselineProvider(ForecastProvider):
                 )
             )
 
+        if config.model in HISTORY_MODELS and config.interval_levels:
+            issues.append(
+                ValidationIssue(
+                    code="HISTORY_POINT_ONLY",
+                    message="履歴比較モデルはPOINT予測専用です",
+                    blocking=True,
+                )
+            )
         if config.params:
             issues.append(
                 ValidationIssue(
@@ -420,11 +441,23 @@ class BuiltinBaselineProvider(ForecastProvider):
                 continue
 
             resid_q = model_ref.state["residual_quantiles"][uid]
+            history_points = (
+                {
+                    item["target_date"]: item["yhat"]
+                    for item in predict_path(history, origin, group["target_date"], model_name)
+                }
+                if model_name in HISTORY_MODELS
+                else None
+            )
 
             for _, row in group.iterrows():
                 target_d = pd.Timestamp(row["target_date"])
                 h = int(row["horizon"])
-                point = _point_forecast(history, target_d, h, model_name)
+                point = (
+                    history_points.get(target_d.date().isoformat())
+                    if history_points is not None
+                    else _point_forecast(history, target_d, h, model_name)
+                )
                 if point is None or np.isnan(point):
                     continue
                 base = {
@@ -493,6 +526,8 @@ class BuiltinBaselineProvider(ForecastProvider):
                 f"builtin-baseline はparamsを受け付けません: {sorted(config.params)}"
             )
         quantiles_from_interval_levels(config.interval_levels)
+        if config.model in HISTORY_MODELS and config.interval_levels:
+            raise ContractViolationError("履歴比較モデルはPOINT予測専用です")
 
     @staticmethod
     def _validate_run(model_ref: ModelRef, context: RunContext) -> None:

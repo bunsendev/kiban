@@ -15,9 +15,9 @@ from portable.api.formal_pipeline import PortableFormalPipeline
 from portable.api.production_handoff import ProductionHandoffError
 from portable.api.runtime_assignments import PortableRuntimeAssignments
 from portable.api.runtime_profiles import (
-    RESOURCE_LIMITS,
     SUPPORTED_BASELINE_MODELS,
     enforce_resource_limits,
+    limits_for,
     supported_configuration,
 )
 from portable.runtime.paths import DataPaths
@@ -84,7 +84,7 @@ def test_package_runs_supported_model_and_is_selected_for_exact_scope(
     assert receipt["model_name"] == model_name
     assert receipt["smoke_test"]["status"] == "PASSED"
     assert receipt["smoke_test"]["forecast_count"] == 14
-    assert receipt["resource_limits"] == RESOURCE_LIMITS
+    assert receipt["resource_limits"] == limits_for({"model_name": model_name})
     application = _application(
         PortableChangeApplications(database), proposal, receipt, known_at
     )

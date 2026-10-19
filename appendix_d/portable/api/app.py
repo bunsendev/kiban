@@ -47,6 +47,7 @@ from .forecast_verification import ForecastVerification
 from .formal_change_routes import register_formal_change_routes
 from .formal_forecast_routes import register_formal_forecast_routes
 from .formal_pipeline_routes import register_formal_pipeline_routes
+from .history_study_routes import register_history_studies
 from .input_csv import MAX_CSV_BYTES, InputError, parse_csv
 from .inventory_routes import register_inventory_handoff_routes
 from .learning_experiment_routes import register_learning_experiment_routes
@@ -87,6 +88,7 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     app.state.active = 0
     app.state.closing = False
     app.state.lock = threading.Lock()
+    register_history_studies(app, paths, _read_limited)
     register_operations(app, paths, _read_limited, control_token)
 
     def load_analysis(analysis_id: str) -> tuple[dict, Path]:

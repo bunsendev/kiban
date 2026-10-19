@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from forecast_provider.providers.builtin_baseline import PROVIDER_VERSION
+from forecast_provider.providers.history_algorithms import MODELS as HISTORY_MODELS
 
 BASELINE_CONFIGURATION = {
     "version": "builtin-baseline-v1",
@@ -14,12 +15,14 @@ BASELINE_CONFIGURATION = {
     "params": {},
 }
 
-SUPPORTED_BASELINE_MODELS = frozenset({
-    "seasonal_naive_7",
-    "moving_average_28",
-    "same_weekday_mean_4",
-    "seasonal_naive_364",
-})
+SUPPORTED_BASELINE_MODELS = frozenset(
+    {
+        "seasonal_naive_7",
+        "moving_average_28",
+        "same_weekday_mean_4",
+        "seasonal_naive_364",
+    }
+) | frozenset(HISTORY_MODELS)
 
 RESOURCE_LIMITS = {
     "profile": "cpu-small",
@@ -41,12 +44,18 @@ def supported_configuration(value: object) -> bool:
     if not isinstance(value, dict):
         return False
     required = {
-        "version", "provider_id", "model_name", "preprocessing_version",
-        "seed", "resource_profile", "params",
+        "version",
+        "provider_id",
+        "model_name",
+        "preprocessing_version",
+        "seed",
+        "resource_profile",
+        "params",
     }
     return (
         set(value) == required
-        and isinstance(value.get("version"), str) and bool(value["version"].strip())
+        and isinstance(value.get("version"), str)
+        and bool(value["version"].strip())
         and value.get("provider_id") == "builtin-baseline"
         and value.get("model_name") in SUPPORTED_BASELINE_MODELS
         and value.get("preprocessing_version") == "portable-daily-state-v1"
@@ -56,14 +65,25 @@ def supported_configuration(value: object) -> bool:
     )
 
 
-def enforce_resource_limits(configuration: dict, *, series: int, history_days: int,
-                            horizon_days: int) -> None:
+def limits_for(configuration):
+    if (
+        configuration.get("model_name") in HISTORY_MODELS
+        and HISTORY_MODELS[configuration["model_name"]] is None
+    ):
+        return RESOURCE_LIMITS | {"profile": "cpu-small-history-v1", "max_history_days": 1096}
+    return dict(RESOURCE_LIMITS)
+
+
+def enforce_resource_limits(
+    configuration: dict, *, series: int, history_days: int, horizon_days: int
+) -> None:
     if not supported_configuration(configuration):
         raise ValueError("Portable Workerが対応していない実行設定です")
+    limits = limits_for(configuration)
     values = {
-        "系列数": (series, RESOURCE_LIMITS["max_series"]),
-        "履歴日数": (history_days, RESOURCE_LIMITS["max_history_days"]),
-        "予測日数": (horizon_days, RESOURCE_LIMITS["max_horizon_days"]),
+        "系列数": (series, limits["max_series"]),
+        "履歴日数": (history_days, limits["max_history_days"]),
+        "予測日数": (horizon_days, limits["max_horizon_days"]),
     }
     invalid = [name for name, (actual, _) in values.items() if actual < 1]
     if invalid:

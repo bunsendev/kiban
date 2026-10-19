@@ -204,3 +204,5 @@ Phase 3TのPortable Pilot停止Gateで、`PAUSE_PILOT`判断を担当者の明�
 
 変更ファイル、理由、契約への影響、pytest・ruff・実データ検証、未対応事項を記載する。
 契約変更は仕様・コード・テストを同時更新し、テスト削除や期待値の弱体化で通さない。
+
+2026-10-20: 正式日次の3暦年入力と履歴方式比較（/history-studies）は planning/THREE_YEAR_HISTORY_RESULT.md を参照。現行方式は維持し、単位未確認の比較を正式採用しない。

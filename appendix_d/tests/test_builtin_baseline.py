@@ -496,6 +496,11 @@ def test_model_metadata_is_model_specific() -> None:
         "moving_average_28": 28,
         "same_weekday_mean_4": 28,
         "seasonal_naive_364": 364,
+        "history_weekday_28_v1": 28,
+        "history_weekday_90_v1": 28,
+        "history_weekday_365_v1": 28,
+        "history_weekday_3y_v1": 28,
+        "history_seasonal_recent_3y_v1": 28,
     }
     assert {m.model_id: m.min_history_days for m in meta.models} == expected
 

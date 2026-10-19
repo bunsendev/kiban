@@ -1,3 +1,6 @@
+2026-10-20 Portable pilot.45 3暦年履歴・方式比較
+追加・候補回帰26件成功（7.96秒）。実CSVの条件付きバックテスト13起点、6方式、220系列、明細54,204件。単位未確認と日時仮定のため正式採用保留。Ruff/check_lint/JS構文とブラウザ結果表示・検索確認。全体回帰1156成功・20skip・版表記1失敗はガイド更新後の梱包2件成功で解消。最終の失敗再実行・release整合性検査も成功。詳細 planning/THREE_YEAR_HISTORY_RESULT.md。Windows凍結EXE未更新。
+
 2026-10-05 Portable pilot.15 署名鍵切替
 新規鍵保存/署名/送信関連25件成功（5.50秒）、ruff成功。凍結EXE E2E/再起動PASS。ZIP2505ファイルhash/新公開鍵一致/資格情報不在を確認。公開署名の検証結果は planning/PORTABLE_SIGNED_RELEASE_PILOT15.md 参照。
 

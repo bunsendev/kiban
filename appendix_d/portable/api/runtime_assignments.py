@@ -16,7 +16,7 @@ from .formal_shipment_daily import canonical_json, sha256
 from .runtime_profiles import (
     ADAPTER,
     BASELINE_CONFIGURATION,
-    RESOURCE_LIMITS,
+    limits_for,
     supported_configuration,
 )
 
@@ -251,7 +251,7 @@ def _valid_package_manifest(value: dict, application: dict) -> bool:
         and value.get("runtime_configuration_sha256")
         == sha256(canonical_json(value.get("runtime_configuration")))
         and value.get("adapter") == ADAPTER
-        and value.get("resource_limits") == RESOURCE_LIMITS
+        and value.get("resource_limits") == limits_for(value.get("runtime_configuration") or {})
         and isinstance(rollback, dict)
         and rollback == {
             "target_version": application["proposal"]["rollback_target_version"],

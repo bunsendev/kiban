@@ -24,6 +24,7 @@ def forecast(
     horizon: int = HORIZON,
     dataset_snapshot_id: str = "portable-p1",
     selection_version: str = "portable-p1",
+    model: str = MODEL,
 ) -> list[dict]:
     origin = frame["ds"].max().date()
     ids = tuple(sorted(frame["unique_id"].unique()))
@@ -42,7 +43,7 @@ def forecast(
     )
     config = ProviderConfig(
         provider_id="builtin-baseline",
-        model=MODEL,
+        model=model,
         preprocessing_version="daily-nan-preserving-v1",
         interval_levels=(),
     )

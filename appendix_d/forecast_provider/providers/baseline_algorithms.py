@@ -56,6 +56,8 @@ def residual_quantiles(
 ) -> dict[tuple[int, float], float]:
     """ASSUMEDのTRAIN系列から経験残差分位を推定する。"""
     out: dict[tuple[int, float], float] = {}
+    if not quantiles:
+        return out
     values = series.to_numpy(dtype="float64")
     for horizon in horizons:
         predictions = historical_forecast(values, horizon, model_name)
@@ -98,9 +100,7 @@ def observed_residual_quantiles(
     out: dict[tuple[int, float], float] = {}
     for horizon in horizons:
         cutoffs = (full_index - pd.Timedelta(days=horizon - 1)).tz_localize("Asia/Tokyo")
-        predictions = _observed_historical_forecast(
-            values, arrivals, cutoffs, horizon, model_name
-        )
+        predictions = _observed_historical_forecast(values, arrivals, cutoffs, horizon, model_name)
         _store_quantiles(out, horizon, truth - predictions, quantiles)
     return out
 
