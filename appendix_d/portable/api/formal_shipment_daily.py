@@ -67,7 +67,10 @@ def build_daily_shipment(
     if not selected:
         raise FormalShipmentBuildError("予測対象の商品がありません")
     file_dates = _shipment_file_dates(archive_bytes, {key[0] for key in selected})
-    missing_centers = sorted({key[0] for key in selected} - set(file_dates))
+    window_dates = _shipment_file_dates(
+        archive_bytes, {key[0] for key in selected}, include_observed=True
+    )
+    missing_centers = sorted({key[0] for key in selected} - set(window_dates))
     if missing_centers:
         raise FormalShipmentBuildError("出荷CSVがない倉庫があります")
     center_windows = {
@@ -75,7 +78,7 @@ def build_daily_shipment(
             "train_start": max(min(days), max(days) - timedelta(days=364)),
             "train_end": max(days),
         }
-        for center, days in file_dates.items()
+        for center, days in window_dates.items()
     }
     overall_start = min(item["train_start"] for item in center_windows.values())
     overall_end = max(item["train_end"] for item in center_windows.values())
@@ -107,7 +110,7 @@ def build_daily_shipment(
                 state = "OBSERVED"
                 observed += 1
                 last_observed = current.isoformat()
-            elif current in file_dates[center] and zero_when_file_present:
+            elif current in file_dates.get(center, set()) and zero_when_file_present:
                 state = "CONFIRMED_ZERO"
                 quantity = Decimal("0")
                 zero += 1
@@ -118,7 +121,7 @@ def build_daily_shipment(
                 missing += 1
                 issue = (
                     "ZERO_POLICY_UNCONFIRMED"
-                    if current in file_dates[center]
+                    if current in file_dates.get(center, set())
                     else "SOURCE_FILE_MISSING"
                 )
                 if current > origin - timedelta(days=RECENT_COMPLETE_DAYS):
@@ -142,9 +145,15 @@ def build_daily_shipment(
                  "y": None if quantity is None else float(quantity)}
             )
             current += timedelta(days=1)
-        non_missing = observed + zero
+        required_start = origin - timedelta(days=MIN_OBSERVED_DAYS - 1)
+        required_rows = [r for r in rows if r["unique_id"] == uid
+                         and required_start.isoformat() <= r["ds"] <= origin.isoformat()]
+        recognized_dates = {r["ds"] for r in required_rows if r["y"] is not None}
+        required_dates = [(required_start + timedelta(days=i)).isoformat()
+                          for i in range(MIN_OBSERVED_DAYS)]
+        missing_required = [day for day in required_dates if day not in recognized_dates]
         blockers = []
-        if non_missing < MIN_OBSERVED_DAYS:
+        if missing_required:
             blockers.append("HISTORY_LESS_THAN_28_DAYS")
         if recent_missing:
             blockers.append("RECENT_SOURCE_DAYS_MISSING")
@@ -164,6 +173,11 @@ def build_daily_shipment(
                 "last_observed_day": last_observed,
                 "train_start": start.isoformat(),
                 "train_end": origin.isoformat(),
+                "required_start": required_start.isoformat(),
+                "required_end": origin.isoformat(),
+                "required_day_count": MIN_OBSERVED_DAYS,
+                "recognized_required_days": len(recognized_dates),
+                "missing_required_dates": missing_required,
                 "inventory_snapshot_date": (
                     None if snapshot_date is None else snapshot_date.isoformat()
                 ),
@@ -227,18 +241,25 @@ def daily_csv(build: dict) -> bytes:
     return target.getvalue().encode("utf-8-sig")
 
 
-def _shipment_file_dates(raw: bytes, centers: set[str]) -> dict[str, set[date]]:
+def _shipment_file_dates(raw: bytes, centers: set[str], *, include_observed=False
+                         ) -> dict[str, set[date]]:
     output: dict[str, set[date]] = defaultdict(set)
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
         for member in _safe_members(archive):
             name = PurePosixPath(member.filename).name
             if member.is_dir() or not name.lower().endswith(".csv"):
                 continue
-            kind, center, file_date, _ = read_source(archive, member)
+            kind, center, file_date, reader = read_source(archive, member)
             if kind != "shipment":
                 continue
             if center in centers and file_date is not None:
                 output[center].add(file_date)
+            if center in centers and include_observed:
+                from .business_archive import _business_date
+                for row in reader:
+                    day = _business_date(str(row.get("出荷日") or ""))
+                    if day is not None:
+                        output[center].add(day)
     return dict(output)
 
 

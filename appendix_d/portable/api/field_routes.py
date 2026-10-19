@@ -6,6 +6,7 @@ import io
 import json
 import re
 import uuid
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -20,12 +21,25 @@ from .business_archive import MAX_ZIP_BYTES, atomic_json
 from .field_read_model import build_view, export, page, safe_csv, with_reviews
 from .field_store import FieldStore
 from .field_workflow import FieldWorkflow
+from .reference_demand import demand_forecast
 from .result_feedback import FeedbackConflict
 
 STATIC = Path(__file__).parent / "static" / "field"
 
 
 def register_field_routes(app, paths, intake, daily, resolve, read_limited):
+    @contextmanager
+    def exclusive():
+        with app.state.lock:
+            if app.state.closing or app.state.active:
+                raise HTTPException(409, "別の処理を実行中です。完了後に再試行してください")
+            app.state.active += 1
+        try:
+            yield
+        finally:
+            with app.state.lock:
+                app.state.active -= 1
+
     store = FieldStore(paths.state / "field-ui.sqlite3")
     workflow = FieldWorkflow(app, store, intake, daily)
     events = SqliteOperationEventStore(paths.state / "field-operation-events.sqlite3")
@@ -112,6 +126,31 @@ def register_field_routes(app, paths, intake, daily, resolve, read_limited):
         if not re.fullmatch(r"[0-9a-f]{64}", analysis_id):
             raise HTTPException(422, "分析を確認してください")
         return workflow.start("ADVANCE", lambda: daily.advance(analysis_id, value), analysis_id)
+
+    @app.post("/api/field/{analysis_id}/demand")
+    async def demand_only(analysis_id: str, request: Request):
+        if not re.fullmatch(r"[0-9a-f]{64}", analysis_id):
+            raise HTTPException(422, "分析を確認してください")
+        value = await payload(request)
+        try:
+            with exclusive():
+                return await run_in_threadpool(demand_forecast, paths, analysis_id, value)
+        except (ValueError, OSError) as exc:
+            raise HTTPException(422, str(exc)) from None
+
+    @app.post("/api/field/input-history/rebuild")
+    def rebuild_input_history():
+        accepted, errors = [], []
+        originals = sorted(paths.input.glob('*.zip'), key=lambda p: p.stat().st_mtime_ns)
+        with exclusive():
+            for source in originals:
+                try:
+                    result = intake.ingest(source.read_bytes())
+                    accepted.append({'source':source.name,'analysis_id':result['analysis_id']})
+                except ValueError as exc:
+                    errors.append({'source':source.name,'reason':str(exc)})
+        return {'accepted':accepted, 'errors':errors,
+                'notice':'以前の原本を候補履歴へ再集計しました。正式承認は変更していません。'}
 
     @app.get("/api/field/{analysis_id}/results")
     def results(analysis_id: str):

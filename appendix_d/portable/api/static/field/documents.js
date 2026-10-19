@@ -9,9 +9,16 @@ export async function documents(ctx, parent) {
   const group=el('details','',parent);
   el('summary','手書き・写真・PDFから取り込む',group);
   el('p','PDF・PNG・JPEG（1ファイル10 MBまで）。読み取り後に原本を確認し、修正してから分析へ進めます。',group);
-  const input=field(group,'原本を選ぶ','file'); input.accept='.pdf,.png,.jpg,.jpeg';
+  const input=field(group,'原本を選ぶ（複数可・文書ZIP可）','file'); input.accept='.pdf,.png,.jpg,.jpeg,.zip';input.multiple=true;
   const master=await masterPanel(ctx,group);
+  const fileChoice=el('select','',el('label','確認する原本（一覧の表示は1文書ずつ）',group));
+  let pendingEdits=false,lastChoice='',bulkStopped=false;
   const list=el('div','',group);
+  list.addEventListener('input',()=>{pendingEdits=true;});
+  fileChoice.onchange=()=>ctx.run(async()=>{
+    if(pendingEdits&&!window.confirm('未保存の編集を破棄して原本を切り替えますか？')){fileChoice.value=lastChoice;return;}
+    await refresh();
+  });
   const notice=el('p','',group);notice.setAttribute('role','status');
   function showKeyStatus(v){notice.textContent=v.available?'APIキーは保存済み・読込確認済みです。原本を登録し、送信同意後に読み取れます。':'APIキーが未設定、または読込できません。画面上部のAI・API設定で保存してください。';}
   async function keyStatus(){const v=await api('/api/ai-credentials');showKeyStatus(v);return v;}
@@ -19,19 +26,42 @@ export async function documents(ctx, parent) {
   document.addEventListener('portable-api-key-status',updateKeyStatus);
   await keyStatus();
   button('原本を登録する',()=>ctx.run(async()=>{
-    const f=input.files[0]; if(!f) throw new Error('原本を選択してください');
-    if(f.size>10*1024*1024) throw new Error('10 MB以内で選択してください');
-    const r=await fetch('/api/documents/upload',{method:'POST',headers:{'X-File-Name':encodeURIComponent(f.name)},body:f});
-    const v=await r.json(); if(!r.ok) throw new Error(v.detail||'登録できませんでした');
-    input.value=''; await refresh();
+    if(!input.files.length) throw new Error('原本を選択してください');
+    let count=0;const failures=[];
+    for(const f of input.files){try{
+      const zipped=f.name.toLowerCase().endsWith('.zip');if(f.size>(zipped?100:10)*1024*1024)throw new Error('容量制限を超えています');
+      const r=await fetch(zipped?'/api/documents/batch':'/api/documents/upload',{method:'POST',headers:{'X-File-Name':encodeURIComponent(f.name)},body:f});
+      const v=await r.json();if(!r.ok)throw new Error(v.detail||'登録できませんでした');
+      count+=zipped?v.accepted.length:1;if(zipped)for(const e of v.errors)failures.push(`${e.file}：${e.reason}`);
+    }catch(e){failures.push(`${f.name}：${e.message}`);}}
+    input.value='';await refresh();ctx.message(`登録 ${count}件。${failures.join('／')}`);
   }),group);
+  button('未読取の印刷PDFを一括読取（API不要）',()=>ctx.run(async()=>{
+    let count=0;const failures=[];bulkStopped=false;
+    for(const doc of await api('/api/documents')){if(bulkStopped)break;if(doc.mime!=='application/pdf'||doc.extraction||doc.approval||doc.cancelled)continue;
+      ctx.message(`${doc.name} を読取中／完了 ${count}件。中止しても成功分は残ります。`);
+      try{await api(`/api/documents/${doc.id}/local`,{});count++;}catch(e){failures.push(`${doc.name}：${e.message}`);}}
+    await refresh();ctx.message(`${bulkStopped?'一括読取を中止しました。':''}読取 ${count}件。承認は未実施です。${failures.join('／')}`);
+  }),group,true);
+  button('一括読取を中止（成功分は保持）',()=>{bulkStopped=true;},group,true);
+  button('確認済み文書をまとめて分析へ渡す',()=>ctx.run(async()=>{
+    let count=0;const failures=[];
+    for(const doc of await api('/api/documents')){if(!doc.approval||doc.approval.dispatched||doc.superseded_by||doc.cancelled)continue;
+      try{await api(`/api/documents/${doc.id}/dispatch`,{});count++;}catch(e){failures.push(`${doc.name}：${e.message}`);}}
+    await refresh();ctx.message(`受渡し ${count}件。${failures.join('／')}投入フォルダの確認で履歴をまとめて分析します。`);
+  }),group,true);
   button('投入フォルダの画像・PDFを確認',()=>ctx.run(async()=>{
     const v=await api('/api/documents/folder',{}); await refresh();
     ctx.message(`${v.count}ファイルを確認しました。未表示のファイルは形式・10 MB制限をご確認ください。`);
   }),group,true);
   async function refresh(){
     list.replaceChildren();
-    for(const doc of await api('/api/documents')){
+    const all=await api('/api/documents'),selected=fileChoice.value;
+    fileChoice.replaceChildren();for(const doc of all){const o=el('option',`${doc.name} ／ ${doc.approval?'確認済み':doc.cancelled?'取りやめ済み':doc.extraction?'確認待ち':'未読取'}`,fileChoice);o.value=doc.id;}
+    fileChoice.value=all.some(d=>d.id===selected)?selected:all.find(d=>!d.approval&&!d.cancelled)?.id||all[0]?.id||'';
+    lastChoice=fileChoice.value;pendingEdits=false;
+    for(const doc of all){
+      if(doc.id!==fileChoice.value)continue;
       const box=el('details','',list); el('summary',`${doc.name} ／ ${doc.approval?'確認済み':doc.cancelled?'取りやめ済み':doc.extraction?'確認待ち':'未読取'}`,box);
       let stopped=!!doc.cancelled;
       if(!doc.approval){

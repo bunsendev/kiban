@@ -25,7 +25,7 @@ from forecast_provider.inventory_foundation import (
     validate_jan,
 )
 
-from .business_archive import _business_date, _decode, _safe_members
+from .business_archive import _business_date, _safe_members
 from .business_review import latest_decisions
 from .source_detection import read_source
 
@@ -226,12 +226,14 @@ def build_inventory_handoff(
         candidates: dict[str, bytes] = {}
         for center, (member, file_date) in sorted(latest.items()):
             config = configs[center]
-            rows = csv.DictReader(io.StringIO(_decode(archive.read(member)), newline=""))
+            _, _, _, rows = read_source(archive, member)
             totals: dict[tuple[str, date], Decimal] = defaultdict(Decimal)
             source_rows = 0
             for row_number, row in enumerate(rows, start=2):
                 source_rows += 1
                 code = str(row.get("商品コード") or "").strip()
+                if code in report.get("registered_exclusions", {}).get("jans", []):
+                    continue
                 jan = _mapped_jan(report, decisions, code)
                 expiry = _parse_expiry(str(row.get("賞味期限") or ""))
                 quantity = _parse_quantity(str(row.get("明細バラ数") or ""))

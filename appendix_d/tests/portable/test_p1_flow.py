@@ -1212,7 +1212,11 @@ def test_formal_forecast_keeps_invalid_product_blocked_and_runs_others(tmp_path:
     assert result["blocked_series_count"] == 1
     blocked = next(item for item in result["series"] if not item["forecast_eligible"])
     assert blocked["jan"] == _jan13(0)
-    assert blocked["blocking_reasons"] == ["RECENT_SOURCE_DAYS_MISSING"]
+    assert blocked["blocking_reasons"] == [
+        "HISTORY_LESS_THAN_28_DAYS", "RECENT_SOURCE_DAYS_MISSING"
+    ]
+    assert blocked["recognized_required_days"] == 27
+    assert len(blocked["missing_required_dates"]) == 1
     assert len(result["predictions"]) == 126
 
 

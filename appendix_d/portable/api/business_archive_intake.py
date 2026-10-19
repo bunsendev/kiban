@@ -1,20 +1,32 @@
 """Shared business ZIP intake used by HTTP upload and the drop folder."""
 
 import os
+import threading
 
 from .business_archive import analyze_archive, atomic_json, content_id
 from .business_review import apply_remembered_rules, latest_decisions, rebuild_reviewed_prepared
+from .input_history import InputHistory
+from .product_exclusions import ProductExclusions
 
 
 class BusinessArchiveIntake:
     def __init__(self, paths, daily_runs) -> None:
         self.paths = paths
         self.daily_runs = daily_runs
+        self.history = InputHistory(paths)
+        self.lock = threading.RLock()
 
     def ingest(self, data: bytes) -> dict:
+        with self.lock:
+            with self.history.stage(data) as (combined, history):
+                return self._ingest(combined, history)
+
+    def _ingest(self, data: bytes, history: dict) -> dict:
         analysis_id = content_id(data)
         prepared_path = self.paths.prepared / f"{analysis_id}.csv"
-        report = analyze_archive(data, prepared_path)
+        report = analyze_archive(data, prepared_path, allow_inventory_only=True,
+                                 exclusions=ProductExclusions(self.paths))
+        report["input_history"] = history
         input_path = self.paths.input / f"{analysis_id}.zip"
         if not input_path.exists():
             temporary = input_path.with_suffix(".tmp")

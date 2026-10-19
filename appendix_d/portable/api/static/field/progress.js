@@ -95,6 +95,14 @@ export async function analysis(ctx) {
   const id = ctx.analysisId;
   const report = await api(`/api/business-archives/${id}`),
     state = await api(`/api/daily-runs/${id}`);
+  if(report.input_history)el('p',`この倉庫の取込候補履歴：${report.input_history.candidate_files}ファイル／今回追加 ${report.input_history.new_files}／重複 ${report.input_history.duplicate_files}／過去から参照 ${report.input_history.inherited_files}`,ctx.root);
+  const sourceList=el('details','',ctx.root);el('summary','認識したファイルの種類・基準日',sourceList);
+  for(const f of report.source_files||[])el('p',`${f.name}：${({shipment:'出荷',inventory:'在庫',document_confirmation_required:'文書の原本確認が必要',metadata:'補助ファイル'})[f.kind]||'形式を認識できません'}／${f.center||'倉庫未確認'}／${f.date||'基準日未確認'}${f.reason?'／'+f.reason:''}`,sourceList);
+  button('以前の受付済み原本を履歴へ再集計',()=>ctx.run(async()=>{
+    const v=await api('/api/field/input-history/rebuild',{});
+    ctx.message(`再集計 ${v.accepted.length}件／失敗 ${v.errors.length}件。${v.errors.map(e=>`${e.source}：${e.reason}`).join('／')}`);
+    if(v.accepted.length){ctx.analysisId=v.accepted.at(-1).analysis_id;await analysis(ctx);}
+  }),ctx.root,true);
   el(
     "p",
     `読み込み完了：在庫 ${report.rows.inventory}行／出荷 ${report.rows.shipment}行／確認待ち ${report.review.pending_items}項目`,
@@ -103,7 +111,7 @@ export async function analysis(ctx) {
   for (const w of report.center_windows || [])
     el(
       "p",
-      `${w.center || w.source_center || "倉庫"}：出荷の最終日 ${w.latest_date || "未確認"}／直近35日で不足 ${w.missing_recent_days ?? "未確認"}日`,
+      `${w.center || w.source_center || "倉庫"}：出荷の最終日 ${w.latest_date || "未確認"}／参考バックテスト用35日（28日学習＋7日評価）で不足 ${w.missing_recent_days ?? "未確認"}日。予測の直近28日判定とは別です。`,
       ctx.root,
     );
   const status = el("p", state.next_action, ctx.root);
@@ -132,7 +140,11 @@ export async function analysis(ctx) {
     state.status === "INVENTORY_CONFIRMATION_REQUIRED" ||
     state.status === "INVENTORY_BLOCKED"
   )
-    await inventoryForm(ctx, id);
+    if(report.rows.inventory)await inventoryForm(ctx, id);
+  if(!report.rows.inventory){
+    el('p','出荷実績は保存済みですが、この倉庫の在庫CSVはありません。需要予測だけは下から実行できます。在庫見通し・不足判定には、基準日の在庫PDFを確認して渡すか、在庫CSVを追加してください。',ctx.root);
+    demandOnlyForm(ctx,id);
+  }
   if (
     [
       "READY_TO_ADVANCE",
@@ -184,7 +196,8 @@ export async function analysis(ctx) {
     const list=el('ul','',ctx.root);
     for(const item of state.blockers){
       const explanation=(item.reason_codes||[]).map(code=>reasons[code]||code).join('／');
-      el('li',`${item.source_center||''} ${item.jan||''}：${explanation||item.detail||item.status||'入力条件を確認してください'}`,list);
+      const days=item.required_start?`／${item.required_start}〜${item.required_end}：${item.recognized_required_days}/28日／不足日 ${(item.missing_required_dates||[]).join('、')||'なし'}`:'';
+      el('li',`${item.source_center||''} ${item.jan||''}：${explanation||item.detail||item.status||'入力条件を確認してください'}${days}`,list);
     }
   }
   button(
@@ -200,6 +213,19 @@ export async function analysis(ctx) {
     true,
   );
   button("開始画面へ", () => ctx.run(() => ctx.home()), ctx.root, true);
+}
+
+function demandOnlyForm(ctx,id){
+ const panel=el('section','',ctx.root);el('h2','出荷実績だけで需要を参考予測する',panel);
+ const actor=field(panel,'確認者'),unit=field(panel,'CSV数量の単位（例：バラ／ボール）');
+ const confirmed=field(panel,'出荷実績と原本数量の単位を確認した','checkbox',false);
+ const output=el('div','',panel);
+ button('需要予測のみを計算（在庫は未評価）',()=>ctx.run(async()=>{
+   const v=await api(`/api/field/${id}/demand`,{actor:actor.value,unit:unit.value,confirmed:confirmed.checked});
+   output.replaceChildren();el('p',v.notice,output);
+   for(const s of v.series){const uid=`${s.source_center}:${s.jan}`;const ps=v.predictions.filter(p=>p.unique_id===uid);const total=ps.reduce((n,p)=>n+Number(p.yhat),0);
+    el('p',`${s.source_center} ${s.jan}：${s.required_start}〜${s.required_end} ${s.recognized_days}/28日／${s.eligible?`今後14日 ${total.toFixed(2)} ${v.unit}`:`不足日 ${s.missing_dates.join('、')}`}`,output);}
+ }),panel);
 }
 
 async function inventoryForm(ctx, id) {

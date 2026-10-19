@@ -11,7 +11,9 @@ import zipfile
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from functools import cache
 from pathlib import Path, PurePosixPath
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -39,6 +41,13 @@ def _decode(raw: bytes) -> str:
 
 
 def _business_date(value: str) -> date | None:
+    if "T" in value.strip():
+        try:
+            timestamp = datetime.fromisoformat(value.strip())
+            return (timestamp.astimezone(ZoneInfo("Asia/Tokyo"))
+                    if timestamp.tzinfo else timestamp).date()
+        except ValueError:
+            return None
     token = value.strip().split()[0] if value.strip() else ""
     for pattern in ("%Y/%m/%d", "%Y-%m-%d", "%Y%m%d"):
         try:
@@ -108,7 +117,8 @@ def _new_issue(
     )
 
 
-def analyze_archive(data: bytes, prepared_path: Path) -> dict:
+def analyze_archive(data: bytes, prepared_path: Path, *, allow_inventory_only=False,
+                    exclusions=None) -> dict:
     if not data or len(data) > MAX_ZIP_BYTES:
         raise ArchiveError("ZIPが空、または100 MBを超えています")
     try:
@@ -127,13 +137,32 @@ def analyze_archive(data: bytes, prepared_path: Path) -> dict:
     shipment_files = inventory_files = ignored_files = 0
     issues: dict[str, dict] = {}
     inventory_labels: dict[str, str] = {}
+    source_files = []
+    excluded_rows = 0
+    excluded_jans = set()
+
+    @cache
+    def is_excluded(jan):
+        return bool(exclusions and exclusions.apply([{"jan": jan}])[0].get("exclude"))
 
     with archive:
         for member in _safe_members(archive):
             if member.is_dir() or not member.filename.lower().endswith(".csv"):
                 ignored_files += 1
+                if not member.is_dir():
+                    document = member.filename.lower().endswith((".pdf", ".png", ".jpg", ".jpeg"))
+                    source_files.append({
+                        "name": member.filename,
+                        "kind": "document_confirmation_required" if document else "metadata",
+                        "center": None, "date": None,
+                        "reason": "PDF・画像は文書取込で原本確認後にCSVを受渡してください"
+                        if document else "補助ファイル（CSVデータとしては取込しません）",
+                    })
                 continue
             kind, center, file_date, reader = read_source(archive, member)
+            source_files.append({"name": member.filename, "kind": kind or "unrecognized",
+                                 "center": center,
+                                 "date": file_date.isoformat() if file_date else None})
             if kind is None:
                 quarantine_rows += 1
                 reason_counts["HEADER_MISSING"] += 1
@@ -144,6 +173,8 @@ def analyze_archive(data: bytes, prepared_path: Path) -> dict:
                     source_value=member.filename,
                 )
                 issue["count"] += 1
+                issue["label"] = ("必要な出荷列（出荷日・JAN・数量）または"
+                                  "在庫列（JAN/商品コード・数量・賞味期限）を確認")
                 continue
             is_shipment = kind == "shipment"
             if is_shipment:
@@ -153,6 +184,10 @@ def analyze_archive(data: bytes, prepared_path: Path) -> dict:
                 for row in reader:
                     shipment_rows += 1
                     jan = str(row.get("JAN") or "").strip()
+                    if is_excluded(jan):
+                        excluded_rows += 1
+                        excluded_jans.add(jan)
+                        continue
                     day = _business_date(str(row.get("出荷日") or ""))
                     try:
                         quantity = Decimal(str(row.get("数量") or "").replace(",", ""))
@@ -201,6 +236,10 @@ def analyze_archive(data: bytes, prepared_path: Path) -> dict:
                 for row in reader:
                     inventory_rows += 1
                     code = str(row.get("商品コード") or "").strip()
+                    if is_excluded(code):
+                        excluded_rows += 1
+                        excluded_jans.add(code)
+                        continue
                     expiry = str(row.get("賞味期限") or "").strip()
                     try:
                         quantity = Decimal(str(row.get("明細バラ数") or "").replace(",", ""))
@@ -230,7 +269,7 @@ def analyze_archive(data: bytes, prepared_path: Path) -> dict:
                         )
                         issue["count"] += 1
 
-    if not shipment_files:
+    if not shipment_files and not (allow_inventory_only and inventory_files):
         manifest_name = next(
             (
                 m.filename
@@ -326,6 +365,9 @@ def analyze_archive(data: bytes, prepared_path: Path) -> dict:
         "issues": sorted(issues.values(), key=lambda item: (item["reason"], item["source_value"])),
         "center_windows": center_windows,
         "prepared_rows": len(daily),
+        "prepared_sha256": hashlib.sha256(prepared_path.read_bytes()).hexdigest(),
+        "source_files": source_files,
+        "registered_exclusions": {"rows": excluded_rows, "jans": sorted(excluded_jans)},
         "notice": "過去データの参考評価です。正式な出荷指示には使用できません。",
     }
 
