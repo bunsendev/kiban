@@ -2248,3 +2248,6 @@ OS: Windows 11
 - Initial whole suite: 1119 PASS, 2 FAIL, 20 SKIP. Failures: non-atomic test helper PID marker and stale source manifest. Atomic marker publish and manifest regeneration verified by the targeted run. Final whole suite: 1128 PASS, 20 SKIP (189.54s); upstream TestClient deprecation warning only.
 - Real private verification: 2 printed PDFs,490 detail rows.321 active unit checks reused (176+145);169 excluded rows; source fields match pilot42; no formal approval, no API calls. These are workflow/immutability checks, not field accuracy certification.
 - Source UI pilot43 at localhost validated, including page JPEG comparison and reuse after refresh. Frozen EXE build/startup and GitHub update release publishing not performed.
+
+2026-10-19 pilot.43 Windows package preparation
+- Packaging-only guides updated to pilot.43; existing unit and blank policies clarified. Prior code gates:1128 PASS,20 SKIP. Windows PyInstaller build PASS;8 frozen modules match current source. Final ZIP CRC, file manifest and private-data isolation inspection recorded in build/pilot43-final-package-check.log before delivery. No frozen executable launch attempted.
