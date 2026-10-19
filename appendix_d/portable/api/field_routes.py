@@ -16,6 +16,7 @@ from starlette.concurrency import run_in_threadpool
 
 from forecast_provider.operation_events.domain import make_operation_event
 from forecast_provider.operation_events.store import SqliteOperationEventStore
+from portable.runtime.feedback_admin import authorized
 
 from .business_archive import MAX_ZIP_BYTES, atomic_json
 from .field_read_model import build_view, export, page, safe_csv, with_reviews
@@ -205,7 +206,10 @@ def register_field_routes(app, paths, intake, daily, resolve, read_limited):
         if row is None:
             raise HTTPException(404, "確認対象がありません")
         try:
-            return store.save(result_id, row, value)
+            exceptional = value.get("exceptional") is True
+            if exceptional and not authorized(paths, request.headers.get("x-feedback-admin", "")):
+                raise HTTPException(403, "例外修正にはWindows管理者の一時認証が必要です")
+            return store.save(result_id, row, value, exceptional=exceptional)
         except FeedbackConflict as exc:
             raise HTTPException(409, str(exc)) from exc
         except ValueError as exc:

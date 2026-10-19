@@ -65,7 +65,7 @@
       check.type = 'checkbox'; check.checked = selected.has(row.unique_id);
       check.setAttribute('aria-label', `${row.unique_id}を選択`);
       check.onchange = () => {check.checked ? selected.add(row.unique_id) : selected.delete(row.unique_id); render();};
-      [row.unique_id, row.target_date, row.yhat, row.feedback?.quantity ?? row.yhat,
+      [row.unique_id, row.target_date, row.yhat, row.feedback?.quantity ?? '未設定',
         labels[row.feedback?.rating] || '未確認'].forEach(v => el('td', String(v), tr));
       button('修正・感想', () => edit(row), el('td', '', tr));
     });
@@ -78,7 +78,7 @@
   }
   function edit(row) {
     editing = row; form.hidden = false; target.textContent = `${row.unique_id}／${row.target_date} の確認`;
-    quantity.value = row.feedback?.quantity ?? ''; rating.value = row.feedback?.rating || 'UNKNOWN';
+    quantity.value = row.feedback?.quantity ?? ''; quantity.disabled = row.edit_state?.editable === false; target.textContent += '／' + (row.edit_state?.reason || ''); rating.value = row.feedback?.rating || 'UNKNOWN';
     reason.value = row.feedback?.reason || ''; comment.value = row.feedback?.comment || '';
     if (row.feedback?.actor) actor.value = row.feedback.actor;
     quantity.oninput = () => {reason.required = quantity.value !== '';}; quantity.oninput();
@@ -110,7 +110,7 @@
       const {saveWithNotice}=await import('/field/assets/api.js');
       await saveWithNotice(()=>request(`${currentSource}/feedback`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({
         unique_id: editing.unique_id, target_date: editing.target_date, revision: editing.feedback?.revision || 0,
-        quantity: quantity.value === '' ? null : Number(quantity.value), actor: actor.value,
+        quantity: quantity.disabled ? (editing.feedback?.quantity ?? null) : (quantity.value === '' ? null : Number(quantity.value)), actor: actor.value,
         rating: rating.value, reason: reason.value, comment: comment.value,
       })}),'結果の修正とフィードバックを保存しました。元の予測は変更していません。');
       if (source !== currentSource) return;

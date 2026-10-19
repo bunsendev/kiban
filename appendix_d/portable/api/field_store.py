@@ -5,6 +5,7 @@ import math
 import sqlite3
 from datetime import UTC, datetime
 
+from .forecast_verification import ForecastVerification
 from .result_feedback import FeedbackConflict
 
 
@@ -59,7 +60,7 @@ class FieldStore:
                 )
             ]
 
-    def save(self, result, row, payload):
+    def save(self, result, row, payload, *, exceptional=False):
         if not isinstance(payload, dict):
             raise ValueError("判断内容を確認してください")
         fields = {}
@@ -77,6 +78,12 @@ class FieldStore:
             raise ValueError("担当者と判断を入力してください")
         if row["forecast"] is None and choice != "HOLD":
             raise ValueError("予測できない商品は理由を付けて保留してください")
+        ledger = ForecastVerification(self.path.parent / "forecast-verification.sqlite3")
+        day = row["period"][0] if row.get("period") else "1900-01-01"
+        actual = ledger.actual(row["item"], day, "CASE", "formal-jan-warehouse")
+        state = ledger.edit_state(day, actual["status"])
+        if exceptional and not fields["reason"]:
+            raise ValueError("例外修正には理由が必要です")
         if choice == "CHANGE":
             if type(quantity) not in (int, float) or not math.isfinite(quantity) or quantity < 0:
                 raise ValueError("修正数量は0以上の有限数で入力してください")
@@ -92,9 +99,15 @@ class FieldStore:
             "period": row["period"],
             "unit": row["unit"],
             "created_at": now(),
+            "exceptional": exceptional,
+            "edit_policy": state,
         }
-        with self.connect() as db:
+        with ledger.connect() as guard, self.connect() as db:
+            guard.execute("BEGIN IMMEDIATE")
             db.execute("BEGIN IMMEDIATE")
+            actual = ledger.actual(row["item"], day, "CASE", "formal-jan-warehouse")
+            locked_state = ledger.edit_state(day, actual["status"])
+            entry["edit_policy"] = locked_state
             latest = (
                 db.execute(
                     "SELECT MAX(id) FROM observations WHERE result=? AND item=?",
@@ -102,6 +115,18 @@ class FieldStore:
                 ).fetchone()[0]
                 or 0
             )
+            previous_row = db.execute(
+                "SELECT payload FROM observations WHERE id=?", (latest,)
+            ).fetchone()
+            entry["before_quantity"] = (
+                json.loads(previous_row[0]).get("quantity") if previous_row else None
+            )
+            if (
+                entry["before_quantity"] != quantity
+                and not locked_state["editable"]
+                and not exceptional
+            ):
+                raise ValueError(locked_state["reason"] + " 期間合計を未来日へ自動配賦しません。")
             if latest != revision:
                 raise FeedbackConflict(
                     "別の操作で保存されました。最新の判断を確認してください。入力は残しています。"

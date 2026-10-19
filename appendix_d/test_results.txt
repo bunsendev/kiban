@@ -2251,3 +2251,13 @@ OS: Windows 11
 
 2026-10-19 pilot.43 Windows package preparation
 - Packaging-only guides updated to pilot.43; existing unit and blank policies clarified. Prior code gates:1128 PASS,20 SKIP. Windows PyInstaller build PASS;8 frozen modules match current source. Final ZIP CRC, file manifest and private-data isolation inspection recorded in build/pilot43-final-package-check.log before delivery. No frozen executable launch attempted.
+
+2026-10-20 Portable pilot.44 forecast/actual verification
+- Preliminary Portable suite:247 PASS (107.25s). Focused API and metric suite after integration changes:13 PASS (6.01s). Full final regressions pending.
+- Forecasts, human adjustments and accepted actuals separated; past-day and cutoff guards applied in both daily and period APIs; authenticated exception audit; no real business-data change.
+
+- Initial whole suite:1139 PASS,1 FAIL,20 SKIP (230.14s). Only source manifest changed during editing; regenerated and source check1179/1179 PASS. Final full rerun follows.
+- Ruff/check_lint/7 Portable Node scripts/3 modified JS syntax checks PASS. Browser comparison, period exclusion, zero/unconfirmed distinction, product/day summaries verified with DEMO data only.
+
+- FINAL full suite:1140 PASS,20 SKIP (199.04s), upstream TestClient deprecation warning only. Final focused APIs/guards/CSV/manifest:27 PASS (9.30s). Final source release hash check repeated after documentation update.
+- Synthetic-only source UI at48157 verified; real business data not changed. Windows-admin interactive session issuance/exception save and Windows EXE/package delivery not exercised this phase.

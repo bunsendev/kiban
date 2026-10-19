@@ -9,6 +9,8 @@ from datetime import UTC, datetime
 
 from portable import APP_VERSION
 
+from .forecast_verification import ForecastVerification
+
 
 class FeedbackConflict(ValueError):
     pass
@@ -17,6 +19,7 @@ class FeedbackConflict(ValueError):
 class ResultFeedback:
     def __init__(self, database):
         self.database = database
+        self.verification = ForecastVerification(database.parent / "forecast-verification.sqlite3")
         with self.connect() as db:
             db.execute("""CREATE TABLE IF NOT EXISTS result_feedback (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL,
@@ -38,15 +41,41 @@ class ResultFeedback:
     def view(self, source, predictions):
         history = self.history(source)
         latest = {(v["unique_id"], v["target_date"]): v for v in history}
+        states = {
+            (r["unique_id"], str(r["target_date"])[:10]): r["edit_state"]
+            for r in self.verification.compare(source)["rows"]
+        }
         return {
             "rows": [
-                dict(p) | {"feedback": latest.get((p["unique_id"], p["target_date"]))}
+                dict(p)
+                | {
+                    "feedback": latest.get((p["unique_id"], p["target_date"])),
+                    "edit_state": states.get((p["unique_id"], str(p["target_date"])[:10]))
+                    or self.verification.edit_state(str(p["target_date"])[:10]),
+                }
                 for p in predictions
             ],
             "history": history,
         }
 
-    def save(self, source, predictions, payload, profile):
+    def row_state(self, source, p):
+        comparison = self.verification.compare(source)
+        match = next(
+            (
+                r
+                for r in comparison["rows"]
+                if r["unique_id"] == p["unique_id"]
+                and str(r["target_date"])[:10] == str(p["target_date"])[:10]
+            ),
+            None,
+        )
+        return (
+            match["edit_state"]
+            if match
+            else self.verification.edit_state(str(p["target_date"])[:10])
+        )
+
+    def save(self, source, predictions, payload, profile, *, exceptional=False):
         if not isinstance(payload, dict):
             raise ValueError("入力内容を確認してください")
         key = (payload.get("unique_id"), payload.get("target_date"))
@@ -83,13 +112,26 @@ class ResultFeedback:
             "installation": profile,
             "created_at": datetime.now(UTC).isoformat(),
         }
-        with self.connect() as db:
+        with self.verification.connect() as guard, self.connect() as db:
+            guard.execute("BEGIN IMMEDIATE")
             db.execute("BEGIN IMMEDIATE")
             latest = (
                 db.execute(
                     "SELECT MAX(id) FROM result_feedback WHERE source=? AND item=?", (source, item)
                 ).fetchone()[0]
                 or 0
+            )
+            previous_row = db.execute(
+                "SELECT payload FROM result_feedback WHERE id=?", (latest,)
+            ).fetchone()
+            previous = json.loads(previous_row[0]) if previous_row else {}
+            state = self.row_state(source, original)
+            if quantity != previous.get("quantity") and not state["editable"] and not exceptional:
+                raise ValueError(state["reason"])
+            if exceptional and not fields["reason"]:
+                raise ValueError("例外修正には理由が必要です")
+            entry.update(
+                exceptional=exceptional, before_quantity=previous.get("quantity"), edit_policy=state
             )
             if latest != revision:
                 raise FeedbackConflict("別の操作で更新されました。結果を再表示して確認してください")
@@ -142,7 +184,7 @@ def export_results(view, selected=None):
                 row["target_date"],
                 row["yhat"],
                 "" if changed is None else changed,
-                row["yhat"] if changed is None else changed,
+                "" if changed is None else changed,
                 *[
                     safe(feedback.get(k, ""))
                     for k in ("rating", "reason", "comment", "actor", "created_at")

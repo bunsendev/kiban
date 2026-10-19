@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from datetime import UTC, datetime
 
 import pandas as pd
 
@@ -23,11 +24,11 @@ def demand_forecast(paths, analysis_id, value):
     ):
         raise ValueError("確認者・原本数量の単位・出荷データ確認を入力してください")
     report = json.loads((paths.analysis / f"{analysis_id}.json").read_text(encoding="utf-8"))
-    if not report.get('prepared_sha256'):
-        raise ValueError('旧版の解析です。「以前の受付済み原本を履歴へ再集計」を実行してください')
-    prepared = (paths.prepared / f'{analysis_id}.csv').read_bytes()
-    if hashlib.sha256(prepared).hexdigest() != report['prepared_sha256']:
-        raise ValueError('出荷集計が変更されています。元の入力から再集計してください')
+    if not report.get("prepared_sha256"):
+        raise ValueError("旧版の解析です。「以前の受付済み原本を履歴へ再集計」を実行してください")
+    prepared = (paths.prepared / f"{analysis_id}.csv").read_bytes()
+    if hashlib.sha256(prepared).hexdigest() != report["prepared_sha256"]:
+        raise ValueError("出荷集計が変更されています。元の入力から再集計してください")
     if report["rows"]["quarantined"] or any(
         i["category"] in ("shipment", "file") for i in report.get("issues", [])
     ):
@@ -43,7 +44,7 @@ def demand_forecast(paths, analysis_id, value):
     for uid, group in frame.groupby("unique_id", sort=True):
         center, jan = str(uid).rsplit(":", 1)
         if len(jan) != 13 or not valid_jan(jan):
-            raise ValueError('出荷CSVのJANチェック桁を確認してください')
+            raise ValueError("出荷CSVのJANチェック桁を確認してください")
         if rules.apply([{"jan": jan}])[0].get("exclude"):
             excluded += 1
             continue
@@ -73,8 +74,9 @@ def demand_forecast(paths, analysis_id, value):
             )
     result = {
         "format": "portable-reference-demand-v1",
+        "created_at": datetime.now(UTC).isoformat(),
         "analysis_id": analysis_id,
-        "prepared_sha256": report['prepared_sha256'],
+        "prepared_sha256": report["prepared_sha256"],
         "formal_approval": False,
         "actor": actor,
         "unit": unit,
@@ -90,4 +92,18 @@ def demand_forecast(paths, analysis_id, value):
     target = paths.results / f"demand-{key}.json"
     if not target.exists():
         atomic_json(target, result)
+    from .forecast_verification import ForecastVerification
+
+    ForecastVerification(paths.state / "forecast-verification.sqlite3").capture(
+        "demand:" + key,
+        predictions,
+        {
+            "created_at": result["created_at"],
+            "unit": unit,
+            "scope": None,
+            "model": "builtin-baseline:seasonal_naive_7",
+            "train_start": str(frame["ds"].min())[:10],
+            "train_end": str(frame["ds"].max())[:10],
+        },
+    )
     return result

@@ -30,6 +30,7 @@ export async function review(ctx, row) {
     "数量を修正しても元の予測は残ります。出荷数量の決定・実績登録ではありません。",
     ctx.root,
   );
+  if (row.edit_state && !row.edit_state.editable) el("p", row.edit_state.reason, ctx.root);
   const f = el("form", "", ctx.root),
     actor = field(f, "担当者");
   actor.maxLength = 100;
@@ -40,7 +41,7 @@ export async function review(ctx, row) {
   label.className = "decision-options";
   el("legend", "現場の判断", label);
   const choice = {
-    value: row.review?.choice || (row.forecast === null ? "HOLD" : "ACCEPT"),
+    value: row.review?.choice || (row.edit_state?.editable === false || row.forecast === null ? "HOLD" : "ACCEPT"),
   };
   for (const [key, text] of [
     ["ACCEPT", "この予測量を確認した"],
@@ -52,7 +53,7 @@ export async function review(ctx, row) {
     option.type = "radio";
     option.name = "decision";
     option.value = key;
-    option.disabled = row.forecast === null && key !== "HOLD";
+    option.disabled = (row.forecast === null && key !== "HOLD") || (key === "CHANGE" && row.edit_state?.editable === false);
     option.checked = choice.value === key;
     optionLabel.append(document.createTextNode(text));
     option.onchange = () => {
@@ -61,7 +62,7 @@ export async function review(ctx, row) {
     };
   }
   choice.value =
-    row.review?.choice || (row.forecast === null ? "HOLD" : "ACCEPT");
+    row.review?.choice || (row.edit_state?.editable === false || row.forecast === null ? "HOLD" : "ACCEPT");
   const quantity = field(f, `修正後の期間合計（${row.unit}）`, "number", false);
   quantity.min = 0;
   quantity.step = "any";
@@ -82,7 +83,7 @@ export async function review(ctx, row) {
   );
   state.setAttribute("role", "status");
   function sync() {
-    quantity.disabled = choice.value !== "CHANGE";
+    quantity.disabled = choice.value !== "CHANGE" || row.edit_state?.editable === false;
     quantity.required = choice.value === "CHANGE";
     reason.required = choice.value !== "ACCEPT";
   }

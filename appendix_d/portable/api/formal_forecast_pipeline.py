@@ -74,8 +74,12 @@ class PortableFormalForecastPipeline:
         bridge = build_inventory_forecast_bridge(
             records=[
                 (
-                    item["jan"], item["warehouse_id"], item["canonical_product_id"],
-                    item["forecast_center_id"], date.fromisoformat(item["effective_from"]), None,
+                    item["jan"],
+                    item["warehouse_id"],
+                    item["canonical_product_id"],
+                    item["forecast_center_id"],
+                    date.fromisoformat(item["effective_from"]),
+                    None,
                 )
                 for item in proposal
             ],
@@ -92,9 +96,7 @@ class PortableFormalForecastPipeline:
         invalid_occurrences, invalid_file_dates = _shipment_issue_evidence(report)
         reviewed = self.paths.prepared / f"{analysis_id}-reviewed.csv"
         prepared = reviewed if reviewed.is_file() else self.paths.prepared / f"{analysis_id}.csv"
-        inventory_cases, snapshot_dates = self._inventory_context(
-            registration, inventory_view
-        )
+        inventory_cases, snapshot_dates = self._inventory_context(registration, inventory_view)
         build, frame = build_daily_shipment(
             archive_path=self.paths.input / f"{analysis_id}.zip",
             prepared_path=prepared,
@@ -106,6 +108,25 @@ class PortableFormalForecastPipeline:
             invalid_occurrences=invalid_occurrences,
             invalid_file_dates=invalid_file_dates,
         )
+        from .forecast_verification import ForecastVerification
+
+        ledger = ForecastVerification(self.paths.state / "forecast-verification.sqlite3")
+        ledger.import_actuals(
+            build["build_id"],
+            [
+                {
+                    "unique_id": r["unique_id"],
+                    "day": r["ds"],
+                    "unit": "CASE",
+                    "scope": "formal-jan-warehouse",
+                    "quantity": r["y"],
+                }
+                for r in build["rows"]
+                if r["state"] in {"OBSERVED", "CONFIRMED_ZERO"}
+            ],
+            actor,
+        )
+
         target = self.root / build["build_id"]
         manifest_path = target / "manifest.json"
         if manifest_path.is_file():
@@ -136,7 +157,9 @@ class PortableFormalForecastPipeline:
         status = (
             "FORECAST_COMPLETED_WITH_BLOCKERS"
             if predictions and build["blocked_series_count"]
-            else "FORECAST_COMPLETED" if predictions else "BLOCKED"
+            else "FORECAST_COMPLETED"
+            if predictions
+            else "BLOCKED"
         )
         result = {
             "format": "portable-formal-forecast-pipeline-v1",
@@ -169,6 +192,18 @@ class PortableFormalForecastPipeline:
             ),
         }
         self._atomic_json(manifest_path, result)
+        ledger.capture(
+            "formal:" + build["build_id"],
+            predictions,
+            {
+                "created_at": result["created_at"],
+                "unit": "CASE",
+                "scope": "formal-jan-warehouse",
+                "train_start": result["train_start"],
+                "train_end": result["train_end"],
+                "model": "builtin-baseline:seasonal_naive_7",
+            },
+        )
         return result
 
     def result_path(self, build_id: str) -> Path:
@@ -243,9 +278,7 @@ class PortableFormalForecastPipeline:
                 job["snapshot_id"]
             ):
                 uid = f"{bucket['jan']}::{center_id}"
-                totals[uid] = totals.get(uid, Decimal("0")) + Decimal(
-                    str(bucket["quantity_cases"])
-                )
+                totals[uid] = totals.get(uid, Decimal("0")) + Decimal(str(bucket["quantity_cases"]))
         return ({key: str(value) for key, value in totals.items()}, snapshot_dates)
 
     def _latest(self, registration_id: str) -> dict | None:
@@ -258,9 +291,7 @@ class PortableFormalForecastPipeline:
             if value.get("registration_id") == registration_id:
                 values.append(value)
         return (
-            max(values, key=lambda item: (item["created_at"], item["build_id"]))
-            if values
-            else None
+            max(values, key=lambda item: (item["created_at"], item["build_id"])) if values else None
         )
 
     def _verified_result(self, manifest_path: Path) -> dict:

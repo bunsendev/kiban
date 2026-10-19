@@ -1,0 +1,14 @@
+/* Keep the comparison controls compact without changing the four-step screen. */
+.accuracy {max-width:1400px;margin:auto;padding:24px;}
+.accuracy h1 {color:#123b58;font-size:30px;}
+.accuracy-filters {display:flex;flex-wrap:wrap;gap:16px;align-items:end;}
+.accuracy-filters label {margin:0;min-width:180px;}
+.accuracy-filters .history-filter {flex:1 0 100%;min-width:0;}
+.accuracy select {max-width:100%;}
+.history-filter select {width:100%;}
+.accuracy-filters button {margin-bottom:0;}
+#metrics {font-size:22px;font-weight:700;background:#fff;border-left:6px solid #006b48;padding:16px;}
+.accuracy .table-wrap {border:1px solid #6d8b9e;border-radius:8px;}
+.accuracy td,.accuracy th {white-space:nowrap;padding:12px;}
+.accuracy details {margin-top:20px;border-top:1px solid #6d8b9e;padding-top:12px;}
+@media(max-width:600px){.accuracy{padding:16px;}.accuracy-filters label{width:100%;}.accuracy-filters button{width:100%;}}

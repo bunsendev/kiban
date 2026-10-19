@@ -42,7 +42,7 @@ def test_feedback_append_only_conflict_and_export(tmp_path):
     assert view["rows"][0]["feedback"]["revision"] == second["revision"]
     assert reopened.history("production:b") == []
     exported = list(csv.reader(io.StringIO(export_results(view).decode("utf-8-sig"))))
-    assert exported[1][2:5] == ["12", "", "12"]
+    assert exported[1][2:5] == ["12", "", ""]
     assert exported[1][7] == "'=BAD()"
     assert exported[2][0] == "'=BAD()"
     assert (
@@ -97,3 +97,12 @@ def test_routes_preserve_prediction_and_restart(tmp_path, monkeypatch):
     with TestClient(create_app(tmp_path), base_url="http://localhost") as client:
         assert client.get(url).json()["rows"][0]["feedback"]["quantity"] == 0
         assert client.get(f"/api/runs/{run['run_id']}").json()["predictions"] == ROWS
+
+
+@pytest.fixture(autouse=True)
+def future_review_clock(monkeypatch):
+    from datetime import UTC, datetime
+
+    monkeypatch.setattr(
+        "portable.api.forecast_verification.now", lambda: datetime(2026, 9, 1, tzinfo=UTC)
+    )

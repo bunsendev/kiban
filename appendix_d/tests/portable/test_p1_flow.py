@@ -888,7 +888,11 @@ def test_daily_run_connects_input_to_reviewed_shipment_recommendations(tmp_path:
     assert restored["record_sha256"] == completed["record_sha256"]
 
 
-def test_formal_build_is_queued_once_in_existing_production_contracts(tmp_path: Path):
+def test_formal_build_is_queued_once_in_existing_production_contracts(tmp_path: Path, monkeypatch):
+    from datetime import UTC, datetime
+
+    monkeypatch.setattr("portable.api.forecast_verification.now",
+                        lambda: datetime(2026, 2, 4, tzinfo=UTC))
     client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
     assert client.get("/production.js").status_code == 200
     assert 'id="production-run"' in client.get("/").text
@@ -945,6 +949,13 @@ def test_formal_build_is_queued_once_in_existing_production_contracts(tmp_path: 
     operator_url = f"/api/operator-results/production/{build_id}"
     operator_view = client.get(operator_url).json()
     assert len(operator_view["rows"]) == 140
+    verification = client.get("/api/forecast-verification").json()
+    assert {r["source"].split(":")[0] for r in verification["sources"]} >= {"formal", "production"}
+    from portable.api.forecast_verification import ForecastVerification
+
+    ledger = ForecastVerification(tmp_path / "State" / "forecast-verification.sqlite3")
+    uid = operator_view["rows"][0]["unique_id"]
+    assert ledger.actual(uid, "2026-02-04", "CASE", "formal-jan-warehouse")["status"] == "CONFIRMED"
     point = operator_view["rows"][0]
     feedback = client.post(operator_url + "/feedback", json={
         "unique_id": point["unique_id"], "target_date": point["target_date"],

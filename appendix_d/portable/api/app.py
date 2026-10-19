@@ -43,6 +43,7 @@ from .drop_folder import DropFolderBusyError, DropFolderIntake
 from .drop_folder_routes import register_drop_folder_routes
 from .field_routes import register_field_routes
 from .forecast import forecast
+from .forecast_verification import ForecastVerification
 from .formal_change_routes import register_formal_change_routes
 from .formal_forecast_routes import register_formal_forecast_routes
 from .formal_pipeline_routes import register_formal_pipeline_routes
@@ -59,6 +60,7 @@ from .result_feedback_routes import register_result_feedback_routes
 from .runtime_assignment_routes import register_runtime_assignment_routes
 from .runtime_weekly_evaluation_routes import register_runtime_weekly_evaluation_routes
 from .store import RunStore
+from .verification_routes import register_verification_routes
 
 LOG = logging.getLogger("portable.api")
 STATIC = Path(__file__).parent / "static"
@@ -78,7 +80,9 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     paths = DataPaths(data_root)
     paths.ensure()
     store = RunStore(paths.state / "runs.sqlite3")
+    verification = ForecastVerification(paths.state / "forecast-verification.sqlite3")
     app = FastAPI(title="ブンセン Portable P1", docs_url=None, redoc_url=None, openapi_url=None)
+    register_verification_routes(app, paths, _read_limited)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
     app.state.active = 0
     app.state.closing = False
@@ -455,6 +459,11 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
             temp.write_bytes(result_bytes)
             os.replace(temp, result_path)
             store.finish(run_id, result_sha=result_sha, result_path=str(result_path))
+            verification.capture("run:" + run_id, predictions, {
+                "created_at": store.get(run_id)["finished_at"], "unit": None, "scope": None,
+                "train_start": str(frame["ds"].min())[:10],
+                "train_end": str(frame["ds"].max())[:10], "model": PROVIDER_VERSION,
+            })
             LOG.info("baseline_finished run_id=%s", run_id)
             return store.get(run_id) | {"predictions": predictions}
         except InputError as exc:

@@ -224,3 +224,12 @@ def test_event_boundary_and_false_completion_rejected(tmp_path):
     )
     assert client.post("/api/field/feedback", json=[]).status_code == 422
     assert client.get("/api/field/results/invalid").status_code == 404
+
+
+@pytest.fixture(autouse=True)
+def future_review_clock(monkeypatch):
+    from datetime import UTC, datetime
+
+    monkeypatch.setattr(
+        "portable.api.forecast_verification.now", lambda: datetime(2026, 2, 4, tzinfo=UTC)
+    )

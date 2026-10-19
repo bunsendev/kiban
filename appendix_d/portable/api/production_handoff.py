@@ -6,6 +6,7 @@ import csv
 import io
 import json
 import os
+import sqlite3
 import uuid
 from datetime import date, timedelta
 from pathlib import Path
@@ -143,6 +144,7 @@ class PortableProductionHandoff:
         run = self.service.ensure_run(experiment.experiment_id, run_id)
         receipt = {
             "format": "portable-production-handoff-v1",
+            "verification_capture_version": 1,
             "build_id": build_id,
             "source_manifest_sha256": sha256(canonical_json(manifest)),
             "source_daily_sha256": manifest["daily_data_sha256"],
@@ -197,6 +199,29 @@ class PortableProductionHandoff:
                 if item["forecast_kind"] == "POINT" and item["quantile"] is None
             ]
             output["point_predictions"] = points
+            from .forecast_verification import ForecastVerification
+
+            created_at = None
+            if receipt.get("verification_capture_version") == 1:
+                with sqlite3.connect(self.database) as db:
+                    stamp = db.execute(
+                        "SELECT finished_at FROM forecast_runs WHERE run_id=?", (receipt["run_id"],)
+                    ).fetchone()
+                    created_at = stamp[0] if stamp else None
+            manifest, _ = self._verified_source(receipt["build_id"])
+            ForecastVerification(self.paths.state / "forecast-verification.sqlite3").capture(
+                "production:" + receipt["build_id"],
+                points,
+                {
+                    "created_at": created_at,
+                    "unit": "CASE",
+                    "scope": "formal-jan-warehouse",
+                    "train_start": manifest["train_start"],
+                    "train_end": manifest["train_end"],
+                    "model": receipt["provider_id"] + ":" + receipt["model_name"],
+                    "runtime_version": receipt["runtime_version"],
+                },
+            )
         return output
 
     def _verified_source(self, build_id: str) -> tuple[dict, bytes]:

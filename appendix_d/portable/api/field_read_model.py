@@ -8,6 +8,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from .field_source import source_metadata
+from .forecast_verification import ForecastVerification
 
 REASONS = {
     "HISTORY_LESS_THAN_28_DAYS": "出荷履歴が28日未満",
@@ -102,7 +103,23 @@ def build_view(daily, analysis_id, resolve):
 def with_reviews(value, store):
     history = store.history(value["result_id"])
     latest = {r["item"]: r for r in history}
-    rows = [r | {"review": latest.get(r["item"])} for r in value["rows"]]
+    ledger = ForecastVerification(store.path.parent / "forecast-verification.sqlite3")
+    rows = [
+        r
+        | {
+            "review": latest.get(r["item"]),
+            "edit_state": ledger.edit_state(
+                r["period"][0] if r.get("period") else "1900-01-01",
+                ledger.actual(
+                    r["item"],
+                    r["period"][0] if r.get("period") else "1900-01-01",
+                    "CASE",
+                    "formal-jan-warehouse",
+                )["status"],
+            ),
+        }
+        for r in value["rows"]
+    ]
     required = [r for r in rows if r["category"] != "OK"]
     pending = sum(r["review"] is None for r in required)
     held = sum(r["review"] is not None and r["review"]["choice"] == "HOLD" for r in required)
