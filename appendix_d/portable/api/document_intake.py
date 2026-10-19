@@ -20,6 +20,7 @@ from .document_inventory_checks import inventory_checks
 from .document_inventory_pdf import extract_inventory
 from .document_pages import page_source, pdf_reader
 from .document_quantity import case_quantity
+from .document_review_plan import DocumentReview, classify
 from .document_suggestions import suggest_rows
 from .product_exclusions import ProductExclusions
 
@@ -55,6 +56,7 @@ class Documents:
                 "CREATE TABLE IF NOT EXISTS document_controls "
                 "(document_id TEXT PRIMARY KEY, generation INTEGER, cancelled INTEGER)"
             )
+        self.review = DocumentReview(self)
 
     def correction(self, identifier, value):
         actor = str(value.get("actor") or "").strip()
@@ -571,6 +573,19 @@ class Documents:
         ):
             raise DocumentError("確認者と全行の原本確認を入力してください")
         rows = self.exclusions.apply(rows)
+        if value.get("review_guard") is True:
+            checked = self.review.plan(identifier, rows=rows,
+                                       master_version=str(value.get("master_version") or ""))
+            statuses = checked["classifications"]
+            if (value.get("partial_confirmed") is True
+                    and str(value.get("partial_reason") or "").strip()):
+                # Explicit partial adoption does not change the stored completeness flag.
+                statuses = classify({**extraction, "complete": True}, checked["rows"])
+            if any(s["status"] == "HOLD" for s in statuses):
+                raise DocumentError(
+                    "処理保留の明細があります。原因を解消するか、"
+                    "理由付きで採用対象から外してください"
+                )
         groups = {}
         for index, row in enumerate(rows):
             if not isinstance(row, dict):

@@ -79,7 +79,9 @@ def test_http_v2_import_list_and_release(tmp_path):
     assert result.json()[0]['match_type']=='prefix'
     store=app.state.documents.exclusions
     assert store.apply([{'jan':'4901234567894'}])[0]['exclude']
-    client.post('/api/product-exclusions',json={'actor':'人工','products':[rule(False)]}).raise_for_status()
+    response=client.post('/api/product-exclusions',
+                         json={'actor':'人工','products':[rule(False)]})
+    response.raise_for_status()
     assert not store.apply([{'jan':'4901234567894'}])[0].get('exclude')
     assert client.get('/api/product-exclusions').json()[0]['exclude']==0
 

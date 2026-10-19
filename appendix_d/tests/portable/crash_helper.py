@@ -15,6 +15,8 @@ paths.ensure()
 with SingleInstance(root):
     job = ChildJob()
     child, port = start_server(paths, job, secrets.token_urlsafe(24))
-    (root / "child.pid").write_text(f"{child.pid},{port}", encoding="ascii")
+    marker = root / "child.tmp"
+    marker.write_text(f"{child.pid},{port}", encoding="ascii")
+    marker.replace(root / "child.pid")
     while True:
         time.sleep(1)

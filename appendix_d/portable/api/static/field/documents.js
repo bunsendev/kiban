@@ -4,6 +4,7 @@ import {inventoryCheckPanel} from './document-inventory-checks.js';
 import {cancelControl} from './document-cancel.js';
 import { masterPanel } from './document-master.js';
 import { reviewTable, serializeControls } from './document-review-table.js';
+import {reviewPolicy,sourceComparison} from './document-review-policy.js';
 
 export async function documents(ctx, parent) {
   const group=el('details','',parent);
@@ -12,7 +13,11 @@ export async function documents(ctx, parent) {
   const input=field(group,'原本を選ぶ（複数可・文書ZIP可）','file'); input.accept='.pdf,.png,.jpg,.jpeg,.zip';input.multiple=true;
   const master=await masterPanel(ctx,group);
   const fileChoice=el('select','',el('label','確認する原本（一覧の表示は1文書ずつ）',group));
-  let pendingEdits=false,lastChoice='',bulkStopped=false;
+  let pendingEdits=false,lastChoice='',bulkStopped=false,lastMaster=master.choice.value;
+  master.choice.addEventListener('change',()=>ctx.run(async()=>{
+    if(pendingEdits&&!window.confirm('未保存の編集を破棄してマスター版を切り替えますか？')){master.choice.value=lastMaster;return;}
+    lastMaster=master.choice.value;await refresh();
+  }));
   const list=el('div','',group);
   list.addEventListener('input',()=>{pendingEdits=true;});
   fileChoice.onchange=()=>ctx.run(async()=>{
@@ -109,7 +114,8 @@ export async function documents(ctx, parent) {
         }),box,true);
       }
       if(!doc.extraction)continue;
-      inventoryCheckPanel(box,doc.extraction);
+      const diagnostics=el('details','',box);el('summary','読取点検の詳細（収支・原本項目・同条件明細）',diagnostics);
+      inventoryCheckPanel(diagnostics,doc.extraction);
       for(const review of doc.extraction.page_reviews||[doc.extraction]){
         if(review.layout==='two_tables')el('p',`${review.page||''}ページ：左右拡大読取 ／ ${review.model||'モデル未確認'}`,box);
         for(const warning of review.quality_warnings||[])el('p','読取確認：'+warning,box);
@@ -126,14 +132,27 @@ export async function documents(ctx, parent) {
         else el('p','分析へ受け渡し済み。「投入フォルダから読み込む」で受付結果を開いてください。JAN・単位・履歴不足などは既存の確認画面で続けて確認します。',box);
         continue;
       }
-      el('p','全行を原本と照合してください。不明な行は理由を付けて除外できます。ボール（ケース）なら換算1、くくり・パレットは1単位あたりのボール数を入力してください。勝手な換算はしません。',box);
+      el('p','帳票の読み方・例外・保留と採用範囲を確認します。通常行は機械点検の通過であり、読取精度の保証ではありません。ボール＝ケース、バラ＝商品1個。入数の推測・数量の自動補完はしません。',box);
       box.open=true;
-      const {edits,update}=reviewTable(ctx,box,doc.draft?.rows||doc.extraction.rows,master);
+      const plan=await api(`/api/documents/${doc.id}/review/plan`,{master_version:master.choice.value||''});
+      const summary=el('section','',box);summary.className='document-review';
+      el('h3','読取・確認サマリー',summary);
+      el('p',`読取商品 ${new Set(plan.rows.map(r=>r.jan).filter(Boolean)).size} JAN ／ ${plan.rows.length}明細`,summary);
+      el('p',`機械点検通過 ${plan.counts.READY||0}行 ／ 例外確認 ${plan.counts.REVIEW||0}行 ／ 処理保留 ${plan.counts.HOLD||0}行 ／ 除外予定 ${plan.counts.EXCLUDED||0}行`,summary).setAttribute('role','status');
+      el('p',plan.notice,summary);
+      if(!plan.counts.REVIEW&&!plan.counts.HOLD)el('p','例外・保留は0件です。帳票・原本日付・適用ルールと採用範囲を確認し、文書承認へ進めます。自動承認はしていません。',summary);
+      for(const [cause,count] of Object.entries(plan.causes))el('p',`${cause}：${count}行`,summary);
+      const policyHost=el('details','',box);el('summary','単位ルールを確認・保存する',policyHost);
+      policyHost.className='document-review';policyHost.open=plan.native&&!Object.keys(plan.applied_rules).length;
+      const comparison=sourceComparison(box,doc);
+      const table=reviewTable(ctx,box,plan.rows,master,{...plan,onSource:comparison});
+      const {edits,update}=table;
+      await reviewPolicy(ctx,policyHost,doc,table,plan,master,refresh);
       button('一覧の商品候補をまとめて補完（API送信なし）',()=>ctx.run(async()=>{
         if(!master.choice.value)throw new Error('照合に使うJANマスター版を選んでください');
         const result=await api('/api/document-master/suggest-rows',{version:master.choice.value,rows:edits.map(serializeControls)});
         for(let i=0;i<edits.length;i++)for(const key of ['jan','product_code','master_version','master_cell','note','source_jan'])if(edits[i][key]&&result.rows[i][key]!==undefined)edits[i][key].value=result.rows[i][key];
-        update();ctx.message('一意に照合できる商品候補を入力しました。数量・日付は変更していません。原本確認後に保存してください。');
+        pendingEdits=true;update();ctx.message('一意に照合できる商品候補を入力しました。数量・日付は変更していません。原本確認後に保存してください。');
       }),box,true);
       const partial=field(box,'未読取部分を保留し、確認できた明細だけ採用する','checkbox',false);
       const partialReason=field(box,'未読取部分の扱い・採用範囲の理由','text',false);
@@ -141,11 +160,11 @@ export async function documents(ctx, parent) {
       const actor=field(box,'原本の確認者');
       if(doc.draft){actor.value=doc.draft.actor;el('p','途中保存した内容を復元しました。正式採用はまだ行っていません。',box);}
       button('途中保存する（未完成でも保存可）',()=>ctx.run(async()=>{await saveWithNotice(()=>api(`/api/documents/${doc.id}/draft`,{rows:edits.map(serializeControls),actor:actor.value,revision:doc.extraction.revision}),'途中保存しました。後から再開できます。');}),box,true);
-      const confirm=field(box,'すべての行を原本と照合し、単位・換算・除外を確認した','checkbox',false);
+      const confirm=field(box,'原本の帳票・例外・保留・適用ルールと、単位・換算・採用範囲を確認した','checkbox',false);
       for(const n of [actor,confirm]){n.parentElement.style.display='block';n.parentElement.style.marginBottom='12px';}
       button('修正内容を確認して保存',()=>ctx.run(async()=>{
         const rows=edits.map(serializeControls);
-        await saveWithNotice(()=>api(`/api/documents/${doc.id}/approve`,{actor:actor.value,confirmed:confirm.checked,rows,revision:doc.extraction.revision,partial_confirmed:partial.checked,partial_reason:partialReason.value}),partial.checked?'確認した範囲を保存しました。未読取部分は保留のままです。':'原本の確認内容と修正を保存しました。分析へ渡す操作に進めます。');await refresh();
+        await saveWithNotice(()=>api(`/api/documents/${doc.id}/approve`,{actor:actor.value,confirmed:confirm.checked,rows,revision:doc.extraction.revision,partial_confirmed:partial.checked,partial_reason:partialReason.value,review_guard:true,master_version:master.choice.value||''}),partial.checked?'確認した範囲を保存しました。未読取部分は保留のままです。':'原本の確認内容と修正を保存しました。分析へ渡す操作に進めます。');await refresh();
       }),box);
     }
   }

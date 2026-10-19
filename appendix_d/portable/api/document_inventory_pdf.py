@@ -12,6 +12,7 @@ def extract_inventory(raw, *, blank_current_zero=False):
     rows = []
     movements = []
     complete = True
+    coverage = []
     for number in range(1, count + 1):
         _, text, _ = page_source(raw, number)
         lines = text.splitlines()
@@ -24,10 +25,14 @@ def extract_inventory(raw, *, blank_current_zero=False):
         loose_columns = [m.start() for m in re.finditer("バラ", header)]
         snapshot = re.search(r"在庫集計日[：:]\s*(\d{4})/(\d{2})/(\d{2})", text)
         warehouse = re.search(r"㈱ムロオ\s*(\S+)", text)
+        anchors = [i for i, s in enumerate(lines)
+                   if re.match(r"^\s*[0-9]{6,13}\s+", s)]
+        recognized = []
         for index, line in enumerate(lines):
             jan = re.match(r"^\s*([0-9]{13})\s+", line)
             if not jan:
                 continue
+            recognized.append(index)
             expiry = re.search(r"\b(\d{2})/(\d{2})/(\d{2})\b", line[:cases])
             if not expiry:
                 complete = False
@@ -96,6 +101,12 @@ def extract_inventory(raw, *, blank_current_zero=False):
                 if any(v and not re.fullmatch(r"[0-9]+", v) for v in (out_cases, out_loose)):
                     complete = False
                 rows.append(shipped)
+        missed = sorted(set(anchors) - set(recognized))
+        coverage.append({"page": number, "candidate_rows": len(anchors),
+                         "recognized_rows": len(recognized),
+                         "unparsed_lines": [i + 1 for i in missed]})
+        if missed:
+            complete = False
     if not rows or len(rows) > 1000:
         raise DocumentError("在庫明細を取得できないか1000行を超えています")
     return {
@@ -105,6 +116,9 @@ def extract_inventory(raw, *, blank_current_zero=False):
         "pages_read": list(range(1, count + 1)),
         "model": "printed-inventory-movement-v3",
         "inventory_checks": inventory_checks(rows, movements),
+        "coverage": {"version": "printed-row-anchors-v1", "pages": coverage,
+                     "matched": all(p["candidate_rows"] == p["recognized_rows"] for p in coverage),
+                     "basis": "文字層の行構造点検。実測正解率・原本全行の保証ではありません"},
         "blank_outbound_policy": "PRINTED_REPORT_OUTBOUND_BLANK_ZERO",
         "blank_current_policy": (
             "CURRENT_BLANK_ZERO_EXCLUDE_EMPTY" if blank_current_zero else "UNKNOWN"

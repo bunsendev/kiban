@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -206,5 +207,6 @@ def test_cli_returns_assessment_status(monkeypatch, tmp_path: Path, capsys) -> N
     assert json.loads(capsys.readouterr().out)["outcome"] == "PASSED"
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="Linux Docker Worker専用の計測")
 def test_linux_probe_reports_process_peak_rss() -> None:
     assert SystemProcessProbe().peak_rss_bytes() > 0

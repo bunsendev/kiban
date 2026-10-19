@@ -140,7 +140,13 @@ def test_draft_rejects_stale_or_ambiguous_evidence(change):
         _approve(trial, handoff, **kwargs)
 
 
-def test_admin_can_freeze_ready_series_but_stale_source_is_rejected(tmp_path):
+def test_admin_can_freeze_ready_series_but_stale_source_is_rejected(tmp_path, monkeypatch):
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 9, 29, 12, tzinfo=tz)
+
+    monkeypatch.setattr("forecast_provider.field_pilot.read_model.datetime", FixedDatetime)
     inbox = _source(tmp_path)
     inventory = Inventory()
     inventory.list_product_mappings = lambda version: [

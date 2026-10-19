@@ -11,6 +11,11 @@ from .business_archive import MAX_ZIP_BYTES, ArchiveError, _business_date, _safe
 from .source_detection import read_source
 
 
+def file_key(kind, center, days, raw):
+    scope = json.dumps([kind, center, sorted(days)], ensure_ascii=False).encode()
+    return hashlib.sha256(scope + b"\0" + raw).hexdigest()
+
+
 class InputHistory:
     def __init__(self, paths):
         self.path = paths.state / "input-history.sqlite3"
@@ -21,6 +26,35 @@ class InputHistory:
                 "(sha TEXT PRIMARY KEY, name TEXT, kind TEXT, center TEXT, days TEXT, "
                 "semantic TEXT, raw BLOB, archive_sha TEXT)"
             )
+            db.execute("CREATE TABLE IF NOT EXISTS history_meta (key TEXT PRIMARY KEY, value TEXT)")
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS history_key_migrations "
+                "(old_key TEXT PRIMARY KEY, new_key TEXT)"
+            )
+            current = db.execute("SELECT value FROM history_meta WHERE key='file_key'").fetchone()
+            if current != ('2',):
+                for row in db.execute("SELECT * FROM files").fetchall():
+                    key = file_key(row[2], row[3], json.loads(row[4]), row[6])
+                    if key != row[0]:
+                        db.execute("INSERT OR IGNORE INTO files VALUES(?,?,?,?,?,?,?,?)",
+                                   (key, *row[1:]))
+                        db.execute("INSERT OR IGNORE INTO history_key_migrations VALUES(?,?)",
+                                   (row[0], key))
+                        db.execute("DELETE FROM files WHERE sha=?", (row[0],))
+                db.execute("INSERT OR REPLACE INTO history_meta VALUES('file_key','2')")
+
+    def original_ids(self):
+        with sqlite3.connect(self.path) as db:
+            return [r[0] for r in db.execute("SELECT sha FROM archives ORDER BY rowid")]
+
+    def original_bytes(self, digest):
+        with sqlite3.connect(self.path) as db:
+            row = db.execute("SELECT raw FROM archives WHERE sha=?", (digest,)).fetchone()
+        if row is None:
+            raise ArchiveError("受付原本が見つかりません")
+        if hashlib.sha256(row[0]).hexdigest() != digest:
+            raise ArchiveError("受付原本のSHA-256が一致しません")
+        return row[0]
 
     @contextmanager
     def stage(self, raw):
@@ -56,11 +90,7 @@ class InputHistory:
                 ).hexdigest()
                 incoming.append(
                     (
-                        # Legacy CSVs identify the warehouse in their filename.
-                        # Identical bytes from different warehouses are distinct inputs.
-                        hashlib.sha256(
-                            json.dumps([kind, center], ensure_ascii=False).encode() + b"\0" + body
-                        ).hexdigest(),
+                        file_key(kind, center, days, body),
                         member.filename,
                         kind,
                         center,

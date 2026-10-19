@@ -143,6 +143,13 @@ def register_field_routes(app, paths, intake, daily, resolve, read_limited):
         accepted, errors = [], []
         originals = sorted(paths.input.glob('*.zip'), key=lambda p: p.stat().st_mtime_ns)
         with exclusive():
+            for digest in intake.history.original_ids():
+                try:
+                    result = intake.ingest(intake.history.original_bytes(digest))
+                    accepted.append({'source':digest[:16]+'（受付原本）',
+                                     'analysis_id':result['analysis_id']})
+                except ValueError as exc:
+                    errors.append({'source':digest[:16], 'reason':str(exc)})
             for source in originals:
                 try:
                     result = intake.ingest(source.read_bytes())

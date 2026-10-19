@@ -15,6 +15,7 @@ from .business_archive import MAX_ZIP_BYTES, _safe_members
 from .document_ai import MAX_BYTES, DocumentError
 from .document_intake import Documents
 from .document_master import candidates, parse_master, sheets
+from .document_preview import page_preview
 from .document_suggestions import suggest_rows
 from .exclusion_import import preview_list
 
@@ -98,6 +99,47 @@ def register_document_routes(app, paths, drop_folder):
     @app.get("/api/documents")
     def documents():
         return service.list()
+
+    @app.get("/api/document-review/rules")
+    def review_rules():
+        return service.review.rules()
+
+    @app.post("/api/document-review/rules/{version}/disable")
+    async def disable_review_rule(version: str, request: Request):
+        try:
+            return service.review.disable(version, json.loads(await body(request, 4096)))
+        except (DocumentError, ValueError, TypeError) as exc:
+            raise HTTPException(422, str(exc)) from None
+
+    @app.post("/api/documents/{identifier}/review/{operation}")
+    async def document_review(identifier: str, operation: str, request: Request):
+        try:
+            value = json.loads(await body(request, 2 * 1024 * 1024))
+            if not isinstance(value, dict):
+                raise DocumentError("入力内容を確認してください")
+            if operation == "plan":
+                return await run_in_threadpool(
+                    lambda: service.review.plan(
+                        identifier, master_version=str(value.get("master_version") or "")))
+            if operation == "preview":
+                return await run_in_threadpool(service.review.preview, identifier, value)
+            if operation == "apply":
+                return await run_in_threadpool(service.review.apply, identifier, value)
+            raise HTTPException(404)
+        except (ValueError, TypeError, AttributeError) as exc:
+            message = str(exc) if isinstance(exc, DocumentError) else "確認条件を見直してください"
+            raise HTTPException(422, message) from None
+
+    @app.get("/api/documents/{identifier}/page/{number}")
+    def document_page(identifier: str, number: int):
+        try:
+            raw, mime = service.get(identifier, original=True)
+            if mime != "application/pdf":
+                raise DocumentError("PDFの原本ページを選んでください")
+            return Response(page_preview(raw, number), media_type="image/jpeg",
+                            headers={"Cache-Control": "no-store"})
+        except DocumentError as exc:
+            raise HTTPException(422, str(exc)) from None
 
     @app.post("/api/documents/upload")
     async def upload_document(request: Request):

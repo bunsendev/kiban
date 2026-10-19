@@ -35,28 +35,35 @@ export function rowProblems(row){
 }
 export function serializeControls(cs){return Object.fromEntries(Object.entries(cs).map(([k,n])=>[k,['exclude','component_confirmed'].includes(k)?n.checked:n.value]));}
 
-export function reviewTable(ctx,parent,sourceRows,master){
+export function reviewTable(ctx,parent,sourceRows,master,options=null){
  const section=el('section','',parent);section.className='document-review';
  el('h3','読み取り結果の確認一覧',section);
- el('p','赤枠は不足・形式エラーです。入力OKでも誤読はあり得ます。数量・単位・日付・倉庫を原本と照合してください。変更は保存するまで確定しません。',section);
+ el('p',options?'例外と保留を優先表示します。機械点検通過は読取正解の保証ではありません。原本の帳票・例外・適用ルールを確認して文書を承認してください。':'赤枠は不足・形式エラーです。入力OKでも誤読はあり得ます。数量・単位・日付・倉庫を原本と照合してください。変更は保存するまで確定しません。',section);
  const totals=el('p','',section);totals.className='document-review-counts';totals.setAttribute('role','status');
  const toolbar=el('div','',section);toolbar.className='document-review-tools';
  const search=field(toolbar,'商品名・コード・JAN・倉庫を検索','search',false);
  const filter=el('select','',el('label','表示する行',toolbar));filter.setAttribute('aria-label','表示する行');
- for(const [v,label] of [['active','対象商品のみ'],['all','すべて（対象外を含む）'],['errors','不足・形式エラーのみ'],['warnings','読取メモ・商品名の確認が必要'],['excluded','除外予定のみ']]){const o=el('option',label,filter);o.value=v;}
- filter.value='active';
+ const categories=[['active','対象商品のみ'],['all','すべて（対象外を含む）'],['errors','不足・形式エラーのみ'],['warnings','読取メモ・商品名の確認が必要'],['excluded','除外予定のみ']];
+ if(options)categories.unshift(['exceptions','例外確認・処理保留のみ'],['ready','機械点検通過・承認待ち']);
+ for(const [v,label] of categories){const o=el('option',label,filter);o.value=v;}
+ filter.value=options?'exceptions':'active';
+ const causes=options?el('select','',el('label','原因で絞り込む',toolbar)):null;
+ if(causes){const o=el('option','すべての原因',causes);o.value='';for(const [cause,count] of Object.entries(options.causes||{})){const n=el('option',`${cause}（${count}行）`,causes);n.value=cause;}}
  const wrap=el('div','',section);wrap.className='document-review-scroll';wrap.tabIndex=0;wrap.setAttribute('aria-label','読み取り結果の一覧（横・縦にスクロールできます）');
  const table=el('table','',wrap);table.className='document-review-table';el('caption','原本と照合しながら一覧で修正できます。入力OKは業務上正しいことの保証ではありません。',table);
  const header=el('tr','',el('thead','',table));
  for(const label of ['行・確認状況','商品名・コード','JAN・候補','数量・単位・換算','種類・日付','倉庫','原本・メモ','除外'])el('th',label,header).setAttribute('scope','col');
  const body=el('tbody','',table), entries=[],edits=[];
  const batch=el('div','',section);
+ if(!options){
  el('p','一括操作は表示中の行だけに適用します。数量・換算を原本と照合してから実行してください。除外した行はチェックを外すと再び対象になります。',batch);
  button('表示中の在庫の空欄を0にする',()=>{for(const e of entries){if(e.tr.hidden||e.controls.exclude.checked||e.controls.kind.value!=='inventory')continue;for(const k of ['case_quantity','loose_quantity'])if(!text(e.controls[k].value))e.controls[k].value='0';}update();},batch,true);
  button('表示中のボール・バラの意味を確認済みにする',()=>{for(const e of entries){if(!e.tr.hidden&&!e.controls.exclude.checked&&['case_quantity','loose_quantity'].some(k=>text(e.controls[k].value)))e.controls.component_confirmed.checked=true;}update();},batch,true);
+ }
 
  function update(){
   let errorCount=0,warningCount=0,excludedCount=0,visible=0;
+  const counts={READY:0,REVIEW:0,HOLD:0,EXCLUDED:0};
   for(const entry of entries){
    const row=serializeControls(entry.controls),p=rowProblems(row);entry.problems=p;
    const hasComponents=['case_quantity','loose_quantity'].some(k=>text(row[k])!=='');
@@ -65,17 +72,25 @@ export function reviewTable(ctx,parent,sourceRows,master){
    for(const n of Object.values(entry.controls))n.removeAttribute('aria-invalid');
    for(const e of p.errors)entry.controls[e.key]?.setAttribute('aria-invalid','true');
    entry.state.replaceChildren();
-   const badge=el('strong',row.exclude?(p.errors.length?'除外理由を確認':'除外予定'):p.errors.length?'不足・要修正':'入力OK・原本照合が必要',entry.state);
+   const meta=options?.classifications?.[entry.index]||{status:'REVIEW',causes:['追加行の原本確認']};
+   const edited=JSON.stringify(row)!==entry.initial;
+   const hardErrors=p.errors.filter(e=>e.key!=='component_confirmed');
+   const status=row.exclude?'EXCLUDED':hardErrors.length?'HOLD':p.errors.length||edited?'REVIEW':meta.status;
+   const reasons=edited?['編集後の原本確認',...(meta.causes||[])]:meta.causes||[];
+   counts[status]=(counts[status]||0)+1;
+   const badge=el('strong',options?({READY:'機械点検通過・文書承認待ち',REVIEW:'例外確認',HOLD:'処理保留',EXCLUDED:'除外予定'}[status]):row.exclude?(p.errors.length?'除外理由を確認':'除外予定'):p.errors.length?'不足・要修正':'入力OK・原本照合が必要',entry.state);
    badge.className=p.errors.length?'review-badge error':row.exclude?'review-badge excluded':'review-badge pending';
+   if(options)badge.className='review-badge '+({READY:'ready',REVIEW:'pending',HOLD:'error',EXCLUDED:'excluded'}[status]);
    for(const e of p.errors)el('div',e.message,entry.state).className='review-problem';
-   for(const warning of p.warnings)el('div',warning,entry.state).className='review-warning';
+   for(const warning of options?reasons:p.warnings)el('div',warning,entry.state).className='review-warning';
    entry.dateGroups.date.hidden=row.kind==='inventory';entry.dateGroups.snapshot.hidden=row.kind==='shipment';entry.dateGroups.expiry.hidden=row.kind==='shipment';
    const needle=search.value.trim().toLowerCase();
    const matches=!needle||['product_name','product_code','jan','location','note'].some(k=>text(row[k]).toLowerCase().includes(needle));
-   const category=filter.value==='active'&&!row.exclude||filter.value==='all'||filter.value==='errors'&&p.errors.length||filter.value==='warnings'&&!row.exclude&&p.warnings.length||filter.value==='excluded'&&row.exclude;
-   entry.tr.hidden=!(matches&&category);if(!entry.tr.hidden)visible++;
+   const category=filter.value==='exceptions'&&['REVIEW','HOLD'].includes(status)||filter.value==='ready'&&status==='READY'||filter.value==='active'&&!row.exclude||filter.value==='all'||filter.value==='errors'&&p.errors.length||filter.value==='warnings'&&!row.exclude&&p.warnings.length||filter.value==='excluded'&&row.exclude;
+   entry.tr.hidden=!(matches&&category&&(!causes?.value||reasons.includes(causes.value)));if(!entry.tr.hidden)visible++;
   }
   totals.textContent=`全${entries.length}行 ／ 不足・形式エラー ${errorCount}行 ／ 読取メモ・商品名の確認 ${warningCount}行 ／ 除外予定 ${excludedCount}行 ／ 表示 ${visible}行`;
+  if(options)totals.textContent=`読取商品 ${new Set(entries.map(e=>e.controls.jan.value).filter(Boolean)).size} JAN ／ 全${entries.length}明細 ／ 機械点検通過 ${counts.READY}行 ／ 例外確認 ${counts.REVIEW}行 ／ 処理保留 ${counts.HOLD}行 ／ 除外予定 ${counts.EXCLUDED}行 ／ 表示 ${visible}行`;
  }
  function addRow(row={},i=entries.length,refresh=true){
   const tr=el('tr','',body),controls={},dateGroups={};
@@ -109,12 +124,16 @@ export function reviewTable(ctx,parent,sourceRows,master){
   }
   controls.exclude=field(exclude,'この行を除外する','checkbox',false);controls.exclude.checked=row.exclude===true;
   controls.reason=field(exclude,'除外理由','text',false);controls.reason.value=row.reason??'';
-  entries.push({tr,controls,state,dateGroups,single});edits.push(controls);
+  const rule=el('input','',origin);rule.type='hidden';rule.value=row.component_rule_version||'';controls.component_rule_version=rule;
+  const override=el('input','',origin);override.type='hidden';override.value=row.component_rule_override||'';controls.component_rule_override=override;
+  controls.component_confirmed.addEventListener('change',()=>{rule.value='';override.value='manual';});
+  if(options?.onSource)button('この行の原本ページと比較',()=>options.onSource(i,serializeControls(controls)),origin,true);
+  entries.push({tr,controls,state,dateGroups,single,index:i,initial:JSON.stringify(serializeControls(controls))});edits.push(controls);
   tr.addEventListener('input',update);tr.addEventListener('change',update);
   if(refresh)update();return tr;
  }
  sourceRows.forEach((row,i)=>addRow(row,i,false));
- search.addEventListener('input',update);filter.addEventListener('change',update);update();
+ search.addEventListener('input',update);filter.addEventListener('change',update);causes?.addEventListener('change',update);update();
  button('原本から明細を追加する',()=>{search.value='';filter.value='all';const tr=addRow();tr.scrollIntoView({block:'nearest'});},section,true);
  return {edits,update};
 }
