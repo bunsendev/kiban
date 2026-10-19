@@ -188,6 +188,7 @@ def main() -> None:
         "Portable_取込履歴と28日判定.md",
         "Portable_例外確認と単位ルール.md",
         "Portable_予測と実績の比較.md",
+        "Portable_履歴期間と方式比較.md",
     ):
         shutil.copy2(root / "docs" / guide, output / guide)
     (output / "Data").mkdir()

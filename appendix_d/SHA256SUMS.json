@@ -961,7 +961,7 @@
   "portable/api/static/style.css": "a8f17cd8f4632da4240f057c27600499d218313d50fb21a81934756452f9654a",
   "portable/api/store.py": "861c7c5d5242aa0fbb421f92c52c2625afdec339577710c2b15815bbb8aacb29",
   "portable/api/verification_routes.py": "fc599e35c0addc8c1773208ba5dd4458dbe17e584d6ab5614617e13fede4ce13",
-  "portable/build_windows.py": "91c7f260f6cb70efbaf91c6cd4527b82e980ef61868d1e7fcded2b77652b3026",
+  "portable/build_windows.py": "6abe615f0164f4045473f7bd2600871107ae4ce979d01e9cc991ae05061bfb97",
   "portable/document_accuracy.py": "5610ff6f6f37b4fab8edf8eb0301aaae59224b2fe6453fca8996d775cb7b1542",
   "portable/history_import.py": "f4475d0f8c3c848c30714dd9b63f364cc2e933c5a733cd0aae47d25c0fe95b08",
   "portable/history_study.py": "c9fb4301e24963ceec44504e1d2de9a2e735509900e1ea66930d0080ceb3c8e5",
