@@ -1,6 +1,8 @@
 """Local document intake routes, isolated from automatic CSV approval."""
 
+import io
 import json
+import zipfile
 from urllib.parse import unquote
 
 from fastapi import HTTPException, Request
@@ -9,6 +11,7 @@ from starlette.concurrency import run_in_threadpool
 
 from portable.runtime.api_credentials import CredentialError
 
+from .business_archive import MAX_ZIP_BYTES, _safe_members
 from .document_ai import MAX_BYTES, DocumentError
 from .document_intake import Documents
 from .document_master import candidates, parse_master, sheets
@@ -118,6 +121,34 @@ def register_document_routes(app, paths, drop_folder):
             except (DocumentError, OSError):
                 continue
         return {"count": count}
+
+    @app.post("/api/documents/batch")
+    async def upload_document_batch(request: Request):
+        raw = await body(request, MAX_ZIP_BYTES)
+        accepted, errors = [], []
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                members = _safe_members(archive)
+                for member in members:
+                    if member.is_dir():
+                        continue
+                    if not member.filename.lower().endswith((".pdf", ".png", ".jpg", ".jpeg")):
+                        errors.append({"file": member.filename,
+                                       "reason": "文書の一括登録はPDF・画像のみです"})
+                        continue
+                    if member.file_size > MAX_BYTES:
+                        errors.append({"file": member.filename,
+                                       "reason": "1ファイル10 MBを超えています"})
+                        continue
+                    try:
+                        result = service.add(member.filename, archive.read(member))
+                        accepted.append({"file": member.filename, "id": result["id"]})
+                    except (ValueError, OSError) as exc:
+                        errors.append({"file": member.filename, "reason": str(exc)})
+        except (zipfile.BadZipFile, ValueError) as exc:
+            raise HTTPException(422, str(exc)) from None
+        return {"accepted": accepted, "errors": errors,
+                "notice": "登録のみ。読取・原本確認・正式採用は別です。成功分は保持します"}
 
     @app.post("/api/document-master")
     async def import_master(request: Request):

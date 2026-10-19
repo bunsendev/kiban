@@ -99,7 +99,11 @@ def test_four_row_report_example_retains_three_current_inventory_rows(monkeypatc
         line += ''.join(a.ljust(4) + b.ljust(3) for a, b in [('', '')]*4+[(case, loose)])
         lines.extend([line, ' (' + detail + ')'])
     monkeypatch.setattr(adapter, 'page_source', lambda *_: (b'', '\n'.join(lines), 1))
-    rows = adapter.extract_inventory(pdf(1), blank_current_zero=True)['rows']
+    result = adapter.extract_inventory(pdf(1), blank_current_zero=True)
+    shipments = [r for r in result['rows'] if r['kind'] == 'shipment']
+    assert len(shipments) == 4
+    assert all(r['case_quantity'] == r['loose_quantity'] == '0' for r in shipments)
+    rows = [r for r in result['rows'] if r['kind'] == 'inventory']
     assert len(rows) == 4 and rows[0]['exclude'] is True
     kept = [r for r in rows if not r.get('exclude')]
     assert [(r['case_quantity'], r['loose_quantity']) for r in kept] == [

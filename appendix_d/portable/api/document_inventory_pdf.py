@@ -81,22 +81,21 @@ def extract_inventory(raw, *, blank_current_zero=False):
                 )
             rows.append(row)
             # The movement report's 当出 is the day's shipment, never 当入.
-            # Missing cells remain missing; do not manufacture zero shipments.
+            # Business-confirmed policy for this printed report's outbound cells only.
             if "当出" in text and snapshot:
                 out_cases = line[case_columns[2]:loose_columns[2]].strip().replace(",", "")
                 out_loose = line[loose_columns[2]:case_columns[3]].strip().replace(",", "")
-                if out_cases or out_loose:
-                    shipped = dict(row)
-                    shipped.update(
-                        kind="shipment", date=row["snapshot"], snapshot="", expiry="",
-                        case_quantity=out_cases, loose_quantity=out_loose,
-                        unit="当出ケース / 当出バラ",
-                        exclude=False, reason="",
-                        note="PDF埋込文字の当出欄。出荷日は在庫集計日の候補。原本と業務上の日付を照合。空欄は未確認。",
-                    )
-                    if any(v and not re.fullmatch(r"[0-9]+", v) for v in (out_cases, out_loose)):
-                        complete = False
-                    rows.append(shipped)
+                shipped = dict(row)
+                shipped.update(
+                    kind="shipment", date=row["snapshot"], snapshot="", expiry="",
+                    case_quantity=out_cases or "0", loose_quantity=out_loose or "0",
+                    source_outbound_case=out_cases, source_outbound_loose=out_loose,
+                    unit="当出ケース / 当出バラ", exclude=False, reason="",
+                    note="PDF当出欄。担当者指定：当出の空欄は0。原本の空欄を履歴に保持。出荷日は在庫集計日。",
+                )
+                if any(v and not re.fullmatch(r"[0-9]+", v) for v in (out_cases, out_loose)):
+                    complete = False
+                rows.append(shipped)
     if not rows or len(rows) > 1000:
         raise DocumentError("在庫明細を取得できないか1000行を超えています")
     return {
@@ -106,6 +105,7 @@ def extract_inventory(raw, *, blank_current_zero=False):
         "pages_read": list(range(1, count + 1)),
         "model": "printed-inventory-movement-v3",
         "inventory_checks": inventory_checks(rows, movements),
+        "blank_outbound_policy": "PRINTED_REPORT_OUTBOUND_BLANK_ZERO",
         "blank_current_policy": (
             "CURRENT_BLANK_ZERO_EXCLUDE_EMPTY" if blank_current_zero else "UNKNOWN"
         ),
