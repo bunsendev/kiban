@@ -1,3 +1,6 @@
+2026-10-20 Portable pilot.46 ボール・バラ定義の再確認表示修正
+関連42件全成功（79.17秒）、取消ルールの途中保存・通常再利用2件追加成功（15.01秒）。Ruff/補助lint/JS構文成功。ソース画面で単位警告なし、空欄時の数量HOLD、正常値復帰を確認。全体スイートはビルドとの資源競合のため12%時点で停止し全体合格とはしない。詳細 planning/PORTABLE_PILOT46_UNIT_DEFINITION_FIX.md。
+
 2026-10-20 Portable pilot.45 配布ZIP
 Windows x64ビルド成功。梱包2テスト・Ruff成功。新規5モジュール/画面同梱、2555ファイルSHA-256一致、本体/レポートZIP CRC成功。Data空・APIキー/Token/秘密鍵/実績DBなし。EXE実起動試験は自動承認レビュー拒否により未実施。詳細 planning/PORTABLE_PILOT45_PACKAGE_RESULT.md。
 

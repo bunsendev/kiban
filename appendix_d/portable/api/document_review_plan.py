@@ -148,7 +148,9 @@ class DocumentReview:
             prior = row.get("component_rule_version")
             invalid_prior = bool(prior and prior not in {r["version"] for r in matches})
             if invalid_prior:
-                row.update(component_confirmed=False, component_rule_version="")
+                # Keep the invalid reference until explicit manual confirmation;
+                # otherwise saving a draft could erase the reason for the hold.
+                row.update(component_confirmed=False)
             if (
                 matches
                 and not row.get("exclude")

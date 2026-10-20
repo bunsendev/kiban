@@ -389,3 +389,6 @@ def test_revoked_scoped_rule_is_not_reconfirmed_by_builtin_definition(tmp_path, 
     assert all(r["component_confirmed"] is False for r in plan["rows"])
     assert all("component_definition_version" not in r for r in plan["rows"])
     assert all(s["status"] == "REVIEW" for s in plan["classifications"])
+    service.save_draft(doc["id"], {"rows": plan["rows"], "revision": doc["extraction"]["revision"]})
+    reopened = service.review.plan(doc["id"])
+    assert all(r["component_confirmed"] is False for r in reopened["rows"])
