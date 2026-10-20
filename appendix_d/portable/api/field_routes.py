@@ -19,7 +19,15 @@ from forecast_provider.operation_events.store import SqliteOperationEventStore
 from portable.runtime.feedback_admin import authorized
 
 from .business_archive import MAX_ZIP_BYTES, atomic_json
-from .field_read_model import build_view, export, page, safe_csv, with_reviews
+from .field_read_model import (
+    build_saved_view,
+    build_view,
+    export,
+    page,
+    safe_csv,
+    warehouse_scope,
+    with_reviews,
+)
 from .field_store import FieldStore
 from .field_workflow import FieldWorkflow
 from .reference_demand import demand_forecast
@@ -160,6 +168,23 @@ def register_field_routes(app, paths, intake, daily, resolve, read_limited):
         return {'accepted':accepted, 'errors':errors,
                 'notice':'以前の原本を候補履歴へ再集計しました。正式承認は変更していません。'}
 
+    @app.get("/api/field/saved-forecasts/{reference}/results")
+    def saved_result(reference: str):
+        try:
+            app.state.saved_forecasts.manifest(reference)
+            for path in sorted(snapshots.glob("*.json"), reverse=True):
+                try:
+                    value = snapshot(path.stem)
+                except HTTPException:
+                    continue
+                if value.get("build_id") == reference:
+                    return {"result_id": value["result_id"]}
+            value = build_saved_view(daily, reference, resolve, app.state.saved_forecasts)
+            atomic_json(snapshots / f"{value['result_id']}.json", value)
+            return {"result_id": value["result_id"]}
+        except ValueError as exc:
+            raise HTTPException(404, str(exc)) from exc
+
     @app.get("/api/field/{analysis_id}/results")
     def results(analysis_id: str):
         try:
@@ -180,9 +205,14 @@ def register_field_routes(app, paths, intake, daily, resolve, read_limited):
         offset: int = Query(0, ge=0),
         limit: int = Query(30, ge=1, le=100),
     ):
-        return page(
-            with_reviews(snapshot(result_id), store), q, warehouse, attention, offset, limit
-        )
+        value = snapshot(result_id)
+        try:
+            scoped = warehouse_scope(value, warehouse)
+        except ValueError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return page(with_reviews(scoped, store), q, "", attention, offset, limit) | {
+            "warehouses": sorted({r["warehouse"] for r in value["rows"]})
+        }
 
     @app.get("/api/field/results/{result_id}/history")
     def history(result_id: str):
@@ -219,8 +249,9 @@ def register_field_routes(app, paths, intake, daily, resolve, read_limited):
     async def download(result_id: str, request: Request):
         value = await payload(request, 8 * 1024 * 1024)
         try:
+            scoped = warehouse_scope(snapshot(result_id), value.get("warehouse", ""))
             data = await run_in_threadpool(
-                export, with_reviews(snapshot(result_id), store), value.get("selected")
+                export, with_reviews(scoped, store), value.get("selected")
             )
             return Response(
                 data,
@@ -249,8 +280,9 @@ def register_field_routes(app, paths, intake, daily, resolve, read_limited):
             if value.get("kind") == "issues":
                 data = issues_download(result_id).body
             else:
+                scoped = warehouse_scope(snapshot(result_id), value.get("warehouse", ""))
                 data = await run_in_threadpool(
-                    export, with_reviews(snapshot(result_id), store), value.get("selected")
+                    export, with_reviews(scoped, store), value.get("selected")
                 )
             export_id = uuid.uuid4().hex
             (exports / f"{export_id}.csv").write_bytes(data)

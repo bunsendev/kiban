@@ -67,12 +67,20 @@ const ctx = {
     ctx.dirty = false;
     const v = await api(`/api/field/${ctx.analysisId}/results`);
     ctx.resultId = v.result_id;
+    ctx.resultWarehouse = "";
     await results(ctx);
   },
-  async openResult(resultId) {
+  async openSaved(item) {
+    if (ctx.dirty && !confirm("未保存の入力があります。保存済み結果へ移動しますか？")) return;
+    const value = await api(`/api/field/saved-forecasts/${encodeURIComponent(item.reference)}/results`);
+    await ctx.openResult(value.result_id, item.warehouse);
+  },
+  async openResult(resultId, warehouse = "") {
     const value = await api(`/api/field/results/${resultId}?limit=1`);
     ctx.analysisId = value.analysis_id;
     ctx.resultId = resultId;
+    ctx.resultWarehouse = warehouse;
+    ctx.dirty = false;
     await results(ctx);
   },
   async home() {

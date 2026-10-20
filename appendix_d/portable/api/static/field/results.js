@@ -11,7 +11,7 @@ export async function results(ctx) {
   ctx.enter(3);
   ctx.dirty = false;
   el("h1", "分析結果", ctx.root);
-  el("p", "今回の分析結果を確認してください。", ctx.root).className = "intro";
+  el("p", "保存済みの予測結果です。在庫基準日と予測期間を確認してください。", ctx.root).className = "intro";
   const explanation = el("details", "");
   el("summary", "結果の見方・予測の対象について", explanation);
   el(
@@ -52,7 +52,7 @@ export async function results(ctx) {
     () =>
       ctx.run(async () => {
         ctx.message("CSVを準備しています");
-        await download(endpoint + "/download", { selected: null });
+        await download(endpoint + "/download", { selected: null, warehouse: warehouse.value });
         ctx.message("ダウンロードを開始しました");
       }),
     actions,
@@ -64,7 +64,7 @@ export async function results(ctx) {
     () =>
       ctx.run(async () => {
         ctx.message("CSVを準備しています");
-        await download(endpoint + "/download", { selected: [...selected] });
+        await download(endpoint + "/download", { selected: [...selected], warehouse: warehouse.value });
         ctx.message("ダウンロードを開始しました");
       }),
     actions,
@@ -79,6 +79,8 @@ export async function results(ctx) {
   const wl = el("label", "倉庫", filters),
     warehouse = el("select", "", wl);
   el("option", "すべて", warehouse).value = "";
+  if (ctx.resultWarehouse) el("option", ctx.resultWarehouse, warehouse).value = ctx.resultWarehouse;
+  warehouse.value = ctx.resultWarehouse || "";
   const al = el("label", "", filters),
     attention = el("input", "", al);
   attention.type = "checkbox";
@@ -250,7 +252,13 @@ export async function results(ctx) {
       ctx.run(load);
     }, 250);
   };
-  warehouse.onchange = attention.onchange = () => {
+  warehouse.onchange = () => {
+    selected.clear();
+    ctx.resultWarehouse = warehouse.value;
+    offset = 0;
+    ctx.run(load);
+  };
+  attention.onchange = () => {
     offset = 0;
     ctx.run(load);
   };

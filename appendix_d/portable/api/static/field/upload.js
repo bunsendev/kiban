@@ -1,3 +1,4 @@
+import { savedForecasts } from "./saved-forecasts.js";
 import { api, el, button } from "./api.js";
 import { waitJob } from "./progress.js";
 import { folderReview } from "./folder-review.js";
@@ -148,6 +149,7 @@ export async function upload(ctx) {
     ctx.message("投入フォルダを開きました。CSVまたはZIPを直下に置いてください。");
   }), folderActions, true);
   await refresh();
+  await savedForecasts(ctx.root, item => ctx.openSaved(item));
   await documents(ctx, ctx.root);
 
   const historyGroup = el("details", "", ctx.root);

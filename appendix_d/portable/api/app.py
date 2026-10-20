@@ -514,7 +514,10 @@ def create_app(
             return jsonable_encoder(value.get("point_predictions", []))
         raise HTTPException(404, "結果の種類を確認してください")
 
-    register_result_feedback_routes(app, paths, resolve_operator_results, _read_limited)
+    register_result_feedback_routes(
+        app, paths, resolve_operator_results, _read_limited,
+        daily_auto_runs.forecast, production_workflow,
+    )
     register_field_routes(
         app, paths, archive_intake, daily_auto_runs, resolve_operator_results, _read_limited
     )

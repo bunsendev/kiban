@@ -25,6 +25,33 @@ def build_view(daily, analysis_id, resolve):
         raise ValueError("データ確認・予測の後に結果を表示できます")
     source = daily.forecast.view(state["registration_id"])
     manifest = source["latest"]
+    return _build_view(daily, state, analysis_id, source, manifest, resolve)
+
+
+def build_saved_view(daily, reference, resolve, catalog):
+    manifest = catalog.manifest(reference)
+    registration = daily.pipeline.get_registration(manifest["registration_id"])
+    handoff = daily.pipeline.get_handoff(registration["handoff_id"])
+    locations = {v["source_center"]: v for v in handoff["locations"]}
+    source = {"identity_proposal": [{"source_center": s["source_center"], "jan": s["jan"],
+               "warehouse_id": locations[s["source_center"]]["location_id"]}
+              for s in manifest["series"]]}
+    state = {"build_id": reference, "handoff_id": registration["handoff_id"],
+             "blockers": [], "summary_key": None}
+    return _build_view(daily, state, handoff["analysis_id"], source, manifest, resolve)
+
+
+def warehouse_scope(value, warehouse):
+    if not warehouse:
+        return value
+    rows = [r for r in value["rows"] if r["warehouse"] == warehouse]
+    if not rows:
+        raise ValueError("この保存版には指定した倉庫がありません")
+    return value | {"rows": rows, "unresolved": [r for r in value.get("unresolved", [])
+                                                 if r.get("source_center") == warehouse]}
+
+
+def _build_view(daily, state, analysis_id, source, manifest, resolve):
     names, input_issues = source_metadata(daily.paths, analysis_id)
     handoff = daily.pipeline.get_handoff(state["handoff_id"])
     snapshot_times = {f["source_center"]: f["snapshot_at"] for f in handoff["files"]}

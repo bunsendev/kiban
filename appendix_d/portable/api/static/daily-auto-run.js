@@ -135,6 +135,7 @@ async function loadDailyRequirements(value) {
 async function renderDailyRun(value) {
   if (value.build_id && ['SUMMARY_CONFIRMATION_REQUIRED', 'DECISION_INPUT_REQUIRED',
     'DECISION_INPUT_BLOCKED', 'DECISION_BLOCKED', 'SHIPMENT_REVIEW_REQUIRED', 'COMPLETED'].includes(value.status)) {
+    document.dispatchEvent(new CustomEvent("portable-forecasts-updated"));
     dailyPanel.hidden = true;
     await window.PortableOperatorResults?.show('production', value.build_id);
     return;

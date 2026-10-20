@@ -8,6 +8,7 @@
   analysis.parentNode.insertBefore(completed, analysis); completed.appendChild(analysis);
   completed.open = true; completed.hidden = true;
   document.addEventListener('portable-analysis-changed', () => {completed.hidden = false;});
+  let warehouse = '', pinned = false;
   let source = '', rows = [], history = [], selected = new Set(), page = 0, generation = 0;
   const size = 30;
   const el = (tag, text, parent = root) => {
@@ -16,6 +17,7 @@
   };
   el('h2', '4. 結果の確認・修正・フィードバック');
   el('p', '商品・倉庫ごとの日別予測です。修正しても元の予測は残ります。数量の単位は取込時に確認した単位です。');
+  const context = el('p');
   const status = el('p'); status.setAttribute('role', 'status');
   const searchLabel = el('label', '商品・倉庫IDを検索');
   const search = el('input', '', searchLabel); search.type = 'search';
@@ -89,14 +91,20 @@
     if (!response.ok) {const error = await response.json(); throw new Error(error.detail || '処理できませんでした');}
     return response;
   }
-  async function reload(expectedSource = source) {
-    const value = await (await request(expectedSource)).json();
-    if (source !== expectedSource) return;
-    rows = value.rows; history = value.history; render();
+  function endpoint(suffix = '') {
+    return source + suffix + (warehouse ? '?warehouse=' + encodeURIComponent(warehouse) : '');
+  }
+  async function reload(expectedSource = source, expectedWarehouse = warehouse) {
+    const value = await (await request(endpoint())).json();
+    if (source !== expectedSource || warehouse !== expectedWarehouse) return;
+    rows = value.rows; history = value.history;
+    const dates = rows.map(r => String(r.target_date).slice(0,10)).sort();
+    context.textContent = `保存済みの予測${warehouse ? '／' + warehouse : ''}／予測期間 ${dates[0] || 'なし'} ～ ${dates.at(-1) || 'なし'}。現在取り込んでいるデータとは別の結果です。`;
+    render();
   }
   async function download(selection) {
     try {
-      const response = await request(`${source}/download`, {method: 'POST', headers: {'Content-Type': 'application/json'},
+      const response = await request(endpoint('/download'), {method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({selected: selection})});
       const url = URL.createObjectURL(await response.blob()), link = document.createElement('a');
       link.href = url; link.download = '予測結果.csv'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -105,26 +113,28 @@
   }
   form.onsubmit = async event => {
     event.preventDefault(); if (!editing) return;
-    const currentSource = source; save.disabled = true;
+    const currentSource = source, currentWarehouse = warehouse; save.disabled = true;
     try {
       const {saveWithNotice}=await import('/field/assets/api.js');
-      await saveWithNotice(()=>request(`${currentSource}/feedback`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({
+      await saveWithNotice(()=>request(endpoint('/feedback'), {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({
         unique_id: editing.unique_id, target_date: editing.target_date, revision: editing.feedback?.revision || 0,
         quantity: quantity.disabled ? (editing.feedback?.quantity ?? null) : (quantity.value === '' ? null : Number(quantity.value)), actor: actor.value,
         rating: rating.value, reason: reason.value, comment: comment.value,
       })}),'結果の修正とフィードバックを保存しました。元の予測は変更していません。');
-      if (source !== currentSource) return;
-      form.hidden = true; await reload(currentSource); status.textContent = '保存しました。修正はこの結果への担当者判断として記録されます。';
+      if (source !== currentSource || warehouse !== currentWarehouse) return;
+      form.hidden = true; await reload(currentSource, currentWarehouse); status.textContent = '保存しました。修正はこの結果への担当者判断として記録されます。';
     } catch (error) {status.textContent = error.message;}
     finally {save.disabled = false;}
   };
   search.oninput = () => {page = 0; render();};
   window.PortableOperatorResults = {
-    clear() {generation++; source = ''; rows = []; history = []; selected.clear(); form.hidden = true; root.hidden = true; completed.open = true;},
-    async show(kind, reference) {
+    clear() {pinned = false; generation++; source = ''; rows = []; history = []; selected.clear(); form.hidden = true; root.hidden = true; completed.open = true;},
+    async show(kind, reference, selectedWarehouse = '', explicit = false) {
+      if (pinned && !explicit) return;
+      if (explicit) pinned = true;
       const url = `/api/operator-results/${kind}/${encodeURIComponent(reference)}`;
-      if (source === url) return;
-      const token = ++generation; source = url; rows = []; history = []; selected.clear(); page = 0;
+      if (source === url && warehouse === selectedWarehouse) {root.hidden = false; return;}
+      const token = ++generation; source = url; warehouse = selectedWarehouse; rows = []; history = []; selected.clear(); page = 0;
       form.hidden = true; root.hidden = false; status.textContent = '結果を読み込み中です'; render();
       try {await reload(url); if (token === generation) {completed.open = false; status.textContent = '結果を確認し、必要に応じて修正や感想を保存してください。';}}
       catch (error) {if (token === generation) {source = ''; status.textContent = error.message;}}

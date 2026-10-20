@@ -1,3 +1,4 @@
+import { savedForecasts } from "./saved-forecasts.js";
 import { api, el, button, field } from "./api.js";
 
 function formBase(ctx, title) {
@@ -114,6 +115,7 @@ export async function analysis(ctx) {
       `${w.center || w.source_center || "倉庫"}：出荷の最終日 ${w.latest_date || "未確認"}／参考バックテスト用35日（28日学習＋7日評価）で不足 ${w.missing_recent_days ?? "未確認"}日。予測の直近28日判定とは別です。`,
       ctx.root,
     );
+  await savedForecasts(ctx.root, item => ctx.openSaved(item));
   const status = el("p", state.next_action, ctx.root);
   status.className = "notice";
   if (report.issues?.length) {
