@@ -2296,3 +2296,7 @@ OS: Windows 11
 - Real9.1 inventory PDF:8 pages,42 JAN,220 rows (110 inventory/110 shipment),156 READY/64 EXCLUDED,0 REVIEW/HOLD. No API use or approval. Original unchanged. Shipped pilot47 review JS matches reproduced pre-fix source.
 - Exception-only default reproduced0 visible rows. Corrected UI defaults to156 READY rows when no exceptions; explicit exception0 explains hidden rows; view-all220. Filter reset preserves exclusions and approval state. Node table and exception/empty-state tests PASS.
 - Related document movement/review/rules pytest:40 PASS (14.66s). Ruff, JS syntax PASS. Distribution ZIP unchanged this phase. See planning/DOCUMENT_REVIEW_VISIBILITY_TEST_RESULT.md.
+
+2026-10-20 pilot48 package preparation
+- Version and current install/operator guides advanced to0.6.0-pilot.48. Includes extraction visibility fix; data/approval/exclusion contracts unchanged. Focused gates and clean build follow.
+- Final focused document/review/rules/recovery/package gate:55 PASS (18.33s); Node table/empty-state tests and private real-PDF display regression PASS. Ruff and git diff check PASS. Frozen build and ZIP inspection pending.
