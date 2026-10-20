@@ -146,7 +146,8 @@ class DocumentReview:
                 and row.get("unit") == UNITS.get(row.get("kind"))
             ]
             prior = row.get("component_rule_version")
-            if prior and prior not in {r["version"] for r in matches}:
+            invalid_prior = bool(prior and prior not in {r["version"] for r in matches})
+            if invalid_prior:
                 row.update(component_confirmed=False, component_rule_version="")
             if (
                 matches
@@ -169,7 +170,11 @@ class DocumentReview:
             if row.get("component_definition_version") and not native_columns:
                 row["component_confirmed"] = False
             row.pop("component_definition_version", None)
-            if native_columns and row.get("component_rule_override") != "manual":
+            if (
+                native_columns
+                and not invalid_prior
+                and row.get("component_rule_override") != "manual"
+            ):
                 row.update(
                     component_confirmed=True, component_definition_version=COMPONENT_DEFINITION
                 )

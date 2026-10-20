@@ -377,3 +377,15 @@ def test_builtin_definition_does_not_accept_changed_source_columns(tmp_path, mon
     assert plan["rows"][0]["component_confirmed"] is False
     assert "component_definition_version" not in plan["rows"][0]
     assert "原本の数量列の対応を確認" in plan["classifications"][0]["causes"]
+
+
+def test_revoked_scoped_rule_is_not_reconfirmed_by_builtin_definition(tmp_path, monkeypatch):
+    service = create_app(tmp_path).state.documents
+    doc = document(service, monkeypatch)
+    apply(service, doc, prepare(service, doc))
+    version = service.review.rules()[-1]["version"]
+    service.review.disable(version, {"actor": "人工", "reason": "数量列の確認を取り消す"})
+    plan = service.review.plan(doc["id"])
+    assert all(r["component_confirmed"] is False for r in plan["rows"])
+    assert all("component_definition_version" not in r for r in plan["rows"])
+    assert all(s["status"] == "REVIEW" for s in plan["classifications"])
