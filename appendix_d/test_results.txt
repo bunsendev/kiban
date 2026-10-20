@@ -1,3 +1,6 @@
+2026-10-20 pilot.46 配布最終検査
+EXE埋込PYZで最終の単位定義・取消保留処理を確認。画面JS一致、2557ファイルSHA-256/最終ZIP CRC成功。古い中間生成物は配布先から隔離。Data/資格情報なし。EXE実起動試験未実施。詳細 planning/PORTABLE_PILOT46_UNIT_DEFINITION_FIX.md。
+
 2026-10-20 Portable pilot.46 ボール・バラ定義の再確認表示修正
 関連42件全成功（79.17秒）、取消ルールの途中保存・通常再利用2件追加成功（15.01秒）。Ruff/補助lint/JS構文成功。ソース画面で単位警告なし、空欄時の数量HOLD、正常値復帰を確認。全体スイートはビルドとの資源競合のため12%時点で停止し全体合格とはしない。詳細 planning/PORTABLE_PILOT46_UNIT_DEFINITION_FIX.md。
 
