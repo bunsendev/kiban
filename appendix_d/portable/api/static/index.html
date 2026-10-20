@@ -3,7 +3,7 @@
 <title>ブンセン予測</title><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/field/assets/document-review.css"></head>
 <body><main>
 <header><small>現場担当者向け</small><h1>ブンセン予測</h1><p>ファイルを選ぶ → 内容を確認 → 予測する → 結果を確認・修正する</p></header>
-<section id="device-settings-panel" aria-label="このPCの設定"><h2>このPCの設定・操作ガイド</h2><div id="device-settings"></div><p id="settings-error" role="alert"></p></section>
+<section id="device-settings-panel" aria-label="このPCの設定"><h2>このPCの設定・操作ガイド</h2><p><a href="/learning-backup" target="_blank" rel="noopener">学習データのバックアップ・復元</a></p><div id="device-settings"></div><p id="settings-error" role="alert"></p></section>
 <section id="document-intake-panel"><h2>PDF・手書き・写真を取り込む</h2><p>CSV・ZIPとは別の取込経路です。原本を登録 → AIで読み取り → 原本を確認・修正 → 分析へ進みます。</p><div id="document-intake"></div><p id="document-error" role="status"></p></section>
 <details class="drop-folder-panel"><summary>フォルダに入れて自動で分析する場合</summary><h2>投入フォルダから自動分析</h2><p>［投入フォルダを開く］を押し、在庫・出荷CSVまたはZIPをコピーしてください。コピー完了を確認してから自動分析し、この画面に結果を表示します。</p><p><strong>投入先：</strong><code id="drop-folder-path">確認中</code></p><button id="drop-folder-scan" type="button">今すぐ投入ファイルを確認</button><button id="drop-folder-open" type="button">投入フォルダを開く</button><p id="drop-folder-state" role="status">投入フォルダを確認中です。</p><ul id="drop-folder-recent"></ul></details>
 <section><h2>1. ファイルをアップロード</h2><p>在庫CSVと出荷CSVをまとめたZIPを選択してください。原本を変更せず、JAN・数量・賞味期限と予測可能な期間を確認します。</p>

@@ -19,6 +19,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from forecast_provider.providers.builtin_baseline import PROVIDER_VERSION
 from portable import APP_VERSION
 from portable.runtime.installation import MODES, load_profile
+from portable.runtime.learning_backup import LearningBackup
 from portable.runtime.paths import DataPaths
 
 from .business_archive import (
@@ -50,6 +51,7 @@ from .formal_pipeline_routes import register_formal_pipeline_routes
 from .history_study_routes import register_history_studies
 from .input_csv import MAX_CSV_BYTES, InputError, parse_csv
 from .inventory_routes import register_inventory_handoff_routes
+from .learning_backup_routes import register_learning_backup
 from .learning_experiment_routes import register_learning_experiment_routes
 from .learning_review_routes import register_learning_review_routes
 from .operations_routes import register_operations
@@ -78,8 +80,23 @@ async def _read_limited(request: Request, limit: int) -> bytes:
     return bytes(body)
 
 
-def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
+def create_app(
+    data_root: Path, *, control_token: str | None = None, _recovery_probe: bool = False
+) -> FastAPI:
     paths = DataPaths(data_root)
+    if not _recovery_probe:
+
+        def validate_recovery(candidate):
+            import gc
+
+            try:
+                probe = create_app(candidate, _recovery_probe=True)
+                del probe
+            finally:
+                # No ASGI startup is called: no watch/delivery/worker threads run.
+                gc.collect()
+
+        LearningBackup(paths.root).apply_pending(validate=validate_recovery)
     paths.ensure()
     store = RunStore(paths.state / "runs.sqlite3")
     verification = ForecastVerification(paths.state / "forecast-verification.sqlite3")
@@ -92,6 +109,7 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     register_history_studies(app, paths, _read_limited)
     register_transfers(app, paths, _read_limited)
     register_operations(app, paths, _read_limited, control_token)
+    register_learning_backup(app, paths, _read_limited)
 
     def load_analysis(analysis_id: str) -> tuple[dict, Path]:
         if not re.fullmatch(r"[0-9a-f]{64}", analysis_id):
@@ -126,7 +144,7 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     @contextmanager
     def drop_active():
         with app.state.lock:
-            if app.state.closing:
+            if app.state.closing or app.state.recovery_pending:
                 raise DropFolderBusyError("終了処理中です")
             if app.state.active:
                 raise DropFolderBusyError("別の処理を実行中です")

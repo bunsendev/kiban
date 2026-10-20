@@ -1,0 +1,15 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>学習データのバックアップ・復元</title><link rel="stylesheet" href="/field/assets/learning-backup.css">
+<h1>学習データのバックアップ・復元</h1><a href="/field">担当者画面へ</a>
+<p>確認・修正履歴、JAN対応、除外設定、学習・比較データ、元ファイル、予測結果をまとめて保存・復元します。</p>
+<section><h2>1. 再インストール前に保存</h2><p>分析・取込が終わってから押してください。ZIPはアプリのフォルダ以外（USBメモリなど）にも保存してください。業務データを含むため大切に保管してください。</p><button id="backup">バックアップZIPを保存</button></section>
+<section><h2>2. 再インストール後に復元</h2><p>保存したバックアップZIP、または旧版のData-backup.zipを選びます。既存データに足し込まず、バックアップ時点の内容に置き換えます。現在のDataは復元前に別フォルダへ退避します。</p>
+<input id="file" type="file" accept=".zip"><button id="preview">内容を検証</button><p id="preview-result"></p>
+<p><label><input id="confirm" type="checkbox">現在の作業を保存し、バックアップ時点の内容に戻すことを確認しました</label></p>
+<p><label><input id="legacy" type="checkbox">旧形式の場合、作成時のハッシュがなく完全性の証明が限定されることを確認しました</label></p>
+<button id="restore" disabled>このバックアップから復元を予約</button><button id="cancel">復元予約を取り消す</button>
+<p>予約後はデータ変更を停止します。ブラウザだけでなくブンセンのランチャーを終了し、もう一度「ブンセン予測を起動.cmd」を実行してください。次の起動時に復元し、この画面に結果を表示します。</p></section>
+<section><h2>3. 復元結果</h2><button id="refresh">結果を更新</button><pre id="result"></pre>
+<p>APIキーと送信用TokenはこのZIPに含めません。再インストール先で保存状態を確認し、必要なら再設定してください。端末ID・ログ送信設定は現在のPCの設定を維持します。</p>
+<p>バックアップを作る前に失われたデータは復元できません。現在より新しいアプリで作ったZIPは、先にアプリを更新してから使用してください。</p></section>
+<p id="message" role="status"></p><script src="/field/assets/learning-backup.js"></script></html>

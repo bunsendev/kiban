@@ -208,3 +208,5 @@ Phase 3TのPortable Pilot停止Gateで、`PAUSE_PILOT`判断を担当者の明�
 2026-10-20: 正式日次の3暦年入力と履歴方式比較（/history-studies）は planning/THREE_YEAR_HISTORY_RESULT.md を参照。現行方式は維持し、単位未確認の比較を正式採用しない。
 
 倉庫間移動の識別契約、履歴の未識別範囲、イベント台帳と需要分離は[調査・実装結果](planning/WAREHOUSE_TRANSFER_RESULT.md)、[登録手順](docs/倉庫間移動_確認と登録.md)を参照。伝票区分の根拠がない履歴を推測で需要から除外しない。
+
+学習データの再インストール後復元は[実装結果](planning/LEARNING_BACKUP_RESTORE_RESULT.md)、[操作手順](docs/Portable_学習データのバックアップと復元.md)を参照。起動中のDBは上書きせず、次回起動前に検証・退避・置換を行う。

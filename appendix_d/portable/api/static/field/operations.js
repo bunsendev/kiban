@@ -3,8 +3,9 @@ import { api, el, field, button, displayTime } from './api.js';
 const updateLabels={NOT_CHECKED:'未確認',UNCONFIGURED:'公開鍵の設定が必要です',NO_RELEASE:'配布可能なPortable更新はまだありません',CURRENT:'最新版です',AVAILABLE:'更新があります',CHECK_FAILED:'更新を確認できません。現在の版はそのまま使えます',STAGED:'検証済み・再起動待ち',UPDATED:'更新が完了しました',ROLLED_BACK:'更新に失敗したため元の版へ戻しました',APPLY_FAILED:'更新できませんでした。元の版を維持しています',RESTART_REQUESTED:'バックアップ・更新・再起動を準備しています'};
 
 export async function operations(ctx,parent){
-  const box=el('details','',parent);el('summary','ログ提出・アップデート',box);
+  const box=el('details','',parent);el('summary','ログ提出・アップデート・バックアップ',box);
   const info=el('div','',box);
+  const backup=el('a','学習データのバックアップ・復元',box);backup.href='/learning-backup';backup.target='_blank';backup.rel='noopener';
   el('p','送信設定の変更はIT担当者へご依頼ください。',box);
   const state=el('p','',box);state.setAttribute('role','status');
   async function refresh(){
