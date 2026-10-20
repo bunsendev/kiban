@@ -2276,3 +2276,8 @@ OS: Windows 11
 
 - FINAL full suite:1140 PASS,20 SKIP (199.04s), upstream TestClient deprecation warning only. Final focused APIs/guards/CSV/manifest:27 PASS (9.30s). Final source release hash check repeated after documentation update.
 - Synthetic-only source UI at48157 verified; real business data not changed. Windows-admin interactive session issuance/exception save and Windows EXE/package delivery not exercised this phase.
+
+2026-10-20 Warehouse movement classification and separate ledger
+- Related regression gate:86 PASS (51.79s): transfers/history/content intake/28-day intake/forecast verification/P1/document inventory. Final focused gate:18 PASS (3.74s); UI asset delivery6 PASS (1.93s). Ruff/modified JS syntax/check_lint PASS. Full repository pytest and Windows EXE not run this phase.
+- Real archive read-only audit:3907441 shipment rows,200917 inventory rows; commercial type blank in all shipment rows. Confirmed transfer exclusions0 (not proof of zero actual transfers);3860829 eligible unresolved source rows retained. Normalized58870 rows. No real data or credentials committed.
+- See planning/WAREHOUSE_TRANSFER_RESULT.md for inventory delta boundaries, prior private normalization38 known_at differences, unchanged eligibility at13 study origins, and unavailable actual reduction rates.

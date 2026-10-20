@@ -1,0 +1,15 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>倉庫間移動の確認・比較</title>
+<link rel="stylesheet" href="/field/assets/transfers.css">
+<h1>倉庫間移動の確認・比較</h1><a href="/field">担当者画面へ</a>
+<p>確認済みの移動を需要と分けて記録します。移動の削減と予測精度の改善は別に評価します。</p>
+<section><h2>1. 分類済み伝票を登録</h2><a href="/api/warehouse-transfers/template">専用CSVテンプレート</a>
+<p>movement_kind：顧客向け出荷 CUSTOMER_SHIPMENT ／ 移動出庫 TRANSFER_OUT ／ 移動入庫 TRANSFER_IN。不明は空欄にし、要確認として保存します。</p>
+<p>transfer_id は元伝票番号、line_id は伝票内の明細番号です。同じ出庫・入庫で一致させ、event_id は各側に固有のIDを付けます。source_file に原本名、classification_evidence に区分コードの確認内容を記録してください。数量はCASE（ボール）またはEACH（バラ）。</p>
+<label>確認者 <input id="reviewer"></label><input id="file" type="file" accept=".csv"><button id="upload">確認した分類を登録</button>
+<p>この登録は既存の現在在庫を変更しません。既に移動を含む在庫へ再加算することを防ぎます。予測履歴ZIPにも同じ分類・根拠列を付けると、確認済み移動だけが需要入力から外れます。</p></section>
+<section><h2>2. 期間別の実績と在庫増減</h2><label>開始 <input id="start" type="date"></label><label>終了 <input id="end" type="date"></label><button id="show">表示</button><div id="report"></div></section>
+<section><h2>3. 導入前後の比較</h2><label>導入前開始 <input id="bs" type="date"></label><label>終了 <input id="be" type="date"></label><br><label>導入後開始 <input id="as" type="date"></label><label>終了 <input id="ae" type="date"></label>
+<p><label><input id="coverage" type="checkbox">両期間の全伝票が揃い、分類・回数・数量・営業日条件が同じであることを確認しました</label></p>
+<p>未確認、未識別行あり、導入前0件の場合は削減率を算出しません。観測日数は営業日数ではありません。営業日数・通常出荷量・取扱商品数が異なる場合は、削減効果を断定できません。</p><button id="compare">比較する</button><div id="comparison"></div></section>
+<p id="message" role="status"></p><script src="/field/assets/transfers.js"></script></html>

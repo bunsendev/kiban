@@ -17,6 +17,8 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+from portable.transfers import shipment_class
+
 from .forecast import forecast
 from .source_detection import read_source
 
@@ -138,6 +140,7 @@ def analyze_archive(data: bytes, prepared_path: Path, *, allow_inventory_only=Fa
     issues: dict[str, dict] = {}
     inventory_labels: dict[str, str] = {}
     source_files = []
+    transfer_exclusions = []
     excluded_rows = 0
     excluded_jans = set()
 
@@ -181,13 +184,28 @@ def analyze_archive(data: bytes, prepared_path: Path, *, allow_inventory_only=Fa
                 shipment_files += 1
                 if file_date:
                     shipment_dates[center].add(file_date)
-                for row in reader:
+                for source_row, row in enumerate(reader, 2):
                     shipment_rows += 1
                     jan = str(row.get("JAN") or "").strip()
                     if is_excluded(jan):
                         excluded_rows += 1
                         excluded_jans.add(jan)
                         continue
+                    movement = shipment_class(row)
+                    if movement in {"TRANSFER_OUT", "TRANSFER_IN"}:
+                        transfer_exclusions.append({
+                            "source_file": member.filename,
+                            "transfer_id": row.get("transfer_id"),
+                            "classification": movement,
+                            "evidence": row.get("classification_evidence"),
+                            "source_row": source_row,
+                            "product": jan,
+                            "quantity": row.get("数量"),
+                        })
+                        reason_counts["CONFIRMED_TRANSFER_EXCLUDED_FROM_DEMAND"] += 1
+                        continue
+                    if movement == "UNRESOLVED":
+                        reason_counts["MOVEMENT_TYPE_UNRESOLVED_RETAINED"] += 1
                     day = _business_date(str(row.get("出荷日") or ""))
                     try:
                         quantity = Decimal(str(row.get("数量") or "").replace(",", ""))
@@ -367,6 +385,15 @@ def analyze_archive(data: bytes, prepared_path: Path, *, allow_inventory_only=Fa
         "prepared_rows": len(daily),
         "prepared_sha256": hashlib.sha256(prepared_path.read_bytes()).hexdigest(),
         "source_files": source_files,
+        "movement_classification": {
+            "status": "REVIEW_REQUIRED" if reason_counts["MOVEMENT_TYPE_UNRESOLVED_RETAINED"]
+            else "CLASSIFIED",
+            "unresolved_rows_retained": reason_counts["MOVEMENT_TYPE_UNRESOLVED_RETAINED"],
+            "customer_demand_confirmed": not bool(
+                reason_counts["MOVEMENT_TYPE_UNRESOLVED_RETAINED"]
+            ),
+        },
+        "transfer_exclusions": transfer_exclusions,
         "registered_exclusions": {"rows": excluded_rows, "jans": sorted(excluded_jans)},
         "notice": "過去データの参考評価です。正式な出荷指示には使用できません。",
     }

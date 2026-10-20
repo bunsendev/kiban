@@ -27,6 +27,7 @@ async function load(){
   $('metrics').textContent=`選定期間だけで決めた商品別方式：検証${fixed.count}件、MAE ${n(fixed.mae)}、WAPE ${n(fixed.wape)}%`;
   const p=current.provenance||{};$('basis').textContent=`単位：${current.settings.unit_confirmed?'確認済み':'未確認・数量集計は同一単位の仮定付き・正式採用保留'}／利用可能日時：${p.availability_mode||'入力日時'}／${current.settings.origins.length}起点・各${current.settings.horizon}日、末尾${current.settings.holdout_origins}起点は選定に未使用`;
   $('quality').textContent=`${current.quality.length}商品・倉庫。原本品質：${Object.entries(p.counts||{}).map(([key,value])=>( {conflicted_product_dates:'競合した商品日',excluded_rows:'対象外の行',explicit_zero_rows:'明示ゼロの行',invalid_jan_rows:'JAN不正の行',invalid_jan_or_shape_rows:'JAN・列不正の行',normalized_rows:'整理後の日次行',product_code_multiple_jans:'商品コードのJAN不一致',row_file_date_mismatch_rows:'業務日とファイル日の不一致',shipment_source_rows:'原本出荷行'}[key]||key)+'：'+n(value)).join('／')}`;
+  $('basis').textContent += `／倉庫間移動：${p.movement_contract ? '根拠付き分類を適用・未識別は維持' : 'この比較履歴では分類未監査'}。未識別を含む場合、純粋な顧客需要の精度とは断定できません。`;
   $('excluded').textContent='比較対象外：'+JSON.stringify(current.excluded_targets);
   $('details').textContent=JSON.stringify({条件:current.settings,季節別:current.by_target_month,季節性あり:current.quality.filter(q=>q.seasonality?.applied).length},null,2);
   $('status').textContent='参考比較を表示しました。現場の方式・実績・修正値は変更していません。';page=0;renderSeries();

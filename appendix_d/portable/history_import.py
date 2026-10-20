@@ -18,6 +18,8 @@ from .api.business_archive import (
     _safe_members,
 )
 from .api.document_evidence import valid_jan
+from .transfers import VERSION as MOVEMENT_VERSION
+from .transfers import shipment_class
 
 
 def read_history_archive(raw, *, unit="UNCONFIRMED", excluded_jans=(), excluded_prefixes=()):
@@ -30,6 +32,9 @@ def read_history_archive(raw, *, unit="UNCONFIRMED", excluded_jans=(), excluded_
     counts = Counter()
     sources = []
     code_jans = defaultdict(set)
+    transfer_sources = []
+    movement_totals = defaultdict(Decimal)
+    unresolved_sources = []
     valid = lru_cache(None)(valid_jan)
     parse = lru_cache(None)(_business_date)
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
@@ -48,6 +53,7 @@ def read_history_archive(raw, *, unit="UNCONFIRMED", excluded_jans=(), excluded_
             center, fileday = _center_and_file_date(member.filename)
             aggregate = defaultdict(Decimal)
             known = {}
+            unresolved_count = 0
             for row in rows:
                 counts["shipment_source_rows"] += 1
                 jan = str(row.get("JAN") or "").strip()
@@ -86,12 +92,26 @@ def read_history_archive(raw, *, unit="UNCONFIRMED", excluded_jans=(), excluded_
                 if row_unit not in {"CASE", "EACH", "UNCONFIRMED"}:
                     counts["unit_unresolved_rows"] += 1
                     continue
+                movement = shipment_class(row)
+                counts["movement_" + movement.lower() + "_rows"] += 1
+                movement_totals[(movement, jan, row_unit)] += q
+                if movement == "UNRESOLVED":
+                    unresolved_count += 1
+                if movement in {"TRANSFER_OUT", "TRANSFER_IN"}:
+                    transfer_sources.append({"sha256": source_sha, "row": rows.line_num,
+                                             "transfer_id": row["transfer_id"],
+                                             "classification": movement,
+                                             "quantity": str(q), "unit": row_unit})
+                    continue
                 key = (jan, location, row_unit, day.isoformat())
                 aggregate[key] += q
                 known[key] = max(day, fileday or day).isoformat()
                 code = str(row.get("商品コード") or "").strip()
                 if code:
                     code_jans[(location, code)].add(jan)
+            if unresolved_count:
+                unresolved_sources.append({"sha256": source_sha, "filename": member.filename,
+                                           "rows": unresolved_count})
             for key, q in aggregate.items():
                 if key in data and data[key][2] != source_sha:
                     conflicts.add(key)
@@ -134,5 +154,13 @@ def read_history_archive(raw, *, unit="UNCONFIRMED", excluded_jans=(), excluded_
         "unit_confirmed": unit != "UNCONFIRMED" and "UNCONFIRMED" not in set(frame["unit"]),
         "source_files": sources,
         "formal_approval": False,
+        "movement_contract": MOVEMENT_VERSION,
+        "transfer_exclusions": transfer_sources,
+        "unresolved_movement_sources": unresolved_sources,
+        "movement_source_totals": [
+            {"classification": k[0], "product": k[1], "unit": k[2], "quantity": str(q)}
+            for k, q in sorted(movement_totals.items())
+        ],
+        "unresolved_movement_policy": "RETAINED_NOT_CONFIRMED_CUSTOMER_DEMAND",
     }
     return frame, provenance

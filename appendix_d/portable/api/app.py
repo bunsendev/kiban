@@ -61,6 +61,7 @@ from .result_feedback_routes import register_result_feedback_routes
 from .runtime_assignment_routes import register_runtime_assignment_routes
 from .runtime_weekly_evaluation_routes import register_runtime_weekly_evaluation_routes
 from .store import RunStore
+from .transfer_routes import register_transfers
 from .verification_routes import register_verification_routes
 
 LOG = logging.getLogger("portable.api")
@@ -89,6 +90,7 @@ def create_app(data_root: Path, *, control_token: str | None = None) -> FastAPI:
     app.state.closing = False
     app.state.lock = threading.Lock()
     register_history_studies(app, paths, _read_limited)
+    register_transfers(app, paths, _read_limited)
     register_operations(app, paths, _read_limited, control_token)
 
     def load_analysis(analysis_id: str) -> tuple[dict, Path]:
