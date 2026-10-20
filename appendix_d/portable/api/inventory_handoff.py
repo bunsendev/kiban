@@ -8,6 +8,7 @@ import io
 import json
 import zipfile
 from collections import defaultdict
+from dataclasses import replace
 from datetime import UTC, date, datetime, time
 from decimal import Decimal, InvalidOperation
 from pathlib import Path, PurePosixPath
@@ -27,6 +28,7 @@ from forecast_provider.inventory_foundation import (
 
 from .business_archive import _business_date, _safe_members
 from .business_review import latest_decisions
+from .inventory_versions import location_identity, mapping_identity
 from .source_detection import read_source
 
 JST = ZoneInfo("Asia/Tokyo")
@@ -205,14 +207,13 @@ def build_inventory_handoff(
             {key: value for key, value in item.items() if key != "snapshot_time"}
             for item in sorted(configs.values(), key=lambda value: value["source_center"])
         ]
-        location_version = "portable-locations-" + _sha(_canonical_json(locations_payload))[:24]
-        mapping_version = "portable-inventory-map-" + _sha(_canonical_json({
-            "location_master_version": location_version,
-            "headers": HEADERS,
-            "unit": "CASE",
-        }))[:24]
-        mapping = _mapping(mapping_version, location_version, approval["actor"],
+        location_version, _ = location_identity(
+            locations_payload, {center: item[1] for center, item in latest.items()}
+        )
+        mapping = _mapping("pending", location_version, approval["actor"],
                            approval["reason"], created_at)
+        mapping = replace(mapping, mapping_version=mapping_identity(mapping))
+        mapping_version = mapping.mapping_version
         locations = tuple(
             InventoryLocation(
                 location_version, item["location_id"], item["location_code"],

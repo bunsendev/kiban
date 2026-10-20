@@ -6,7 +6,7 @@ import csv
 import hashlib
 import io
 import json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import date, datetime
 
 from forecast_provider.field_pilot.inbox_classifier import header_sha256
@@ -25,6 +25,7 @@ from forecast_provider.pilot_scope.intake import HEADER as PILOT_INTAKE_HEADER
 from forecast_provider.pilot_scope.intake import parse_confirmed_pilot_intake_csv
 
 from .inventory_handoff import HEADERS
+from .inventory_versions import location_identity, mapping_identity
 
 
 class FormalPipelineError(ValueError):
@@ -104,7 +105,6 @@ def prepare_pipeline(handoff: dict, package_dir, approved: dict, *, created_at: 
                           for item in approved["selections"]}
     source_rows = {}
     target_dates = {}
-    effective_dates = []
     for item in handoff["files"]:
         rows = _read_rows(package_dir / item["candidate_file"], item["candidate_sha256"])
         available = {row["JAN"] for row in rows}
@@ -120,17 +120,20 @@ def prepare_pipeline(handoff: dict, package_dir, approved: dict, *, created_at: 
             raise FormalPipelineError("倉庫内の在庫基準日が一致しません")
         target = next(iter(snapshot_dates))
         target_dates[item["source_center"]] = target.isoformat()
-        effective_dates.append(target)
 
     locations_payload = sorted(handoff["locations"], key=lambda item: item["source_center"])
-    location_digest = sha256(canonical_json(locations_payload))
+    # Re-derive from actual persisted fields, including dates. This also resumes
+    # pre-v2 cached handoffs without mutating their manifest or the old master.
+    location_version_id, location_digest = location_identity(
+        locations_payload, {center: date.fromisoformat(day) for center, day in target_dates.items()}
+    )
     location_version = LocationMasterVersion(
-        handoff["location_master_version"], location_digest, approved["actor"],
+        location_version_id, location_digest, approved["actor"],
         approved["reason"], created_at,
     )
     locations = tuple(
         InventoryLocation(
-            handoff["location_master_version"], item["location_id"], item["location_code"],
+            location_version_id, item["location_id"], item["location_code"],
             item["location_name"], LocationType.WAREHOUSE,
             date.fromisoformat(target_dates[item["source_center"]]),
         )
@@ -138,11 +141,12 @@ def prepare_pipeline(handoff: dict, package_dir, approved: dict, *, created_at: 
     )
     inventory_store.put_location_master(location_version, locations)
     mapping = InventoryInputMappingVersion(
-        handoff["mapping_version"], "JAN", ProductIdentifierKind.JAN, None, "拠点",
-        handoff["location_master_version"], "賞味期限", "明細バラ数", "基準日時",
+        "pending", "JAN", ProductIdentifierKind.JAN, None, "拠点",
+        location_version_id, "賞味期限", "明細バラ数", "基準日時",
         handoff["source_quantity_column_name"], "箱", NormalizedUnit.CASE,
         "utf-8-sig", ",", 1, approved["actor"], approved["reason"], created_at,
     )
+    mapping = replace(mapping, mapping_version=mapping_identity(mapping))
     inventory_store.put_mapping(mapping)
     resolver = InventoryReferenceResolver(mapping, locations)
     scopes = []
@@ -184,9 +188,10 @@ def prepare_pipeline(handoff: dict, package_dir, approved: dict, *, created_at: 
         intakes.append(intake)
     policy_payload = {
         "handoff": handoff["handoff_id"],
-        "scopes": [value.version.pilot_scope_version for value in scopes],
+        "required": [asdict(value) for value in required],
+        "rules": [asdict(value) for value in rules],
     }
-    policy_version = f"portable-pipeline-{sha256(canonical_json(policy_payload))}"
+    policy_version = f"portable-pipeline-v2-{sha256(canonical_json(policy_payload))}"
     return PreparedPipeline(
         InboxPolicy(policy_version, tuple(required), tuple(rules)), files, target_dates,
         mapping, location_version, locations, tuple(scopes), tuple(intakes),

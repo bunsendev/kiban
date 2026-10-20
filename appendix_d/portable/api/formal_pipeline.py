@@ -115,6 +115,8 @@ class PortableFormalPipeline:
             "policy_version": prepared.policy.version,
             "mapping_version": prepared.mapping.mapping_version,
             "location_master_version": prepared.location_version.location_master_version,
+            "source_mapping_version": handoff["mapping_version"],
+            "source_location_master_version": handoff["location_master_version"],
             "approved_by": approved["actor"],
             "approval_reason": approved["reason"],
             "created_at": created_at.isoformat(),
