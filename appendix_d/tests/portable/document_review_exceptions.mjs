@@ -21,3 +21,32 @@ all(host).find(n=>n.textContent==='この行の原本ページと比較').onclic
 assert.equal(compared.i,0);assert.equal(compared.row.quantity,'99');
 assert.equal(serializeControls(table.edits[0]).component_rule_version,'');
 console.log('PASS exception-first counts, edited-row guard and source comparison callback');
+
+// Screenshot regression: successful extraction with no exceptions must remain visible.
+const cleanHost=document.createElement('main');
+const clean=reviewTable({run:fn=>fn(),message:()=>{}},cleanHost,
+ [valid,{...valid,exclude:true,reason:'人工対象外'}],{choice:{value:''}},
+ {classifications:[{status:'READY',causes:[]},{status:'EXCLUDED',causes:[]}],causes:{}});
+const cleanRows=all(cleanHost).find(n=>n.tagName==='tbody').children;
+const cleanFilter=all(cleanHost).find(n=>n.attributes?.['aria-label']==='表示する行');
+assert.equal(cleanFilter.value,'ready');assert.equal(cleanRows[0].hidden,false);assert.equal(cleanRows[1].hidden,true);
+cleanFilter.value='exceptions';clean.update();
+assert(cleanRows.every(r=>r.hidden));
+assert(all(cleanHost).some(n=>n.textContent?.includes('抽出は完了しています')));
+all(cleanHost).find(n=>n.textContent==='機械点検通過の明細を表示').onclick();
+assert.equal(cleanRows[0].hidden,false);
+const search=all(cleanHost).find(n=>n.type==='search');search.value='NO-MATCH';clean.update();
+assert(cleanRows.every(r=>r.hidden));
+assert(all(cleanHost).some(n=>n.textContent?.includes('検索・表示条件に一致する行がありません')));
+all(cleanHost).find(n=>n.textContent==='検索・絞り込みを解除してすべて表示').onclick();
+assert(cleanRows.every(r=>!r.hidden));assert.equal(clean.edits[1].exclude.checked,true);
+const noneHost=document.createElement('main');
+reviewTable({run:fn=>fn(),message:()=>{}},noneHost,[],{choice:{value:''}},{classifications:[],causes:{}});
+assert(all(noneHost).some(n=>n.textContent?.includes('抽出された明細がありません')));
+const excludedHost=document.createElement('main');
+reviewTable({run:fn=>fn(),message:()=>{}},excludedHost,[{...valid,exclude:true,reason:'人工対象外'}],{choice:{value:''}},
+ {classifications:[{status:'EXCLUDED',causes:[]}],causes:{}});
+assert(all(excludedHost).some(n=>n.textContent?.includes('すべて除外予定')));
+all(excludedHost).find(n=>n.textContent==='除外予定の明細を表示').onclick();
+assert.equal(all(excludedHost).find(n=>n.tagName==='tbody').children[0].hidden,false);
+console.log('PASS successful extraction default visibility, explicit empty states, filters reset without approval or exclusion changes');

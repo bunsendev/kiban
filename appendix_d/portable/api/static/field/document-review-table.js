@@ -50,6 +50,7 @@ export function reviewTable(ctx,parent,sourceRows,master,options=null){
  filter.value=options?'exceptions':'active';
  const causes=options?el('select','',el('label','原因で絞り込む',toolbar)):null;
  if(causes){const o=el('option','すべての原因',causes);o.value='';for(const [cause,count] of Object.entries(options.causes||{})){const n=el('option',`${cause}（${count}行）`,causes);n.value=cause;}}
+ const empty=el('div','',section);empty.setAttribute('role','status');empty.className='document-empty-state';
  const wrap=el('div','',section);wrap.className='document-review-scroll';wrap.tabIndex=0;wrap.setAttribute('aria-label','読み取り結果の一覧（横・縦にスクロールできます）');
  const table=el('table','',wrap);table.className='document-review-table';el('caption','原本と照合しながら一覧で修正できます。入力OKは業務上正しいことの保証ではありません。',table);
  const header=el('tr','',el('thead','',table));
@@ -62,6 +63,7 @@ export function reviewTable(ctx,parent,sourceRows,master,options=null){
  button('表示中の数量列の対応を確認済みにする',()=>{for(const e of entries){if(!e.tr.hidden&&!e.controls.exclude.checked&&['case_quantity','loose_quantity'].some(k=>text(e.controls[k].value)))e.controls.component_confirmed.checked=true;}update();},batch,true);
  }
 
+ let firstDisplay=true;
  function update(){
   let errorCount=0,warningCount=0,excludedCount=0,visible=0;
   const counts={READY:0,REVIEW:0,HOLD:0,EXCLUDED:0};
@@ -89,6 +91,23 @@ export function reviewTable(ctx,parent,sourceRows,master,options=null){
    const matches=!needle||['product_name','product_code','jan','location','note'].some(k=>text(row[k]).toLowerCase().includes(needle));
    const category=filter.value==='exceptions'&&['REVIEW','HOLD'].includes(status)||filter.value==='ready'&&status==='READY'||filter.value==='active'&&!row.exclude||filter.value==='all'||filter.value==='errors'&&p.errors.length||filter.value==='warnings'&&!row.exclude&&p.warnings.length||filter.value==='excluded'&&row.exclude;
    entry.tr.hidden=!(matches&&category&&(!causes?.value||reasons.includes(causes.value)));if(!entry.tr.hidden)visible++;
+  }
+  if(firstDisplay){
+   firstDisplay=false;
+   if(options&&counts.READY>0&&counts.REVIEW===0&&counts.HOLD===0){filter.value='ready';update();return;}
+  }
+  empty.replaceChildren();empty.hidden=visible>0;
+  if(visible===0){
+   const show=category=>{search.value='';if(causes)causes.value='';filter.value=category;update();};
+   if(!entries.length)el('p','抽出された明細がありません。読取状況・原本ページを確認してください。',empty);
+   else if(excludedCount===entries.length){
+    el('p',`読み取った${entries.length}明細はすべて除外予定です。除外理由を確認できます。`,empty);
+    button('除外予定の明細を表示',()=>show('excluded'),empty);
+   }else if(options&&filter.value==='exceptions'&&counts.REVIEW===0&&counts.HOLD===0){
+    el('p',`抽出は完了しています。例外確認・処理保留は0行です。機械点検通過${counts.READY}行は現在非表示です。`,empty);
+    button('機械点検通過の明細を表示',()=>show('ready'),empty);
+   }else el('p',`読取済みの明細は${entries.length}行ありますが、現在の検索・表示条件に一致する行がありません。`,empty);
+   if(entries.length)button('検索・絞り込みを解除してすべて表示',()=>show('all'),empty,true);
   }
   totals.textContent=`全${entries.length}行 ／ 不足・形式エラー ${errorCount}行 ／ 読取メモ・商品名の確認 ${warningCount}行 ／ 除外予定 ${excludedCount}行 ／ 表示 ${visible}行`;
   if(options)totals.textContent=`読取商品 ${new Set(entries.map(e=>e.controls.jan.value).filter(Boolean)).size} JAN ／ 全${entries.length}明細 ／ 機械点検通過 ${counts.READY}行 ／ 例外確認 ${counts.REVIEW}行 ／ 処理保留 ${counts.HOLD}行 ／ 除外予定 ${counts.EXCLUDED}行 ／ 表示 ${visible}行`;

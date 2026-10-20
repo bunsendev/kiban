@@ -2291,3 +2291,8 @@ OS: Windows 11
 - Version and current operator/install guides advanced to0.6.0-pilot.47. Learning restore/installer/package/transfer gate:23 PASS (6.59s); Ruff PASS. Frozen build and archive validation follow.
 
 - pilot47 FINAL: clean Windows x64 build PASS;8 frozen modules match compiled current source; UI files byte-equal;2560 manifest hashes and ZIP CRC PASS. Archive 69017723 bytes SHA256 639750fd358fd97c9990e2e681ad51843ee7f663adab7479211b5f63bcdd04cf. Empty Data; no credentials/real datasets. EXE launch NOT_RUN (prior automatic approval rejection retained). See planning/PORTABLE_PILOT47_PACKAGE_RESULT.md.
+
+2026-10-20 Document extraction visibility regression
+- Real9.1 inventory PDF:8 pages,42 JAN,220 rows (110 inventory/110 shipment),156 READY/64 EXCLUDED,0 REVIEW/HOLD. No API use or approval. Original unchanged. Shipped pilot47 review JS matches reproduced pre-fix source.
+- Exception-only default reproduced0 visible rows. Corrected UI defaults to156 READY rows when no exceptions; explicit exception0 explains hidden rows; view-all220. Filter reset preserves exclusions and approval state. Node table and exception/empty-state tests PASS.
+- Related document movement/review/rules pytest:40 PASS (14.66s). Ruff, JS syntax PASS. Distribution ZIP unchanged this phase. See planning/DOCUMENT_REVIEW_VISIBILITY_TEST_RESULT.md.

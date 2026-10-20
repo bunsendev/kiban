@@ -61,7 +61,7 @@ const batchTable=reviewTable({run:fn=>fn(),message:()=>{}},batchHost,[
 all(batchHost).find(n=>n.textContent==='表示中の在庫の空欄を0にする').onclick();
 assert.equal(batchTable.edits[0].loose_quantity.value,'0');
 assert.equal(batchTable.edits[1].loose_quantity.value,'');
-all(batchHost).find(n=>n.textContent==='表示中のボール・バラの意味を確認済みにする').onclick();
+all(batchHost).find(n=>n.textContent==='表示中の数量列の対応を確認済みにする').onclick();
 assert.equal(batchTable.edits[0].component_confirmed.checked,true);
 assert.equal(batchTable.edits[0].product_name.tagName,'textarea');
 console.log('PASS: explicit batch inventory zero preserves shipment blanks and batch confirmation');
