@@ -2286,3 +2286,6 @@ OS: Windows 11
 - Portable regression suite:280 PASS (104.26s), before final restore-preflight/long-path guards. Final relevant suite:29 PASS (9.09s), including13 recovery tests, operations, installation and package structure.
 - Real Windows source tests cover live SQLite WAL backup, different installation path, persistent product exclusions, target identity retention, legacy confirmation, hash/CRC/schema/version/path/size checks, cancellation, pending-write freeze, startup-only restore, swap/rollback failure and interrupted-launcher recovery. Windows extended-path SQLite URI regression found and fixed.
 - Ruff and modified JS syntax checks PASS. Frozen EXE build/startup and replacement of real operator data not exercised; existing distribution ZIP unchanged. See planning/LEARNING_BACKUP_RESTORE_RESULT.md.
+
+2026-10-20 pilot47 package preparation
+- Version and current operator/install guides advanced to0.6.0-pilot.47. Learning restore/installer/package/transfer gate:23 PASS (6.59s); Ruff PASS. Frozen build and archive validation follow.
