@@ -22,7 +22,7 @@ export function rowProblems(row){
  if(components){
   for(const [k,label] of [['case_quantity','ボール数'],['loose_quantity','バラ数']])if(!numeric(row[k],1e12))add(k,label+'を数値で確認（空欄≠0）');
   if(numeric(row.loose_quantity,1e12)&&Number(row.loose_quantity)>0&&!numeric(row.units_per_case,1e6,true))add('units_per_case','1ボールあたりのバラ数を確認');
-  if(!row.component_confirmed)add('component_confirmed','ボール・バラ欄の意味が未確認');
+  if(!row.component_confirmed)add('component_confirmed','原本の数量列の対応を確認');
  }else{
   if(!numeric(row.quantity,1e12))add('quantity','数量を数値で確認（空欄≠0）');
   if(!numeric(row.case_factor,1e6,true))add('case_factor','ボールへの換算が未確認・不正');
@@ -38,6 +38,7 @@ export function serializeControls(cs){return Object.fromEntries(Object.entries(c
 export function reviewTable(ctx,parent,sourceRows,master,options=null){
  const section=el('section','',parent);section.className='document-review';
  el('h3','読み取り結果の確認一覧',section);
+ el('p','単位の定義は確認済み：ボール＝ケース、バラ＝商品1個。対応印刷帳票の数量列は自動適用します。数量・入数・空欄の点検と文書承認は別です。',section);
  el('p',options?'例外と保留を優先表示します。機械点検通過は読取正解の保証ではありません。原本の帳票・例外・適用ルールを確認して文書を承認してください。':'赤枠は不足・形式エラーです。入力OKでも誤読はあり得ます。数量・単位・日付・倉庫を原本と照合してください。変更は保存するまで確定しません。',section);
  const totals=el('p','',section);totals.className='document-review-counts';totals.setAttribute('role','status');
  const toolbar=el('div','',section);toolbar.className='document-review-tools';
@@ -58,7 +59,7 @@ export function reviewTable(ctx,parent,sourceRows,master,options=null){
  if(!options){
  el('p','一括操作は表示中の行だけに適用します。数量・換算を原本と照合してから実行してください。除外した行はチェックを外すと再び対象になります。',batch);
  button('表示中の在庫の空欄を0にする',()=>{for(const e of entries){if(e.tr.hidden||e.controls.exclude.checked||e.controls.kind.value!=='inventory')continue;for(const k of ['case_quantity','loose_quantity'])if(!text(e.controls[k].value))e.controls[k].value='0';}update();},batch,true);
- button('表示中のボール・バラの意味を確認済みにする',()=>{for(const e of entries){if(!e.tr.hidden&&!e.controls.exclude.checked&&['case_quantity','loose_quantity'].some(k=>text(e.controls[k].value)))e.controls.component_confirmed.checked=true;}update();},batch,true);
+ button('表示中の数量列の対応を確認済みにする',()=>{for(const e of entries){if(!e.tr.hidden&&!e.controls.exclude.checked&&['case_quantity','loose_quantity'].some(k=>text(e.controls[k].value)))e.controls.component_confirmed.checked=true;}update();},batch,true);
  }
 
  function update(){
@@ -112,14 +113,14 @@ export function reviewTable(ctx,parent,sourceRows,master,options=null){
   input('product_name',product);input('product_code',product);input('jan',jan);
   const single=el('div','',quantity);single.className='document-quantity-grid';for(const k of ['quantity','unit','case_factor'])input(k,single);
   const components=el('div','',quantity);components.className='document-quantity-grid';for(const k of ['case_quantity','loose_quantity','units_per_case'])input(k,components);
-  controls.component_confirmed=field(quantity,'ボール・バラの列の意味と空欄を確認した（空欄は必要なら明示的に0を入力）','checkbox',false);controls.component_confirmed.checked=row.component_confirmed===true;
+  controls.component_confirmed=field(quantity,'原本の数量列の対応を確認した（空欄・入数は別に確認）','checkbox',false);controls.component_confirmed.checked=row.component_confirmed===true;
   input('kind',dates);for(const k of ['date','snapshot','expiry'])input(k,dates);
   input('source_detail_date',dates);
   input('location',location);input('page',origin);input('note',origin);
   if(row.source_region)el('small',`原記載：${row.source_region==='left'?'左表':row.source_region==='right'?'右表':'領域未確定'} ／ 倉庫 ${row.source_location||'不明'} ／ 数量 ${row.source_quantity||'空欄・不明'} ／ 日付 ${row.source_date||row.source_snapshot||'不明'} ／ 賞味期限 ${row.source_expiry||'不明'}`,origin);
   masterChoice(ctx,jan,controls,master);
   for(const key of ['master_version','master_cell'])controls[key].value=row[key]||'';
-  for(const key of ['source_quantity','quantity_status','source_ai_quantity','source_ai_case_quantity','source_ai_loose_quantity','source_ai_units_per_case','source_region','source_date','source_expiry','source_snapshot','source_location','source_kind','source_ai_date','source_ai_expiry','source_ai_snapshot','source_ai_location','registered_exclusion','exclusion_before','source_jan','source_adjustment_case','source_adjustment_loose','source_current_case','source_current_loose','source_outbound_case','source_outbound_loose']){
+  for(const key of ['component_definition_version','source_quantity','quantity_status','source_ai_quantity','source_ai_case_quantity','source_ai_loose_quantity','source_ai_units_per_case','source_region','source_date','source_expiry','source_snapshot','source_location','source_kind','source_ai_date','source_ai_expiry','source_ai_snapshot','source_ai_location','registered_exclusion','exclusion_before','source_jan','source_adjustment_case','source_adjustment_loose','source_current_case','source_current_loose','source_outbound_case','source_outbound_loose']){
    const hidden=el('input','',origin);hidden.type='hidden';hidden.value=row[key]||'';controls[key]=hidden;
   }
   controls.exclude=field(exclude,'この行を除外する','checkbox',false);controls.exclude.checked=row.exclude===true;
@@ -127,6 +128,8 @@ export function reviewTable(ctx,parent,sourceRows,master,options=null){
   const rule=el('input','',origin);rule.type='hidden';rule.value=row.component_rule_version||'';controls.component_rule_version=rule;
   const override=el('input','',origin);override.type='hidden';override.value=row.component_rule_override||'';controls.component_rule_override=override;
   controls.component_confirmed.addEventListener('change',()=>{rule.value='';override.value='manual';});
+  if(row.component_definition_version==='bunsen-ball-case-each-v1')controls.component_confirmed.parentElement.hidden=true;
+  for(const key of ['unit','kind'])controls[key].addEventListener('change',()=>{controls.component_definition_version.value='';controls.component_confirmed.checked=false;controls.component_confirmed.parentElement.hidden=false;rule.value='';override.value='manual';});
   if(options?.onSource)button('この行の原本ページと比較',()=>options.onSource(i,serializeControls(controls)),origin,true);
   entries.push({tr,controls,state,dateGroups,single,index:i,initial:JSON.stringify(serializeControls(controls))});edits.push(controls);
   tr.addEventListener('input',update);tr.addEventListener('change',update);

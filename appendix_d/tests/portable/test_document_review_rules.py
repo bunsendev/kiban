@@ -95,7 +95,7 @@ def test_preview_apply_reuse_preserves_original_and_never_approves(tmp_path, mon
     doc = document(service, monkeypatch)
     original = deepcopy(doc["extraction"])
     plan = service.review.plan(doc["id"])
-    assert plan["counts"] == {"REVIEW": 2}
+    assert plan["counts"] == {"READY": 2}
     preview = prepare(service, doc)
     assert preview["target_count"] == 2
     assert service.get(doc["id"])["draft"] is None
@@ -140,7 +140,8 @@ def test_rule_is_not_reused_outside_scope(tmp_path, monkeypatch, change):
         other["id"], master_version="another-version" if change == "master" else ""
     )
     assert plan["applied_rules"] == {}
-    assert all(not r.get("component_confirmed") for r in plan["rows"])
+    assert all(not r.get("component_rule_version") for r in plan["rows"])
+    assert all(r.get("component_confirmed", False) is (change != "template") for r in plan["rows"])
 
 
 @pytest.mark.parametrize("change", ["edit", "draft", "cancel", "rule"])
@@ -343,3 +344,36 @@ def test_rebuild_reads_original_archives_not_only_old_combined_inputs(tmp_path):
     with sqlite3.connect(db_path) as db:
         assert db.execute("SELECT COUNT(*) FROM files").fetchone()[0] == 2
     assert not app.state.documents.list()
+
+
+def test_builtin_definition_removes_repeat_questions_but_keeps_blank_and_factor_guards(
+    tmp_path, monkeypatch
+):
+    service = create_app(tmp_path).state.documents
+    doc = document(service, monkeypatch)
+    original = deepcopy(doc["extraction"])
+    plan = service.review.plan(doc["id"])
+    assert all(
+        r["component_definition_version"] == "bunsen-ball-case-each-v1" for r in plan["rows"]
+    )
+    assert all("意味が未確認" not in c for item in plan["classifications"] for c in item["causes"])
+    from portable.api.document_quantity import case_quantity
+
+    assert str(case_quantity(plan["rows"][0])) == "5.2"
+    for change in ({"loose_quantity": ""}, {"units_per_case": ""}, {"case_quantity": "-1"}):
+        rows = deepcopy(plan["rows"])
+        rows[0].update(change)
+        assert service.review.plan(doc["id"], rows=rows)["classifications"][0]["status"] == "HOLD"
+    assert service.get(doc["id"])["extraction"] == original
+    assert service.get(doc["id"])["approval"] is None
+
+
+def test_builtin_definition_does_not_accept_changed_source_columns(tmp_path, monkeypatch):
+    service = create_app(tmp_path).state.documents
+    doc = document(service, monkeypatch)
+    rows = service.review.plan(doc["id"])["rows"]
+    rows[0]["unit"] = "パレット / バラ"
+    plan = service.review.plan(doc["id"], rows=rows)
+    assert plan["rows"][0]["component_confirmed"] is False
+    assert "component_definition_version" not in plan["rows"][0]
+    assert "原本の数量列の対応を確認" in plan["classifications"][0]["causes"]

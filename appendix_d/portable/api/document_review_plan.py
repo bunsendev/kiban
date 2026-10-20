@@ -10,6 +10,7 @@ from .document_evidence import valid_jan
 from .document_quantity import case_quantity
 
 TEMPLATE = "printed-inventory-movement-v3"
+COMPONENT_DEFINITION = "bunsen-ball-case-each-v1"
 UNITS = {"inventory": "現在ケース / 現在バラ", "shipment": "当出ケース / 当出バラ"}
 FIELDS = (
     "kind",
@@ -124,7 +125,7 @@ class DocumentReview:
         source = self.documents.exclusions.apply(source)
         rules = [r for r in self.rules() if r["active"] and r["current"]]
         output, applied = [], Counter()
-        for original in source:
+        for index, original in enumerate(source):
             row = dict(original)
             scope = {
                 "template": extraction.get("model"),
@@ -155,6 +156,23 @@ class DocumentReview:
                 rule = matches[-1]
                 row.update(component_confirmed=True, component_rule_version=rule["version"])
                 applied[rule["version"]] += 1
+            # Confirmed business vocabulary is independent of blank/quantity validation.
+            # Only the deterministic, recognized source columns inherit this definition.
+            originals = extraction.get("rows", [])
+            native_columns = (
+                extraction.get("model") == TEMPLATE
+                and index < len(originals)
+                and row.get("kind") in UNITS
+                and row.get("unit") == UNITS.get(row.get("kind"))
+                and all(row.get(k) == originals[index].get(k) for k in ("unit", "kind"))
+            )
+            if row.get("component_definition_version") and not native_columns:
+                row["component_confirmed"] = False
+            row.pop("component_definition_version", None)
+            if native_columns and row.get("component_rule_override") != "manual":
+                row.update(
+                    component_confirmed=True, component_definition_version=COMPONENT_DEFINITION
+                )
             output.append(row)
         statuses = classify(extraction, output)
         result = {
@@ -357,7 +375,7 @@ def classify(extraction, rows):
         except DocumentError:
             holds.append("数量・入数・空欄を確認")
         if not row.get("component_confirmed"):
-            reviews.append("ボール・バラの意味が未確認")
+            reviews.append("原本の数量列の対応を確認")
         if not native:
             reviews.append("AI・未対応帳票の原本照合")
         elif not coverage or coverage.get("matched") is not True:

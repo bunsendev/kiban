@@ -24,7 +24,9 @@ def case_quantity(row):
                 row.get("case_factor", ""), 10**6, positive=True
             )
         if row.get("component_confirmed") is not True:
-            raise DocumentError("ケース・バラ欄の意味と空欄の扱いを原本で確認してください")
+            raise DocumentError(
+                "原本の数量列の対応を確認してください（ボール＝ケース、バラ＝商品1個）"
+            )
         cases = number(row.get("case_quantity", ""))
         loose = number(row.get("loose_quantity", ""))
         if not loose:

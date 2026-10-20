@@ -143,7 +143,7 @@ export async function documents(ctx, parent) {
       if(!plan.counts.REVIEW&&!plan.counts.HOLD)el('p','例外・保留は0件です。帳票・原本日付・適用ルールと採用範囲を確認し、文書承認へ進めます。自動承認はしていません。',summary);
       for(const [cause,count] of Object.entries(plan.causes))el('p',`${cause}：${count}行`,summary);
       const policyHost=el('details','',box);el('summary','単位ルールを確認・保存する',policyHost);
-      policyHost.className='document-review';policyHost.open=plan.native&&!Object.keys(plan.applied_rules).length;
+      policyHost.className='document-review';policyHost.open=plan.native&&!Object.keys(plan.applied_rules).length&&!plan.rows.every(r=>r.exclude||r.component_definition_version);
       const comparison=sourceComparison(box,doc);
       const table=reviewTable(ctx,box,plan.rows,master,{...plan,onSource:comparison});
       const {edits,update}=table;
