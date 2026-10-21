@@ -46,6 +46,17 @@ def setup_logging(path: Path) -> None:
     )
 
 
+def initialize_runtime(paths: DataPaths, log_name: str) -> None:
+    # Windows denies renaming Data if our own launcher/API log is already open.
+    # The launcher must finish recovery before starting a child whose stdout is
+    # also redirected to Data/Logs/api.log.
+    from portable.api.app import recover_data
+
+    recover_data(paths.root)
+    paths.ensure()
+    setup_logging(paths.logs / log_name)
+
+
 def available_ports():
     for port in PORTS:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
@@ -157,10 +168,10 @@ def launch() -> int:
             f"診断情報: {fallback}",
         )
         return 1
-    setup_logging(paths.logs / "launcher.log")
-    LOG.info("startup app=%s windows=%s", APP_VERSION, platform.platform())
     try:
         with SingleInstance(paths.root):
+            initialize_runtime(paths, "launcher.log")
+            LOG.info("startup app=%s windows=%s", APP_VERSION, platform.platform())
             profile = setup_profile(paths.root)
             if profile is None:
                 return 0
@@ -300,8 +311,7 @@ def main() -> int:
         if not args.port or not args.data_root or args.port not in PORTS:
             return 2
         paths = DataPaths(args.data_root)
-        paths.ensure()
-        setup_logging(paths.logs / "api-server.log")
+        initialize_runtime(paths, "api-server.log")
         from portable.api.app import create_app
 
         uvicorn.run(

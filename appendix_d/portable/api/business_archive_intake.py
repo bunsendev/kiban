@@ -1,7 +1,9 @@
 """Shared business ZIP intake used by HTTP upload and the drop folder."""
 
+import json
 import os
 import threading
+from datetime import UTC, datetime
 
 from .business_archive import analyze_archive, atomic_json, content_id
 from .business_review import apply_remembered_rules, latest_decisions, rebuild_reviewed_prepared
@@ -33,7 +35,16 @@ class BusinessArchiveIntake:
             temporary.write_bytes(data)
             os.replace(temporary, input_path)
         report = {"analysis_id": analysis_id, "input_sha256": analysis_id, **report}
-        atomic_json(self.paths.analysis / f"{analysis_id}.json", report)
+        report_path = self.paths.analysis / f"{analysis_id}.json"
+        if report_path.exists():
+            previous = json.loads(report_path.read_text("utf-8"))
+            # A re-analysis must not change the original saved time or pretend
+            # that a legacy result was first created today.
+            if previous.get("created_at"):
+                report["created_at"] = previous["created_at"]
+        else:
+            report["created_at"] = datetime.now(UTC).isoformat()
+        atomic_json(report_path, report)
         journal = self.paths.decisions / f"{analysis_id}.jsonl"
         apply_remembered_rules(report, journal, self.paths.decisions / "rules.jsonl")
         if latest_decisions(journal):

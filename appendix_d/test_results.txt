@@ -1,3 +1,6 @@
+2026-10-21 Portable pilot.51 分析履歴・Windows復元の修正
+関連19件・Node9スクリプト・Ruff成功。Windowsの実ログハンドルによるData退避拒否を再現し、ログ初期化前の復元成功を検証。全体初回1195成功・20skip・サーバー起動2未実施（278.38秒）。画面script経路検査と未更新release一覧の2失敗を修正し、両件再検査2成功（2.61秒）、最終関連21成功（12.86秒）。全体の一括全成功とはしない。実ブラウザー/EXEは前回の自動承認レビュー拒否に従い未実施。詳細 planning/PORTABLE_PILOT51_HISTORY_RECOVERY_RESULT.md。
+
 2026-10-20 pilot.46 配布最終検査
 EXE埋込PYZで最終の単位定義・取消保留処理を確認。画面JS一致、2557ファイルSHA-256/最終ZIP CRC成功。古い中間生成物は配布先から隔離。Data/資格情報なし。EXE実起動試験未実施。詳細 planning/PORTABLE_PILOT46_UNIT_DEFINITION_FIX.md。
 

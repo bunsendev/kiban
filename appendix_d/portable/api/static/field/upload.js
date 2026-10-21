@@ -4,6 +4,7 @@ import { waitJob } from "./progress.js";
 import { folderReview } from "./folder-review.js";
 import { documents } from "./documents.js";
 import { settings } from "./settings.js";
+import "./history-label.js";
 
 export async function upload(ctx) {
   ctx.enter(1);
@@ -164,7 +165,7 @@ export async function upload(ctx) {
       name = decodeURIComponent(name);
     } catch {}
     button(
-      `${name}／確認待ち ${r.review?.pending_items ?? 0}項目`,
+      `${PortableAnalysisHistory.label(r)}／${name}／確認待ち ${r.review?.pending_items ?? 0}項目`,
       () => ctx.run(() => ctx.open(r.analysis_id)),
       history,
       true,

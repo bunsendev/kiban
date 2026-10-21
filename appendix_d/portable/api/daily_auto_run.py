@@ -6,6 +6,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
@@ -51,6 +52,15 @@ class PortableDailyAutoRun:
             except DailyAutoRunError:
                 continue
         return sorted(values, key=lambda item: item["updated_at"], reverse=True)[:50]
+
+    def recorded_at(self, analysis_id: str) -> str | None:
+        """Read an existing verified record; never create one just for history."""
+        if not isinstance(analysis_id, str) or not re.fullmatch(r"[0-9a-f]{64}", analysis_id):
+            return None
+        try:
+            return self._verified(self.root / f"{analysis_id}.json").get("created_at")
+        except (DailyAutoRunError, OSError):
+            return None
 
     def view(self, analysis_id: str) -> dict:
         with self.lock:

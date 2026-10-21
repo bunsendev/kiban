@@ -336,7 +336,15 @@ class LearningBackup:
                 {"status": "RESTORED", "previous_data": str(old), "files": info["files"]},
             )
         except (ValueError, OSError, sqlite3.DatabaseError, zipfile.BadZipFile, KeyError) as exc:
-            atomic(self.work / "status.json", {"status": "FAILED", "error": str(exc)})
+            atomic(self.work / "status.json", {
+                "status": "FAILED", "error": str(exc),
+                "guidance": (
+                    "旧版・別ウィンドウのブンセン予測を終了してください。"
+                    "Data内のファイルを開いているアプリも終了し、"
+                    "バックアップZIPを選び直して復元を予約してください。"
+                    "Dataと復旧用フォルダは削除しないでください。"
+                ) if isinstance(exc, PermissionError) else None,
+            })
             if old.exists() and not self.data.exists():
                 # Do not let normal initialization silently create an empty Data.
                 # Preserve the journal and retry rollback on the next process start.

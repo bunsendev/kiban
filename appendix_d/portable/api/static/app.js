@@ -58,7 +58,7 @@ async function refreshAnalyses() {
     const response=await fetch('/api/business-archives'); const records=await response.json();
     for(const item of records){ const li=document.createElement('li'); const button=document.createElement('button');
       const pending=item.review?.pending_rows??(item.rows.review_required+item.rows.quarantined);
-      button.textContent=`${item.review?.status||item.status}　OK ${item.rows.auto_confirmed.toLocaleString()}　未確認 ${pending.toLocaleString()}`;
+      button.textContent=`${PortableAnalysisHistory.label(item)}　${item.review?.status||item.status}　OK ${item.rows.auto_confirmed.toLocaleString()}　未確認 ${pending.toLocaleString()}`;
       button.addEventListener('click',async()=>{const detail=await fetch(`/api/business-archives/${encodeURIComponent(item.analysis_id)}`);if(detail.ok)showAnalysis(await detail.json());});
       li.appendChild(button);list.appendChild(li); }
   } catch { const li=document.createElement('li'); li.textContent='過去の分析を読み込めません。'; list.appendChild(li); }

@@ -292,14 +292,19 @@ def test_business_archive_api_flow(tmp_path: Path):
     assert backtest.json()["centers"][0]["wape"] == 0.0
 
 
-def test_browser_scripts_have_no_shared_page_declaration_collisions():
+def test_browser_scripts_have_no_shared_page_declaration_collisions(tmp_path):
     static = Path(__file__).parents[2] / "portable" / "api" / "static"
     html = (static / "index.html").read_text(encoding="utf-8")
     names = [
         part.split('"', 1)[0]
         for part in html.split('<script src="/')[1:]
     ]
-    combined = "\n".join((static / name).read_text(encoding="utf-8") for name in names)
+    # Resolve through the real routes: field/assets URLs are not filesystem paths.
+    client = TestClient(create_app(tmp_path), base_url="http://127.0.0.1")
+    scripts = [client.get("/" + name) for name in names]
+    assert all(response.status_code == 200 for response in scripts)
+    assert all("javascript" in response.headers["content-type"] for response in scripts)
+    combined = "\n".join(response.text for response in scripts)
     try:
         result = subprocess.run(
             ["node", "--check", "-"], input=combined, text=True,

@@ -22,6 +22,7 @@ from portable.runtime.installation import MODES, load_profile
 from portable.runtime.learning_backup import LearningBackup
 from portable.runtime.paths import DataPaths
 
+from .analysis_history import history_record, history_sort_key
 from .business_archive import (
     MAX_ZIP_BYTES,
     ArchiveError,
@@ -80,23 +81,27 @@ async def _read_limited(request: Request, limit: int) -> bytes:
     return bytes(body)
 
 
+def recover_data(data_root: Path):
+    """Run before launcher logs, redirected child output, or stores open Data."""
+    def validate_recovery(candidate):
+        import gc
+
+        try:
+            probe = create_app(candidate, _recovery_probe=True)
+            del probe
+        finally:
+            # No ASGI startup is called: no watch/delivery/worker threads run.
+            gc.collect()
+
+    return LearningBackup(DataPaths(data_root).root).apply_pending(validate=validate_recovery)
+
+
 def create_app(
     data_root: Path, *, control_token: str | None = None, _recovery_probe: bool = False
 ) -> FastAPI:
     paths = DataPaths(data_root)
     if not _recovery_probe:
-
-        def validate_recovery(candidate):
-            import gc
-
-            try:
-                probe = create_app(candidate, _recovery_probe=True)
-                del probe
-            finally:
-                # No ASGI startup is called: no watch/delivery/worker threads run.
-                gc.collect()
-
-        LearningBackup(paths.root).apply_pending(validate=validate_recovery)
+        recover_data(paths.root)
     paths.ensure()
     store = RunStore(paths.state / "runs.sqlite3")
     verification = ForecastVerification(paths.state / "forecast-verification.sqlite3")
@@ -296,16 +301,14 @@ def create_app(
     @app.get("/api/business-archives")
     def business_archives():
         records = []
-        for report_path in sorted(
-            paths.analysis.glob("*.json"), key=lambda item: item.stat().st_mtime, reverse=True
-        )[:20]:
+        for report_path in paths.analysis.glob("*.json"):
             try:
                 report = json.loads(report_path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
                 continue
             view = reviewed_report(report)
             records.append(
-                {
+                history_record(view, daily_auto_runs.recorded_at(view.get("analysis_id"))) | {
                     "analysis_id": view.get("analysis_id"),
                     "status": view.get("status"),
                     "rows": view.get("rows"),
@@ -313,7 +316,7 @@ def create_app(
                     "review": view.get("review"),
                 }
             )
-        return records
+        return sorted(records, key=history_sort_key, reverse=True)[:20]
 
     @app.get("/api/business-archives/{analysis_id}")
     def business_archive(analysis_id: str):
