@@ -8,3 +8,11 @@ body:has(.document-review) main{width:100%;max-width:1780px}
 .document-source-grid td,.document-source-grid th{border:1px solid #617f92;padding:8px;overflow-wrap:anywhere}
 @media(max-width:850px){.document-source-grid{grid-template-columns:1fr}}
 .review-badge.ready{background:#dff3e6;color:#064b2b;border:1px solid #267747}
+.document-review-table.document-review-compact{min-width:0;table-layout:auto}
+.document-review-table .document-normal-cell{position:static!important;padding:14px 18px}
+.document-normal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 24px;font-size:18px;line-height:1.6}
+.document-normal-grid span:first-child{font-weight:700;grid-column:1/-1}
+.document-normal-cell .review-badge{display:inline-block;margin-right:15px}
+.document-normal-cell button{margin-right:12px}
+.document-review-tools label:has(input[type=checkbox]){flex-direction:row;align-items:center}
+@media(max-width:700px){.document-normal-grid{grid-template-columns:1fr}.document-normal-grid span:first-child{grid-column:auto}}

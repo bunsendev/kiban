@@ -17,7 +17,7 @@ from portable.runtime.api_credentials import ApiCredentials
 
 from .document_ai import MAX_BYTES, DocumentError, extract, media_type
 from .document_inventory_checks import inventory_checks
-from .document_inventory_pdf import extract_inventory
+from .document_inventory_pdf import apply_current_blank_zero, extract_inventory
 from .document_pages import page_source, pdf_reader
 from .document_quantity import case_quantity
 from .document_review_plan import DocumentReview, classify
@@ -450,7 +450,8 @@ class Documents:
                 )
             return self.get(identifier)
 
-    def read_local(self, identifier, retry=False, blank_current_zero=False):
+    def read_local(self, identifier, retry=False, blank_current_zero=False,
+                   master_version="", reuse_blank_rule=False):
         generation = self.control(identifier)[0]
         with self._read_lock:
             with self.db() as db:
@@ -463,11 +464,32 @@ class Documents:
             raw, mime = self.get(identifier, original=True)
             if mime != "application/pdf":
                 raise DocumentError("印刷在庫表PDFを選んでください")
+            if master_version:
+                with self.db() as db:
+                    if not db.execute("SELECT 1 FROM document_masters WHERE version=?",
+                                      (master_version,)).fetchone():
+                        raise DocumentError("登録済みマスター版を選んでください")
             value = (
                 extract_inventory(raw, blank_current_zero=True)
                 if blank_current_zero
                 else extract_inventory(raw)
             )
+            versions = (
+                self.review.blank_rule_versions(value, master_version)
+                if reuse_blank_rule and not blank_current_zero else []
+            )
+            if versions:
+                for row in value["rows"]:
+                    if row.get("kind") == "inventory":
+                        apply_current_blank_zero(row)
+                value["blank_current_policy"] = "CURRENT_BLANK_ZERO_EXCLUDE_EMPTY"
+            if reuse_blank_rule:
+                value["blank_rule_versions"] = versions
+                value["blank_rule_master_version"] = master_version
+                value["blank_rule_notice"] = (
+                    "承認済みの現在欄空欄ルールを適用しました。文書承認はまだ必要です"
+                    if versions else "一致する現在欄空欄ルールがないため、空欄は未確認のままです"
+                )
             value.update(at=datetime.now(UTC).isoformat(), revision=uuid.uuid4().hex)
             with self.db() as db:
                 db.execute("BEGIN IMMEDIATE")
@@ -545,6 +567,11 @@ class Documents:
         extraction = current["extraction"]
         if not extraction:
             raise DocumentError("先に原本を読み取ってください")
+        blank_error = self.review.blank_rule_error(
+            extraction, str(value.get("master_version") or "")
+        )
+        if blank_error:
+            raise DocumentError(blank_error)
         if not extraction["complete"] and (
             value.get("partial_confirmed") is not True
             or not str(value.get("partial_reason") or "").strip()

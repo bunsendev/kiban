@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from forecast_provider.update_service.github_release import API_URL, ASSET_PREFIX, _read
 from portable import APP_VERSION
-from portable.api.business_archive import atomic_json
+from portable.runtime.update_state import state_lock, write_state
 
 TRUST_KEY = Path(__file__).parent / "release-update-public.pem"
 VERSION = re.compile(r"^(\d+)\.(\d+)\.(\d+)-pilot\.(\d+)$")
@@ -135,17 +135,36 @@ class ReleaseUpdate:
         self.work.mkdir(parents=True, exist_ok=True)
         self.fetch = fetch
         self.key_path = key_path
+        self._status_error = None
 
     def status(self):
+        if self._status_error:
+            return dict(self._status_error)
         path = self.work / "status.json"
-        value = json.loads(path.read_text("utf-8")) if path.exists() else {"status": "NOT_CHECKED"}
-        last = self.work / "last-apply.json"
-        if last.exists():
-            value["last_apply"] = json.loads(last.read_text("utf-8"))
-        return value
+        try:
+            with state_lock(path):
+                value = (
+                    json.loads(path.read_text("utf-8"))
+                    if path.exists() else {"status": "NOT_CHECKED"}
+                )
+                if not isinstance(value, dict) or not isinstance(value.get("status"), str):
+                    raise ValueError("Invalid update state")
+                last = self.work / "last-apply.json"
+                if last.exists():
+                    value["last_apply"] = json.loads(last.read_text("utf-8"))
+                return value
+        except (OSError, ValueError):
+            return {"status": "CHECK_FAILED", "reason": "STATE_READ_FAILED", "retryable": True}
 
     def record(self, **value):
-        atomic_json(self.work / "status.json", value)
+        try:
+            write_state(self.work / "status.json", value)
+        except OSError:
+            self._status_error = {
+                "status": "CHECK_FAILED", "reason": "STATE_SAVE_FAILED", "retryable": True
+            }
+            return dict(self._status_error)
+        self._status_error = None
         return value
 
     def check(self):
@@ -183,7 +202,7 @@ class ReleaseUpdate:
                 return self.record(status="CURRENT")
             if assets[manifest["package"]]["size"] != manifest["size_bytes"]:
                 raise ValueError("配布サイズが一致しません")
-            atomic_json(
+            write_state(
                 self.work / "offer.json",
                 {
                     "manifest": manifest,
@@ -224,5 +243,8 @@ class ReleaseUpdate:
         archive = folder / "package.zip"
         archive.write_bytes(raw)
         unpack(archive, folder / "package", manifest)
-        atomic_json(folder / "offer.json", offer)
-        return self.record(status="STAGED", version=manifest["version"], stage=folder.name)
+        write_state(folder / "offer.json", offer)
+        result = self.record(status="STAGED", version=manifest["version"], stage=folder.name)
+        if result["status"] != "STAGED":
+            raise ValueError("更新状態を保存できませんでした。更新を確認して再試行してください")
+        return result

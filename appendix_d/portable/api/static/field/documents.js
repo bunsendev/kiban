@@ -41,12 +41,13 @@ export async function documents(ctx, parent) {
     }catch(e){failures.push(`${f.name}：${e.message}`);}}
     input.value='';await refresh();ctx.message(`登録 ${count}件。${failures.join('／')}`);
   }),group);
+  el('p','一括読取では、保存済みの空欄ルールを帳票・倉庫・マスター版・適用日が一致する原本だけに使います。未登録・不一致の空欄は補完せず、確認対象として残します。',group);
   button('未読取の印刷PDFを一括読取（API不要）',()=>ctx.run(async()=>{
-    let count=0;const failures=[];bulkStopped=false;
+    let count=0,reused=0;const failures=[];bulkStopped=false;
     for(const doc of await api('/api/documents')){if(bulkStopped)break;if(doc.mime!=='application/pdf'||doc.extraction||doc.approval||doc.cancelled)continue;
       ctx.message(`${doc.name} を読取中／完了 ${count}件。中止しても成功分は残ります。`);
-      try{await api(`/api/documents/${doc.id}/local`,{});count++;}catch(e){failures.push(`${doc.name}：${e.message}`);}}
-    await refresh();ctx.message(`${bulkStopped?'一括読取を中止しました。':''}読取 ${count}件。承認は未実施です。${failures.join('／')}`);
+      try{const result=await api(`/api/documents/${doc.id}/local`,{reuse_blank_rule:true,master_version:master.choice.value||''});count++;if(result.extraction?.blank_rule_versions?.length)reused++;}catch(e){failures.push(`${doc.name}：${e.message}`);}}
+    await refresh();ctx.message(`${bulkStopped?'一括読取を中止しました。':''}読取 ${count}件 ／ 保存済み空欄ルール適用 ${reused}件。承認は未実施です。${failures.join('／')}`);
   }),group,true);
   button('一括読取を中止（成功分は保持）',()=>{bulkStopped=true;},group,true);
   button('確認済み文書をまとめて分析へ渡す',()=>ctx.run(async()=>{
@@ -78,6 +79,7 @@ export async function documents(ctx, parent) {
       const link=el('a','原本を別タブで開く',box); link.href=`/api/documents/${doc.id}/original`;link.target='_blank';link.rel='noopener';
       if(doc.mime.startsWith('image/')){const img=el('img','',box);img.src=link.href;img.alt='確認用の原本';img.style.maxWidth='100%';img.loading='lazy';}
       if(doc.cancelled)continue;
+      if(doc.extraction?.blank_rule_notice)el('p',doc.extraction.blank_rule_notice,box).setAttribute('role','status');
       if(doc.correction_of)el('p','訂正版です。除外チェックを外して再対象化できます。元入力が受渡し済みの場合は二重計上防止のためIT担当者による差替えが必要です。',box);
       let zeroCurrent;
       if(!doc.approval && doc.mime==='application/pdf'){
@@ -140,10 +142,11 @@ export async function documents(ctx, parent) {
       el('p',`読取商品 ${new Set(plan.rows.map(r=>r.jan).filter(Boolean)).size} JAN ／ ${plan.rows.length}明細`,summary);
       el('p',`機械点検通過 ${plan.counts.READY||0}行 ／ 例外確認 ${plan.counts.REVIEW||0}行 ／ 処理保留 ${plan.counts.HOLD||0}行 ／ 除外予定 ${plan.counts.EXCLUDED||0}行`,summary).setAttribute('role','status');
       el('p',plan.notice,summary);
+      if(plan.blank_rule_error)el('p',plan.blank_rule_error,summary).setAttribute('role','alert');
       if(!plan.counts.REVIEW&&!plan.counts.HOLD)el('p','例外・保留は0件です。帳票・原本日付・適用ルールと採用範囲を確認し、文書承認へ進めます。自動承認はしていません。',summary);
       for(const [cause,count] of Object.entries(plan.causes))el('p',`${cause}：${count}行`,summary);
-      const policyHost=el('details','',box);el('summary','単位ルールを確認・保存する',policyHost);
-      policyHost.className='document-review';policyHost.open=plan.native&&!Object.keys(plan.applied_rules).length&&!plan.rows.every(r=>r.exclude||r.component_definition_version);
+      const policyHost=el('details','',box);el('summary','読取ルール（単位・空欄）を確認・保存する',policyHost);
+      policyHost.className='document-review';policyHost.open=plan.native&&((doc.extraction.blank_current_policy==='CURRENT_BLANK_ZERO_EXCLUDE_EMPTY'&&!doc.extraction.blank_rule_versions?.length)||(!Object.keys(plan.applied_rules).length&&!plan.rows.every(r=>r.exclude||r.component_definition_version)));
       const comparison=sourceComparison(box,doc);
       const table=reviewTable(ctx,box,plan.rows,master,{...plan,onSource:comparison});
       const {edits,update}=table;

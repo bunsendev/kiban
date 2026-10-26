@@ -1,5 +1,7 @@
 # Codex開始ガイド v2.9
 
+Portable pilot.52の一括PDF空欄ルール・通常行の簡易表示・更新保存対策は[操作手順](docs/Portable_例外確認と単位ルール.md)と[実装・検証結果](planning/PORTABLE_PILOT52_BULK_REVIEW_RESULT.md)を参照する。文書承認・受渡しは自動化しない。
+
 Field Pilot現場PC配布は[管理者導入運用](docs/FieldPilot_管理者導入運用.md)、[現場担当者1ページ手順](docs/FieldPilot_現場担当者_1ページ.md)、[検証・導入判定](planning/FIELD_PILOT_RELEASE_RESULT.md)を参照する。配布は`python make_release.py --field-pilot`で生成する。
 Windows Portable版は業務ZIPの在庫・出荷を自動確定・確認待ち・隔離へ分類し、直近28日学習・7日評価のBaseline参考バックテストを実行できる。これは正式取込、正式OSS比較、現在の出荷指示ではない。詳細は[実データPreflight結果](planning/WINDOWS_PORTABLE_DATA_B_PREFLIGHT_RESULT.md)を参照する。
 Pilot結果の判定は手順15-3で、版付き基準と同一ActualによるRuntime比較を固定してから担当者判断を追記する。機械判定は正式採用、設定変更、Pilot停止、rollbackを自動実行しない。詳細は[Pilot評価Gate](docs/Phase3T_Portable_Pilot評価Gate.md)を参照する。

@@ -304,11 +304,19 @@ def register_document_routes(app, paths, drop_folder):
                     raise DocumentError("再読取の指定を確認してください")
                 if type(value.get("blank_current_zero", False)) is not bool:
                     raise DocumentError("現在欄の空欄ルールを確認してください")
+                if type(value.get("reuse_blank_rule", False)) is not bool:
+                    raise DocumentError("保存済み空欄ルールの再利用を確認してください")
+                if not isinstance(value.get("master_version", ""), str):
+                    raise DocumentError("登録済みマスター版を選んでください")
+                if value.get("reuse_blank_rule") and value.get("blank_current_zero"):
+                    raise DocumentError("保存ルールの再利用と今回の空欄指定は同時に選べません")
                 return await run_in_threadpool(
                     service.read_local,
                     identifier,
                     value.get("retry", False),
                     value.get("blank_current_zero", False),
+                    value.get("master_version", ""),
+                    value.get("reuse_blank_rule", False),
                 )
             if action == "extract":
                 if value.get("retry", False) not in (False, True):

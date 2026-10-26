@@ -1,3 +1,6 @@
+2026-10-26 Portable pilot.52 一括PDF・通常行表示・更新保存
+全体1213成功・20skip・3除外（282.86秒）。起動制限2件と別実行するrelease hash 1件を除外。最終関連62成功（30.98秒）、Node9本・Ruff・変更JS構文成功。実PDF212行で明示0指定と保存ルール再利用が一致（200 READY・12 EXCLUDED）。新旧承認・稼働Data・原本不変、外部APIなし。残る警告は依存ライブラリ非推奨1件。詳細 planning/PORTABLE_PILOT52_BULK_REVIEW_RESULT.md。
+
 2026-10-21 Portable pilot.51 配布最終確認
 Windows x64ビルド、凍結23モジュール・起動スクリプト・画面20ファイルのソース一致、2564ファイルSHA-256・最終ZIP CRC成功。Data/資格情報/実データなし。ZIP d78b15ccdf6e332d09f2c6c72a019983669b2aba543dcf8b6510923dd63bd9fe。実ブラウザー・EXE実起動未実施。詳細 planning/PORTABLE_PILOT51_HISTORY_RECOVERY_RESULT.md。
 

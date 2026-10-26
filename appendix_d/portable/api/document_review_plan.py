@@ -105,18 +105,53 @@ class DocumentReview:
             "reason": reason,
             "at": datetime.now(UTC).isoformat(),
         }
-        with self.documents.db() as db:
+        with self.documents._read_lock, self.documents.db() as db:
             db.execute(
                 "INSERT OR IGNORE INTO document_rule_disables VALUES(?,?)",
                 (version, json.dumps(event, ensure_ascii=False)),
             )
         return self.rules()
 
+    def blank_rule_versions(self, extraction, master_version=""):
+        """Authorize a whole native read only when every inventory scope matches.
+
+        Missing/changed source scope, an expired rule, or a newer unit-only rule
+        leaves blanks untouched. This is extraction policy, never adoption.
+        Caller holds the document read lock, also used by rule apply/disable.
+        """
+        if extraction.get("model") != TEMPLATE:
+            return []
+        rows = [r for r in extraction.get("rows", []) if r.get("kind") == "inventory"]
+        if not rows:
+            return []
+        rules = [r for r in self.rules() if r["active"] and r["current"]]
+        versions = set()
+        for row in rows:
+            scope = {"template": TEMPLATE, "warehouse": row.get("location"),
+                     "master_version": master_version}
+            matches = [r for r in rules if r["scope"] == scope
+                       and r.get("blank_current_zero") is True
+                       and day(row) and day(row) >= r["effective_date"]
+                       and row.get("unit") == UNITS["inventory"]]
+            if not matches or not row.get("location"):
+                return []
+            versions.add(matches[-1]["version"])
+        return sorted(versions)
+
     def _document(self, identifier):
         doc = self.documents.get(identifier)
         if not doc["extraction"] or doc["approval"] or doc["cancelled"]:
             raise DocumentError("未承認・読取済みの原本を選んでください")
         return doc
+
+    def blank_rule_error(self, extraction, master_version=""):
+        versions = extraction.get("blank_rule_versions") or []
+        if versions and (
+            extraction.get("blank_rule_master_version", "") != master_version
+            or self.blank_rule_versions(extraction, master_version) != versions
+        ):
+            return "空欄ルールの版・適用条件が変わりました。原本を読み直して確認してください"
+        return ""
 
     def plan(self, identifier, *, master_version="", rows=None):
         doc = self._document(identifier)
@@ -182,6 +217,11 @@ class DocumentReview:
                 )
             output.append(row)
         statuses = classify(extraction, output)
+        blank_error = self.blank_rule_error(extraction, master_version)
+        if blank_error:
+            for row, status in zip(output, statuses, strict=True):
+                if row.get("kind") == "inventory":
+                    status.update(status="HOLD", causes=[blank_error, *status["causes"]])
         result = {
             "rows": output,
             "classifications": statuses,
@@ -190,6 +230,7 @@ class DocumentReview:
             "applied_rules": dict(applied),
             "revision": extraction.get("revision"),
             "native": extraction.get("model") == TEMPLATE,
+            "blank_rule_error": blank_error,
             "notice": "機械点検通過は読取正解の保証ではありません。文書承認は別です",
         }
         # This is candidate reuse, not business adoption. Idempotent audit per input/version.
@@ -260,6 +301,14 @@ class DocumentReview:
         if any(day(rows[i]) < effective for i in selected):
             raise DocumentError("原本日付より後のルールは今回適用できません")
         remember = value.get("remember") is True
+        blank_zero = value.get("blank_current_zero", False)
+        if type(blank_zero) is not bool:
+            raise DocumentError("現在欄の空欄ルールを確認してください")
+        if blank_zero and (
+            not remember
+            or doc["extraction"].get("blank_current_policy") != "CURRENT_BLANK_ZERO_EXCLUDE_EMPTY"
+        ):
+            raise DocumentError("現在欄の空欄＝0で原本を読み直し、次回再利用を選択してください")
         result = {
             "document_id": identifier,
             "stamp": stamp(doc),
@@ -271,13 +320,16 @@ class DocumentReview:
             "reason": reason,
             "effective_date": effective,
             "remember": remember,
+            "blank_current_zero": blank_zero,
             "indices": selected,
             "rules_hash": digest(self.rules()),
             "at": datetime.now(UTC).isoformat(),
             "changes": (
                 "ボール=ケース、バラ=商品1個の列の意味だけを確認。"
                 "数量・入数・日付・JANは変更しません"
-            ),
+            ) + ("。次回の一括読取では、この範囲の現在欄の空欄を0とし、"
+                 "現在両欄が空欄の在庫明細を除外します。当出は変更しません"
+                 if blank_zero else ""),
         }
         key = digest(result)
         with self.documents.db() as db:
@@ -315,6 +367,7 @@ class DocumentReview:
             rule_version = ""
             if preview["remember"]:
                 rule = {k: preview[k] for k in ("scope", "actor", "reason", "effective_date", "at")}
+                rule["blank_current_zero"] = preview.get("blank_current_zero") is True
                 rule["source_document"] = identifier
                 rule["version"] = digest(rule)
                 rule_version = rule["version"]

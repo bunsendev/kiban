@@ -56,6 +56,8 @@ export function reviewTable(ctx,parent,sourceRows,master,options=null){
  const header=el('tr','',el('thead','',table));
  for(const label of ['行・確認状況','商品名・コード','JAN・候補','数量・単位・換算','種類・日付','倉庫','原本・メモ','除外'])el('th',label,header).setAttribute('scope','col');
  const body=el('tbody','',table), entries=[],edits=[];
+ const detailed=options?field(toolbar,'通常行も詳細表示する','checkbox',false):null;
+ if(options)el('p','通常行は商品・数量・日付を簡易表示します。詳細を開いても承認にはなりません。例外・保留は入力欄で確認できます。',section);
  const batch=el('div','',section);
  if(!options){
  el('p','一括操作は表示中の行だけに適用します。数量・換算を原本と照合してから実行してください。除外した行はチェックを外すと再び対象になります。',batch);
@@ -65,7 +67,8 @@ export function reviewTable(ctx,parent,sourceRows,master,options=null){
 
  let firstDisplay=true;
  function update(){
-  let errorCount=0,warningCount=0,excludedCount=0,visible=0;
+  let errorCount=0,warningCount=0,excludedCount=0,visible=0,visibleDetailed=0;
+  if(options&&filter.value==='ready'&&entries.some(e=>JSON.stringify(serializeControls(e.controls))!==e.initial))filter.value='exceptions';
   const counts={READY:0,REVIEW:0,HOLD:0,EXCLUDED:0};
   for(const entry of entries){
    const row=serializeControls(entry.controls),p=rowProblems(row);entry.problems=p;
@@ -78,7 +81,19 @@ export function reviewTable(ctx,parent,sourceRows,master,options=null){
    const meta=options?.classifications?.[entry.index]||{status:'REVIEW',causes:['追加行の原本確認']};
    const edited=JSON.stringify(row)!==entry.initial;
    const hardErrors=p.errors.filter(e=>e.key!=='component_confirmed');
-   const status=row.exclude?'EXCLUDED':hardErrors.length?'HOLD':p.errors.length||edited?'REVIEW':meta.status;
+   const status=options?.blank_rule_error&&meta.status==='HOLD'?'HOLD':row.exclude?'EXCLUDED':hardErrors.length?'HOLD':p.errors.length||edited?'REVIEW':meta.status;
+   if(entry.compact){
+    const simple=status==='READY'&&!entry.expanded&&!detailed.checked;
+    entry.compact.hidden=!simple;
+    for(const cell of entry.cells)cell.hidden=simple;
+    entry.collapse.hidden=status!=='READY';
+    entry.values[0].textContent=`${entry.index+1}行目 ／ ${row.product_name||'商品名未入力'}`;
+    entry.values[1].textContent=`JAN ${row.jan}`;
+    entry.values[2].textContent=hasComponents?`ボール ${row.case_quantity} ／ バラ ${row.loose_quantity}`:`数量 ${row.quantity} ${row.unit}`;
+    entry.values[3].textContent=`${row.kind==='inventory'?'在庫':'出荷'} ${row.kind==='inventory'?row.snapshot:row.date}`;
+    entry.values[4].textContent=row.kind==='inventory'?`賞味期限 ${row.expiry} ／ 倉庫入庫日 ${row.source_detail_date||'未確認'}`:'';
+    entry.values[5].textContent=`${row.location} ／ 原本 ${row.page||'未指定'}ページ`;
+   }
    const reasons=edited?['編集後の原本確認',...(meta.causes||[])]:meta.causes||[];
    counts[status]=(counts[status]||0)+1;
    const badge=el('strong',options?({READY:'機械点検通過・文書承認待ち',REVIEW:'例外確認',HOLD:'処理保留',EXCLUDED:'除外予定'}[status]):row.exclude?(p.errors.length?'除外理由を確認':'除外予定'):p.errors.length?'不足・要修正':'入力OK・原本照合が必要',entry.state);
@@ -91,6 +106,7 @@ export function reviewTable(ctx,parent,sourceRows,master,options=null){
    const matches=!needle||['product_name','product_code','jan','location','note'].some(k=>text(row[k]).toLowerCase().includes(needle));
    const category=filter.value==='exceptions'&&['REVIEW','HOLD'].includes(status)||filter.value==='ready'&&status==='READY'||filter.value==='active'&&!row.exclude||filter.value==='all'||filter.value==='errors'&&p.errors.length||filter.value==='warnings'&&!row.exclude&&p.warnings.length||filter.value==='excluded'&&row.exclude;
    entry.tr.hidden=!(matches&&category&&(!causes?.value||reasons.includes(causes.value)));if(!entry.tr.hidden)visible++;
+   if(!entry.tr.hidden&&(!entry.compact||entry.compact.hidden))visibleDetailed++;
   }
   if(firstDisplay){
    firstDisplay=false;
@@ -111,6 +127,7 @@ export function reviewTable(ctx,parent,sourceRows,master,options=null){
   }
   totals.textContent=`全${entries.length}行 ／ 不足・形式エラー ${errorCount}行 ／ 読取メモ・商品名の確認 ${warningCount}行 ／ 除外予定 ${excludedCount}行 ／ 表示 ${visible}行`;
   if(options)totals.textContent=`読取商品 ${new Set(entries.map(e=>e.controls.jan.value).filter(Boolean)).size} JAN ／ 全${entries.length}明細 ／ 機械点検通過 ${counts.READY}行 ／ 例外確認 ${counts.REVIEW}行 ／ 処理保留 ${counts.HOLD}行 ／ 除外予定 ${counts.EXCLUDED}行 ／ 表示 ${visible}行`;
+  if(options){header.parentElement.hidden=visibleDetailed===0;table.className='document-review-table'+(visibleDetailed===0?' document-review-compact':'');}
  }
  function addRow(row={},i=entries.length,refresh=true){
   const tr=el('tr','',body),controls={},dateGroups={};
@@ -150,12 +167,23 @@ export function reviewTable(ctx,parent,sourceRows,master,options=null){
   if(row.component_definition_version==='bunsen-ball-case-each-v1')controls.component_confirmed.parentElement.hidden=true;
   for(const key of ['unit','kind'])controls[key].addEventListener('change',()=>{controls.component_definition_version.value='';controls.component_confirmed.checked=false;controls.component_confirmed.parentElement.hidden=false;rule.value='';override.value='manual';});
   if(options?.onSource)button('この行の原本ページと比較',()=>options.onSource(i,serializeControls(controls)),origin,true);
-  entries.push({tr,controls,state,dateGroups,single,index:i,initial:JSON.stringify(serializeControls(controls))});edits.push(controls);
+  const entry={tr,controls,state,dateGroups,single,index:i,initial:JSON.stringify(serializeControls(controls)),expanded:false};
+  if(options){
+   entry.cells=[...tr.children];
+   const compact=el('td','',tr);compact.colSpan=8;compact.className='document-normal-cell';entry.compact=compact;
+   const grid=el('div','',compact);grid.className='document-normal-grid';
+   entry.values=Array.from({length:6},()=>el('span','',grid));
+   el('strong','機械点検通過・文書承認待ち',compact).className='review-badge ready';
+   button('この明細の詳細を開く',()=>{entry.expanded=true;update();},compact,true);
+   if(options.onSource)button('原本ページと比較',()=>options.onSource(i,serializeControls(controls)),compact,true);
+   entry.collapse=button('簡易表示に戻る',()=>{entry.expanded=false;if(detailed)detailed.checked=false;update();},first,true);
+  }
+  entries.push(entry);edits.push(controls);
   tr.addEventListener('input',update);tr.addEventListener('change',update);
   if(refresh)update();return tr;
  }
  sourceRows.forEach((row,i)=>addRow(row,i,false));
- search.addEventListener('input',update);filter.addEventListener('change',update);causes?.addEventListener('change',update);update();
+ search.addEventListener('input',update);filter.addEventListener('change',update);causes?.addEventListener('change',update);detailed?.addEventListener('change',update);update();
  button('原本から明細を追加する',()=>{search.value='';filter.value='all';const tr=addRow();tr.scrollIntoView({block:'nearest'});},section,true);
  return {edits,update};
 }

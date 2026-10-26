@@ -50,3 +50,22 @@ assert(all(excludedHost).some(n=>n.textContent?.includes('すべて除外予定'
 all(excludedHost).find(n=>n.textContent==='除外予定の明細を表示').onclick();
 assert.equal(all(excludedHost).find(n=>n.tagName==='tbody').children[0].hidden,false);
 console.log('PASS successful extraction default visibility, explicit empty states, filters reset without approval or exclusion changes');
+
+// Ready rows summarize the actual controls. Opening details is not approval and
+// editing a normal value must bring the row back to exception review.
+const simpleHost=document.createElement('main');
+const simple=reviewTable({run:fn=>fn(),message:()=>{}},simpleHost,[valid],{choice:{value:''}},
+ {classifications:[{status:'READY',causes:[]}],causes:{}});
+const compact=all(simpleHost).find(n=>n.className==='document-normal-cell');
+const editRow=all(simpleHost).find(n=>n.tagName==='tbody').children[0];
+const originalJSON=JSON.stringify(serializeControls(simple.edits[0]));
+assert.equal(compact.hidden,false);assert.equal(editRow.children[0].hidden,true);
+assert(all(compact).some(n=>n.textContent?.includes('数量 10 箱')));
+all(compact).find(n=>n.textContent==='この明細の詳細を開く').onclick();
+assert.equal(compact.hidden,true);assert.equal(editRow.children[0].hidden,false);
+assert.equal(JSON.stringify(serializeControls(simple.edits[0])),originalJSON);
+simple.edits[0].quantity.value='77';simple.update();
+assert.equal(compact.hidden,true);
+assert.equal(editRow.hidden,false);
+assert(all(simpleHost).some(n=>n.textContent==='編集後の原本確認'));
+console.log('PASS compact normal rows, unchanged details opening and edited-row exception visibility');

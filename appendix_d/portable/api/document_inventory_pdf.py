@@ -7,6 +7,18 @@ from .document_inventory_checks import inventory_checks, movement_check
 from .document_pages import page_source, pdf_reader
 
 
+def apply_current_blank_zero(row):
+    """Normalize current inventory only; keep the original cells for comparison."""
+    row["source_current_case"] = row["case_quantity"]
+    row["source_current_loose"] = row["loose_quantity"]
+    empty = not row["case_quantity"] and not row["loose_quantity"]
+    row["case_quantity"] = row["case_quantity"] or "0"
+    row["loose_quantity"] = row["loose_quantity"] or "0"
+    if empty:
+        row.update(exclude=True, reason="この帳票の現在両欄の空欄を0として除外（担当者指定）")
+    row["note"] += " 担当者指定：現在欄の空欄は0。元の空欄は抽出履歴に保持。"
+
+
 def extract_inventory(raw, *, blank_current_zero=False):
     count = len(pdf_reader(raw).pages)
     rows = []
@@ -67,17 +79,7 @@ def extract_inventory(raw, *, blank_current_zero=False):
                 complete = False
                 row["note"] += " 数量欄に判読不能部分があります。"
             if blank_current_zero:
-                row["source_current_case"] = row["case_quantity"]
-                row["source_current_loose"] = row["loose_quantity"]
-                empty = not row["case_quantity"] and not row["loose_quantity"]
-                row["case_quantity"] = row["case_quantity"] or "0"
-                row["loose_quantity"] = row["loose_quantity"] or "0"
-                if empty:
-                    row.update(
-                        exclude=True,
-                        reason="この帳票の現在両欄の空欄を0として除外（担当者指定）",
-                    )
-                row["note"] += " 担当者指定：現在欄の空欄は0。元の空欄は抽出履歴に保持。"
+                apply_current_blank_zero(row)
             movements.append(movement_check(line, case_columns, loose_columns, row))
             if row["source_adjustment_case"] or row["source_adjustment_loose"]:
                 row["note"] += (

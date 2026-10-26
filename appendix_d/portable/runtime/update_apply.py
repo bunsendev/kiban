@@ -14,8 +14,8 @@ import zipfile
 from pathlib import Path
 
 from portable import APP_VERSION
-from portable.api.business_archive import atomic_json
 from portable.runtime.release_update import TRUST_KEY, unpack, verified, version
+from portable.runtime.update_state import write_state as atomic_json
 
 
 def wait_parent(pid):

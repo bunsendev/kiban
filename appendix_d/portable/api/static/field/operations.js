@@ -20,6 +20,8 @@ export async function operations(ctx,parent){
     el('p','通常は操作件数・処理の成功／失敗／中断件数・判断の採用／修正／保留件数・意見件数を送ります。自由記述は管理者が許可した場合だけ含めます。',info);
     el('h2',`アップデート（現在 ${v.version}）`,info);
     el('p',(updateLabels[v.update.status]||'状態を確認してください')+(v.update.version?`：${v.update.version}`:''),info);
+    if(v.update.reason==='STATE_SAVE_FAILED')el('p','更新状態を保存できませんでした。業務データは変更していません。別の起動中アプリやフォルダーの書き込み権限を確認し、「更新を確認」で再試行してください。',info);
+    if(v.update.reason==='STATE_READ_FAILED'||v.update.reason==='BACKGROUND_CHECK_FAILED')el('p','更新状態を読み直す必要があります。「更新を確認」で再試行してください。繰り返す場合はIT担当者へご連絡ください。',info);
     if(v.update.last_apply)el('p',`前回の更新：${updateLabels[v.update.last_apply.status]||'要確認'}`,info);
     button('更新を確認',()=>ctx.run(async()=>{state.textContent='更新を確認中…';await api('/api/operations/update-check',{});await refresh();state.textContent='確認しました。';}),info,true);
     if(v.update.status==='AVAILABLE'){

@@ -1,6 +1,7 @@
 """Field-visible feedback delivery and update controls, with opt-in configuration."""
 
 import json
+import logging
 import os
 import sys
 import threading
@@ -31,6 +32,7 @@ def register_operations(app, paths, read_limited, control_token):
     update_lock = threading.Lock()
     app.state.update_requested = None
     app.state.operations_writes = 0
+    app.state.operations_update_error = False
 
     def require_admin(request):
         if not authorized(paths, request.headers.get("x-feedback-admin", "")):
@@ -88,9 +90,15 @@ def register_operations(app, paths, read_limited, control_token):
             except Exception:
                 pass  # Outbox retains unsent work; status UI exposes configuration/errors.
             with update_lock:
-                updates.check()
+                try:
+                    updates.check()
+                except Exception:
+                    app.state.operations_update_error = True
+                    logging.getLogger(__name__).warning("background_update_check_failed")
 
-        threading.Thread(target=run, daemon=True).start()
+        worker = threading.Thread(target=run, name="portable-operations", daemon=True)
+        app.state.operations_thread = worker
+        worker.start()
 
     app.router.add_event_handler("startup", startup)
 
@@ -98,9 +106,12 @@ def register_operations(app, paths, read_limited, control_token):
     def status():
         feedback = delivery.status()
         feedback["config"] = {"enabled": feedback["config"]["enabled"]}
+        update_status = updates.status()
+        if app.state.operations_update_error:
+            update_status = {"status": "CHECK_FAILED", "reason": "BACKGROUND_CHECK_FAILED"}
         return {
             "feedback": feedback,
-            "update": updates.status(),
+            "update": update_status,
             "can_apply": bool(control_token and getattr(sys, "frozen", False)),
             "version": APP_VERSION,
         }
@@ -137,7 +148,9 @@ def register_operations(app, paths, read_limited, control_token):
                 if not update_lock.acquire(blocking=False):
                     raise ValueError("更新処理中です")
                 try:
-                    return await run_in_threadpool(updates.check)
+                    result = await run_in_threadpool(updates.check)
+                    app.state.operations_update_error = False
+                    return result
                 finally:
                     update_lock.release()
             if action == "update-apply":
