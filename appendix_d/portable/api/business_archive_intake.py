@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 from .business_archive import analyze_archive, atomic_json, content_id
 from .business_review import apply_remembered_rules, latest_decisions, rebuild_reviewed_prepared
+from .data_quality import DataQuality
 from .input_history import InputHistory
 from .product_exclusions import ProductExclusions
 
@@ -17,11 +18,23 @@ class BusinessArchiveIntake:
         self.daily_runs = daily_runs
         self.history = InputHistory(paths)
         self.lock = threading.RLock()
+        self.quality = DataQuality(paths)
 
-    def ingest(self, data: bytes) -> dict:
+    def ingest(self, data: bytes, *, method="MANUAL_UPLOAD", filename="upload.zip") -> dict:
         with self.lock:
-            with self.history.stage(data) as (combined, history):
-                return self._ingest(combined, history)
+            try:
+                with self.history.stage(data) as (combined, history):
+                    result = self._ingest(combined, history)
+            except ValueError:
+                self.quality.receipt(data, method=method, filename=filename, result="REJECTED",
+                                     error="INTAKE_VALIDATION_FAILED")
+                raise
+            check = self.quality.check(result["analysis_id"])
+            self.quality.receipt(data, method=method, filename=filename,
+                                 analysis_id=result["analysis_id"],
+                                 result="REVIEW_REQUIRED"
+                                 if check["confirmation_pending"] else "ACCEPTED")
+            return result
 
     def _ingest(self, data: bytes, history: dict) -> dict:
         analysis_id = content_id(data)
@@ -55,4 +68,5 @@ class BusinessArchiveIntake:
                 journal,
             )
         self.daily_runs.view(analysis_id)
+        self.quality.check(analysis_id)
         return report

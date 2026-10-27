@@ -2,6 +2,7 @@ import {api,el,field,button,saveWithNotice} from './api.js';
 import {operations} from './operations.js';
 import {showVersion} from './version.js';
 import {aiUsage} from './ai-usage.js';
+import {qualitySettings} from './quality-settings.js';
 
 export function settings(ctx,parent){
  showVersion(parent);
@@ -13,6 +14,7 @@ export function settings(ctx,parent){
  }
  savedStatus().catch(()=>{});
  const guide=el('a','操作マニュアル',bar);guide.href='/field/manual';guide.target='_blank';guide.rel='noopener';
+ button('データ受信・欠損の設定',()=>open('データ受信・欠損の設定',qualitySettings),bar,true);
  function open(title,render){
   const dialog=el('dialog','',parent);dialog.setAttribute('aria-label',title);
   dialog.style.maxWidth='min(760px, 92vw)';dialog.style.maxHeight='85vh';

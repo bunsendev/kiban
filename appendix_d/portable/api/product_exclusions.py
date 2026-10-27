@@ -156,8 +156,8 @@ class ProductExclusions:
         except (ValueError, KeyError, TypeError, AttributeError):
             raise DocumentError("対象外商品設定JSONの形式を確認してください") from None
 
-    def apply(self, rows):
-        rules = self.list()
+    def apply(self, rows, *, rules=None):
+        rules = self.list() if rules is None else rules
         active = {r["jan"]: r for r in rules if r["exclude"] and r.get("match_type") != "prefix"}
         prefixes = {r["jan"]: r for r in rules if r["exclude"] and r.get("match_type") == "prefix"}
         result = []

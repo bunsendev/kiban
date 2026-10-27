@@ -100,6 +100,7 @@
     rows = value.rows; history = value.history;
     const dates = rows.map(r => String(r.target_date).slice(0,10)).sort();
     context.textContent = `保存済みの予測${warehouse ? '／' + warehouse : ''}／予測期間 ${dates[0] || 'なし'} ～ ${dates.at(-1) || 'なし'}。現在取り込んでいるデータとは別の結果です。`;
+    if(value.provisional)context.textContent+=' 暫定予測：入力に欠損があります。出荷の自動確定はできません。';
     render();
   }
   async function download(selection) {

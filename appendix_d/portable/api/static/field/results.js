@@ -33,6 +33,7 @@ export async function results(ctx) {
   const cards = el("div", "", ctx.root);
   cards.className = "cards";
   const completion = el("p", "", ctx.root);
+  const qualityNotice = el('p','',ctx.root);qualityNotice.setAttribute('role','status');
   const inputIssues = el("details", "", ctx.root);
   const issuesTitle = el("summary", "未確認・除外した原本情報", inputIssues);
   const issuesBody = el("div", "", inputIssues);
@@ -150,6 +151,8 @@ export async function results(ctx) {
     });
     const v = await api(endpoint + "?" + params);
     if (token !== generation) return;
+    qualityNotice.textContent=v.provisional?'暫定予測：入力に欠損があります。通常予測とは区別し、出荷の自動確定には使わないでください。':'通常予測（確認した入力条件による参考値）';
+    qualityNotice.className=v.provisional?'quality-warning':'notice';
     pageRows = v.rows;
     const unresolved = v.input_issues || [];
     issuesTitle.textContent = `未確認・除外した原本情報 ${unresolved.length}項目（商品数とは別集計）`;

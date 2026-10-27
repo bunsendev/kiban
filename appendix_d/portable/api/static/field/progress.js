@@ -1,5 +1,6 @@
 import { savedForecasts } from "./saved-forecasts.js";
 import { api, el, button, field } from "./api.js";
+import { qualityPanel, methodFields } from "./data-quality.js";
 
 function formBase(ctx, title) {
   const f = el("form", "", ctx.root);
@@ -118,6 +119,8 @@ export async function analysis(ctx) {
   await savedForecasts(ctx.root, item => ctx.openSaved(item));
   const status = el("p", state.next_action, ctx.root);
   status.className = "notice";
+  const quality = await qualityPanel(ctx, ctx.root, id);
+  if(state.provisional)el('p','現在表示できる結果は欠損を残した暫定予測です。通常予測とは区別して利用してください。',ctx.root).className='notice';
   if (report.issues?.length) {
     const details = el("details", "", ctx.root);
     details.open = report.review.pending_items > 0;
@@ -145,7 +148,7 @@ export async function analysis(ctx) {
     if(report.rows.inventory)await inventoryForm(ctx, id);
   if(!report.rows.inventory){
     el('p','出荷実績は保存済みですが、この倉庫の在庫CSVはありません。需要予測だけは下から実行できます。在庫見通し・不足判定には、基準日の在庫PDFを確認して渡すか、在庫CSVを追加してください。',ctx.root);
-    demandOnlyForm(ctx,id);
+    demandOnlyForm(ctx,id,quality);
   }
   if (
     [
@@ -154,7 +157,7 @@ export async function analysis(ctx) {
       "FORECAST_BLOCKED",
     ].includes(state.status)
   )
-    advanceForm(ctx, id);
+    advanceForm(ctx, id, quality);
   if (state.status === "PRODUCTION_RUNNING") {
     el("progress", "", ctx.root);
     el("p", "需要予測を計算中です。完了後に結果へ進めます。", ctx.root);
@@ -186,7 +189,7 @@ export async function analysis(ctx) {
     ].includes(state.status)
   ) {
     button("予測結果を見る", () => ctx.run(() => ctx.showResults()), ctx.root);
-    if (state.status === "SUMMARY_CONFIRMATION_REQUIRED") summaryForm(ctx, id);
+    if (state.status === "SUMMARY_CONFIRMATION_REQUIRED") summaryForm(ctx, id, state.provisional);
   }
   if (state.blockers?.length) {
     el(
@@ -194,7 +197,7 @@ export async function analysis(ctx) {
       `未解決の条件が${state.blockers.length}件あります。計算できない商品を問題なしとして扱いません。`,
       ctx.root,
     );
-    const reasons={HISTORY_LESS_THAN_28_DAYS:'確認済み出荷履歴が28日未満です。過去の出荷CSVを追加してください',RECENT_SOURCE_DAYS_MISSING:'直近の出荷データに欠測があります。日別CSVを確認してください',INVENTORY_SHIPMENT_AS_OF_MISMATCH:'在庫基準日と出荷履歴の最終日が違います。同じ基準日のデータを揃えてください'};
+    const reasons={HISTORY_LESS_THAN_28_DAYS:'確認済み出荷履歴が28日未満です。過去の出荷CSVを追加してください',RECENT_SOURCE_DAYS_MISSING:'直近の出荷データに欠測があります。日別CSVを確認してください',INVENTORY_SHIPMENT_AS_OF_MISMATCH:'在庫基準日と出荷履歴の最終日が違います。同じ基準日のデータを揃えてください',QUALITY_REVIEW_REQUIRED:'不足一覧の未解決項目を確認してください',MISSING_MODEL_INPUT_UNSUPPORTED:'選択した方式・モデルでは計算できません。不足を補充してください',OUT_OF_SCOPE_QUALITY:'品質検証の対象外です。取扱期間・対象商品を確認してください',FORECAST_ORIGIN_UNALIGNED:'倉庫ごとの基準日が異なります。同じ基準日の在庫・出荷データを揃えてください'};
     const list=el('ul','',ctx.root);
     for(const item of state.blockers){
       const explanation=(item.reason_codes||[]).map(code=>reasons[code]||code).join('／');
@@ -217,13 +220,14 @@ export async function analysis(ctx) {
   button("開始画面へ", () => ctx.run(() => ctx.home()), ctx.root, true);
 }
 
-function demandOnlyForm(ctx,id){
+function demandOnlyForm(ctx,id,quality){
  const panel=el('section','',ctx.root);el('h2','出荷実績だけで需要を参考予測する',panel);
  const actor=field(panel,'確認者'),unit=field(panel,'CSV数量の単位（例：バラ／ボール）');
  const confirmed=field(panel,'出荷実績と原本数量の単位を確認した','checkbox',false);
+ const method=methodFields(panel,quality);
  const output=el('div','',panel);
  button('需要予測のみを計算（在庫は未評価）',()=>ctx.run(async()=>{
-   const v=await api(`/api/field/${id}/demand`,{actor:actor.value,unit:unit.value,confirmed:confirmed.checked});
+   const v=await api(`/api/field/${id}/demand`,{actor:actor.value,unit:unit.value,confirmed:confirmed.checked,...method()});
    output.replaceChildren();el('p',v.notice,output);
    for(const s of v.series){const uid=`${s.source_center}:${s.jan}`;const ps=v.predictions.filter(p=>p.unique_id===uid);const total=ps.reduce((n,p)=>n+Number(p.yhat),0);
     el('p',`${s.source_center} ${s.jan}：${s.required_start}〜${s.required_end} ${s.recognized_days}/28日／${s.eligible?`今後14日 ${total.toFixed(2)} ${v.unit}`:`不足日 ${s.missing_dates.join('、')}`}`,output);}
@@ -264,8 +268,9 @@ async function inventoryForm(ctx, id) {
     await analysis(ctx);
   });
 }
-function advanceForm(ctx, id) {
+function advanceForm(ctx, id, quality) {
   const base = formBase(ctx, "予測の条件を確認");
+  const method = methodFields(base.f, quality);
   const labels = {
     confirm_pilot_scope: "準備した全商品・倉庫を今回の対象とします",
     confirm_quantity_reconciliation:
@@ -295,6 +300,7 @@ function advanceForm(ctx, id) {
       actor: base.actor.value,
       reason: base.reason.value,
       batch_size: Number(batch.value),
+      ...method(),
       ...Object.fromEntries(
         Object.entries(checks).map(([k, v]) => [k, v.checked]),
       ),
@@ -303,7 +309,7 @@ function advanceForm(ctx, id) {
     await waitJob(ctx, job.id);
   });
 }
-function summaryForm(ctx, id) {
+function summaryForm(ctx, id, isProvisional=false) {
   const details = el("details", "", ctx.root);
   el("summary", "在庫不足・賞味期限の評価も行う", details);
   const base = formBase(ctx, "賞味期限の条件");
@@ -313,6 +319,7 @@ function summaryForm(ctx, id) {
   min.min = 0;
   attention.min = 0;
   const confirmed = check(base.f, "この条件で在庫・賞味期限を参考評価します");
+  const provisional = isProvisional ? check(base.f, "暫定予測の欠損と影響を確認し、担当者の判断として評価を進めます") : {checked:false};
   submitForm(ctx, base, "条件を確認して評価", async () => {
     await api(`/api/daily-runs/${id}/daily-summary`, {
       actor: base.actor.value,
@@ -320,6 +327,7 @@ function summaryForm(ctx, id) {
       minimum_remaining_days: Number(min.value),
       attention_days: Number(attention.value),
       confirm_expiry_policy: confirmed.checked,
+      confirm_provisional: provisional.checked,
     });
     ctx.dirty = false;
     await ctx.showResults();

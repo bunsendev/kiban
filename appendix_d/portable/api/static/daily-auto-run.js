@@ -143,6 +143,9 @@ async function renderDailyRun(value) {
   dailyPanel.hidden = false;
   dailyAnalysisId = value.analysis_id;
   dailyResult.replaceChildren();
+  const qualityLink=document.createElement('a');qualityLink.href='/field';
+  qualityLink.textContent='不足データの一覧・追加取込・通常／暫定予測の選択を現場画面で確認';
+  dailyResult.appendChild(qualityLink);
   dailyStatus.textContent = `${dailyLabels[value.status] || value.status}：${value.next_action}`;
   const blocked = [
     'INVENTORY_BLOCKED', 'FORECAST_BLOCKED', 'PRODUCTION_BLOCKED',

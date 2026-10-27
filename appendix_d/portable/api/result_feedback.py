@@ -168,6 +168,8 @@ def export_results(view, selected=None):
             "コメント",
             "担当者",
             "保存日時",
+            "予測区分",
+            "品質検証ID",
         ]
     )
 
@@ -189,6 +191,8 @@ def export_results(view, selected=None):
                     safe(feedback.get(k, ""))
                     for k in ("rating", "reason", "comment", "actor", "created_at")
                 ],
+                "暫定予測" if view.get("provisional") else "通常予測",
+                view.get("quality_check_id", ""),
             ]
         )
     return output.getvalue().encode("utf-8-sig")

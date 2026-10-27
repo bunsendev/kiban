@@ -50,6 +50,9 @@ def build_daily_shipment(
     snapshot_dates_by_center: dict[str, date] | None = None,
     invalid_occurrences: set[tuple[str, str, date]] | None = None,
     invalid_file_dates: set[tuple[str, date]] | None = None,
+    quality_check: dict | None = None,
+    forecast_mode: str = "A",
+    execution_request_id: str | None = None,
 ) -> tuple[dict, pd.DataFrame]:
     """Build daily states without turning missing source files into zero."""
 
@@ -70,8 +73,15 @@ def build_daily_shipment(
         archive_bytes, {key[0] for key in selected}, include_observed=True
     )
     missing_centers = sorted({key[0] for key in selected} - set(window_dates))
-    if missing_centers:
-        raise FormalShipmentBuildError("出荷CSVがない倉庫があります")
+    for center in missing_centers:
+        # One missing warehouse must not stop other warehouses. Keep its days missing.
+        anchor = snapshot_dates_by_center.get(center)
+        if anchor is None:
+            raise FormalShipmentBuildError("出荷CSVも在庫基準日もない倉庫があります")
+        window_dates[center] = {anchor - timedelta(days=27), anchor}
+    if forecast_mode == "C":
+        for center, day in snapshot_dates_by_center.items():
+            window_dates.setdefault(center, set()).add(day)
     center_windows = {
         center: {
             "train_start": max(
@@ -85,6 +95,10 @@ def build_daily_shipment(
     overall_start = min(item["train_start"] for item in center_windows.values())
     overall_end = max(item["train_end"] for item in center_windows.values())
     quantities = _prepared_quantities(prepared_bytes, selected, overall_start, overall_end)
+    quality_daily = {(r["warehouse"], r["jan"], r["date"]): r
+                     for r in (quality_check or {}).get("daily", [])}
+    quality_series = {(r["warehouse"], r["jan"]): r
+                      for r in (quality_check or {}).get("series", [])}
     rows: list[dict] = []
     summaries: list[dict] = []
     frame_rows: list[dict] = []
@@ -95,6 +109,7 @@ def build_daily_shipment(
         observed = zero = missing = 0
         recent_missing = 0
         last_observed: str | None = None
+        series_rows = []
         current = start
         while current <= origin:
             quantity = quantities.get((center, jan, current))
@@ -130,6 +145,16 @@ def build_daily_shipment(
                 )
                 if current > origin - timedelta(days=RECENT_COMPLETE_DAYS):
                     recent_missing += 1
+            governed = quality_daily.get((center, jan, current.isoformat()))
+            if governed and ((quality_check or {}).get("rules", {}).get("warehouses")
+                             or forecast_mode == "C"):
+                state = governed["state"]
+                quantity = (Decimal(governed["quantity"])
+                            if governed["quantity"] is not None else None)
+                if state in {"CLOSED", "NOT_HANDLED"}:
+                    quantity = None
+                issue = ("QUALITY_POLICY_APPLIED"
+                         if state not in {"OBSERVED", "CONFIRMED_ZERO"} else None)
             row = {
                 "canonical_product_id": identity["canonical_product_id"],
                 "center_id": identity["forecast_center_id"],
@@ -143,6 +168,7 @@ def build_daily_shipment(
                 "issue": issue,
             }
             rows.append(row)
+            series_rows.append(row)
             frame_rows.append(
                 {
                     "ds": pd.Timestamp(current),
@@ -155,10 +181,11 @@ def build_daily_shipment(
         required_start = origin - timedelta(days=MIN_OBSERVED_DAYS - 1)
         required_rows = [
             r
-            for r in rows
+            for r in series_rows
             if r["unique_id"] == uid and required_start.isoformat() <= r["ds"] <= origin.isoformat()
         ]
         recognized_dates = {r["ds"] for r in required_rows if r["y"] is not None}
+        recognized_count = len(recognized_dates)
         required_dates = [
             (required_start + timedelta(days=i)).isoformat() for i in range(MIN_OBSERVED_DAYS)
         ]
@@ -171,6 +198,25 @@ def build_daily_shipment(
         snapshot_date = snapshot_dates_by_center.get(center)
         if snapshot_date is not None and snapshot_date != origin:
             blockers.append("INVENTORY_SHIPMENT_AS_OF_MISMATCH")
+        quality_item = quality_series.get((center, jan))
+        if quality_check and quality_item is None:
+            blockers.append("OUT_OF_SCOPE_QUALITY")
+        if quality_item and quality_check.get("rules", {}).get("warehouses"):
+            missing_required = quality_item["missing_dates"]
+            recognized_count = quality_item["valid_records"]
+        if quality_item and quality_check.get("rules", {}).get("warehouses"):
+            if quality_item["normal_eligible"] and snapshot_date in {None, origin}:
+                blockers = []
+            elif not quality_item["normal_eligible"]:
+                blockers = sorted({*blockers, "QUALITY_REVIEW_REQUIRED"})
+        provisional = False
+        if forecast_mode == "C":
+            if (quality_item and quality_item["provisional_eligible"]
+                    and snapshot_date in {None, origin}):
+                provisional = bool(quality_item["missing_dates"])
+                blockers = []
+            else:
+                blockers = sorted({*blockers, "MISSING_MODEL_INPUT_UNSUPPORTED"})
         summaries.append(
             {
                 "source_center": center,
@@ -178,25 +224,43 @@ def build_daily_shipment(
                 "canonical_product_id": identity["canonical_product_id"],
                 "forecast_center_id": identity["forecast_center_id"],
                 "unique_id": uid,
-                "observed_day_count": observed,
-                "confirmed_zero_day_count": zero,
-                "missing_day_count": missing,
+                "observed_day_count": sum(r["state"] == "OBSERVED" for r in series_rows),
+                "confirmed_zero_day_count": sum(r["state"] == "CONFIRMED_ZERO"
+                                                for r in series_rows),
+                "missing_day_count": sum(r["state"] in {"MISSING", "PARTIAL_OR_INVALID"}
+                                         for r in series_rows),
                 "last_observed_day": last_observed,
                 "train_start": start.isoformat(),
                 "train_end": origin.isoformat(),
                 "required_start": required_start.isoformat(),
                 "required_end": origin.isoformat(),
-                "required_day_count": MIN_OBSERVED_DAYS,
-                "recognized_required_days": len(recognized_dates),
+                "required_day_count": quality_item["required_records"] if quality_item
+                and quality_check.get("rules", {}).get("warehouses") else MIN_OBSERVED_DAYS,
+                "recognized_required_days": recognized_count,
                 "missing_required_dates": missing_required,
                 "inventory_snapshot_date": (
                     None if snapshot_date is None else snapshot_date.isoformat()
                 ),
                 "forecast_eligible": not blockers,
                 "blocking_reasons": blockers,
+                **({"provisional": provisional} if forecast_mode == "C" else {}),
             }
         )
     prepared_sha = sha256(prepared_bytes)
+    execution_end = overall_end
+    execution_start = overall_start
+    if quality_check:
+        eligible_origins = [s["train_end"] for s in summaries if s["forecast_eligible"]]
+        if eligible_origins:
+            execution_end = date.fromisoformat(max(eligible_origins))
+            # The existing production Run has one origin. Never silently advance an older
+            # warehouse beyond the days checked for its normal/provisional forecast.
+            for item in summaries:
+                if item["forecast_eligible"] and item["train_end"] != execution_end.isoformat():
+                    item["forecast_eligible"] = False
+                    item["blocking_reasons"].append("FORECAST_ORIGIN_UNALIGNED")
+            execution_start = min(date.fromisoformat(s["train_start"]) for s in summaries
+                                  if s["forecast_eligible"])
     identity_payload = {
         "format": "portable-formal-shipment-daily-v1",
         "history_policy_version": HISTORY_POLICY_VERSION,
@@ -210,8 +274,8 @@ def build_daily_shipment(
         "invalid_file_dates": sorted(
             (center, day.isoformat()) for center, day in invalid_file_dates
         ),
-        "train_start": overall_start.isoformat(),
-        "train_end": overall_end.isoformat(),
+        "train_start": execution_start.isoformat(),
+        "train_end": execution_end.isoformat(),
         "center_windows": [
             {
                 "source_center": center,
@@ -228,6 +292,10 @@ def build_daily_shipment(
         "series": summaries,
         "rows": rows,
     }
+    if quality_check:
+        identity_payload.update(quality_check_id=quality_check["id"], forecast_mode=forecast_mode)
+    if execution_request_id:
+        identity_payload["execution_request_id"] = execution_request_id
     build_id = "portable-daily-" + sha256(canonical_json(identity_payload))
     eligible = {item["unique_id"] for item in summaries if item["forecast_eligible"]}
     frame = pd.DataFrame(frame_rows)

@@ -70,6 +70,8 @@ class PortableProductionHandoff:
         if payload.get("confirm_production_queue") is not True:
             raise ProductionHandoffError("Production Forecast Runへの登録確認が必要です")
         manifest, daily = self._verified_source(build_id)
+        if manifest.get("provisional") and payload.get("confirm_provisional") is not True:
+            raise ProductionHandoffError("欠損のある暫定予測を実行する明示確認が必要です")
         if manifest["eligible_series_count"] < 1:
             raise ProductionHandoffError("予測可能な系列がありません")
         receipt_path = self._receipt_path(build_id)
@@ -92,6 +94,13 @@ class PortableProductionHandoff:
         if len(runtime_hashes) != 1:
             raise ProductionHandoffError("実行時設定を単一の予測Runへ固定できません")
         runtime_configuration = runtime_resolutions[0]["selected_configuration"]
+        if manifest.get("provisional"):
+            from .runtime_profiles import BASELINE_CONFIGURATION
+
+            if any(r["status"] != "BASELINE_SELECTED" for r in runtime_resolutions) or (
+                runtime_configuration != BASELINE_CONFIGURATION
+            ):
+                raise ProductionHandoffError("選択された実行モデルは欠損方式に未対応です")
 
         eligible = {item["unique_id"] for item in manifest["series"] if item["forecast_eligible"]}
         model = runtime_configuration["model_name"]
@@ -176,6 +185,10 @@ class PortableProductionHandoff:
             "runtime_resolutions": runtime_resolutions,
             "actor": actor,
             "reason": reason,
+            **({"quality_check_id": manifest["quality_check_id"],
+                "forecast_mode": manifest["forecast_mode"],
+                "provisional": manifest["provisional"]}
+               if "quality_check_id" in manifest else {}),
             "eligible_series": sorted(eligible),
             "blocked_series": sorted(
                 item["unique_id"] for item in manifest["series"] if not item["forecast_eligible"]
@@ -244,6 +257,9 @@ class PortableProductionHandoff:
                     ),
                     "model": receipt["provider_id"] + ":" + receipt["model_name"],
                     "runtime_version": receipt["runtime_version"],
+                    **({k: manifest[k]
+                        for k in ("quality_check_id", "forecast_mode", "provisional")}
+                       if "quality_check_id" in manifest else {}),
                 },
             )
         return output
@@ -262,6 +278,10 @@ class PortableProductionHandoff:
             daily
         ):
             raise ProductionHandoffError("日次buildの整合性を確認できません")
+        if "quality_check_id" in manifest and manifest.get("quality_manifest_sha256") != sha256(
+            canonical_json({k: v for k, v in manifest.items() if k != "quality_manifest_sha256"})
+        ):
+            raise ProductionHandoffError("品質・予測方式の整合性を確認できません")
         if manifest.get("status") == "BLOCKED":
             raise ProductionHandoffError(
                 "予測対象がありません。出荷履歴28日以上、直近の欠測、在庫・出荷の基準日を確認してください"

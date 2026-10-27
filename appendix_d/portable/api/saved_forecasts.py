@@ -69,6 +69,8 @@ class SavedForecasts:
                             "reference": value["build_id"],
                             "warehouse": center,
                             "created_at": value["created_at"],
+                            "provisional": value.get("provisional", False),
+                            "forecast_mode": value.get("forecast_mode", "A"),
                             "inventory_date": window.get("inventory_snapshot_date"),
                             "train_end": window["train_end"],
                             "period": [dates[0], dates[-1]],

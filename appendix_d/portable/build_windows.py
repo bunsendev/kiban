@@ -190,6 +190,7 @@ def main() -> None:
         "Portable_予測と実績の比較.md",
         "Portable_履歴期間と方式比較.md",
         "Portable_学習データのバックアップと復元.md",
+        "Portable_欠損検知と予測方式選択.md",
     ):
         shutil.copy2(root / "docs" / guide, output / guide)
     (output / "Data").mkdir()

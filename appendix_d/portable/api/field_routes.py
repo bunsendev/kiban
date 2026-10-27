@@ -127,7 +127,7 @@ def register_field_routes(app, paths, intake, daily, resolve, read_limited):
     async def upload(request: Request):
         data = await read_limited(request, MAX_ZIP_BYTES)
         name = request.headers.get("x-file-name", "upload.zip")
-        return workflow.start("UPLOAD", lambda: intake.ingest(data), filename=name)
+        return workflow.start("UPLOAD", lambda: intake.ingest(data, filename=name), filename=name)
 
     @app.post("/api/field/{analysis_id}/advance", status_code=202)
     async def advance(analysis_id: str, request: Request):

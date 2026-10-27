@@ -416,7 +416,7 @@ def run_reference_backtest(prepared_path: Path, work_dir: Path, analysis_id: str
         complete = (
             window.groupby(["unique_id", "ds"], as_index=True)["y"]
             .sum()
-            .reindex(grid, fill_value=0)
+            .reindex(grid)
             .reset_index()
         )
         origin = latest - pd.Timedelta(days=7)
@@ -429,6 +429,12 @@ def run_reference_backtest(prepared_path: Path, work_dir: Path, analysis_id: str
         joined = predicted.merge(
             truth, left_on=["unique_id", "target_date"], right_on=["unique_id", "ds"], how="inner"
         )
+        missing_truth = int(joined["y"].isna().sum())
+        joined = joined[joined["y"].notna()]
+        if joined.empty:
+            raise ArchiveError(
+                "確認済み実績がないため精度を評価できません。欠損は0へ変換していません"
+            )
         absolute_error = (joined["yhat"] - joined["y"]).abs()
         denominator = float(joined["y"].sum())
         results.append(
@@ -440,6 +446,7 @@ def run_reference_backtest(prepared_path: Path, work_dir: Path, analysis_id: str
                 "test_end": truth["ds"].max().date().isoformat(),
                 "series": len(active_ids),
                 "points": len(joined),
+                "unobserved_actual_points": missing_truth,
                 "mae": round(float(absolute_error.mean()), 4),
                 "wape": (
                     round(float(absolute_error.sum()) / denominator, 6) if denominator else None

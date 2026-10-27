@@ -81,6 +81,8 @@ class PortableDailyAutoRun:
                 "DECISION_INPUT_BLOCKED",
             }:
                 raise DailyAutoRunError("正式予測の完了後に日次サマリーを準備してください")
+            if current.get("provisional") and payload.get("confirm_provisional") is not True:
+                raise DailyAutoRunError("暫定予測で在庫評価を進める担当者の明示確認が必要です")
             try:
                 summary = self.production.projection.daily_summary(
                     current["build_id"], payload
@@ -161,6 +163,8 @@ class PortableDailyAutoRun:
             })
 
     def _advance(self, analysis_id: str, payload: dict) -> dict:
+        if payload.get("forecast_mode", "A") not in {"A", "C"}:
+            raise DailyAutoRunError("推定補完（B）は今後対応です")
         current = self.view(analysis_id)
         if current["status"] == "REVIEW_REQUIRED":
             raise DailyAutoRunError("JAN・賞味期限などの未確認項目を先に確定してください")
@@ -225,6 +229,8 @@ class PortableDailyAutoRun:
             "confirm_identity_bridge": True,
             "confirm_zero_policy": True,
             "batch_size": payload.get("batch_size", 100),
+            **{k: payload[k] for k in ("forecast_mode", "check_id", "request_id",
+                                      "confirm_provisional") if k in payload},
         })
         if forecast.get("status") == "BLOCKED":
             return self.view(analysis_id)
@@ -233,6 +239,7 @@ class PortableDailyAutoRun:
                 "actor": actor,
                 "reason": reason,
                 "confirm_production_queue": True,
+                "confirm_provisional": payload.get("confirm_provisional") is True,
             })
         except ProductionHandoffError as exc:
             raise DailyAutoRunError(str(exc)) from exc
@@ -302,6 +309,9 @@ class PortableDailyAutoRun:
         ]
         base |= {
             "forecast_status": latest["status"],
+            "forecast_mode": latest.get("forecast_mode", "A"),
+            "provisional": latest.get("provisional", False),
+            "quality_check_id": latest.get("quality_check_id"),
             "eligible_series_count": latest["eligible_series_count"],
             "blocked_series_count": latest["blocked_series_count"],
         }

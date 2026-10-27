@@ -39,7 +39,7 @@ export async function savedForecasts(parent, open) {
       warehouse.value = chosen;
       version.replaceChildren();
       entries.forEach((item, i) => {
-        el("option", `${item.warehouse}／在庫基準日 ${item.inventory_date || "未確認"}／予測 ${item.period.join(" ～ ")}／${item.series_count}商品／作成 ${displayTime(item.created_at)}`, version).value = String(i);
+        el("option", `${item.provisional?'暫定予測／':''}${item.warehouse}／在庫基準日 ${item.inventory_date || "未確認"}／予測 ${item.period.join(" ～ ")}／${item.series_count}商品／作成 ${displayTime(item.created_at)}`, version).value = String(i);
       });
       show.disabled = !entries.length;
       more.hidden = entries.length >= value.total;

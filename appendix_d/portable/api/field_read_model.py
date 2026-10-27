@@ -16,6 +16,10 @@ REASONS = {
     "INVENTORY_SHIPMENT_AS_OF_MISMATCH": "在庫と出荷の基準日が不一致",
     "STOCKOUT_RISK": "在庫不足の可能性",
     "EXPIRY_RISK": "賞味期限に注意",
+    "FORECAST_ORIGIN_UNALIGNED": "他倉庫と予測基準日が異なります。この倉庫単独で確認してください",
+    "QUALITY_REVIEW_REQUIRED": "欠損一覧の数量・取扱期間などの確認が必要",
+    "MISSING_MODEL_INPUT_UNSUPPORTED": "モデルが必要とする観測日・同曜日の実績が不足",
+    "OUT_OF_SCOPE_QUALITY": "現在の対象商品・品質設定の範囲外",
 }
 
 
@@ -85,6 +89,8 @@ def _build_view(daily, state, analysis_id, source, manifest, resolve):
             reasons.append("在庫・賞味期限リスクは未評価")
         if not values:
             reasons.append("予測できません")
+        if manifest.get("provisional"):
+            reasons.append("欠損を残した暫定予測・担当者の判断が必要")
         category = (
             "ACTION"
             if risk and "STOCKOUT_RISK" in risk["risk_flags"]
@@ -120,6 +126,9 @@ def _build_view(daily, state, analysis_id, source, manifest, resolve):
         "unresolved": state.get("blockers", []),
         "input_issues": input_issues,
         "notice": "出荷実績に基づく需要の参考予測です。正式な出荷指示ではありません。",
+        **({"provisional": manifest["provisional"], "forecast_mode": manifest["forecast_mode"],
+            "quality_check_id": manifest["quality_check_id"]}
+           if "quality_check_id" in manifest else {}),
     }
     value["result_id"] = hashlib.sha256(
         json.dumps(value, sort_keys=True, ensure_ascii=False).encode()
@@ -212,6 +221,8 @@ def export(value, selected):
             "担当者",
             "保存日時",
             "注意理由",
+            "予測区分",
+            "品質検証ID",
         ]
     )
     for row in rows:
@@ -226,6 +237,8 @@ def export(value, selected):
             review.get("quantity"),
             *[review.get(k, "") for k in ("choice", "reason", "comment", "actor", "created_at")],
             "／".join(row["reasons"]),
+            "暫定予測" if value.get("provisional") else "通常予測",
+            value.get("quality_check_id", ""),
         ]
         writer.writerow([safe_csv(v) for v in values])
     return output.getvalue().encode("utf-8-sig")

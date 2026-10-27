@@ -96,6 +96,10 @@ class PortableRuntimeAssignments:
             result.append(_resolution_view(value))
         return result
 
+    def preview_scopes(self, scopes):
+        """Read the actual selected configuration without recording an execution."""
+        return [self._resolve_one(scope) for scope in sorted(set(scopes))]
+
     def _resolve_one(self, scope: str) -> dict:
         active = []
         paused = False

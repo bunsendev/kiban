@@ -40,6 +40,7 @@ from .business_review import (
 from .candidate_package_routes import register_candidate_package_routes
 from .change_application_routes import register_change_application_routes
 from .daily_auto_run_routes import register_daily_auto_run_routes
+from .data_quality_routes import register_data_quality_routes
 from .document_routes import register_document_routes
 from .drop_folder import DropFolderBusyError, DropFolderIntake
 from .drop_folder_routes import register_drop_folder_routes
@@ -145,6 +146,7 @@ def create_app(
         app, paths, _read_limited, production_workflow
     )
     archive_intake = BusinessArchiveIntake(paths, daily_auto_runs)
+    register_data_quality_routes(app, paths, archive_intake.quality, _read_limited, daily_auto_runs)
 
     @contextmanager
     def drop_active():
@@ -160,7 +162,9 @@ def create_app(
             with app.state.lock:
                 app.state.active -= 1
 
-    drop_folder = DropFolderIntake(paths, archive_intake.ingest, active=drop_active)
+    drop_folder = DropFolderIntake(
+        paths, lambda data: archive_intake.ingest(data, method="DROP_FOLDER"), active=drop_active
+    )
     app.state.drop_folder = drop_folder
     register_drop_folder_routes(app, drop_folder)
     register_document_routes(app, paths, drop_folder)

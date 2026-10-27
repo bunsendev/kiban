@@ -7,12 +7,24 @@ from datetime import UTC, datetime
 import pandas as pd
 
 from .business_archive import atomic_json
+from .data_quality import DataQuality
 from .document_evidence import valid_jan
 from .forecast import forecast
+from .forecast_capabilities import missing_capability
 from .product_exclusions import ProductExclusions
 
 
 def demand_forecast(paths, analysis_id, value):
+    mode = value.get("forecast_mode", "A")
+    if mode not in {"A", "C"}:
+        raise ValueError("推定補完（B）は今後対応です")
+    quality = DataQuality(paths)
+    check = quality.check(analysis_id)
+    if value.get("check_id") and value["check_id"] != check["id"]:
+        raise ValueError("データ・設定が変わりました。欠損一覧を再確認してください")
+    if mode == "C" and (value.get("confirm_provisional") is not True
+                        or value.get("check_id") != check["id"]):
+        raise ValueError("最新の欠損一覧と暫定予測への同意が必要です")
     actor = str(value.get("actor") or "").strip()
     unit = str(value.get("unit") or "").strip()
     if (
@@ -66,7 +78,18 @@ def demand_forecast(paths, analysis_id, value):
             "eligible": not missing,
         }
         series.append(item)
-        if not missing:
+        if mode == "C":
+            window = window.set_index("ds").reindex(pd.date_range(start,end))
+            window.index.name = "ds"
+            window["unique_id"] = uid
+            window = window.reset_index()
+            capability = missing_capability(window,end)
+            matching = next((s for s in check["series"] if s["jan"] == jan
+                             and s["warehouse"] == center), None)
+            item["eligible"] = bool(capability["supported"] and matching
+                                     and matching["provisional_eligible"])
+            item["reason"] = capability["reason"]
+        if item["eligible"]:
             predictions.extend(
                 forecast(
                     window, paths.state, f"demand-{analysis_id[:16]}-{jan}-{center}", horizon=14
@@ -78,6 +101,9 @@ def demand_forecast(paths, analysis_id, value):
         "analysis_id": analysis_id,
         "prepared_sha256": report["prepared_sha256"],
         "formal_approval": False,
+        "provisional": mode == "C",
+        "forecast_mode": mode,
+        "quality_check_id": check["id"],
         "actor": actor,
         "unit": unit,
         "series": series,
@@ -85,7 +111,10 @@ def demand_forecast(paths, analysis_id, value):
         "excluded_series": excluded,
         "inventory": None,
         "inventory_risk_evaluated": False,
-        "notice": "出荷数量の参考予測のみ。在庫・補充・正式出荷指示ではありません。",
+        "notice": (
+            "暫定予測：欠損を残した出荷数量の参考値。在庫は未評価です。" if mode == "C" else
+            "出荷数量の参考予測のみ。在庫・補充・正式出荷指示ではありません。"
+        ),
     }
     key = hashlib.sha256(json.dumps(result, sort_keys=True).encode()).hexdigest()
     result["request_id"] = key
@@ -104,6 +133,15 @@ def demand_forecast(paths, analysis_id, value):
             "model": "builtin-baseline:seasonal_naive_7",
             "train_start": str(frame["ds"].min())[:10],
             "train_end": str(frame["ds"].max())[:10],
+            "provisional": mode == "C",
+            "forecast_mode": mode,
+            "quality_check_id": check["id"],
         },
     )
+    quality.store.save("execution",analysis_id,{
+        "source":"demand:"+key,"quality_check_id":check["id"],"mode":mode,
+        "provisional":mode=="C","actor":actor,"reason":str(value.get("reason") or "単位確認"),
+        "created_at":result["created_at"],"imputation":None,
+        "missing_record_count":check["missing_record_count"],
+        "status":"COMPLETED" if predictions else "BLOCKED"})
     return result

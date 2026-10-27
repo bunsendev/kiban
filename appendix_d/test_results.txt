@@ -1,3 +1,9 @@
+2026-10-27 pilot.53 配布内容の検証
+Windows x64凍結464モジュール＋起動スクリプト・画面68ファイルの最終ソース一致、Data空を確認。別実行したリリースハッシュ・梱包3件成功（4.17秒）、release一覧1241/1241一致。ZIP全ファイルの最終ハッシュ・CRCは配布検証記録で確認。EXE実起動・現場受入は未実施。
+
+2026-10-27 Portable pilot.53 欠損検知・方式選択 Phase 1
+全体1229成功・20skip・3除外（1291.72秒）。最終関連65成功（224.46秒、新品質19ケースを含む）。Node10本・JS構文50ファイル・Ruff・diff検査成功。原本ハッシュ、基準日一致、全Data復元、NaN維持、追加補充、候補モデル制限、旧結果保持を確認。全体後の最終変更は関連テストで再検査。起動制限2件と別実行するrelease検査1件は除外。現場受入・凍結EXE実起動は未実施。詳細 planning/PORTABLE_PILOT53_DATA_QUALITY_RESULT.md。
+
 2026-10-26 pilot.52 配布最終確認
 Windows x64、凍結30モジュール＋起動スクリプト・画面65ファイル一致。2563ファイルSHA-256・ZIP CRC・資格情報不在成功。release/梱包3件成功（0.86秒）。ZIP SHA-256 9f66e20795d7f5fdc3274ded42e29ace3895ccdcc3a28478dbf8031b4b255cb1。EXE実起動・現場受入は未実施。詳細 planning/PORTABLE_PILOT52_BULK_REVIEW_RESULT.md。
 

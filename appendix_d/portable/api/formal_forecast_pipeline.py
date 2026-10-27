@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -14,7 +15,9 @@ from forecast_provider.inventory_forecast_bridge import (
 )
 
 from .business_archive import _business_date, _center_and_file_date
+from .data_quality import DataQuality
 from .forecast_batches import forecast_batches, validate_batch_size
+from .forecast_capabilities import CAPABILITY
 from .formal_pipeline import PortableFormalPipeline
 from .formal_pipeline_contracts import FormalPipelineError
 from .formal_shipment_daily import (
@@ -69,6 +72,38 @@ class PortableFormalForecastPipeline:
             raise FormalForecastError("JAN・倉庫の予測対応を確認してください")
         if payload.get("confirm_zero_policy") is not True:
             raise FormalForecastError("出荷0日の扱いを確認してください")
+        mode = payload.get("forecast_mode", "A")
+        if mode not in {"A", "C"}:
+            raise FormalForecastError(
+                "推定補完（B）は今後対応です。Aまたは対応モデルのCを選んでください"
+            )
+        quality = DataQuality(self.paths)
+        handoff = self.inventory_pipeline.get_handoff(registration["handoff_id"])
+        check = quality.check(handoff["analysis_id"])
+        if payload.get("check_id") and payload["check_id"] != check["id"]:
+            raise FormalForecastError(
+                "入力または品質設定が変更されました。欠損一覧を再確認してください"
+            )
+        request_id = payload.get("request_id")
+        if request_id is not None and (not isinstance(request_id, str)
+                                      or not re.fullmatch(r"[a-zA-Z0-9_-]{16,64}", request_id)):
+            raise FormalForecastError("実行要求IDを確認してください")
+        if mode == "C":
+            if (payload.get("confirm_provisional") is not True or not payload.get("check_id")
+                    or not request_id):
+                raise FormalForecastError("最新の欠損一覧と暫定予測への同意・実行要求IDが必要です")
+            from .runtime_assignments import PortableRuntimeAssignments
+            from .runtime_profiles import BASELINE_CONFIGURATION
+
+            scopes = [self.inventory_store.get_job(j["job_id"]).pilot_scope_version
+                      for j in registration["jobs"]]
+            selected = PortableRuntimeAssignments(self.paths).preview_scopes(scopes)
+            if not selected or any(s["status"] != "BASELINE_SELECTED"
+                                   or s["selected_configuration"] != BASELINE_CONFIGURATION
+                                   for s in selected):
+                raise FormalForecastError(
+                    "選択されている候補モデルはC方式に未対応です。モデルは変更していません"
+                )
         proposal = self._identity_proposal(registration, inventory_view)
         created_at = datetime.now(UTC)
         bridge = build_inventory_forecast_bridge(
@@ -107,6 +142,9 @@ class PortableFormalForecastPipeline:
             snapshot_dates_by_center=snapshot_dates,
             invalid_occurrences=invalid_occurrences,
             invalid_file_dates=invalid_file_dates,
+            quality_check=check,
+            forecast_mode=mode,
+            execution_request_id=request_id,
         )
         from .forecast_verification import ForecastVerification
 
@@ -166,6 +204,13 @@ class PortableFormalForecastPipeline:
             "registration_id": registration_id,
             "build_id": build["build_id"],
             "status": status,
+            "forecast_mode": mode,
+            "provisional": mode == "C",
+            "quality_check_id": check["id"],
+            "quality_rule_version": check["rule_version"],
+            "quality_capability_version": CAPABILITY,
+            "missing_record_count": check["missing_record_count"],
+            "execution_request_id": request_id,
             "actor": actor,
             "reason": reason,
             "created_at": created_at.isoformat(),
@@ -186,11 +231,14 @@ class PortableFormalForecastPipeline:
             "series": build["series"],
             "predictions": predictions,
             "notice": (
+                "暫定予測：欠損を残した同曜日予測です。出荷の自動確定はできません。"
+                if mode == "C" and predictions else
                 "確認済み出荷履歴から14日予測を作成しました。試験運用の参考結果です。"
                 if predictions
                 else "履歴不足または欠測があるため予測対象はありません。"
             ),
         }
+        result["quality_manifest_sha256"] = sha256(canonical_json(result))
         self._atomic_json(manifest_path, result)
         ledger.capture(
             "formal:" + build["build_id"],
@@ -202,8 +250,19 @@ class PortableFormalForecastPipeline:
                 "train_start": result["train_start"],
                 "train_end": result["train_end"],
                 "model": "builtin-baseline:seasonal_naive_7",
+                "forecast_mode": mode,
+                "provisional": mode == "C",
+                "quality_check_id": check["id"],
             },
         )
+        quality.store.save("execution", analysis_id, {
+            "build_id": build["build_id"], "quality_check_id": check["id"],
+            "mode": mode, "provisional": mode == "C", "imputation": None,
+            "actor": actor, "reason": reason, "created_at": result["created_at"],
+            "request_id": request_id, "status": status,
+            "capability_version": CAPABILITY,
+            "missing_record_count": check["missing_record_count"],
+        })
         return result
 
     def result_path(self, build_id: str) -> Path:
@@ -308,6 +367,10 @@ class PortableFormalForecastPipeline:
             or value.get("predictions") != parsed_predictions
         ):
             raise FormalForecastError("予測結果の整合性を確認できません")
+        if "quality_check_id" in value and value.get("quality_manifest_sha256") != sha256(
+            canonical_json({k: v for k, v in value.items() if k != "quality_manifest_sha256"})
+        ):
+            raise FormalForecastError("品質・予測方式の整合性を確認できません")
         return value
 
     @staticmethod

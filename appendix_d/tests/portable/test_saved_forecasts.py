@@ -176,8 +176,10 @@ def test_partial_forecast_lists_only_completed_warehouses_and_scopes_downloads(t
 
 def test_saved_catalog_rejects_corruption_and_keeps_warehouse_filter(tmp_path):
     client = TestClient(create_app(tmp_path), base_url="http://localhost")
+    # Catalog filtering/corruption needs two eligible warehouses with the same Run origin.
+    # Different-origin protection is covered by test_data_quality separately.
     _, value = process(
-        client, [("杉戸", date(2026, 10, 13), set()), ("神戸", date(2026, 10, 15), set())]
+        client, [("杉戸", date(2026, 10, 15), set()), ("神戸", date(2026, 10, 15), set())]
     )
     catalog = client.get("/api/saved-forecasts").json()
     assert set(catalog["warehouses"]) == {"杉戸", "神戸"}

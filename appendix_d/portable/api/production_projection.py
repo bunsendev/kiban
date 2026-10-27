@@ -68,11 +68,16 @@ class PortableProductionProjection:
     def daily_summary(self, build_id: str, payload: dict) -> dict:
         request = _summary_request(payload)
         context = self.context(build_id)
+        if (context["manifest"].get("provisional")
+                and payload.get("confirm_provisional") is not True):
+            raise ProductionHandoffError("暫定予測の在庫評価には担当者の明示確認が必要です")
         request_key = sha256(canonical_json({
             "format": "portable-daily-summary-request-v1",
             "build_id": build_id,
             "source_receipt_sha256": context["receipt"]["receipt_sha256"],
             **request,
+            **({"provisional_approved_by": request["actor"]}
+               if context["manifest"].get("provisional") else {}),
         }))
         target = self.summary_root / f"{request_key}.json"
         if target.is_file():

@@ -1,5 +1,7 @@
 # Codex開始ガイド v2.9
 
+Portable pilot.53の欠損一覧・方式選択・暫定予測は[欠損検知と予測方式選択](docs/Portable_欠損検知と予測方式選択.md)を参照する。通常Aを初期選択とし、推定補完Bは未実装、Cは対応する既定モデルで欠損を残した参考値に限定する。
+
 Portable pilot.52の一括PDF空欄ルール・通常行の簡易表示・更新保存対策は[操作手順](docs/Portable_例外確認と単位ルール.md)と[実装・検証結果](planning/PORTABLE_PILOT52_BULK_REVIEW_RESULT.md)を参照する。文書承認・受渡しは自動化しない。
 
 Field Pilot現場PC配布は[管理者導入運用](docs/FieldPilot_管理者導入運用.md)、[現場担当者1ページ手順](docs/FieldPilot_現場担当者_1ページ.md)、[検証・導入判定](planning/FIELD_PILOT_RELEASE_RESULT.md)を参照する。配布は`python make_release.py --field-pilot`で生成する。

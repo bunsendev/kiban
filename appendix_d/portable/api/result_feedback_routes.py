@@ -31,6 +31,11 @@ def register_result_feedback_routes(app, paths, resolve, read_limited, forecast,
     @app.get("/api/operator-results/{kind}/{reference}")
     def view(kind: str, reference: str, warehouse: str = ""):
         value = ledger.view(f"{kind}:{reference}", predictions(kind, reference, warehouse))
+        if kind == "production" and catalog is not None:
+            manifest = catalog.manifest(reference)
+            value.update({k: manifest[k]
+                          for k in ("provisional", "forecast_mode", "quality_check_id")
+                          if k in manifest})
         ids = {r["unique_id"] for r in value["rows"]}
         value["history"] = [r for r in value["history"] if r["unique_id"] in ids]
         return value

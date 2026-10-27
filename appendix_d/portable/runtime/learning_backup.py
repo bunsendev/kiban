@@ -14,6 +14,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import quote
 
 from portable import APP_VERSION
+from portable.runtime.paths import DataPaths
 
 FORMAT = "bunsen-learning-backup-v1"
 LIMIT = 256 * 1024 * 1024
@@ -113,7 +114,9 @@ def check_db(path):
 
 class LearningBackup:
     def __init__(self, data_root):
-        self.data = Path(data_root).resolve()
+        # Extraction adds recovery/transaction/result folders beyond the user's Data path.
+        # Use the same extended Windows namespace as the running application.
+        self.data = DataPaths(Path(data_root)).root.resolve()
         # Kept outside Data so restoring Data cannot erase rollback or journal.
         ident = hashlib.sha256(identity_uri(self.data).casefold().encode()).hexdigest()[:16]
         self.work = self.data.parent / ("BunsenRecovery-" + ident)

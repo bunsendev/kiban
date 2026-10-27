@@ -56,7 +56,7 @@ async function init() {
   const value = await api('/api/forecast-verification'); $('sources').replaceChildren();
   for (const source of value.sources) {
     const option = document.createElement('option'); option.value = source.source;
-    option.textContent = `${stamp(source.created_at)}／${source.model || 'モデル不明'}／${source.source}`;
+    option.textContent = `${source.provisional?'暫定予測／':''}${stamp(source.created_at)}／${source.model || 'モデル不明'}／${source.source}`;
     $('sources').append(option);
   }
   $('status').textContent = value.sources.length
@@ -72,6 +72,7 @@ $('load').onclick = async () => {
     $('metrics').textContent = `評価対象 ${value.count}件／総数 ${value.total || 0}件、平均誤差 ${number(value.mean_error)}、MAE ${number(value.mae)}、WAPE ${number(value.wape)}%`;
     const meta = value.metadata || {}, unit = {CASE: 'ボール', EACH: 'バラ'}[meta.unit] || meta.unit || '未確認';
     $('basis').textContent = `数量の単位：${unit}／予測に使用した期間：${meta.train_start || '不明'} ～ ${meta.train_end || '不明'}`;
+    if(meta.provisional)$('basis').textContent+='／欠損を残した暫定予測。通常予測とは別の保存版として評価します。';
     $('excluded').textContent = '対象外：' + (Object.entries(value.excluded || {})
       .map(([key, count]) => `${reasons[key] || key} ${count}件`).join('／') || 'なし');
     $('groups').replaceChildren(); groups('商品別', value.by_product); groups('日別', value.by_day);
