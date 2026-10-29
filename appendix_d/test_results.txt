@@ -1,3 +1,9 @@
+2026-10-29 pilot.55 配布前確認
+Windows x64ビルド、凍結465モジュール＋起動スクリプト・画面68ファイルの最終ソース一致、Data空成功。リリースハッシュ・梱包3件成功（0.56秒）、release一覧1245/1245一致。最終ZIPの全ファイルhash・CRCは配布検証記録で確認。現場2台・凍結EXEの実起動は未実施。
+
+2026-10-29 pilot.55 HTTP起動確認のTLS依存を除去
+関連139成功・実サーバー起動2除外（105.85秒）。起動28ケース。FileNotFoundErrorをTLS初期化/Windows証明書ストアで再現し、HTTP専用クライアントで影響なし。TLS失敗下でも実create_appのready/control/drainが成功（TestClient・接続アダプター、listenなし）。予測・品質・復元・ログ・更新回帰成功。全体スイート・現場2台・凍結EXE実起動は未実施。詳細 planning/PORTABLE_PILOT55_STARTUP_RESULT.md。
+
 2026-10-29 pilot.54 配布前確認
 Windows x64ビルド、凍結465モジュール＋起動スクリプト・画面68ファイルの最終ソース一致、Data空成功。別実行のリリースハッシュ・梱包3件成功（0.89秒）、release一覧1244/1244一致。最終ZIP全ファイルhash/CRCは配布検証記録で確認。現場PC・凍結EXEの実起動は未実施。
 

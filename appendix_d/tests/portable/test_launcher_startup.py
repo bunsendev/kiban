@@ -1,14 +1,14 @@
 """Startup/control regressions without starting a listener or a native window."""
 
-import io
+import http.client
 import logging
+import ssl
 import subprocess
+import sys
 import urllib.error
 import urllib.request
 from contextlib import nullcontext
-from email.message import Message
 from types import SimpleNamespace
-from urllib.response import addinfourl
 
 import pytest
 
@@ -19,60 +19,194 @@ from portable.runtime.installation import create_profile
 from portable.runtime.paths import DataPaths
 
 
-def response(req, body, code=200, headers=None):
-    value = addinfourl(io.BytesIO(body), headers or Message(), req.full_url, code)
-    value.msg = "synthetic"
-    return value
+@pytest.fixture
+def connections(monkeypatch):
+    created = []
+
+    class Connection:
+        debuglevel = 0
+
+        def __init__(self, host, port, timeout):
+            self.host, self.port, self.timeout = host, port, timeout
+            self.body, self.status, self.headers = b'{"active":0}', 200, {}
+            self.requests, self.reads = [], []
+            self.closed = False
+            created.append(self)
+
+        def set_debuglevel(self, level):
+            self.debug = level
+
+        def request(self, method, path, headers):
+            self.requests.append((method, path, headers))
+
+        def getresponse(self):
+            def read(limit):
+                self.reads.append(limit)
+                return self.body[:limit]
+
+            return SimpleNamespace(status=self.status, headers=self.headers, read=read)
+
+        def close(self):
+            self.closed = True
+
+    monkeypatch.setattr(local_http.http.client, "HTTPConnection", Connection)
+    return created
 
 
-def test_loopback_ignores_proxy_and_global_opener_without_exposing_control_token(monkeypatch):
+def test_loopback_ignores_proxy_and_global_opener_without_exposing_control_token(
+    monkeypatch, connections
+):
     monkeypatch.setenv("HTTP_PROXY", "http://user:secret@proxy.invalid:8000")
     monkeypatch.setenv("HTTPS_PROXY", "http://user:secret@proxy.invalid:8000")
     monkeypatch.setenv("ALL_PROXY", "http://proxy.invalid:8000")
     monkeypatch.setenv("NO_PROXY", "")
     monkeypatch.setattr(urllib.request, "proxy_bypass", lambda _: False)
     monkeypatch.setattr(urllib.request, "urlopen", lambda *_a, **_k: pytest.fail("global opener"))
-    requests = []
-
-    def http_open(_, req):
-        requests.append(req)
-        return response(req, b'{"active":0}')
-
-    monkeypatch.setattr(urllib.request.HTTPHandler, "http_open", http_open)
-    # Demonstrate the old default opener consults the proxy for 127.0.0.1.
-    urllib.request.build_opener().open("http://127.0.0.1:48150/ready").close()
-    assert requests[-1].host == "proxy.invalid:8000"
+    monkeypatch.setattr(urllib.request, "build_opener", lambda *_a, **_k: pytest.fail("opener"))
     assert local_http.request_json(48150, "/api/control/status", token="control-secret") == {
         "active": 0
     }
-    assert requests[-1].host == "127.0.0.1:48150"
-    assert not requests[-1].has_proxy()
-    assert requests[-1].get_header("X-portable-control") == "control-secret"
-    assert requests[-1].get_header("Proxy-authorization") is None
+    connection = connections[0]
+    assert connection.host == "127.0.0.1" and connection.port == 48150
+    assert connection.requests == [
+        ("GET", "/api/control/status", {"X-Portable-Control": "control-secret"})
+    ]
+    assert connection.closed and connection.debug == 0
+    assert connection.reads == [local_http.MAX_RESPONSE_BYTES + 1]
 
 
-def test_loopback_never_follows_redirect_or_forwards_token(monkeypatch):
-    seen = []
+def test_loopback_never_follows_redirect_or_forwards_token(monkeypatch, connections):
+    original = local_http.http.client.HTTPConnection.getresponse
 
-    def http_open(_, req):
-        seen.append(req.full_url)
-        headers = Message()
-        headers["Location"] = "http://outside.invalid/collect"
-        return response(req, b"", 302, headers)
+    def redirect(connection):
+        connection.status = 302
+        connection.headers = {"Location": "http://outside.invalid/collect"}
+        return original(connection)
 
-    monkeypatch.setattr(urllib.request.HTTPHandler, "http_open", http_open)
+    monkeypatch.setattr(local_http.http.client.HTTPConnection, "getresponse", redirect)
     with pytest.raises(urllib.error.HTTPError, match="redirect refused"):
         local_http.request_json(48150, "/api/control/status", token="secret")
-    assert seen == ["http://127.0.0.1:48150/api/control/status"]
+    assert len(connections) == 1 and connections[0].host == "127.0.0.1"
+    assert len(connections[0].requests) == 1 and connections[0].closed
 
 
 @pytest.mark.parametrize(
     "body", [b"[]", b"not json", b" " * 65537], ids=["array", "invalid-json", "oversized"]
 )
-def test_bad_local_responses_are_bounded_and_rejected(monkeypatch, body):
-    monkeypatch.setattr(urllib.request.HTTPHandler, "http_open", lambda _, req: response(req, body))
+def test_bad_local_responses_are_bounded_and_rejected(monkeypatch, connections, body):
+    original = local_http.http.client.HTTPConnection.getresponse
+
+    def result(connection):
+        connection.body = body
+        return original(connection)
+
+    monkeypatch.setattr(local_http.http.client.HTTPConnection, "getresponse", result)
     with pytest.raises(ValueError):
         local_http.request_json(48150, "/ready")
+    assert connections[0].closed
+
+
+def test_missing_tls_initialization_reproduces_pilot54_failure_but_http_still_works(
+    monkeypatch, connections
+):
+    def missing():
+        raise FileNotFoundError(2, "synthetic missing certificate store")
+
+    monkeypatch.setattr(ssl, "_create_default_https_context", missing)
+    with pytest.raises(FileNotFoundError):
+        # Exactly the old pilot.54 opener, before any HTTP connection is attempted.
+        urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    assert local_http.request_json(48150, "/ready") == {"active": 0}
+    assert len(connections) == 1 and connections[0].closed
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows certificate stores")
+def test_missing_windows_certificate_store_does_not_affect_local_http(monkeypatch, connections):
+    def missing_store(name):
+        raise FileNotFoundError(2, "synthetic missing Windows certificate store")
+
+    monkeypatch.setattr(ssl, "enum_certificates", missing_store)
+    with pytest.raises(FileNotFoundError):
+        urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    assert local_http.request_json(48150, "/ready") == {"active": 0}
+    assert connections[0].closed
+
+
+@pytest.mark.parametrize("status", [401, 403, 500])
+def test_http_status_and_closure_are_preserved(monkeypatch, connections, status):
+    original = local_http.http.client.HTTPConnection.getresponse
+
+    def result(connection):
+        connection.status = status
+        return original(connection)
+
+    monkeypatch.setattr(local_http.http.client.HTTPConnection, "getresponse", result)
+    with pytest.raises(urllib.error.HTTPError) as error:
+        local_http.request_json(48150, "/api/control/status", token="secret")
+    assert error.value.code == status and connections[0].closed
+
+
+def test_http_protocol_errors_are_normalized_and_closed(monkeypatch, connections):
+    def broken(connection):
+        raise http.client.BadStatusLine("synthetic-private-response")
+
+    monkeypatch.setattr(local_http.http.client.HTTPConnection, "getresponse", broken)
+    with pytest.raises(ValueError) as error:
+        local_http.request_json(48150, "/ready")
+    assert error.value.portable_local_phase == "HTTP_RESPONSE"
+    assert connections[0].closed
+
+
+def test_real_readiness_and_control_contract_work_with_tls_unavailable(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from portable.api.app import create_app
+
+    paths = DataPaths(tmp_path / "Data")
+    client = TestClient(
+        create_app(paths.root, control_token="synthetic-control"), base_url="http://127.0.0.1"
+    )
+    calls = []
+
+    def missing():
+        raise FileNotFoundError(2, "synthetic unavailable TLS initialization")
+
+    monkeypatch.setattr(ssl, "_create_default_https_context", missing)
+    with pytest.raises(FileNotFoundError):
+        urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+    class Connection:
+        def __init__(self, host, port, timeout):
+            assert host == "127.0.0.1" and port == 48150
+
+        def set_debuglevel(self, level):
+            assert level == 0
+
+        def request(self, method, path, headers):
+            calls.append(path)
+            self.response = client.request(method, path, headers=headers)
+
+        def getresponse(self):
+            return SimpleNamespace(
+                status=self.response.status_code,
+                headers=self.response.headers,
+                read=lambda n: self.response.content[:n],
+            )
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(local_http.http.client, "HTTPConnection", Connection)
+    monkeypatch.setattr(launcher, "available_ports", lambda: iter([48150]))
+    child = Child(1)
+    monkeypatch.setattr(launcher.subprocess, "Popen", lambda *a, **k: child)
+    ready_child, port = launcher.start_server(
+        paths, SimpleNamespace(add=lambda _: None), "synthetic-control"
+    )
+    assert ready_child is child and not child.terminated
+    assert calls == ["/ready", "/api/control/status"]
+    launcher.stop_server(child, port, "synthetic-control")
+    assert child.terminated and calls[-2:] == ["/api/control/drain", "/api/control/status"]
 
 
 @pytest.mark.parametrize(
@@ -143,6 +277,25 @@ def test_failed_readiness_is_bounded_logs_stage_and_kills_child(runtime, monkeyp
     assert len(children) == 1 and children[0].terminated
     assert progress and "api_startup_timeout" in caplog.text
     for secret in ["control-secret", "proxy-password", "proxy.invalid"]:
+        assert secret not in caplog.text
+
+
+def test_missing_file_diagnostic_contains_phase_and_code_locations_but_no_secrets(
+    runtime, monkeypatch, caplog
+):
+    paths, _, children, job = runtime
+    caplog.set_level(logging.INFO, logger="portable.launcher")
+
+    def failed_connection(*args, **kwargs):
+        raise FileNotFoundError(2, "private-error-message", "private-secret-file")
+
+    monkeypatch.setattr(local_http.http.client, "HTTPConnection", failed_connection)
+    with pytest.raises(RuntimeError, match="READY_FileNotFoundError"):
+        launcher.start_server(paths, job, "control-secret")
+    assert "phase=HTTP_INIT" in caplog.text and "errno=2" in caplog.text
+    assert "local_http.py:request_json" in caplog.text
+    assert len(children) == 1 and children[0].terminated
+    for secret in ["control-secret", "private-error-message", "private-secret-file"]:
         assert secret not in caplog.text
 
 

@@ -1,15 +1,10 @@
 """Private loopback control traffic: no system proxy and no redirects."""
 
+import http.client
 import json
 import urllib.error
-import urllib.request
 
 MAX_RESPONSE_BYTES = 64 * 1024
-
-
-class NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise urllib.error.HTTPError(req.full_url, code, "Local redirect refused", headers, fp)
 
 
 def request_json(port, path, *, token=None, method="GET", timeout=2):
@@ -23,16 +18,41 @@ def request_json(port, path, *, token=None, method="GET", timeout=2):
     ):
         raise ValueError("ローカル接続先を確認してください")
     headers = {"X-Portable-Control": token} if token else {}
-    request = urllib.request.Request(
-        f"http://127.0.0.1:{port}{path}", headers=headers, method=method
-    )
-    # Do not install globally: external AI/update/feedback traffic keeps its policy.
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
-    with opener.open(request, timeout=timeout) as response:
+    connection = None
+    phase = "HTTP_INIT"
+    try:
+        # urllib.build_opener creates an HTTPS handler/SSL context even for HTTP.
+        # A missing certificate-store/keylog file can then fail before connecting.
+        # A fixed HTTPConnection never initializes TLS, consults proxies or redirects.
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
+        connection.set_debuglevel(0)
+        phase = "HTTP_REQUEST"
+        connection.request(method, path, headers=headers)
+        phase = "HTTP_RESPONSE"
+        response = connection.getresponse()
+        if not 200 <= response.status < 300:
+            reason = (
+                "Local redirect refused" if 300 <= response.status < 400 else "Local HTTP error"
+            )
+            raise urllib.error.HTTPError(
+                f"http://127.0.0.1:{port}{path}", response.status, reason, response.headers, None
+            )
+        phase = "HTTP_BODY"
         raw = response.read(MAX_RESPONSE_BYTES + 1)
-    if len(raw) > MAX_RESPONSE_BYTES:
-        raise ValueError("ローカルAPIの応答が大きすぎます")
-    value = json.loads(raw)
-    if not isinstance(value, dict):
-        raise ValueError("ローカルAPIのJSON応答を確認してください")
-    return value
+        if len(raw) > MAX_RESPONSE_BYTES:
+            raise ValueError("ローカルAPIの応答が大きすぎます")
+        phase = "JSON_RESPONSE"
+        value = json.loads(raw)
+        if not isinstance(value, dict):
+            raise ValueError("ローカルAPIのJSON応答を確認してください")
+        return value
+    except (OSError, ValueError, http.client.HTTPException) as exc:
+        if isinstance(exc, http.client.HTTPException) and not isinstance(exc, OSError):
+            error = ValueError("ローカルAPIのHTTP応答を確認できません")
+            error.portable_local_phase = phase
+            raise error from exc
+        exc.portable_local_phase = phase
+        raise
+    finally:
+        if connection is not None:
+            connection.close()

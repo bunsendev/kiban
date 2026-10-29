@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ブンセン予測 操作マニュアル</title><link rel="stylesheet" href="manual.css"></head>
 <body>
+<section id="pilot55"><h2>pilot.55：起動確認のFileNotFoundError対策</h2><p>起動確認・管理者画面の探索・更新後の確認を、HTTP専用のローカル接続に変更しました。起動確認のためにHTTPS証明書を初期化しません。起動中の表示・中止・全体約45秒の制限は引き続き利用できます。</p><p>失敗時はData/Logsを確認します。launcher.logには接続段階、OSの数値エラーコード、処理の位置を記録します。Tokenや応答本文は記録しません。</p></section>
 <section id="pilot54"><h2>pilot.54：起動中の表示・再クリック</h2><p>起動時に「起動中」の画面を表示します。内部サーバーの確認は全体で最大約45秒です。中止する場合は「起動を中止する」を押します。起動済みの同じフォルダーを再クリックした場合は、その画面を開き直します。</p><p>起動に失敗した場合は、Data/Logsのlauncher.log、api-server.log、api.logをIT担当者へ渡してください。接続確認の段階・HTTP状態・失敗の種類が記録されます。Windowsのプロキシ・セキュリティ設定を解除する操作は不要です。</p></section>
 <section id="pilot53"><h2>pilot.53：不足一覧と予測の進め方</h2>
 <ol><li>取込・PDFの原本確認後、「データの充足状況・不足一覧」で対象期間、不足日、倉庫・商品を確認します。倉庫・JAN・商品名・日付で絞り込み、日付別の集約と明細を切り替えられます。</li>

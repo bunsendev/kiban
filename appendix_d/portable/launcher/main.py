@@ -129,6 +129,7 @@ def start_server(paths: DataPaths, job: ChildJob, token: str, *, progress=None, 
                     last_probe = "CHILD_EXITED"
                     break
                 stage = "READY"
+                diagnostic = "none"
                 try:
                     # Keep GUI cancellation responsive even if a local connection is denied.
                     timeout = min(0.5, max(0.01, deadline-time.monotonic()))
@@ -147,12 +148,14 @@ def start_server(paths: DataPaths, job: ChildJob, token: str, *, progress=None, 
                         last_probe = "CONTROL_INVALID_RESPONSE"
                 except urllib.error.HTTPError as exc:
                     last_probe = f"{stage}_HTTP_{exc.code}"
+                    diagnostic = _probe_diagnostic(exc)
                 except (OSError, ValueError) as exc:
                     # Exception text can contain proxy credentials/response bodies. Never log it.
                     last_probe = f"{stage}_{type(exc).__name__}"
+                    diagnostic = _probe_diagnostic(exc)
                 if last_probe != previous_probe:
-                    LOG.warning("api_probe_failed pid=%s port=%s reason=%s",
-                                child.pid, port, last_probe)
+                    LOG.warning("api_probe_failed pid=%s port=%s reason=%s diagnostic=%s",
+                                child.pid, port, last_probe, diagnostic)
                     previous_probe = last_probe
                 time.sleep(0.2)
             if child.poll() is None:
@@ -166,6 +169,17 @@ def start_server(paths: DataPaths, job: ChildJob, token: str, *, progress=None, 
                 _terminate(child)
     LOG.error("api_startup_failed reason=%s elapsed=%.1f", last_probe, time.monotonic()-started)
     raise RuntimeError(f"PORTABLE-START-001: ローカルAPIを起動できません ({last_probe})")
+
+
+def _probe_diagnostic(exc):
+    # Include code locations and numeric OS codes, never messages/paths/response bodies.
+    frames = ">".join(f"{Path(f.f_code.co_filename).name}:{f.f_code.co_name}:{line}"
+                      for f, line in traceback.walk_tb(exc.__traceback__))
+    errno = getattr(exc, "errno", None)
+    winerror = getattr(exc, "winerror", None)
+    return (f"phase={getattr(exc, 'portable_local_phase', 'UNKNOWN')}"
+            f",errno={errno if type(errno) is int else 'none'}"
+            f",winerror={winerror if type(winerror) is int else 'none'},frames={frames}")
 
 
 def reopen_existing(paths):
