@@ -8,10 +8,10 @@ import os
 import secrets
 import sys
 import time
-import urllib.request
 import webbrowser
 
 from portable.api.business_archive import atomic_json
+from portable.runtime.local_http import request_json
 from portable.runtime.paths import DataPaths
 
 
@@ -70,11 +70,7 @@ def open_settings(root):
     paths = DataPaths(root / "Data")
     for port in range(48150, 48181):
         try:
-            with urllib.request.urlopen(
-                f"http://127.0.0.1:{port}/api/operations/instance",
-                timeout=0.3,
-            ) as response:
-                value = json.load(response)
+            value = request_json(port, "/api/operations/instance", timeout=0.3)
             if value.get("instance_id") != instance_id(paths):
                 continue
             token = issue(paths)

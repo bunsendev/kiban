@@ -8,12 +8,12 @@ import re
 import shutil
 import subprocess
 import time
-import urllib.request
 import uuid
 import zipfile
 from pathlib import Path
 
 from portable import APP_VERSION
+from portable.runtime.local_http import request_json
 from portable.runtime.release_update import TRUST_KEY, unpack, verified, version
 from portable.runtime.update_state import write_state as atomic_json
 
@@ -73,8 +73,7 @@ def smoke(executable, data, expected_version):
             if process.poll() is not None:
                 break
             try:
-                with urllib.request.urlopen(f"http://127.0.0.1:{port}/ready", timeout=2) as r:
-                    value = json.load(r)
+                value = request_json(port, "/ready", timeout=2)
                 if value.get("ready") and value.get("version") == expected_version:
                     return
             except (OSError, ValueError):

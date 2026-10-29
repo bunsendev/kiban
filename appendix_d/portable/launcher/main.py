@@ -14,7 +14,6 @@ import time
 import tkinter as tk
 import traceback
 import urllib.error
-import urllib.request
 import webbrowser
 from pathlib import Path
 from tkinter import messagebox
@@ -23,11 +22,17 @@ import uvicorn
 
 from portable import APP_VERSION
 from portable.runtime.installation import MODES, setup_profile
+from portable.runtime.local_http import request_json
 from portable.runtime.paths import DataPaths
 from portable.runtime.windows import AlreadyRunning, ChildJob, SingleInstance
 
 LOG = logging.getLogger("portable.launcher")
 PORTS = range(48150, 48181)
+STARTUP_TIMEOUT = 45
+
+
+class StartupCancelled(RuntimeError):
+    pass
 
 
 def bundle_root() -> Path:
@@ -67,20 +72,17 @@ def available_ports():
         yield port
 
 
-def request_json(
-    port: int, path: str, *, token: str | None = None, method: str = "GET", timeout=2
-) -> dict:
-    headers = {"X-Portable-Control": token} if token else {}
-    request = urllib.request.Request(
-        f"http://127.0.0.1:{port}{path}", headers=headers, method=method
-    )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        import json
-
-        return json.load(response)
+def _terminate(child):
+    if child.poll() is None:
+        child.terminate()
+        try:
+            child.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            child.kill()
+            child.wait(timeout=5)
 
 
-def start_server(paths: DataPaths, job: ChildJob, token: str):
+def start_server(paths: DataPaths, job: ChildJob, token: str, *, progress=None, cancelled=None):
     command = (
         [sys.executable]
         if getattr(sys, "frozen", False)
@@ -89,7 +91,17 @@ def start_server(paths: DataPaths, job: ChildJob, token: str):
     command += ["--server", "--data-root", str(paths.root)]
     environment = os.environ.copy()
     environment["PORTABLE_CONTROL_TOKEN"] = token
+    started = time.monotonic()
+    deadline = started + STARTUP_TIMEOUT
+    last_probe = "NO_AVAILABLE_PORT"
     for port in available_ports():
+        if cancelled and cancelled():
+            raise StartupCancelled()
+        if time.monotonic() >= deadline:
+            break
+        if progress:
+            progress(f"内部サーバーを起動しています（ポート {port}）")
+        LOG.info("api_starting port=%s transport=direct_loopback", port)
         with (paths.logs / "api.log").open("a", encoding="utf-8") as log_file:
             child = subprocess.Popen(
                 [*command, "--port", str(port)],
@@ -104,32 +116,77 @@ def start_server(paths: DataPaths, job: ChildJob, token: str):
                 stderr=subprocess.STDOUT,
                 creationflags=subprocess.CREATE_NO_WINDOW,
             )
+        adopted = False
+        previous_probe = None
         try:
             job.add(child.pid)
-            deadline = time.monotonic() + 35
             while time.monotonic() < deadline:
+                if progress:
+                    progress(f"起動を確認しています（経過 {int(time.monotonic()-started)}秒）")
+                if cancelled and cancelled():
+                    raise StartupCancelled()
                 if child.poll() is not None:
+                    last_probe = "CHILD_EXITED"
                     break
+                stage = "READY"
                 try:
-                    if request_json(port, "/ready").get("ready") and "active" in request_json(
-                        port, "/api/control/status", token=token
-                    ):
-                        return child, port
-                except (OSError, ValueError, urllib.error.URLError):
-                    pass
+                    # Keep GUI cancellation responsive even if a local connection is denied.
+                    timeout = min(0.5, max(0.01, deadline-time.monotonic()))
+                    ready = request_json(port, "/ready", timeout=timeout)
+                    if ready.get("ready") is not True or ready.get("version") != APP_VERSION:
+                        last_probe = "READY_NOT_CURRENT"
+                    else:
+                        stage = "CONTROL"
+                        state = request_json(port, "/api/control/status", token=token,
+                                             timeout=min(0.5, max(0.01, deadline-time.monotonic())))
+                        if type(state.get("active")) is int and state["active"] >= 0:
+                            adopted = True
+                            LOG.info("api_startup_verified pid=%s port=%s elapsed=%.1f",
+                                     child.pid, port, time.monotonic()-started)
+                            return child, port
+                        last_probe = "CONTROL_INVALID_RESPONSE"
+                except urllib.error.HTTPError as exc:
+                    last_probe = f"{stage}_HTTP_{exc.code}"
+                except (OSError, ValueError) as exc:
+                    # Exception text can contain proxy credentials/response bodies. Never log it.
+                    last_probe = f"{stage}_{type(exc).__name__}"
+                if last_probe != previous_probe:
+                    LOG.warning("api_probe_failed pid=%s port=%s reason=%s",
+                                child.pid, port, last_probe)
+                    previous_probe = last_probe
                 time.sleep(0.2)
-        except Exception:
             if child.poll() is None:
-                child.terminate()
-                child.wait(timeout=5)
-            raise
+                # A listening child that fails readiness is not a reason to start 30 more.
+                LOG.error("api_startup_timeout pid=%s port=%s reason=%s elapsed=%.1f",
+                          child.pid, port, last_probe, time.monotonic()-started)
+                break
+            LOG.error("api_exited pid=%s status=%s port=%s", child.pid, child.returncode, port)
         finally:
-            if child.poll() is not None:
-                LOG.error("api_exited pid=%s status=%s port=%s", child.pid, child.returncode, port)
-        if child.poll() is None:
-            child.terminate()
-            child.wait(timeout=5)
-    raise RuntimeError("PORTABLE-START-001: ローカルAPIを起動できません")
+            if not adopted:
+                _terminate(child)
+    LOG.error("api_startup_failed reason=%s elapsed=%.1f", last_probe, time.monotonic()-started)
+    raise RuntimeError(f"PORTABLE-START-001: ローカルAPIを起動できません ({last_probe})")
+
+
+def reopen_existing(paths):
+    from portable.runtime.feedback_admin import instance_id
+    from portable.runtime.installation import load_profile
+
+    expected = instance_id(paths)
+    for port in PORTS:
+        try:
+            value = request_json(port, "/api/operations/instance", timeout=0.15)
+            if value.get("instance_id") != expected:
+                continue
+            ready = request_json(port, "/ready", timeout=0.15)
+            if ready.get("ready") is not True:
+                continue
+            profile = load_profile(paths.root)
+            page = "/field" if profile and profile["mode"] == "FIELD" else "/"
+            return bool(webbrowser.open(f"http://127.0.0.1:{port}{page}"))
+        except (OSError, ValueError):
+            continue
+    return False
 
 
 def stop_server(child: subprocess.Popen, port: int, token: str) -> None:
@@ -156,6 +213,7 @@ def stop_server(child: subprocess.Popen, port: int, token: str) -> None:
 def launch() -> int:
     root = bundle_root()
     paths = DataPaths(root / "Data")
+    app = None
     try:
         paths.ensure()
     except OSError:
@@ -180,9 +238,34 @@ def launch() -> int:
             child = None
             try:
                 token = secrets.token_urlsafe(32)
-                child, port = start_server(paths, job, token)
-                LOG.info("api_ready pid=%s port=%s", child.pid, port)
                 app = tk.Tk()
+                app.title("ブンセン予測 起動中")
+                app.geometry("480x300")
+                tk.Label(app, text="ブンセン予測を起動しています", font=("Yu Gothic UI", 13)).pack(
+                    pady=15
+                )
+                startup_text = tk.Label(app, text="内部サーバーの確認は最大約45秒です。")
+                startup_text.pack(pady=12)
+                cancelled = False
+
+                def cancel_startup():
+                    nonlocal cancelled
+                    cancelled = True
+                    startup_text.config(text="起動を中止しています…")
+
+                tk.Button(app, text="起動を中止する", command=cancel_startup).pack(pady=10)
+                app.protocol("WM_DELETE_WINDOW", cancel_startup)
+
+                def progress(text):
+                    startup_text.config(text=text)
+                    app.update()
+
+                progress("内部サーバーを準備しています…")
+                child, port = start_server(paths, job, token, progress=progress,
+                                           cancelled=lambda: cancelled)
+                LOG.info("api_ready pid=%s port=%s", child.pid, port)
+                for widget in app.winfo_children():
+                    widget.destroy()
                 app.title(f"ブンセン予測 {MODES[profile['mode']]} / {profile['terminal_name']}")
                 app.geometry("480x300")
                 tk.Label(app, text="ブンセン予測を起動しました", font=("Yu Gothic UI", 13)).pack(
@@ -274,7 +357,13 @@ def launch() -> int:
                 job.close()
                 LOG.info("launcher_exit")
     except AlreadyRunning as exc:
-        messagebox.showinfo("ブンセン予測", str(exc))
+        if not reopen_existing(paths):
+            messagebox.showinfo("ブンセン予測", str(exc) + "\n"
+                                "起動処理中の場合は、起動中の画面でお待ちください。\n"
+                                "応答がない場合は、Data/Logsを管理担当者へ渡してください。")
+        return 0
+    except StartupCancelled:
+        LOG.info("startup_cancelled")
         return 0
     except Exception:
         LOG.exception("launcher_failed code=PORTABLE-START-001")
@@ -285,6 +374,12 @@ def launch() -> int:
             "Data/Logsを管理担当者に渡してください。",
         )
         return 1
+    finally:
+        if app is not None:
+            try:
+                app.destroy()
+            except tk.TclError:
+                pass
 
 
 def main() -> int:
