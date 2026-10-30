@@ -32,6 +32,29 @@ const dailyResult = document.getElementById('daily-run-result');
 let dailyAnalysisId = null;
 let dailyPoll = null;
 let dailyRequirementsSha = null;
+let dailyMethodsPromise = null;
+let dailyRenderGeneration = 0;
+
+async function loadDailyForecastMethods() {
+  if (!dailyMethodsPromise) {
+    dailyMethodsPromise = import('/field/assets/detailed-forecast-methods.js').then(module =>
+      module.createDetailedForecastMethods({
+        qualityRoot: document.getElementById('daily-data-quality'),
+        methodRoot: document.getElementById('daily-forecast-method'),
+        run: async action => {
+          try { await action(); }
+          catch (error) { dailyStatus.textContent=error.message;dailyStatus.className='error'; }
+        },
+        reopen: analysisId => refreshDailyRun(analysisId),
+        home: async () => {
+          const upload=document.getElementById('business-zip');
+          upload.scrollIntoView({behavior:'smooth',block:'center'});upload.focus();
+        },
+      })
+    ).catch(error => {dailyMethodsPromise=null;throw error;});
+  }
+  return dailyMethodsPromise;
+}
 
 const dailyLabels = {
   REVIEW_REQUIRED: '確認待ち',
@@ -133,6 +156,8 @@ async function loadDailyRequirements(value) {
 }
 
 async function renderDailyRun(value) {
+  const generation=++dailyRenderGeneration;
+  dailyAnalysisId=value.analysis_id;
   if (value.build_id && ['SUMMARY_CONFIRMATION_REQUIRED', 'DECISION_INPUT_REQUIRED',
     'DECISION_INPUT_BLOCKED', 'DECISION_BLOCKED', 'SHIPMENT_REVIEW_REQUIRED', 'COMPLETED'].includes(value.status)) {
     document.dispatchEvent(new CustomEvent("portable-forecasts-updated"));
@@ -143,9 +168,6 @@ async function renderDailyRun(value) {
   dailyPanel.hidden = false;
   dailyAnalysisId = value.analysis_id;
   dailyResult.replaceChildren();
-  const qualityLink=document.createElement('a');qualityLink.href='/field';
-  qualityLink.textContent='不足データの一覧・追加取込・通常／暫定予測の選択を現場画面で確認';
-  dailyResult.appendChild(qualityLink);
   dailyStatus.textContent = `${dailyLabels[value.status] || value.status}：${value.next_action}`;
   const blocked = [
     'INVENTORY_BLOCKED', 'FORECAST_BLOCKED', 'PRODUCTION_BLOCKED',
@@ -153,9 +175,22 @@ async function renderDailyRun(value) {
   ];
   dailyStatus.className = value.status === 'COMPLETED'
     ? 'success' : (blocked.includes(value.status) ? 'error' : '');
-  dailyForm.hidden = !['READY_TO_ADVANCE', 'PRODUCTION_CONFIRMATION_REQUIRED'].includes(
-    value.status,
-  );
+  dailyForm.hidden = true;
+  const canStart=['READY_TO_ADVANCE','PRODUCTION_CONFIRMATION_REQUIRED','FORECAST_BLOCKED']
+    .includes(value.status);
+  if(canStart){
+    const methods=await loadDailyForecastMethods();
+    const quality=await methods.show(value.analysis_id);
+    if(generation!==dailyRenderGeneration||!quality)return;
+    dailyForm.hidden=false;
+    if(value.status==='FORECAST_BLOCKED'){
+      const help=document.createElement('p');
+      help.textContent=quality.methods.C.enabled
+        ? '不足を残して進める場合は、上のC「欠損を残して暫定予測」を選び、同意を確認してください。'
+        : `暫定予測を選べない理由：${quality.methods.C.reason}`;
+      dailyResult.appendChild(help);
+    }
+  }
   dailySummaryForm.hidden = value.status !== 'SUMMARY_CONFIRMATION_REQUIRED';
   dailyDecisionSection.hidden = ![
     'DECISION_INPUT_REQUIRED', 'DECISION_INPUT_BLOCKED',
@@ -207,7 +242,9 @@ dailyForm.addEventListener('submit', async event => {
   button.disabled = true;
   dailyStatus.textContent = '全商品を処理中です。画面を閉じずにお待ちください。下の計測欄で状態を確認できます。';
   try {
+    const methods=await loadDailyForecastMethods();
     const payload = {
+      ...methods.read(dailyAnalysisId),
       batch_size: Number(document.getElementById("forecast-batch-size").value),
       actor: document.getElementById('daily-run-actor').value,
       reason: document.getElementById('daily-run-reason').value,

@@ -85,6 +85,27 @@ def test_auto_check_all_gaps_filters_and_no_zero(setup):
     assert client.get(f"/api/data-quality/{value['id']}/issues?limit=1000").status_code == 422
 
 
+def test_detailed_entry_has_shared_selector_and_explains_minimum_history(setup):
+    client, _ = setup
+    page = client.get("/").text
+    assert 'id="daily-forecast-method"' in page and 'id="daily-data-quality"' in page
+    module = client.get("/field/assets/detailed-forecast-methods.js")
+    assert module.status_code == 200 and "methodFields" in module.text
+    raw = archive([("神戸", END, set())])
+    recent = {END - timedelta(days=i) for i in range(3)}
+    raw = rewrite(
+        raw,
+        lambda name, body: (
+            body
+            if "出荷" not in name or any(day.strftime("%Y%m%d") in name for day in recent)
+            else None
+        ),
+    )
+    value = check(client, upload(client, raw))
+    assert not value["methods"]["C"]["enabled"]
+    assert "最小7日未満" in value["methods"]["C"]["reason"]
+
+
 def test_provisional_end_to_end_corrections_and_subsequent_normal(setup):
     client, paths = setup
     aid, initial = process(client, [("神戸", END, GAPS)])

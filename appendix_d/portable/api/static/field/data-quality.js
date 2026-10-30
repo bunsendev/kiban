@@ -80,7 +80,7 @@ export function methodFields(parent, check){
     ['B','推定補完して予測（今後対応）'],['C','欠損を残して暫定予測（対応モデルのみ）']]){
     const l=el('label','',box), radio=el('input','',l);radio.type='radio';radio.name='forecast-mode';radio.value=mode;
     radio.checked=mode==='A';radio.disabled=mode==='B'||(mode==='C'&&!check.methods.C.enabled);
-    l.append(document.createTextNode(' '+label));
+    l.append(document.createTextNode(' '+mode+'：'+label));
     if(mode!=='A')el('small',check.methods[mode].reason,box);
     selection.push(radio);
   }

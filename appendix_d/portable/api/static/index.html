@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ブンセン予測</title><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/field/assets/document-review.css"></head>
+<title>ブンセン予測</title><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/field/assets/document-review.css"><link rel="stylesheet" href="/field/assets/data-quality.css"></head>
 <body><main>
 <header><small>現場担当者向け</small><h1>ブンセン予測</h1><p>ファイルを選ぶ → 内容を確認 → 予測する → 結果を確認・修正する</p></header><div id="saved-forecasts"></div>
 <section id="device-settings-panel" aria-label="このPCの設定"><h2>このPCの設定・操作ガイド</h2><p><a href="/learning-backup" target="_blank" rel="noopener">学習データのバックアップ・復元</a></p><div id="device-settings"></div><p id="settings-error" role="alert"></p></section>
@@ -25,9 +25,11 @@
   <h2>3. 確認済みデータで予測する</h2>
   <p>必要な確認を保存してから予測します。不足しているデータは理由を表示します。</p>
   <p id="daily-run-status" role="status"></p>
+  <div id="daily-data-quality"></div>
   <form id="daily-run-form" hidden>
     <label>確認者<input id="daily-run-actor" maxlength="100" required></label>
     <label>確認理由<input id="daily-run-reason" maxlength="500" required></label>
+    <div id="daily-forecast-method" class="forecast-method-controls"></div>
     <label class="confirm-case"><input id="daily-confirm-scope" type="checkbox" required>確認済みの全商品を予測対象とすることを確認しました</label>
     <label class="confirm-case"><input id="daily-confirm-quantity" type="checkbox" required>隔離0件かつ原本数量と正規化数量が一致したSnapshotだけを承認します</label>
     <label class="confirm-case"><input id="daily-confirm-identity" type="checkbox" required>JANを商品ID、正式倉庫コードを予測拠点として使うことを確認しました</label>

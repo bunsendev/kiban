@@ -683,6 +683,13 @@ class DataQuality:
         last_success = max(
             (r["received_at"] for r in receipts if r["result"] == "ACCEPTED"), default=None
         )
+        provisional_reason = "対応する前週同曜日モデルだけ。欠損を残した暫定予測です"
+        if not check["provisional_series"]:
+            reasons = list(dict.fromkeys(s["provisional_reason"] for s in check["series"]))
+            provisional_reason = (
+                "暫定予測できる商品・倉庫がありません。" + "／".join(reasons[:3])
+                if reasons else "対象商品がありません。除外条件と取込内容を確認してください"
+            )
         return {
             k: v
             for k, v in check.items()
@@ -697,7 +704,7 @@ class DataQuality:
                 "B": {"enabled": False, "reason": "推定補完は今後対応です（Phase 2）"},
                 "C": {
                     "enabled": check["provisional_series"] > 0,
-                    "reason": "対応する前週同曜日モデルだけ。欠損を残した暫定予測です",
+                    "reason": provisional_reason,
                 },
             },
         }
